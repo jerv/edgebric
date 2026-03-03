@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+*.tar
+*.zip
+*.gguf
+# mimik model files (large binaries)
+spikes/*/models/
+# Local mimik config
+scripts/mimik.local.env
+# Developer license (personal credential, not for repo)
+scripts/binaries/edgeEngine/mimikEdge.lic
+# edgeEngine binary (large, download from GitHub releases)
+scripts/binaries/edgeEngine/edge
+# Large test PDFs/outputs — generated artifacts
+spikes/spike-docling/test-docs/*.pdf
+spikes/spike-docling/test-docs/*.md

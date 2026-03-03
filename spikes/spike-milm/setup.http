@@ -1,0 +1,63 @@
+# Spike 1 — mILM test sequence
+# Use with VS Code REST Client extension (ritwickdey.rest-client)
+# Replace <edgeToken> with your actual edge bearer token
+
+@base = http://localhost:8083
+@apiKey = 1234
+
+###
+# Step 1: Check edgeEngine is running
+GET {{base}}/jsonrpc/v1
+Content-Type: application/json
+
+{"jsonrpc": "2.0", "method": "getMe", "params": [], "id": 1}
+
+###
+# Step 2: List running containers (mILM should be here after deploy)
+GET {{base}}/mcm/v1/containers
+Authorization: Bearer <edgeToken>
+
+###
+# Step 3: Download Qwen3-4B model
+# WARNING: ~2.5GB download. Run once.
+POST {{base}}/api/milm/v1/models
+Content-Type: application/json
+Authorization: bearer {{apiKey}}
+
+{
+  "id": "Qwen3-4B-Instruct-GGUF",
+  "object": "model",
+  "kind": "llm",
+  "url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf?download=true"
+}
+
+###
+# Step 4: List models — check readyToUse: true
+GET {{base}}/api/milm/v1/models
+Authorization: bearer {{apiKey}}
+
+###
+# Step 5: Test chat completion (streaming)
+# Time from send to first token appearing
+POST {{base}}/api/milm/v1/chat/completions
+Content-Type: application/json
+Authorization: bearer {{apiKey}}
+
+{
+  "model": "Qwen3-4B-Instruct-GGUF",
+  "messages": [
+    { "role": "user", "content": "In one sentence: what is a PTO policy?" }
+  ],
+  "stream": true
+}
+
+###
+# Step 6: Test embeddings
+POST {{base}}/api/milm/v1/embeddings
+Content-Type: application/json
+Authorization: bearer {{apiKey}}
+
+{
+  "model": "nomic-embed-text",
+  "input": "What is the vacation policy for new employees?"
+}

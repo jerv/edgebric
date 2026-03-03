@@ -1,0 +1,12 @@
+{
+    "name": "mkb-v1",
+    "image": "mkb-v1",
+    "env": {
+      "MCM.BASE_API_PATH": "/mkb/v1",
+      "MCM.API_ALIAS": "true",
+      "MCM.DB_EMBEDDING_SUPPORT": "true",
+      "API_KEY": "{{API_KEY}}",
+      "GEN_AI_EMBEDDING_URI": "{{MILM_URL}}",
+      "GEN_AI_API_KEY": "{{MILM_API_KEY}}"
+    }
+}

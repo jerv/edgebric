@@ -1,0 +1,9 @@
+{
+    "name": "mim-v1",
+    "image": "mim-v1",
+    "env": {
+      "MCM.BASE_API_PATH": "/mim/v1",
+      "MCM.API_ALIAS": "true",
+      "API_KEY": "{{API_KEY}}"
+    }
+}
