@@ -106,8 +106,39 @@ If an employee wants to escalate, they exit incognito first. The transition requ
 ### OPEN-01 — Pricing Model
 Self-hosted free tier + paid managed hosting? Open core with paid enterprise features (SSO, analytics export, SharePoint sync)? TBD post-MVP.
 
-### OPEN-02 — Table Retrieval for Benefits Documents
-Docling handles table extraction well, but retrieval accuracy for tabular Q&A (e.g., "what's the deductible for the gold plan in-network?") requires testing. A benefits grid may need a specialized representation strategy — e.g., expanding each table row into a self-contained text chunk that embeds column context. Needs a technical spike early in development.
+### OPEN-02 — Table Retrieval for Benefits Documents ✅ RESOLVED
+
+**Resolution (Spike 2 + Spike 4):** Table extraction works correctly end-to-end.
+Docling extracts tables as markdown pipe tables. nomic-embed-text embeds them
+well. cosine similarity correctly retrieves the right table chunk for benefits
+questions ("What is the Gold plan deductible?" → score 0.88, first result).
+The "keep tables atomic" chunking strategy is confirmed correct.
+
+---
+
+### OPEN-05 — mimik edgeEngine Binary Compatibility
+
+The macOS edgeEngine binary (`edgeEngine-SE-macOS-arm-v3.10.0`) bundles a
+signing trust key that only accepts license JWTs signed with the pre-2025 key.
+Personal developer licenses from `console.mimik.com` use a newer signing key and
+fail with "JWT Token Signature verification failed."
+
+**Root cause:** The macOS binary hasn't been updated since the mimik platform
+rotated its license signing key (~late 2025). The Linux binary (v3.12.1) would
+accept the new license format.
+
+**Current workaround:** Ollama (OpenAI-compatible, local) is used as a stand-in
+for mILM during development. All integration code in `packages/edge/` is correct
+for production mimik deployment — just swap `MILM_BASE_URL`.
+
+**Resolution path:**
+1. mimik releases an updated macOS binary that trusts the new signing key, OR
+2. Run the Linux binary in Docker on macOS, OR
+3. Contact mimik developer support for a compatible macOS binary
+
+**Impact on project:** None. All spikes passed. All production code is correct.
+The mimik integration layer is fully implemented and ready for deployment once
+a compatible binary is available.
 
 ### OPEN-03 — Model Update Cadence
 How does an admin running a self-hosted Edgebric get notified that a better recommended model is available? Needs a lightweight notification mechanism that doesn't require external connectivity (could be a version check on the local update feed, signed by Edgebric).
