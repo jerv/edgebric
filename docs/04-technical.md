@@ -35,7 +35,7 @@
 │         ┌─────────────────┼─────────────────┐               │
 │         │                 │                 │               │
 │  ┌────────────┐   ┌────────────┐   ┌────────────┐           │
-│  │  Employee  │   │  Employee  │   │  HR Admin  │           │
+│  │  Employee  │   │  Employee  │   │   Admin    │           │
 │  │  Browser   │   │  Browser   │   │  Dashboard │           │
 │  │ (anon token│   │ (anon token│   │  (authed)  │           │
 │  └────────────┘   └────────────┘   └────────────┘           │
@@ -136,7 +136,7 @@ Employee question (natural language)
   │
   ▼
 Query-time filter
-  ├── Contains person name + sensitive term? → intercept, redirect to HR
+  ├── Contains person name + sensitive term? → intercept, redirect to administrator
   └── Passes → continue
 
   │
@@ -153,7 +153,7 @@ Retrieve top-k chunks (mKB)
   ▼
 Context check
   ├── Any relevant chunks found? → generate answer
-  └── No relevant chunks → return "no answer found" message, prompt to contact HR
+  └── No relevant chunks → return "no answer found" message, prompt to contact administrator
 
   │
   ▼
@@ -167,10 +167,14 @@ Generate answer (mILM via OpenAI-compatible endpoint)
   │
   ▼
 Response assembly
-  ├── Answer text
+  ├── Answer text (streamed via SSE)
   ├── Source citations: {document name, section, page number}
-  ├── Disclaimer: ⚠️ Not legal advice. Verify with HR.
-  └── Escalation button (standard mode only)
+  ├── Conversation + messages persisted to SQLite (linked to user via session email)
+  ├── Disclaimer: ⚠️ Verify important decisions with the appropriate team.
+  └── Escalation: employee picks target + method (Slack DM or Email)
+      → Slack: chat.postMessage via Bot Token to target's user ID
+      → Email: SMTP via nodemailer to target's email address
+      → Both include "View Conversation" deep link to in-app conversation viewer
 ```
 
 ---
@@ -197,8 +201,8 @@ Edgebric's inference layer targets the **OpenAI-compatible API spec**. Any model
 
 | Mode | Recommended | Fallback | Notes |
 |---|---|---|---|
-| Server-side (standard) | Qwen3-4B | Qwen3-1.7B | Via Ollama; strong instruction following |
-| On-device (incognito) | Phi-3.5 Mini 3.8B (4-bit) | Llama 3.2 1B | Best mobile RAG benchmarks |
+| Server-side (standard) | Qwen3.5-9B Q4_K_M | Qwen3.5-4B | Single-file GGUF, strong instruction following |
+| On-device (incognito) | Qwen3.5-4B Q4_K_M | Qwen3.5-2B | Same model family — consistent behavior |
 
 ---
 

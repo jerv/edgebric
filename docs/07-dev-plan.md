@@ -60,7 +60,7 @@ This is the most important pre-coding decision. Get this wrong and you pay for i
 ```typescript
 // shared/types/index.ts
 
-// A document uploaded by an HR admin
+// A document uploaded by an admin
 interface Document {
   id: string;                    // UUID
   name: string;                  // Original filename
@@ -357,7 +357,7 @@ function buildSystemPrompt(chunks: Chunk[]): string
 The actual text of the system prompt. Documented as a first-class concern, not buried in a string. Easy to update without digging through code.
 
 Contents:
-- You are an HR policy assistant for [company name].
+- You are a company knowledge assistant.
 - Answer only using the provided context. If the answer is not in the context, say so clearly.
 - Never reveal information about named individuals.
 - Always cite the source document, section, and page number for each claim.
@@ -411,17 +411,21 @@ Express server. This layer wires `core` + `edge` together and exposes REST endpo
 ### Routes
 
 ```
-POST   /api/documents/upload       # HR admin: upload + ingest document
-GET    /api/documents              # HR admin: list all documents
-DELETE /api/documents/:id          # HR admin: archive document
+POST   /api/documents/upload       # Admin: upload + ingest document
+GET    /api/documents              # Admin: list all documents
+DELETE /api/documents/:id          # Admin: archive document
 GET    /api/documents/:id/status   # Ingestion status polling
 
 POST   /api/query                  # Employee: ask a question (streams response)
-POST   /api/escalate               # Employee: forward question to HR
+POST   /api/escalate               # Employee: submit escalation (sent to Slack)
 
-GET    /api/admin/analytics        # HR admin: topic clusters
-GET    /api/admin/escalations      # HR admin: escalation inbox
-POST   /api/admin/escalations/:id/respond  # HR admin: reply to escalation
+GET    /api/admin/analytics        # Admin: topic clusters
+GET    /api/admin/escalations      # Admin: escalation audit log
+GET    /api/admin/escalations/export  # Admin: CSV export of escalations
+
+GET    /api/admin/integrations     # Admin: get Slack webhook config
+PUT    /api/admin/integrations     # Admin: update Slack webhook config
+POST   /api/admin/integrations/test  # Admin: test Slack webhook
 
 GET    /api/admin/devices          # Device token management
 DELETE /api/admin/devices/:id      # Revoke a device token
@@ -483,7 +487,6 @@ React app. Vite. TanStack Router. shadcn/ui. Light theme.
 /admin               → Admin login
 /admin/dashboard     → Analytics overview
 /admin/documents     → Document library + upload
-/admin/escalations   → Escalation inbox
 /admin/devices       → Device token management
 ```
 
@@ -503,7 +506,7 @@ The main screen. Intentionally simple.
 │  [Edgebric logo]                    [Lock]  │
 ├─────────────────────────────────────────────┤
 │                                             │
-│  Ask a question about company policy        │
+│  Ask a question                             │
 │  ┌─────────────────────────────────────┐   │
 │  │                                     │   │
 │  │                                     │   │
@@ -515,18 +518,20 @@ The main screen. Intentionally simple.
 │  │                                     │   │
 │  │ Source: [Employee Handbook, §3, p4] │   │
 │  │                                     │   │
-│  │ ⚠️ Not legal advice. Verify with HR  │   │
-│  │                    [Ask HR to verify]│   │
+│  │ ⚠️ Verify important decisions with    │   │
+│  │  the appropriate team                │   │
+│  │                [Request verification]│   │
 │  └─────────────────────────────────────┘   │
 └─────────────────────────────────────────────┘
 ```
 
 ### Admin Dashboard
 
-Three main panels:
+Two main panels:
 1. **Documents** — table view, drag-and-drop upload zone, status badges, staleness alerts
 2. **Analytics** — topic cluster cards (suppressed if < 5 queries), unanswered questions list
-3. **Escalations** — inbox view, HR can reply inline
+
+Escalation audit log and Slack integration config live in the Settings page.
 
 ---
 
@@ -537,10 +542,10 @@ After Phases 2–5 are working independently:
 1. Wire `api` ↔ `edge` (real mimik calls replacing mock deps in `core`)
 2. Wire `web` ↔ `api` (real HTTP calls replacing hardcoded fixtures)
 3. End-to-end demo scenario:
-   - Upload an HR policy PDF → see it process → status turns "ready"
+   - Upload a policy PDF → see it process → status turns "ready"
    - Ask a question → see streaming answer → click source citation
    - Admin sees the question show up in analytics (after 5 queries)
-   - Click "Ask HR to verify" → see it in escalation inbox → HR replies
+   - Click "Request verification" → escalation sent to Slack → appears in audit log
 
 **Demo goal:** A 5-minute walkthrough that makes someone say "I get it." Not impressive code. An impressive product moment.
 

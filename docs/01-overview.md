@@ -63,7 +63,7 @@ HR is positioned as the hero use case — not because Edgebric is exclusively an
 
 ### Competitive Differentiation
 
-| | Edgebric | Cloud HR AI (Leena, Glean, Copilot) |
+| | Edgebric | Cloud AI (Leena, Glean, Copilot) |
 |---|---|---|
 | Data location | On company infrastructure | Third-party cloud servers |
 | Privacy guarantee | Architectural (data cannot leave) | Contractual (policy-based) |

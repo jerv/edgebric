@@ -13,12 +13,12 @@
 
 ---
 
-## HR Efficiency
+## Operational Efficiency
 
 | Metric | Target |
 |---|---|
-| Reduction in inbound routine HR queries to staff | 50%+ |
-| Escalation rate (% of answers escalated to HR) | < 15% (indicates trust in answers) |
+| Reduction in inbound routine queries to staff | 50%+ |
+| Escalation rate (% of answers escalated to administrator) | < 15% (indicates trust in answers) |
 | Policy gaps surfaced per month | Positive trend (more gaps found = better documentation over time) |
 
 ---

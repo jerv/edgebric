@@ -1,0 +1,117 @@
+import type { ChunkMetadata } from "@edgebric/types";
+import { getDb } from "../db/index.js";
+import { chunks } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+
+/** Convert a DB row to ChunkMetadata. */
+function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
+  const meta: ChunkMetadata = {
+    sourceDocument: row.sourceDocument,
+    sectionPath: JSON.parse(row.sectionPath) as string[],
+    pageNumber: row.pageNumber,
+    heading: row.heading,
+    chunkIndex: row.chunkIndex,
+  };
+  if (row.documentName != null) meta.documentName = row.documentName;
+  return meta;
+}
+
+/**
+ * Register chunks after mKB upload.
+ *
+ * mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially.
+ * We store our own metadata here since mKB v1.3.0 doesn't persist it.
+ */
+export function registerChunks(
+  datasetName: string,
+  startIndex: number,
+  metadataList: ChunkMetadata[],
+  contentList?: string[],
+): void {
+  const db = getDb();
+  for (let i = 0; i < metadataList.length; i++) {
+    const meta = metadataList[i]!;
+    const chunkContent = contentList?.[i] ?? null;
+    db.insert(chunks)
+      .values({
+        chunkId: `${datasetName}-${startIndex + i}`,
+        sourceDocument: meta.sourceDocument,
+        documentName: meta.documentName ?? null,
+        sectionPath: JSON.stringify(meta.sectionPath),
+        pageNumber: meta.pageNumber,
+        heading: meta.heading,
+        chunkIndex: meta.chunkIndex,
+        content: chunkContent,
+      })
+      .onConflictDoUpdate({
+        target: chunks.chunkId,
+        set: {
+          sourceDocument: meta.sourceDocument,
+          documentName: meta.documentName ?? null,
+          sectionPath: JSON.stringify(meta.sectionPath),
+          pageNumber: meta.pageNumber,
+          heading: meta.heading,
+          chunkIndex: meta.chunkIndex,
+          content: chunkContent,
+        },
+      })
+      .run();
+  }
+}
+
+/** Look up metadata for a single mKB chunk. */
+export function lookupChunk(chunkId: string): ChunkMetadata | undefined {
+  const db = getDb();
+  const row = db.select().from(chunks).where(eq(chunks.chunkId, chunkId)).get();
+  return row ? rowToMeta(row) : undefined;
+}
+
+/** Get all chunks (with content) for Vault Mode sync. */
+export function getAllChunksWithContent(): Array<{
+  chunkId: string;
+  content: string;
+  metadata: ChunkMetadata;
+}> {
+  const db = getDb();
+  const rows = db.select().from(chunks).all();
+  return rows
+    .filter((row) => row.content != null)
+    .map((row) => ({
+      chunkId: row.chunkId,
+      content: row.content!,
+      metadata: rowToMeta(row),
+    }));
+}
+
+/** Get all chunks for a document, ordered by chunkIndex. Used by source viewer. */
+export function getChunksForDocument(documentId: string): Array<{
+  chunkIndex: number;
+  heading: string;
+  sectionPath: string[];
+  pageNumber: number;
+  content: string;
+}> {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(chunks)
+    .where(eq(chunks.sourceDocument, documentId))
+    .all();
+
+  return rows
+    .filter((row) => row.content != null)
+    .map((row) => ({
+      chunkIndex: row.chunkIndex,
+      heading: row.heading,
+      sectionPath: JSON.parse(row.sectionPath) as string[],
+      pageNumber: row.pageNumber,
+      content: row.content!,
+    }))
+    .sort((a, b) => a.chunkIndex - b.chunkIndex);
+}
+
+/** Remove all chunks belonging to a document. */
+export function clearChunksForDocument(documentId: string): void {
+  const db = getDb();
+  db.delete(chunks).where(eq(chunks.sourceDocument, documentId)).run();
+}

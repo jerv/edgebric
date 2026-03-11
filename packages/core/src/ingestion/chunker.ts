@@ -24,7 +24,7 @@ function estimateTokens(text: string): number {
  */
 function headingLevel(line: string): number {
   const match = line.match(/^(#{1,6})\s/);
-  return match ? match[1].length : 0;
+  return match ? match[1]!.length : 0;
 }
 
 /**
@@ -123,8 +123,9 @@ export function chunkMarkdown(
     } else {
       // Split long section with overlap
       const words = section.content.split(/\s+/);
-      const wordsPerChunk = maxTokens * 4; // rough chars → words
-      const overlapWords = overlapTokens * 4;
+      // 1 token ≈ 4 chars, 1 word ≈ 5 chars → wordsPerChunk ≈ maxTokens * 4 / 5
+      const wordsPerChunk = Math.ceil((maxTokens * 4) / 5);
+      const overlapWords = Math.ceil((overlapTokens * 4) / 5);
       let start = 0;
 
       while (start < words.length) {

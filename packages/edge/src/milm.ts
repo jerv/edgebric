@@ -4,7 +4,7 @@ import type { Message } from "@edgebric/core/rag";
 /**
  * Client for mimik mILM (Local LLM inference service).
  *
- * mILM exposes an OpenAI-compatible REST API at localhost:8083/api/milm/v1.
+ * mILM exposes an OpenAI-compatible REST API at localhost:8083/api/mim/v1.
  * Auth is a static API key set when the container is deployed.
  *
  * Endpoints used:
@@ -25,8 +25,8 @@ export interface MILMModel {
   readyToUse: boolean;
 }
 
-export function createMILMClient(config: EdgeConfig): MILMClient {
-  const base = `${config.baseUrl}/api/milm/v1`;
+export function createMILMClient(config: EdgeConfig, basePath = "/api/mim/v1"): MILMClient {
+  const base = `${config.baseUrl}${basePath}`;
   const headers = {
     Authorization: `bearer ${config.apiKey}`,
     "Content-Type": "application/json",
@@ -56,12 +56,21 @@ export function createMILMClient(config: EdgeConfig): MILMClient {
   }
 
   async function* chatStream(messages: Message[]): AsyncIterable<string> {
+    // Append /nothink to the last user message to disable Qwen 3.x thinking mode.
+    // Thinking roughly doubles token count with no quality benefit for RAG answers.
+    const msgs = messages.map((m, i) => {
+      if (i === messages.length - 1 && m.role === "user") {
+        return { ...m, content: m.content + " /nothink" };
+      }
+      return m;
+    });
+
     const response = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify({
         model: config.milmModel,
-        messages,
+        messages: msgs,
         stream: true,
       }),
     });
@@ -75,13 +84,17 @@ export function createMILMClient(config: EdgeConfig): MILMClient {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
+    // Safety net: strip any <think>...</think> blocks that slip through
+    // despite /nothink. Accumulate only while inside a think block.
+    let insideThink = false;
+    let thinkBuf = "";
+
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const text = decoder.decode(value, { stream: true });
-        // SSE format: each line is "data: {...}" or "data: [DONE]"
         for (const line of text.split("\n")) {
           const trimmed = line.trim();
           if (!trimmed.startsWith("data: ")) continue;
@@ -93,7 +106,32 @@ export function createMILMClient(config: EdgeConfig): MILMClient {
               choices: Array<{ delta: { content?: string } }>;
             };
             const content = parsed.choices[0]?.delta?.content;
-            if (content) yield content;
+            if (!content) continue;
+
+            // Filter mILM cold-start tokens
+            if (/^<\|(?:loading_model|processing_prompt)\|>/.test(content)) continue;
+
+            if (insideThink) {
+              thinkBuf += content;
+              if (thinkBuf.includes("</think>")) {
+                const after = thinkBuf.slice(thinkBuf.indexOf("</think>") + 8);
+                thinkBuf = "";
+                insideThink = false;
+                if (after) yield after;
+              }
+              continue;
+            }
+
+            // Check if this token starts a think block
+            if (content.includes("<think>")) {
+              insideThink = true;
+              const before = content.slice(0, content.indexOf("<think>"));
+              thinkBuf = content.slice(content.indexOf("<think>") + 7);
+              if (before) yield before;
+              continue;
+            }
+
+            yield content;
           } catch {
             // Malformed SSE line — skip
           }

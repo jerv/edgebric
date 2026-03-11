@@ -1,12 +1,13 @@
-import fs from "fs/promises";
 import { chunkMarkdown, detectPII } from "@edgebric/core/ingestion";
-import { createMILMClient } from "@edgebric/edge";
-import { createMKBClient } from "@edgebric/edge";
-import { config } from "../config.js";
-import type { Document, EmbeddedChunk } from "@edgebric/types";
+import { createMILMClient, createMKBClient } from "@edgebric/edge";
+import { runtimeEdgeConfig } from "../config.js";
+import { registerChunks, clearChunksForDocument } from "../services/chunkRegistry.js";
+import { setDocument } from "../services/documentStore.js";
+import { extractDocument } from "./extractors.js";
+import type { Document } from "@edgebric/types";
 
-const milm = createMILMClient(config.edge);
-const mkb = createMKBClient(config.edge);
+const milm = createMILMClient(runtimeEdgeConfig);
+const mkb = createMKBClient(runtimeEdgeConfig);
 
 /**
  * Background ingestion job.
@@ -25,16 +26,18 @@ const mkb = createMKBClient(config.edge);
  */
 export async function ingestDocument(
   doc: Document,
-  documents: Map<string, Document>,
 ): Promise<void> {
   try {
-    const rawContent = await fs.readFile(doc.storageKey);
+    const { markdown, headingPageMap } = await extractDocument(doc.storageKey, doc.type);
+    const chunks = chunkMarkdown(markdown, doc.id);
 
-    // TODO (Spike 3): Replace this with Docling/Mammoth routing based on doc.type
-    // For now, assume the file is plain text or markdown for development
-    const markdownContent = rawContent.toString("utf-8");
-
-    const chunks = chunkMarkdown(markdownContent, doc.id);
+    // Annotate page numbers for PDF chunks (others default to 0)
+    if (headingPageMap.size > 0) {
+      for (const chunk of chunks) {
+        const page = headingPageMap.get(chunk.metadata.heading);
+        if (page !== undefined) chunk.metadata.pageNumber = page;
+      }
+    }
 
     const piiWarnings = detectPII(chunks);
     if (piiWarnings.length > 0) {
@@ -44,19 +47,46 @@ export async function ingestDocument(
       // For now, continue ingestion. UI will surface the warnings separately.
     }
 
-    // Create a dataset in mKB for this document
-    const datasetName = `doc-${doc.id}`;
-    await mkb.createDataset(datasetName);
+    // All documents share a single mKB dataset.
+    // This lets a single search call retrieve relevant chunks across the entire corpus.
+    // Consequence: deleting a document does not remove its chunks from the index (V2 limitation).
+    const datasetName = "knowledge-base";
+    await mkb.createDataset(datasetName); // no-op if already exists
 
-    // Embed and collect all chunks
-    const embeddedChunks: EmbeddedChunk[] = [];
+    // Clear any previous registry entries for this document (handles re-ingestion)
+    clearChunksForDocument(doc.id);
+
+    // Snapshot chunk count before upload so we can compute the mKB-assigned chunkIds.
+    // mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially
+    // across all uploads to the dataset.
+    const startIndex = await mkb.getDatasetChunkCount(datasetName);
+    console.log(`Ingesting ${doc.name}: startIndex=${startIndex}, chunkCount=${chunks.length}`);
+
+    // Embed each chunk
+    const embeddedChunks: Array<{ text: string; embedding: number[] }> = [];
     for (const chunk of chunks) {
       const embedding = await milm.embed(chunk.content);
-      embeddedChunks.push({ ...chunk, embedding });
+      embeddedChunks.push({ text: chunk.content, embedding });
+    }
+    await mkb.uploadChunks(datasetName, embeddedChunks);
+
+    // Verify post-upload count matches expectations
+    const postCount = await mkb.getDatasetChunkCount(datasetName);
+    const actualStartIndex = postCount - chunks.length;
+    if (actualStartIndex !== startIndex) {
+      console.warn(
+        `Chunk ID offset mismatch: expected startIndex=${startIndex}, actual=${actualStartIndex}. Using actual.`,
+      );
     }
 
-    // Upload to mKB
-    await mkb.uploadChunks(datasetName, embeddedChunks);
+    // Register chunkId → metadata so the query route can build accurate citations.
+    // mKB v1.3.0 does not persist custom metadata, so we maintain this in SQLite.
+    registerChunks(
+      datasetName,
+      actualStartIndex,
+      chunks.map((c) => ({ ...c.metadata, documentName: doc.name })),
+      chunks.map((c) => c.content),
+    );
 
     // Update document record
     const updated: Document = {
@@ -68,12 +98,12 @@ export async function ingestDocument(
         ...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean)),
       ],
     };
-    documents.set(doc.id, updated);
+    setDocument(updated);
 
     console.log(`Ingestion complete: ${doc.name} (${chunks.length} chunks)`);
   } catch (err) {
     console.error(`Ingestion failed for ${doc.name}:`, err);
     const failed: Document = { ...doc, status: "failed", updatedAt: new Date() };
-    documents.set(doc.id, failed);
+    setDocument(failed);
   }
 }

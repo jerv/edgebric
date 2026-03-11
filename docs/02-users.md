@@ -12,11 +12,11 @@
 - Pain: slow HR response times, embarrassment asking sensitive questions, fear of questions being used against them
 - Success: gets an accurate answer with a cited source in under 10 seconds, any time of day
 
-**The HR Administrator (Power User / Deployer)**
-- HR generalist, HR director, or People Ops manager
+**The Administrator (Power User / Deployer)**
+- Department lead, operations manager, or People Ops manager
 - Needs: a tool that reduces inbound routine queries, surfaces policy gaps, and helps them answer questions faster themselves
 - Pain: spending 25–35% of time answering repetitive policy questions
-- Success: routine query volume drops, policy gaps become visible, HR can spend time on actual HR work
+- Success: routine query volume drops, policy gaps become visible, team can spend time on strategic work
 
 ### Secondary Users
 
@@ -82,9 +82,9 @@
 
 ---
 
-### HR Administrator — Document Management
+### Administrator — Document Management
 
-> As an HR administrator, I want to upload and manage policy documents so that Edgebric always reflects current company policy.
+> As an administrator, I want to upload and manage policy documents so that Edgebric always reflects current company policy.
 
 - I upload PDF, Word, or plain text documents via drag-and-drop
 - I tag each document as `Policy / Public` or decline to add it (personal records should not be uploaded to the shared index)
@@ -94,9 +94,9 @@
 
 ---
 
-### HR Administrator — Personal Records Management
+### Administrator — Personal Records Management
 
-> As an HR administrator, I want to upload personal employee records so that individual employees can access their own data privately in incognito mode.
+> As an administrator, I want to upload personal employee records so that individual employees can access their own data privately in incognito mode.
 
 - I navigate to the Personal Records section of the admin dashboard
 - I upload a document and assign it to a specific employee (by employee ID or email)
@@ -106,9 +106,9 @@
 
 ---
 
-### HR Administrator — Analytics Dashboard
+### Administrator — Analytics Dashboard
 
-> As an HR administrator, I want to see what employees are asking so I can identify policy gaps and prioritize documentation work.
+> As an administrator, I want to see what employees are asking so I can identify policy gaps and prioritize documentation work.
 
 - I see aggregate analytics: most common question topics, unanswered questions, peak usage times
 - No individual employee questions are ever visible (aggregate topic-level only; minimum 5 queries per topic before it surfaces)
@@ -117,13 +117,13 @@
 
 ---
 
-### HR Administrator — Escalation Handling
+### Administrator — Escalation Handling
 
-> As an HR administrator, I want to receive questions that employees have flagged for human review so I can respond directly.
+> As an administrator, I want to receive questions that employees have flagged for human review so I can respond directly.
 
-- Employee clicks "Ask HR to verify this answer" (only available in standard mode)
-- HR receives the question and Edgebric's draft answer via email or in-app notification
-- HR responds directly from the dashboard; response is delivered to the employee
+- Employee clicks "Request verification" (only available in standard mode)
+- Administrator receives the question and Edgebric's draft answer via email or in-app notification
+- Administrator responds directly from the dashboard; response is delivered to the employee
 - The interaction is logged with timestamp for compliance records
 
 ---

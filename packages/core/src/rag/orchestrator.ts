@@ -8,10 +8,6 @@ import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
 // Real implementations are injected by the API layer.
 // Test implementations are injected by tests.
 
-export interface EmbedFn {
-  (text: string): Promise<number[]>;
-}
-
 export interface SearchResult {
   chunkId: string;
   chunk: string;
@@ -20,7 +16,8 @@ export interface SearchResult {
 }
 
 export interface SearchFn {
-  (embedding: number[], topK: number): Promise<SearchResult[]>;
+  /** Query text — mKB embeds it internally via GEN_AI_EMBEDDING_URI. */
+  (query: string, topK: number): Promise<SearchResult[]>;
 }
 
 export interface Message {
@@ -33,7 +30,6 @@ export interface GenerateFn {
 }
 
 export interface OrchestratorDeps {
-  embed: EmbedFn;
   search: SearchFn;
   generate: GenerateFn;
 }
@@ -41,7 +37,6 @@ export interface OrchestratorDeps {
 export interface RAGOptions {
   topK?: number;
   datasetName: string;
-  companyName?: string;
   /** Minimum similarity score to consider a chunk relevant (0–1). */
   similarityThreshold?: number;
 }
@@ -84,11 +79,8 @@ export async function* answerStream(
     return;
   }
 
-  // Embed the query
-  const queryEmbedding = await deps.embed(query);
-
-  // Retrieve relevant chunks
-  const searchResults = await deps.search(queryEmbedding, topK);
+  // Retrieve relevant chunks (mKB handles embedding internally)
+  const searchResults = await deps.search(query, topK);
   const relevantResults = searchResults.filter((r) => r.similarity >= threshold);
 
   if (relevantResults.length === 0) {
@@ -112,7 +104,7 @@ export async function* answerStream(
   }));
 
   // Build messages for generation
-  const systemPrompt = buildSystemPrompt(contextChunks, options.companyName);
+  const systemPrompt = buildSystemPrompt(contextChunks);
   const messages: Message[] = [
     { role: "system", content: systemPrompt },
     // Include prior session context (last 4 turns to keep prompt size reasonable)
@@ -133,7 +125,7 @@ export async function* answerStream(
   // Build citations from the chunks that were used as context
   const citations: Citation[] = relevantResults.map((r) => ({
     documentId: r.metadata.sourceDocument,
-    documentName: r.metadata.sourceDocument,
+    documentName: r.metadata.documentName ?? r.metadata.sourceDocument,
     sectionPath: r.metadata.sectionPath,
     pageNumber: r.metadata.pageNumber,
     excerpt: r.chunk.slice(0, 300),

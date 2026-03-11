@@ -48,19 +48,19 @@ Features are organized into three release tiers: **MVP**, **V2**, and **Future**
 - [ ] Answer displayed with inline source citation: document name, section, page number
 - [ ] Clickable source link opens original document at the relevant section
 - [ ] Prominent, non-dismissible disclaimer on every response:
-      `⚠️ This is not legal advice. Always verify important decisions with HR or a qualified professional.`
-- [ ] "Ask HR to verify this" escalation button on every standard-mode response
+      `⚠️ This is not legal advice. Always verify important decisions with the appropriate team or a qualified professional.`
+- [ ] "Request verification" escalation button on every standard-mode response
 - [ ] Graceful no-answer: if no relevant chunks retrieved, respond with
-      "I couldn't find a clear answer in the current documentation. Please contact HR directly." — no hallucinated answer
-- [ ] Query-time semantic filter: queries containing a person's name + sensitive terms (salary, PIP, fired, complaint, accommodation) are intercepted before retrieval and returned with a redirect to HR
-- [ ] Conversation context maintained within a single session (multi-turn)
-- [ ] Session reset on new conversation
+      "I couldn't find a clear answer in the current documentation. Please contact the administrator directly." — no hallucinated answer
+- [ ] Query-time semantic filter: queries containing a person's name + sensitive terms (salary, PIP, fired, complaint, accommodation) are intercepted before retrieval and returned with a redirect to the administrator
+- [x] Conversation context maintained across sessions (persistent multi-turn via SQLite)
+- [x] Conversations linked to users via session email; accessible in conversation viewer
 
 **V2**
 - [ ] Highlighted source passage in original document view (not just page-level citation)
 - [ ] "Was this helpful?" thumbs up/down per response
 - [ ] Suggested follow-up questions
-- [ ] Answer confidence indicator (low confidence → stronger prompt to verify with HR)
+- [ ] Answer confidence indicator (low confidence → stronger prompt to verify with the appropriate team)
 
 **Future**
 - [ ] Voice input support
@@ -99,7 +99,7 @@ Features are organized into three release tiers: **MVP**, **V2**, and **Future**
 
 ---
 
-## 3.4 HR Admin Dashboard
+## 3.4 Admin Dashboard
 
 **MVP**
 - [ ] Secure admin login (username/password; SSO in V2)
@@ -109,8 +109,9 @@ Features are organized into three release tiers: **MVP**, **V2**, and **Future**
 - [ ] Document staleness alerts (configurable threshold, default 6 months)
 - [ ] Aggregate query analytics: topic clusters (min 5 queries to surface a topic)
 - [ ] Unanswered questions list: queries where Edgebric returned no confident answer
-- [ ] Escalation inbox: questions forwarded by employees via "Ask HR to verify"
-- [ ] Escalation response: HR replies from dashboard, response delivered to employee
+- [x] Escalation integration settings: configure Slack Bot Token or SMTP email for escalation delivery
+- [x] Escalation targets management: add/edit/delete people who receive escalations
+- [x] Escalation log: timestamped audit view with target, method, read/unread status, conversation links
 - [ ] Device token management: view enrolled devices, revoke lost/terminated devices
 
 **V2**
@@ -121,24 +122,33 @@ Features are organized into three release tiers: **MVP**, **V2**, and **Future**
 - [ ] SSO integration (Okta, Azure AD)
 
 **Future**
-- [ ] Role-based access (HR admin vs. HR viewer vs. super admin)
+- [ ] Role-based access (admin vs. viewer vs. super admin)
 - [ ] Multi-department support (separate document sets per team: HR, Legal, IT)
-- [ ] Slack / Teams notifications for escalations and staleness alerts
+- [ ] Staleness alerts delivered via configured integration (Slack / Teams)
 
 ---
 
 ## 3.5 Escalation & Human-in-the-Loop
 
 **MVP**
-- [ ] "Ask HR to verify this answer" button on every standard-mode response (absent in incognito)
-- [ ] Employee optionally includes the AI's answer for context when escalating
-- [ ] HR notified via email (configurable recipient)
-- [ ] HR responds via dashboard or email reply
-- [ ] Employee receives HR's response in-app or via email
-- [ ] Escalation logged with timestamp for compliance records
+- [x] "Request verification" button on every standard-mode response (absent in incognito)
+- [x] Employee selects escalation target (pre-configured by admin) and delivery method (Slack DM or email)
+- [x] Employee optionally includes the AI's answer for context when escalating
+- [x] Escalation dispatched via chosen method:
+  - Slack: Bot Token `chat:write` DM to target's Slack user ID with Block Kit message + "View Conversation" link
+  - Email: SMTP email to target with HTML body + conversation link
+- [x] Admin pre-configures escalation targets (name, role, Slack User ID, email) in Settings > Escalations
+- [x] Employee sees confirmation message after submitting escalation
+- [x] Admin escalation log: timestamped audit view with target, method, delivery status, read/unread indicator
+- [x] Clicking an escalation in the log opens the full conversation viewer with the escalated message highlighted
+- [x] Read/unread tracking: escalations marked as read when admin views them; unread count badge on Escalations tab
+- [x] Persistent chat conversations linked to users (stored server-side in SQLite)
+- [x] Conversation viewer: read-only view of full message thread, accessible to admin for any conversation
+- [x] CSV export includes target, method, and read status columns
 
 **V2**
-- [ ] Slack / Teams integration for HR escalation notifications
+- [ ] Microsoft Teams integration for escalations
+- [ ] Google Chat integration for escalations
 - [ ] SLA tracking: flag escalations unanswered beyond configurable time threshold
 - [ ] Escalation resolution feeds back into gap detection analytics
 

@@ -1,0 +1,156 @@
+import type { Conversation, PersistedMessage, Citation } from "@edgebric/types";
+import { getDb } from "../db/index.js";
+import { conversations, messages } from "../db/schema.js";
+import { eq, desc, asc, isNull, and } from "drizzle-orm";
+import { randomUUID } from "crypto";
+
+function rowToConversation(row: typeof conversations.$inferSelect): Conversation {
+  const conv: Conversation = {
+    id: row.id,
+    userEmail: row.userEmail,
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
+  };
+  if (row.userName != null) conv.userName = row.userName;
+  if (row.archivedAt != null) conv.archivedAt = new Date(row.archivedAt);
+  return conv;
+}
+
+function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
+  const msg: PersistedMessage = {
+    id: row.id,
+    conversationId: row.conversationId,
+    role: row.role as "user" | "assistant",
+    content: row.content,
+    createdAt: new Date(row.createdAt),
+  };
+  if (row.citations != null) msg.citations = JSON.parse(row.citations) as Citation[];
+  if (row.hasConfidentAnswer != null) msg.hasConfidentAnswer = Boolean(row.hasConfidentAnswer);
+  if (row.source != null) msg.source = row.source as "ai" | "admin" | "system";
+  return msg;
+}
+
+export function createConversation(userEmail: string, userName?: string): Conversation {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const conv: Conversation = {
+    id: randomUUID(),
+    userEmail,
+    createdAt: new Date(now),
+    updatedAt: new Date(now),
+  };
+  if (userName) conv.userName = userName;
+  db.insert(conversations)
+    .values({
+      id: conv.id,
+      userEmail,
+      userName: userName ?? null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+  return conv;
+}
+
+export function getConversation(id: string): Conversation | undefined {
+  const db = getDb();
+  const row = db.select().from(conversations).where(eq(conversations.id, id)).get();
+  return row ? rowToConversation(row) : undefined;
+}
+
+export function getConversationsByUser(email: string): Conversation[] {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.userEmail, email))
+    .orderBy(desc(conversations.updatedAt))
+    .all();
+  return rows.map(rowToConversation);
+}
+
+export function addMessage(msg: PersistedMessage): void {
+  const db = getDb();
+  db.insert(messages)
+    .values({
+      id: msg.id,
+      conversationId: msg.conversationId,
+      role: msg.role,
+      content: msg.content,
+      citations: msg.citations ? JSON.stringify(msg.citations) : null,
+      hasConfidentAnswer: msg.hasConfidentAnswer != null ? (msg.hasConfidentAnswer ? 1 : 0) : null,
+      source: msg.source ?? null,
+      createdAt: msg.createdAt.toISOString(),
+    })
+    .run();
+}
+
+export function getMessages(conversationId: string): PersistedMessage[] {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(asc(messages.createdAt))
+    .all();
+  return rows.map(rowToMessage);
+}
+
+export function getMessage(id: string): PersistedMessage | undefined {
+  const db = getDb();
+  const row = db.select().from(messages).where(eq(messages.id, id)).get();
+  return row ? rowToMessage(row) : undefined;
+}
+
+/** Get conversations for a user with a preview of the first user message. */
+export function getConversationPreviews(
+  email: string,
+): Array<Conversation & { preview?: string }> {
+  const db = getDb();
+  const convs = db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.userEmail, email), isNull(conversations.archivedAt)))
+    .orderBy(desc(conversations.updatedAt))
+    .all();
+
+  return convs.map((row) => {
+    const conv = rowToConversation(row);
+    // Get the first user message as preview
+    const firstMsg = db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, row.id))
+      .orderBy(asc(messages.createdAt))
+      .limit(1)
+      .get();
+    const result: Conversation & { preview?: string } = { ...conv };
+    const previewText = firstMsg?.content?.slice(0, 100);
+    if (previewText) result.preview = previewText;
+    return result;
+  });
+}
+
+/** Soft-delete: hides from sidebar but keeps data for analytics. */
+export function archiveConversation(id: string): void {
+  const db = getDb();
+  db.update(conversations)
+    .set({ archivedAt: new Date().toISOString() })
+    .where(eq(conversations.id, id))
+    .run();
+}
+
+/** Hard delete: removes conversation and all its messages permanently. */
+export function deleteConversation(id: string): void {
+  const db = getDb();
+  db.delete(messages).where(eq(messages.conversationId, id)).run();
+  db.delete(conversations).where(eq(conversations.id, id)).run();
+}
+
+export function updateConversationTimestamp(id: string): void {
+  const db = getDb();
+  db.update(conversations)
+    .set({ updatedAt: new Date().toISOString() })
+    .where(eq(conversations.id, id))
+    .run();
+}
