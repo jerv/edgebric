@@ -266,7 +266,7 @@ export function ConversationViewer() {
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Respond to Escalation</h3>
               <p className="text-xs text-slate-500 mt-1">
-                An employee requested human verification on this conversation.
+                A member requested human verification on this conversation.
               </p>
             </div>
 

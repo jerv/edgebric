@@ -27,18 +27,18 @@ orgRouter.get("/", (req, res) => {
   res.json(org);
 });
 
+const updateOrgSchema = z.object({
+  name: z.string().min(1, "Organization name is required").max(200),
+});
+
 // PUT /api/admin/org — update organization name
-orgRouter.put("/", (req, res) => {
+orgRouter.put("/", validateBody(updateOrgSchema), (req, res) => {
   const org = getOrg(req.session.orgId!);
   if (!org) {
     res.status(404).json({ error: "No organization found" });
     return;
   }
-  const { name } = req.body as { name?: string };
-  if (!name?.trim()) {
-    res.status(400).json({ error: "Organization name is required" });
-    return;
-  }
+  const { name } = req.body as z.infer<typeof updateOrgSchema>;
   const updated = updateOrg(org.id, { name: name.trim() });
   res.json(updated);
 });

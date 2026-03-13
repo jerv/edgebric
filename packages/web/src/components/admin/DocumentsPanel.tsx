@@ -129,7 +129,7 @@ export function DocumentsPanel() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Documents</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Uploaded documents are indexed and available to all employees.
+            Uploaded documents are indexed and available to all members.
           </p>
         </div>
 

@@ -203,6 +203,10 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   const userName = req.session.name;
   const orgId = req.session.orgId;
   let conversation = existingConvId ? getConversation(existingConvId) : undefined;
+  // Verify ownership — prevent accessing another user's conversation
+  if (conversation && conversation.userEmail !== userEmail) {
+    conversation = undefined; // Start a new conversation instead
+  }
   if (!conversation) {
     conversation = createConversation(userEmail, userName, orgId);
   }

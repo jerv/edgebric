@@ -187,10 +187,12 @@ adminEscalationsRouter.get("/export", (req, res) => {
   const escalationList = listEscalations(req.session.orgId);
 
   const escape = (s: string) => {
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-      return `"${s.replace(/"/g, '""')}"`;
+    // Prefix formula-triggering characters to prevent CSV injection in Excel
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    if (safe.includes(",") || safe.includes('"') || safe.includes("\n")) {
+      return `"${safe.replace(/"/g, '""')}"`;
     }
-    return s;
+    return safe;
   };
 
   const header = "id,createdAt,question,aiAnswer,status,notifiedVia,target,method,readAt,citations";
@@ -414,7 +416,26 @@ adminIntegrationsRouter.get("/", (_req, res) => {
   res.json(masked);
 });
 
-adminIntegrationsRouter.put("/", async (req, res) => {
+const integrationConfigSchema = z.object({
+  slack: z.object({
+    botToken: z.string().max(200),
+    enabled: z.boolean(),
+  }).optional(),
+  email: z.object({
+    smtpHost: z.string().max(200),
+    smtpPort: z.number().int().min(1).max(65535),
+    smtpUser: z.string().max(200),
+    smtpPass: z.string().max(200),
+    fromAddress: z.string().max(200),
+    useTls: z.boolean(),
+    enabled: z.boolean(),
+  }).optional(),
+  privateModeEnabled: z.boolean().optional(),
+  vaultModeEnabled: z.boolean().optional(),
+  stalenessThresholdDays: z.number().int().min(1).max(3650).optional(),
+}).strict();
+
+adminIntegrationsRouter.put("/", validateBody(integrationConfigSchema), async (req, res) => {
   const body = req.body as IntegrationConfig;
 
   if (body.slack?.botToken && body.slack.botToken !== "xoxb-****" && !body.slack.botToken.startsWith("xoxb-")) {

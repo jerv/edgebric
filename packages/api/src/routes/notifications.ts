@@ -4,7 +4,7 @@ import { requireOrg } from "../middleware/auth.js";
 import {
   getNotificationsForUser,
   getUnreadCountForUser,
-  markRead,
+  markReadForUser,
   markReadForConversation,
 } from "../services/notificationStore.js";
 
@@ -34,7 +34,12 @@ notificationsRouter.get("/unread-count", (req, res) => {
 
 // PATCH /api/notifications/:id/read
 notificationsRouter.patch("/:id/read", (req, res) => {
-  markRead(req.params.id!);
+  const email = req.session.email;
+  if (!email) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  markReadForUser(req.params.id!, email);
   res.json({ ok: true });
 });
 

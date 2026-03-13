@@ -49,7 +49,7 @@ export function EscalationsPage() {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Escalations</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Verification requests from employees. Click a row to view the conversation.
+            Verification requests from members. Click a row to view the conversation.
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export function EscalationsPage() {
             <CheckCircle className="w-10 h-10 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No escalations yet.</p>
             <p className="text-xs text-slate-400 mt-1">
-              Escalations appear when employees request human verification of an AI answer.
+              Escalations appear when members request human verification of an AI answer.
             </p>
           </div>
         ) : (

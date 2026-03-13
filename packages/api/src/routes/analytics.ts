@@ -50,10 +50,12 @@ analyticsRouter.get("/unanswered/export", (req, res) => {
   const questions = getUnansweredQuestions(500, req.session.orgId);
 
   const escape = (s: string) => {
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-      return `"${s.replace(/"/g, '""')}"`;
+    // Prefix formula-triggering characters to prevent CSV injection in Excel
+    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+    if (safe.includes(",") || safe.includes('"') || safe.includes("\n")) {
+      return `"${safe.replace(/"/g, '""')}"`;
     }
-    return s;
+    return safe;
   };
 
   const header = "question,aiAnswer,createdAt";

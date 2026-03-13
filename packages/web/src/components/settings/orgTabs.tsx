@@ -1062,7 +1062,7 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
             <h3 className="text-sm font-semibold text-slate-700">No notification channels configured</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Enable at least one integration (Slack or Email) before setting up escalation targets.
-              Employees won't be able to send verification requests until a notification channel is active.
+              Members won't be able to send verification requests until a notification channel is active.
             </p>
             <button
               onClick={() => onSwitchTab("integrations")}
@@ -1084,7 +1084,7 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Escalation Targets</h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              People who can receive verification requests from employees.
+              People who can receive verification requests from members.
             </p>
           </div>
           {!showTargetForm && (
@@ -1209,7 +1209,7 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
         {targets.length === 0 && !showTargetForm ? (
           <div className="border border-slate-100 rounded-xl px-4 py-6 text-center">
             <p className="text-sm text-slate-400">No escalation targets configured.</p>
-            <p className="text-xs text-slate-300 mt-1">Add targets so employees can request verification.</p>
+            <p className="text-xs text-slate-300 mt-1">Add targets so members can request verification.</p>
           </div>
         ) : targets.length > 0 ? (
           <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -1279,7 +1279,7 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Escalation Log</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            View all verification requests from employees.
+            View all verification requests from members.
           </p>
         </div>
         <button

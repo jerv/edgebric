@@ -37,7 +37,7 @@ export function AnalyticsDashboard({ tab }: { tab: AnalyticsTab }) {
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Analytics</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Aggregate, anonymized insights. Individual employee queries are never shown.
+            Aggregate, anonymized insights. Individual member queries are never shown.
           </p>
         </div>
 

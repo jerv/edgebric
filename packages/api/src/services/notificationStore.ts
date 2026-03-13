@@ -92,6 +92,15 @@ export function markRead(id: string): void {
     .run();
 }
 
+/** Mark a notification as read, but only if it belongs to the given user. */
+export function markReadForUser(id: string, email: string): void {
+  const db = getDb();
+  db.update(notifications)
+    .set({ readAt: new Date().toISOString() })
+    .where(and(eq(notifications.id, id), eq(notifications.userEmail, email)))
+    .run();
+}
+
 export function markReadForConversation(email: string, conversationId: string): void {
   const db = getDb();
   db.update(notifications)

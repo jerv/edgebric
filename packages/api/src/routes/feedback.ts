@@ -8,7 +8,7 @@ import {
   getFeedbackByMessageId,
   updateFeedbackTopic,
 } from "../services/feedbackStore.js";
-import { getMessages } from "../services/conversationStore.js";
+import { getMessages, getConversation } from "../services/conversationStore.js";
 
 const feedbackSchema = z.object({
   conversationId: z.string().min(1),
@@ -23,6 +23,13 @@ feedbackRouter.use(requireOrg);
 // POST /api/feedback — submit a rating for a message
 feedbackRouter.post("/", validateBody(feedbackSchema), (req, res) => {
   const { conversationId, messageId, rating, comment } = req.body as z.infer<typeof feedbackSchema>;
+
+  // Verify conversation ownership
+  const conv = getConversation(conversationId);
+  if (!conv || (conv.userEmail !== req.session.email && !req.session.isAdmin)) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
 
   // Prevent double-rating
   const existing = getFeedbackByMessageId(messageId);

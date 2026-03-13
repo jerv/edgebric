@@ -47,7 +47,7 @@ function AdminToggles() {
           Privacy Features
         </h3>
         <p className="text-xs text-slate-400 mt-0.5">
-          Enable privacy modes for employees in your organization.
+          Enable privacy modes for members in your organization.
         </p>
       </div>
 
@@ -55,7 +55,7 @@ function AdminToggles() {
         <ToggleCard
           icon={<Lock className="w-4 h-4" />}
           title="Private Mode"
-          description="Employees can make queries anonymously. Conversations are not logged and admin cannot see them."
+          description="Members can make queries anonymously. Conversations are not logged and admin cannot see them."
           enabled={config?.privateModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ privateModeEnabled: v })}
@@ -63,7 +63,7 @@ function AdminToggles() {
         <ToggleCard
           icon={<Shield className="w-4 h-4" />}
           title="Vault Mode"
-          description="Employees can run queries entirely on their own device using Ollama. Nothing is sent to the server. Requires one-time setup per employee."
+          description="Members can run queries entirely on their own device using Ollama. Nothing is sent to the server. Requires one-time setup per member."
           enabled={config?.vaultModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ vaultModeEnabled: v })}
@@ -73,10 +73,10 @@ function AdminToggles() {
       {config?.vaultModeEnabled && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p className="text-xs text-amber-800 leading-relaxed">
-            Vault Mode syncs company document chunks to employee devices for
-            local processing. This is the same content employees can already
-            query via the web app. Enabling this means accepting that policy
-            text will be cached locally.
+            Vault Mode syncs company document chunks to member devices for
+            local processing. This is the same content members can already
+            query via the web app. Enabling this means accepting that company
+            data will be cached locally.
           </p>
         </div>
       )}
