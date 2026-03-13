@@ -56,10 +56,12 @@ export function createTarget(data: {
   return target;
 }
 
-export function getTarget(id: string): EscalationTarget | undefined {
+export function getTarget(id: string): (EscalationTarget & { orgId?: string | undefined }) | undefined {
   const db = getDb();
   const row = db.select().from(escalationTargets).where(eq(escalationTargets.id, id)).get();
-  return row ? rowToTarget(row) : undefined;
+  if (!row) return undefined;
+  const target = rowToTarget(row);
+  return { ...target, orgId: row.orgId ?? undefined };
 }
 
 export function listTargets(orgId?: string): EscalationTarget[] {

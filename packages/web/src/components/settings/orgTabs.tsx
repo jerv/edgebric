@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   CheckCircle, Circle, Loader2, Cpu, ShieldCheck,
   Mail, Plus, Trash2, Pencil, Slack, ChevronDown, ChevronUp, HelpCircle,
+  Power, RotateCcw, Activity,
 } from "lucide-react";
 import type { IntegrationConfig, EscalationTarget, User } from "@edgebric/types";
 import { cn } from "@/lib/utils";
@@ -244,8 +245,23 @@ interface ModelsResponse {
 }
 
 
+interface HealthResponse {
+  status: "healthy" | "degraded" | "unhealthy";
+  uptime: number;
+  checks: Record<string, { status: string; latencyMs?: number; error?: string }>;
+}
+
 export function ServiceTab() {
   const queryClient = useQueryClient();
+
+  const { data: health } = useQuery<HealthResponse>({
+    queryKey: ["health"],
+    queryFn: () =>
+      fetch("/api/health", { credentials: "same-origin" }).then((r) =>
+        r.json() as Promise<HealthResponse>,
+      ),
+    refetchInterval: 10_000,
+  });
 
   const { data, isLoading } = useQuery<ModelsResponse>({
     queryKey: ["admin", "models"],
@@ -254,7 +270,6 @@ export function ServiceTab() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<ModelsResponse>;
       }),
-    // Poll every 3s while any model is loading, otherwise every 10s
     refetchInterval: (query) =>
       query.state.data?.loadingModelId ? 3000 : 10_000,
   });
@@ -273,7 +288,45 @@ export function ServiceTab() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "models"] }),
   });
 
-  const anyLoading = !!data?.loadingModelId || loadMutation.isPending;
+  const stopMutation = useMutation({
+    mutationFn: () =>
+      fetch("/api/admin/models/stop", {
+        method: "POST",
+        credentials: "same-origin",
+      }).then((r) => {
+        if (!r.ok) throw new Error("Stop failed");
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+
+  const restartMutation = useMutation({
+    mutationFn: () =>
+      fetch("/api/admin/models/restart", {
+        method: "POST",
+        credentials: "same-origin",
+      }).then((r) => {
+        if (!r.ok) throw new Error("Restart failed");
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+    },
+  });
+
+  const anyLoading = !!data?.loadingModelId || loadMutation.isPending || restartMutation.isPending;
+  const inferenceStatus = health?.checks?.inference?.status ?? "unknown";
+  const vectorStoreStatus = health?.checks?.vectorStore?.status ?? "unknown";
+
+  function formatUptime(seconds: number) {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
 
   // Sort: loaded first, then by id
   const sorted = [...(data?.models ?? [])].sort((a, b) => {
@@ -282,98 +335,171 @@ export function ServiceTab() {
   });
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-slate-400">
-        Loading a model restarts the inference server (~15-60s depending on model size).
-      </p>
-
-      {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+    <div className="space-y-6">
+      {/* Service status card */}
+      <div className="border border-slate-200 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <Activity className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-900">Service Status</h3>
+          {health && (
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded-full font-medium",
+              health.status === "healthy" && "bg-green-50 text-green-700 border border-green-200",
+              health.status === "degraded" && "bg-amber-50 text-amber-700 border border-amber-200",
+              health.status === "unhealthy" && "bg-red-50 text-red-600 border border-red-200",
+            )}>
+              {health.status === "healthy" ? "All systems operational" : health.status === "degraded" ? "Degraded" : "Unavailable"}
+            </span>
+          )}
         </div>
-      )}
 
-      {!isLoading && (
-        <div className="space-y-2">
-          {sorted.map((model) => {
-            const meta = modelMeta(model.id);
-            const isActive = model.id === data?.activeModel;
-            const isLoading_ = model.loading || (loadMutation.isPending && loadMutation.variables === model.id);
+        <div className="grid grid-cols-3 gap-3">
+          <div className="border border-slate-100 rounded-xl p-3">
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide mb-1">Inference</p>
+            <div className="flex items-center gap-1.5">
+              <div className={cn("w-2 h-2 rounded-full", inferenceStatus === "ok" ? "bg-green-500" : inferenceStatus === "degraded" ? "bg-amber-500" : "bg-red-400")} />
+              <span className="text-xs font-medium text-slate-700 capitalize">{inferenceStatus}</span>
+              {health?.checks?.inference?.latencyMs != null && (
+                <span className="text-[10px] text-slate-400 ml-auto">{health.checks.inference.latencyMs}ms</span>
+              )}
+            </div>
+          </div>
+          <div className="border border-slate-100 rounded-xl p-3">
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide mb-1">Vector Store</p>
+            <div className="flex items-center gap-1.5">
+              <div className={cn("w-2 h-2 rounded-full", vectorStoreStatus === "ok" ? "bg-green-500" : vectorStoreStatus === "degraded" ? "bg-amber-500" : "bg-red-400")} />
+              <span className="text-xs font-medium text-slate-700 capitalize">{vectorStoreStatus}</span>
+              {health?.checks?.vectorStore?.latencyMs != null && (
+                <span className="text-[10px] text-slate-400 ml-auto">{health.checks.vectorStore.latencyMs}ms</span>
+              )}
+            </div>
+          </div>
+          <div className="border border-slate-100 rounded-xl p-3">
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide mb-1">Uptime</p>
+            <p className="text-xs font-medium text-slate-700">{health ? formatUptime(health.uptime) : "—"}</p>
+          </div>
+        </div>
 
-            return (
-              <div
-                key={model.id}
-                className={cn(
-                  "rounded-2xl border px-5 py-4 transition-colors",
-                  isActive
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white",
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  {/* Status icon */}
-                  {isLoading_ ? (
-                    <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-slate-400" />
-                  ) : isActive ? (
-                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 flex-shrink-0 text-slate-300" />
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={() => stopMutation.mutate()}
+            disabled={inferenceStatus !== "ok" || anyLoading || stopMutation.isPending}
+            className="flex items-center gap-1.5 text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Power className="w-3.5 h-3.5" />
+            {stopMutation.isPending ? "Stopping..." : "Stop"}
+          </button>
+          <button
+            onClick={() => restartMutation.mutate()}
+            disabled={anyLoading || restartMutation.isPending}
+            className="flex items-center gap-1.5 text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            {restartMutation.isPending ? "Restarting..." : "Restart"}
+          </button>
+          {(stopMutation.isError || restartMutation.isError) && (
+            <span className="text-xs text-red-500">
+              {(stopMutation.error ?? restartMutation.error) instanceof Error
+                ? (stopMutation.error ?? restartMutation.error)!.message
+                : "Action failed"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Models */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-900">Models</h3>
+        </div>
+        <p className="text-xs text-slate-400">
+          Loading a model restarts the inference server (~15-60s depending on model size).
+        </p>
+
+        {isLoading && (
+          <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+          </div>
+        )}
+
+        {!isLoading && (
+          <div className="space-y-2">
+            {sorted.map((model) => {
+              const meta = modelMeta(model.id);
+              const isActive = model.id === data?.activeModel;
+              const isLoading_ = model.loading || (loadMutation.isPending && loadMutation.variables === model.id);
+
+              return (
+                <div
+                  key={model.id}
+                  className={cn(
+                    "rounded-2xl border px-5 py-4 transition-colors",
+                    isActive
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white",
                   )}
+                >
+                  <div className="flex items-center gap-3">
+                    {isLoading_ ? (
+                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-slate-400" />
+                    ) : isActive ? (
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 flex-shrink-0 text-slate-300" />
+                    )}
 
-                  {/* Labels */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn("font-medium text-sm", isActive ? "text-white" : "text-slate-900")}>
-                        {meta.family} — {meta.label}
-                      </span>
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-mono font-medium",
-                        isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500",
-                      )}>
-                        {model.id}
-                      </span>
-                      {isActive && (
-                        <span className="text-xs bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-medium">
-                          Active
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={cn("font-medium text-sm", isActive ? "text-white" : "text-slate-900")}>
+                          {meta.family} — {meta.label}
                         </span>
-                      )}
-                      {isLoading_ && (
                         <span className={cn(
-                          "text-xs px-2 py-0.5 rounded-full font-medium",
-                          isActive ? "bg-white/10 text-white/70" : "bg-amber-50 text-amber-600 border border-amber-200",
+                          "text-xs px-2 py-0.5 rounded-full font-mono font-medium",
+                          isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500",
                         )}>
-                          Loading...
+                          {model.id}
                         </span>
-                      )}
+                        {isActive && (
+                          <span className="text-xs bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-medium">
+                            Active
+                          </span>
+                        )}
+                        {isLoading_ && (
+                          <span className={cn(
+                            "text-xs px-2 py-0.5 rounded-full font-medium",
+                            isActive ? "bg-white/10 text-white/70" : "bg-amber-50 text-amber-600 border border-amber-200",
+                          )}>
+                            Loading...
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {!isActive && !isLoading_ && (
+                      <button
+                        onClick={() => loadMutation.mutate(model.id)}
+                        disabled={anyLoading || !model.onDisk}
+                        className={cn(
+                          "flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors",
+                          !model.onDisk
+                            ? "border-slate-100 text-slate-300 cursor-not-allowed"
+                            : anyLoading
+                            ? "border-slate-100 text-slate-300 cursor-not-allowed"
+                            : "border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400",
+                        )}
+                        title={!model.onDisk ? "Model file not on disk" : undefined}
+                      >
+                        {model.onDisk ? "Load" : "Not downloaded"}
+                      </button>
+                    )}
                   </div>
-
-                  {/* Load button — only for non-active, non-loading models */}
-                  {!isActive && !isLoading_ && (
-                    <button
-                      onClick={() => loadMutation.mutate(model.id)}
-                      disabled={anyLoading || !model.onDisk}
-                      className={cn(
-                        "flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors",
-                        !model.onDisk
-                          ? "border-slate-100 text-slate-300 cursor-not-allowed"
-                          : anyLoading
-                          ? "border-slate-100 text-slate-300 cursor-not-allowed"
-                          : "border-slate-300 text-slate-600 hover:bg-slate-50 hover:border-slate-400",
-                      )}
-                      title={!model.onDisk ? "Model file not on disk" : undefined}
-                    >
-                      {model.onDisk ? "Load" : "Not downloaded"}
-                    </button>
-                  )}
-
-                  <Cpu className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white/50" : "text-slate-300")} />
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -691,7 +817,7 @@ export function IntegrationsTab() {
                 placeholder="noreply@company.com"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
               />
-              <p className="text-[11px] text-slate-400 mt-1">Gmail SMTP overrides this with your login email. Use a domain SMTP provider (SendGrid, Resend, SES) for custom from addresses.</p>
+              <p className="text-[11px] text-slate-400 mt-1">Some providers override this — see "How to configure" below.</p>
             </div>
             <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -726,6 +852,7 @@ export function IntegrationsTab() {
                   <li>Host: <code className="bg-white border border-slate-200 px-1 rounded">smtp.gmail.com</code>, Port: <code className="bg-white border border-slate-200 px-1 rounded">587</code>, TLS: on</li>
                   <li>Username: your full Gmail address</li>
                   <li>Password: generate an <strong>App Password</strong> at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">myaccount.google.com/apppasswords</a> (requires 2FA enabled)</li>
+                  <li><strong>From address:</strong> Gmail SMTP overrides the "From" field with your login email. Use a domain SMTP provider (SendGrid, Resend, SES) if you need a custom from address.</li>
                 </ul>
               </div>
               <div>
@@ -734,6 +861,7 @@ export function IntegrationsTab() {
                   <li>Host: <code className="bg-white border border-slate-200 px-1 rounded">smtp.office365.com</code>, Port: <code className="bg-white border border-slate-200 px-1 rounded">587</code>, TLS: on</li>
                   <li>Username: your full email address</li>
                   <li>Password: your account password (or app password if MFA is on)</li>
+                  <li><strong>From address:</strong> Microsoft 365 requires the "From" address to match the authenticated account, or a shared mailbox/alias you have "Send As" permissions for.</li>
                 </ul>
               </div>
               <div>
@@ -741,6 +869,7 @@ export function IntegrationsTab() {
                 <ul className="list-disc list-inside text-slate-500 space-y-0.5 ml-1">
                   <li>Host: <code className="bg-white border border-slate-200 px-1 rounded">email-smtp.us-east-1.amazonaws.com</code>, Port: <code className="bg-white border border-slate-200 px-1 rounded">587</code>, TLS: on</li>
                   <li>Username/Password: SMTP credentials from the SES console (not your AWS keys)</li>
+                  <li><strong>From address:</strong> Must be a verified identity (email or domain) in your SES account. Unverified addresses will be rejected.</li>
                 </ul>
               </div>
             </div>
@@ -1023,11 +1152,11 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
                 </div>
               )}
             </div>
-            {/* Notification method toggles */}
-            {slackEnabled && emailEnabled && (targetSlackId.trim() || targetEmail.trim()) && (
+            {/* Notification method toggles — show per-method toggle for each filled contact */}
+            {((slackEnabled && targetSlackId.trim()) || (emailEnabled && targetEmail.trim())) && (
               <div className="flex items-center gap-5">
                 <p className="text-xs font-medium text-slate-500">Notify via:</p>
-                {targetSlackId.trim() && (
+                {slackEnabled && targetSlackId.trim() && (
                   <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1038,7 +1167,7 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
                     Slack
                   </label>
                 )}
-                {targetEmail.trim() && (
+                {emailEnabled && targetEmail.trim() && (
                   <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1150,11 +1279,11 @@ export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => 
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Escalation Log</h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            View verification requests and unanswered questions in Analytics.
+            View all verification requests from employees.
           </p>
         </div>
         <button
-          onClick={() => void navigate({ to: "/analytics", search: { tab: "escalations" } })}
+          onClick={() => void navigate({ to: "/escalations" })}
           className="flex items-center gap-1.5 text-xs font-medium text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 transition-colors flex-shrink-0"
         >
           View Log

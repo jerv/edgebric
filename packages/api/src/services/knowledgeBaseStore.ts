@@ -63,6 +63,15 @@ export function getKB(id: string): KnowledgeBase | undefined {
   return row ? rowToKB(row) : undefined;
 }
 
+/** Check if a KB belongs to a specific org. */
+export function kbBelongsToOrg(kbId: string, orgId: string): boolean {
+  const db = getDb();
+  const row = db.select({ orgId: knowledgeBases.orgId }).from(knowledgeBases)
+    .where(and(eq(knowledgeBases.id, kbId), eq(knowledgeBases.orgId, orgId)))
+    .get();
+  return !!row;
+}
+
 /** Get a KB by its dataset name. */
 export function getKBByDatasetName(datasetName: string): KnowledgeBase | undefined {
   const db = getDb();

@@ -6,7 +6,7 @@ export const healthRouter: IRouter = Router();
 
 const startTime = Date.now();
 
-healthRouter.get("/", async (_req, res) => {
+healthRouter.get("/", async (req, res) => {
   const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
 
   // Database check — if we got here, express is running and DB was initialized
@@ -49,10 +49,14 @@ healthRouter.get("/", async (_req, res) => {
 
   const allOk = Object.values(checks).every((c) => c.status === "ok");
   const anyDown = Object.values(checks).some((c) => c.status === "unavailable");
+  const overallStatus = allOk ? "healthy" : anyDown ? "unhealthy" : "degraded";
 
-  res.status(anyDown ? 503 : 200).json({
-    status: allOk ? "healthy" : anyDown ? "unhealthy" : "degraded",
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-    checks,
-  });
+  // Only expose detailed checks (latency, errors, uptime) to authenticated admins.
+  // Unauthenticated callers get a simple status (useful for load balancers).
+  const isAdmin = !!(req.session?.queryToken && req.session?.isAdmin);
+  if (isAdmin) {
+    res.status(anyDown ? 503 : 200).json({ status: overallStatus, uptime: Math.floor((Date.now() - startTime) / 1000), checks });
+  } else {
+    res.status(anyDown ? 503 : 200).json({ status: overallStatus });
+  }
 });

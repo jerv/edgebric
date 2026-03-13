@@ -68,6 +68,13 @@ export const documentsRouter: IRouter = Router();
 // Must be defined BEFORE requireAdmin middleware so all authenticated users can access it.
 documentsRouter.get("/:id/content", requireOrg, (req, res) => {
   const id = req.params["id"] as string ?? "";
+
+  // Org-scoping: verify document belongs to caller's org
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
   const doc = getDocument(id);
   const sections = getChunksForDocument(id);
 
@@ -86,7 +93,15 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
 
 // ─── Employee-accessible: raw file download ─────────────────────────────────
 documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
-  const doc = getDocument(req.params["id"] as string ?? "");
+  const id = req.params["id"] as string ?? "";
+
+  // Org-scoping: verify document belongs to caller's org
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+
+  const doc = getDocument(id);
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
     return;

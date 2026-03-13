@@ -17,6 +17,7 @@ import { Route as ShellSettingsRouteImport } from './routes/_shell/settings'
 import { Route as ShellOrganizationRouteImport } from './routes/_shell/organization'
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
 import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
+import { Route as ShellEscalationsRouteImport } from './routes/_shell/escalations'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
 import { Route as ShellAnalyticsRouteImport } from './routes/_shell/analytics'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
@@ -61,6 +62,11 @@ const ShellLibraryRoute = ShellLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellEscalationsRoute = ShellEscalationsRouteImport.update({
+  id: '/escalations',
+  path: '/escalations',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellDocumentsRoute = ShellDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof ShellAccountRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
+  '/escalations': typeof ShellEscalationsRoute
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/account': typeof ShellAccountRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
+  '/escalations': typeof ShellEscalationsRoute
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/_shell/account': typeof ShellAccountRoute
   '/_shell/analytics': typeof ShellAnalyticsRoute
   '/_shell/documents': typeof ShellDocumentsRoute
+  '/_shell/escalations': typeof ShellEscalationsRoute
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
   '/_shell/organization': typeof ShellOrganizationRoute
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/analytics'
     | '/documents'
+    | '/escalations'
     | '/library'
     | '/models'
     | '/organization'
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/analytics'
     | '/documents'
+    | '/escalations'
     | '/library'
     | '/models'
     | '/organization'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/_shell/account'
     | '/_shell/analytics'
     | '/_shell/documents'
+    | '/_shell/escalations'
     | '/_shell/library'
     | '/_shell/models'
     | '/_shell/organization'
@@ -230,6 +242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellLibraryRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/escalations': {
+      id: '/_shell/escalations'
+      path: '/escalations'
+      fullPath: '/escalations'
+      preLoaderRoute: typeof ShellEscalationsRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/documents': {
       id: '/_shell/documents'
       path: '/documents'
@@ -265,6 +284,7 @@ interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellAnalyticsRoute: typeof ShellAnalyticsRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
+  ShellEscalationsRoute: typeof ShellEscalationsRoute
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
   ShellOrganizationRoute: typeof ShellOrganizationRoute
@@ -277,6 +297,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
   ShellAnalyticsRoute: ShellAnalyticsRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
+  ShellEscalationsRoute: ShellEscalationsRoute,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,
   ShellOrganizationRoute: ShellOrganizationRoute,

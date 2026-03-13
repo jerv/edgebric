@@ -59,9 +59,11 @@ export function addEscalation(esc: Escalation, orgId?: string): void {
     .run();
 }
 
-export function getEscalation(id: string): Escalation | undefined {
+export function getEscalation(id: string, orgId?: string): Escalation | undefined {
   const db = getDb();
-  const row = db.select().from(escalations).where(eq(escalations.id, id)).get();
+  const conditions = [eq(escalations.id, id)];
+  if (orgId) conditions.push(eq(escalations.orgId, orgId));
+  const row = db.select().from(escalations).where(and(...conditions)).get();
   return row ? rowToEscalation(row) : undefined;
 }
 

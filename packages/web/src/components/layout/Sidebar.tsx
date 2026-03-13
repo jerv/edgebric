@@ -14,7 +14,7 @@ import {
   Database,
   Building2,
   User,
-  AlertTriangle,
+  MessageSquareMore,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -133,7 +133,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Library", icon: Database, adminOnly: true },
     { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
-    { href: "/analytics", label: "Escalations", icon: AlertTriangle, adminOnly: true, search: { tab: "escalations" }, badge: unreadCount },
+    { href: "/escalations", label: "Escalations", icon: MessageSquareMore, adminOnly: true, badge: unreadCount },
   ];
 
   const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);
@@ -276,12 +276,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       {filteredAdminItems.length > 0 && (
         <div className="px-2 border-t border-slate-100 pt-2 mt-2 space-y-0.5">
           {filteredAdminItems.map((item, idx) => {
-            // For analytics/escalations, match both path and tab search param
             const itemTab = item.search?.["tab"];
             const currentTab = searchParams.get("tab");
             const isActive = itemTab
               ? currentPath.startsWith(item.href) && currentTab === itemTab
-              : currentPath.startsWith(item.href) && (!currentTab || currentTab === "overview");
+              : currentPath === item.href || currentPath.startsWith(item.href + "/");
             const Icon = item.icon;
 
             return (

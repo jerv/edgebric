@@ -71,7 +71,7 @@ escalateRouter.post("/", validateBody(escalateSchema), async (req, res) => {
   const body = req.body as z.infer<typeof escalateSchema>;
 
   const target = getTarget(body.targetId);
-  if (!target) {
+  if (!target || (req.session.orgId && target.orgId !== req.session.orgId)) {
     res.status(404).json({ error: "Escalation target not found" });
     return;
   }
@@ -169,6 +169,11 @@ adminEscalationsRouter.get("/unread-count", (req, res) => {
 });
 
 adminEscalationsRouter.patch("/:id/read", (req, res) => {
+  const esc = getEscalation(req.params["id"] as string, req.session.orgId);
+  if (!esc) {
+    res.status(404).json({ error: "Escalation not found" });
+    return;
+  }
   const adminEmail = req.session.email ?? "unknown";
   const updated = markRead(req.params["id"] as string, adminEmail);
   if (!updated) {
@@ -220,7 +225,7 @@ adminEscalationsRouter.post("/:id/reply", validateBody(replySchema), (req, res) 
   const adminEmail = req.session.email ?? "unknown";
   const { reply } = req.body as z.infer<typeof replySchema>;
 
-  const esc = getEscalation(req.params["id"] as string);
+  const esc = getEscalation(req.params["id"] as string, req.session.orgId);
   if (!esc) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -270,7 +275,7 @@ adminEscalationsRouter.post("/:id/resolve", validateBody(resolveSchema), (req, r
   const adminEmail = req.session.email ?? "unknown";
   const { note } = req.body as z.infer<typeof resolveSchema>;
 
-  const esc = getEscalation(req.params["id"] as string);
+  const esc = getEscalation(req.params["id"] as string, req.session.orgId);
   if (!esc) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -307,6 +312,11 @@ adminEscalationsRouter.post("/:id/resolve", validateBody(resolveSchema), (req, r
 });
 
 adminEscalationsRouter.delete("/:id/resolve", (req, res) => {
+  const esc = getEscalation(req.params["id"] as string, req.session.orgId);
+  if (!esc) {
+    res.status(404).json({ error: "Escalation not found" });
+    return;
+  }
   const updated = unresolveEscalation(req.params["id"] as string);
   if (!updated) {
     res.status(404).json({ error: "Escalation not found" });
@@ -339,15 +349,23 @@ adminTargetsRouter.post("/", validateBody(targetSchema), (req, res) => {
   res.status(201).json(target);
 });
 
-adminTargetsRouter.put("/:id", (req, res) => {
-  const { name, role, slackUserId, email, slackNotify, emailNotify } = req.body as {
-    name?: string;
-    role?: string;
-    slackUserId?: string;
-    email?: string;
-    slackNotify?: boolean;
-    emailNotify?: boolean;
-  };
+const updateTargetSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  role: z.string().max(200).optional(),
+  slackUserId: z.string().max(50).optional(),
+  email: z.string().email().or(z.literal("")).optional(),
+  slackNotify: z.boolean().optional(),
+  emailNotify: z.boolean().optional(),
+});
+
+adminTargetsRouter.put("/:id", validateBody(updateTargetSchema), (req, res) => {
+  const { name, role, slackUserId, email, slackNotify, emailNotify } = req.body as z.infer<typeof updateTargetSchema>;
+
+  const target = getTarget(req.params["id"] as string);
+  if (!target || (req.session.orgId && target.orgId !== req.session.orgId)) {
+    res.status(404).json({ error: "Target not found" });
+    return;
+  }
 
   const data: { name?: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } = {};
   if (name !== undefined) data.name = name;
@@ -366,6 +384,11 @@ adminTargetsRouter.put("/:id", (req, res) => {
 });
 
 adminTargetsRouter.delete("/:id", (req, res) => {
+  const target = getTarget(req.params["id"] as string);
+  if (!target || (req.session.orgId && target.orgId !== req.session.orgId)) {
+    res.status(404).json({ error: "Target not found" });
+    return;
+  }
   deleteTarget(req.params["id"] as string);
   res.json({ ok: true });
 });
@@ -440,8 +463,12 @@ adminIntegrationsRouter.put("/", async (req, res) => {
   res.json(masked);
 });
 
-adminIntegrationsRouter.post("/test", async (req, res) => {
-  const { type } = req.body as { type?: "slack" | "email" };
+const testIntegrationSchema = z.object({
+  type: z.enum(["slack", "email"]),
+});
+
+adminIntegrationsRouter.post("/test", validateBody(testIntegrationSchema), async (req, res) => {
+  const { type } = req.body as z.infer<typeof testIntegrationSchema>;
   const cfg = getIntegrationConfig();
 
   if (type === "slack") {
@@ -458,7 +485,5 @@ adminIntegrationsRouter.post("/test", async (req, res) => {
     }
     const result = await testEmailConfig(cfg.email);
     res.json(result);
-  } else {
-    res.status(400).json({ ok: false, error: "type must be 'slack' or 'email'" });
   }
 });

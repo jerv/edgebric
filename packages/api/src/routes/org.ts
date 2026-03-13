@@ -10,6 +10,7 @@ import {
   updateUserRole,
   removeUser,
   getUserInOrg,
+  getUser,
 } from "../services/userStore.js";
 
 export const orgRouter: IRouter = Router();
@@ -98,12 +99,20 @@ const updateRoleSchema = z.object({
 orgRouter.patch("/members/:id/role", validateBody(updateRoleSchema), (req, res) => {
   const userId = req.params["id"] as string;
   const { role } = req.body as z.infer<typeof updateRoleSchema>;
+  const orgId = req.session.orgId!;
 
   // Prevent admin from changing their own role
   const adminEmail = req.session.email;
-  const adminUser = getUserInOrg(adminEmail ?? "", req.session.orgId!);
+  const adminUser = getUserInOrg(adminEmail ?? "", orgId);
   if (adminUser && adminUser.id === userId) {
     res.status(400).json({ error: "You cannot change your own role" });
+    return;
+  }
+
+  // Verify target user belongs to this org
+  const targetUser = getUser(userId);
+  if (!targetUser || targetUser.orgId !== orgId) {
+    res.status(404).json({ error: "User not found" });
     return;
   }
 
@@ -118,12 +127,20 @@ orgRouter.patch("/members/:id/role", validateBody(updateRoleSchema), (req, res) 
 // DELETE /api/admin/org/members/:id — remove a user from the org
 orgRouter.delete("/members/:id", (req, res) => {
   const userId = req.params["id"] as string;
+  const orgId = req.session.orgId!;
 
   // Prevent admin from removing themselves
   const adminEmail = req.session.email;
-  const adminUser = getUserInOrg(adminEmail ?? "", req.session.orgId!);
+  const adminUser = getUserInOrg(adminEmail ?? "", orgId);
   if (adminUser && adminUser.id === userId) {
     res.status(400).json({ error: "You cannot remove yourself" });
+    return;
+  }
+
+  // Verify target user belongs to this org
+  const targetUser = getUser(userId);
+  if (!targetUser || targetUser.orgId !== orgId) {
+    res.status(404).json({ error: "User not found" });
     return;
   }
 

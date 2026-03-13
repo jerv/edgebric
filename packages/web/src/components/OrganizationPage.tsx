@@ -83,10 +83,11 @@ function OrgGeneralTab() {
                     setEditing(true);
                     setError("");
                   }}
-                  className="p-1 text-slate-300 hover:text-slate-500 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 rounded-md px-2 py-1 transition-colors"
                   title="Rename organization"
                 >
                   <Pencil className="w-3 h-3" />
+                  Rename
                 </button>
               )}
             </div>

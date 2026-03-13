@@ -10,6 +10,7 @@ import { validateBody } from "../middleware/validate.js";
 import {
   createKB,
   getKB,
+  kbBelongsToOrg,
   listAccessibleKBs,
   updateKB,
   archiveKB,
@@ -68,7 +69,12 @@ knowledgeBasesRouter.post("/", validateBody(createKBSchema), (req, res) => {
 });
 
 knowledgeBasesRouter.get("/:id", (req, res) => {
-  const kb = getKB(req.params["id"] as string);
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const kb = getKB(kbId);
   if (!kb) {
     res.status(404).json({ error: "Knowledge base not found" });
     return;
@@ -93,8 +99,13 @@ knowledgeBasesRouter.get("/:id", (req, res) => {
 });
 
 knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
   const { name, description, accessMode, accessList } = req.body as z.infer<typeof updateKBSchema>;
-  const updated = updateKB(req.params["id"] as string, {
+  const updated = updateKB(kbId, {
     ...(name !== undefined && { name: name.trim() }),
     ...(description !== undefined && { description: description.trim() }),
     ...(accessMode !== undefined && { accessMode: accessMode as KBAccessMode }),
@@ -113,7 +124,12 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
 });
 
 knowledgeBasesRouter.delete("/:id", (req, res) => {
-  const kb = getKB(req.params["id"] as string);
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const kb = getKB(kbId);
   if (!kb) {
     res.status(404).json({ error: "Knowledge base not found" });
     return;
@@ -142,7 +158,12 @@ const upload = multer({
 });
 
 knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
-  const kb = getKB(req.params["id"] as string);
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const kb = getKB(kbId);
   if (!kb) {
     res.status(404).json({ error: "Knowledge base not found" });
     return;

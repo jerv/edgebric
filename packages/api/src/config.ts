@@ -6,10 +6,18 @@ function requireEnv(key: string): string {
   return value;
 }
 
+const sessionSecret = process.env["SESSION_SECRET"] ?? "dev-secret-change-in-production";
+if (process.env["NODE_ENV"] === "production" && sessionSecret === "dev-secret-change-in-production") {
+  throw new Error(
+    "SESSION_SECRET must be set in production. " +
+    "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"",
+  );
+}
+
 export const config = {
   port: parseInt(process.env["PORT"] ?? "3001", 10),
   dataDir: process.env["DATA_DIR"] ?? "./data",
-  sessionSecret: process.env["SESSION_SECRET"] ?? "dev-secret-change-in-production",
+  sessionSecret,
   // In production, frontend is served by the same origin as the API.
   // In dev, Vite runs on a separate port.
   frontendUrl: process.env["FRONTEND_URL"] ?? "http://localhost:5173",

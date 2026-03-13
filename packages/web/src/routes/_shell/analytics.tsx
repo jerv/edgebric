@@ -4,7 +4,7 @@ import { useUser } from "@/contexts/UserContext";
 import { AnalyticsDashboard } from "@/components/admin/AnalyticsDashboard";
 import type { AnalyticsTab } from "@/components/admin/AnalyticsDashboard";
 
-const VALID_TABS: AnalyticsTab[] = ["overview", "topics", "escalations", "feedback"];
+const VALID_TABS: AnalyticsTab[] = ["overview", "topics", "feedback"];
 
 function AnalyticsRoute() {
   const user = useUser();

@@ -78,6 +78,73 @@ modelsRouter.put("/active", (req, res) => {
   res.json({ activeModel: runtimeChatConfig.model });
 });
 
+// POST /api/admin/models/stop — kill llama-server
+modelsRouter.post("/stop", async (_req, res) => {
+  logger.info("Stopping llama-server");
+  await new Promise<void>((resolve) => {
+    exec("pkill -f 'llama-server.*8080'", () => resolve());
+  });
+  loadingModelId = null;
+  res.json({ ok: true });
+});
+
+// POST /api/admin/models/restart — restart llama-server with current model
+modelsRouter.post("/restart", async (_req, res) => {
+  const currentModel = runtimeChatConfig.model;
+  const known = KNOWN_MODELS.find((m) => m.id === currentModel);
+  if (!known) {
+    res.status(400).json({ error: "No known model to restart" });
+    return;
+  }
+  const modelPath = `${MODEL_DIR}/${known.filename}`;
+  if (!existsSync(modelPath)) {
+    res.status(404).json({ error: "Model file not found on disk" });
+    return;
+  }
+  if (loadingModelId) {
+    res.status(409).json({ error: "A model is already loading" });
+    return;
+  }
+
+  loadingModelId = known.id;
+  logger.info({ modelId: known.id }, "Restarting llama-server");
+
+  await new Promise<void>((resolve) => {
+    exec("pkill -f 'llama-server.*8080'", () => resolve());
+  });
+  await new Promise((r) => setTimeout(r, 1500));
+  res.json({ loading: true, modelId: known.id });
+
+  const port = "8080";
+  const child = spawn(
+    "llama-server",
+    ["--model", modelPath, "--port", port, "--host", "127.0.0.1", "-ngl", "99", "--ctx-size", "4096", "--log-disable"],
+    { detached: true, stdio: "ignore" },
+  );
+  child.unref();
+
+  const deadline = Date.now() + 120_000;
+  const poll = async () => {
+    if (Date.now() > deadline) {
+      logger.error({ modelId: known.id }, "Timed out waiting for llama-server restart");
+      loadingModelId = null;
+      return;
+    }
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/v1/models`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      if (r.ok) {
+        loadingModelId = null;
+        logger.info({ modelId: known.id }, "Model restarted");
+        return;
+      }
+    } catch {}
+    setTimeout(poll, 2000);
+  };
+  setTimeout(poll, 3000);
+});
+
 // POST /api/admin/models/load — kill llama-server and restart with a different model
 modelsRouter.post("/load", async (req, res) => {
   const { modelId } = req.body as { modelId?: string };
