@@ -12,6 +12,9 @@ import {
   Lock,
   Shield,
   Database,
+  Building2,
+  User,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -31,12 +34,8 @@ interface NavItem {
   adminOnly?: boolean;
   disabled?: boolean;
   search?: Record<string, string>;
+  badge?: number;
 }
-
-const ADMIN_NAV_ITEMS: NavItem[] = [
-  { href: "/library", label: "Library", icon: Database, adminOnly: true },
-  { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
-];
 
 // ─── Date grouping ───────────────────────────────────────────────────────────
 
@@ -94,6 +93,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const privacy = usePrivacy();
   const isPrivacyActive = privacy.level !== "standard";
+  const isAdmin = !!user?.isAdmin;
 
   function handleDeleteDone() {
     const wasActive = deletingConvId === activeConvId;
@@ -116,7 +116,27 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
     refetchInterval: 30_000,
   });
 
-  const adminItems = ADMIN_NAV_ITEMS.filter((item) => !item.adminOnly || user?.isAdmin);
+  const { data: unreadData } = useQuery<{ count: number }>({
+    queryKey: ["admin", "escalations", "unread-count"],
+    queryFn: () =>
+      fetch("/api/admin/escalations/unread-count", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<{ count: number }>;
+      }),
+    enabled: isAdmin,
+    refetchInterval: 30_000,
+  });
+
+  const unreadCount = unreadData?.count ?? 0;
+
+  // Admin nav items
+  const adminNavItems: NavItem[] = [
+    { href: "/library", label: "Library", icon: Database, adminOnly: true },
+    { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
+    { href: "/analytics", label: "Escalations", icon: AlertTriangle, adminOnly: true, search: { tab: "escalations" }, badge: unreadCount },
+  ];
+
+  const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);
   const isOnChat = currentPath === "/";
 
   return (
@@ -253,36 +273,20 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       )}
 
       {/* Admin nav items */}
-      {adminItems.length > 0 && (
+      {filteredAdminItems.length > 0 && (
         <div className="px-2 border-t border-slate-100 pt-2 mt-2 space-y-0.5">
-          {adminItems.map((item) => {
-            const isActive = currentPath.startsWith(item.href);
+          {filteredAdminItems.map((item, idx) => {
+            // For analytics/escalations, match both path and tab search param
+            const itemTab = item.search?.["tab"];
+            const currentTab = searchParams.get("tab");
+            const isActive = itemTab
+              ? currentPath.startsWith(item.href) && currentTab === itemTab
+              : currentPath.startsWith(item.href) && (!currentTab || currentTab === "overview");
             const Icon = item.icon;
-
-            if (item.disabled) {
-              return (
-                <div
-                  key={item.href}
-                  title={collapsed ? item.label : "Coming soon"}
-                  className={cn(
-                    "flex items-center rounded-lg text-sm text-slate-300 cursor-not-allowed",
-                    collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
-                  )}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span>{item.label}</span>
-                      <span className="ml-auto text-xs text-slate-300">Soon</span>
-                    </>
-                  )}
-                </div>
-              );
-            }
 
             return (
               <Link
-                key={item.href}
+                key={`${item.href}-${item.label}`}
                 to={item.href}
                 search={item.search ?? {}}
                 onClick={onNavigate}
@@ -296,30 +300,59 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && item.badge > 0 ? (
+                      <span className={cn(
+                        "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold leading-none rounded-full",
+                        isActive ? "bg-white/20 text-white" : "bg-blue-500 text-white",
+                      )}>
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </>
+                )}
               </Link>
             );
           })}
         </div>
       )}
 
-      {/* Bottom: Settings + collapse toggle */}
+      {/* Bottom: Organization + Account + collapse toggle */}
       <div className="px-2 border-t border-slate-100 pt-2 mt-2 space-y-0.5">
         <Link
-          to="/settings"
-          search={{ tab: "account" }}
+          to="/organization"
+          search={{ tab: "general" }}
           onClick={onNavigate}
-          title={collapsed ? "Settings" : undefined}
+          title={collapsed ? "Organization" : undefined}
           className={cn(
             "flex items-center rounded-lg text-sm transition-colors",
             collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
-            currentPath.startsWith("/settings")
+            currentPath.startsWith("/organization")
               ? "bg-slate-900 text-white"
               : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
           )}
         >
-          <Settings className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Settings</span>}
+          <Building2 className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Organization</span>}
+        </Link>
+
+        <Link
+          to="/account"
+          search={{ tab: "general" }}
+          onClick={onNavigate}
+          title={collapsed ? "Account" : undefined}
+          className={cn(
+            "flex items-center rounded-lg text-sm transition-colors",
+            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+            currentPath.startsWith("/account")
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          )}
+        >
+          <User className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Account</span>}
         </Link>
 
         {onToggleCollapse && (
@@ -388,4 +421,3 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
     </nav>
   );
 }
-
