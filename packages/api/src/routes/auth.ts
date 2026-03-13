@@ -3,8 +3,11 @@ import type { Router as IRouter } from "express";
 import { Issuer, generators } from "openid-client";
 import { randomUUID } from "crypto";
 import { config } from "../config.js";
-import { requireAdmin } from "../middleware/auth.js";
+import { logger } from "../lib/logger.js";
+import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { ensureDefaultOrg, getDefaultOrg, getOrg, getOrgsForUser } from "../services/orgStore.js";
+import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName } from "../services/userStore.js";
 
 export const authRouter: IRouter = Router();
 
@@ -31,19 +34,40 @@ async function getClient() {
 // Frontend checks this on load to determine session state.
 
 authRouter.get("/me", (req, res) => {
-  if (!req.session.queryToken) {
+  if (!req.session.queryToken || !req.session.email) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
+
+  // If user has selected an org, include org details
+  const orgId = req.session.orgId;
+  const org = orgId ? getOrg(orgId) : getDefaultOrg();
   const orgConfig = getIntegrationConfig();
+
+  // Check admin status in the context of the selected org
+  let isAdmin = req.session.isAdmin ?? false;
+  if (orgId && req.session.email) {
+    const userInOrg = getUserInOrg(req.session.email, orgId);
+    isAdmin = userInOrg?.role === "admin" || userInOrg?.role === "owner";
+  }
+
+  // Check if user needs to set up their name (first sign-in or no name set)
+  const userRecord = (orgId && req.session.email) ? getUserInOrg(req.session.email, orgId) : undefined;
+  const displayName = userRecord?.name ?? req.session.name;
+
   res.json({
-    isAdmin: req.session.isAdmin ?? false,
+    isAdmin,
     queryToken: req.session.queryToken,
     email: req.session.email,
-    ...(req.session.name && { name: req.session.name }),
+    ...(displayName && { name: displayName }),
     ...(req.session.picture && { picture: req.session.picture }),
+    orgId: orgId ?? org?.id,
+    orgName: org?.name,
+    orgSlug: org?.slug,
     privateModeEnabled: orgConfig.privateModeEnabled ?? false,
     vaultModeEnabled: orgConfig.vaultModeEnabled ?? false,
+    onboardingComplete: org?.settings.onboardingComplete ?? false,
+    needsNameSetup: !displayName,
   });
 });
 
@@ -66,20 +90,21 @@ authRouter.get("/login", async (req, res) => {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      prompt: "select_account",
     }) as string;
 
     // Flush session to disk before the redirect so the callback can read
     // codeVerifier + oidcState from the same session.
     req.session.save((err) => {
       if (err) {
-        console.error("Session save error before login redirect:", err);
+        logger.error({ err }, "Session save error before login redirect");
         res.status(500).json({ error: "Session error" });
         return;
       }
       res.redirect(url);
     });
   } catch (err) {
-    console.error("OIDC login error:", err);
+    logger.error({ err }, "OIDC login error");
     res.status(500).json({ error: "OIDC configuration error. Check server logs." });
   }
 });
@@ -107,6 +132,20 @@ authRouter.get("/callback", async (req, res) => {
 
     const isAdmin = (config.adminEmails as readonly string[]).includes(email);
 
+    // Upsert user record (creates org on first-ever login)
+    const org = ensureDefaultOrg();
+    const role = isAdmin ? "admin" as const : "member" as const;
+    upsertUser({
+      email,
+      ...(claims.name && { name: claims.name }),
+      ...(claims.picture && { picture: claims.picture }),
+      role,
+      orgId: org.id,
+    });
+
+    // Find all orgs this user belongs to
+    const userOrgs = getOrgsForUser(email);
+
     // Regenerate session to prevent session fixation attacks
     await new Promise<void>((resolve, reject) => {
       req.session.regenerate((err) => (err ? reject(err) : resolve()));
@@ -114,22 +153,27 @@ authRouter.get("/callback", async (req, res) => {
 
     req.session.queryToken = randomUUID();
     req.session.isAdmin = isAdmin;
-    // Store name + picture + email for all users.
-    // Email is needed to link conversations to users.
     req.session.email = email;
     if (claims.name) req.session.name = claims.name;
     if (claims.picture) req.session.picture = claims.picture;
 
+    // Auto-select org if user belongs to exactly one
+    if (userOrgs.length === 1) {
+      req.session.orgId = userOrgs[0]!.id;
+      req.session.orgSlug = userOrgs[0]!.slug;
+    }
+
     req.session.save((err) => {
       if (err) {
-        console.error("Session save error after callback:", err);
+        logger.error({ err }, "Session save error after callback");
         res.status(500).json({ error: "Session error" });
         return;
       }
+      // If multiple orgs, frontend will detect missing orgId and show picker
       res.redirect(config.frontendUrl);
     });
   } catch (err) {
-    console.error("OIDC callback error:", err);
+    logger.error({ err }, "OIDC callback error");
     // Restart flow on any error — gives the user a clean retry path
     res.redirect("/api/auth/login");
   }
@@ -137,21 +181,134 @@ authRouter.get("/callback", async (req, res) => {
 
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
 
+const COOKIE_CLEAR_OPTS = { path: "/", httpOnly: true, sameSite: "lax" as const };
+
 authRouter.post("/logout", (req, res) => {
   req.session.destroy((err) => {
-    if (err) console.error("Session destroy error:", err);
-    res.clearCookie("connect.sid", { path: "/" });
+    if (err) logger.error({ err }, "Session destroy error");
+    res.clearCookie("edgebric.sid", COOKIE_CLEAR_OPTS);
+    res.clearCookie("connect.sid", { path: "/" }); // clear legacy cookie if present
     res.json({ ok: true });
   });
 });
 
-// POST /api/auth/logout-redirect — destroys session and redirects to login.
-// Used by the frontend sign-out button via a form POST so the page fully reloads.
+// POST /api/auth/logout-redirect — destroys session and redirects to frontend.
+// Redirects to frontend (not /api/auth/login) so the user sees the sign-in page
+// instead of being auto-re-authenticated by the OIDC IdP.
 authRouter.post("/logout-redirect", (req, res) => {
   req.session.destroy((err) => {
-    if (err) console.error("Session destroy error:", err);
-    res.clearCookie("connect.sid", { path: "/" });
-    res.redirect("/api/auth/login");
+    if (err) logger.error({ err }, "Session destroy error");
+    res.clearCookie("edgebric.sid", COOKIE_CLEAR_OPTS);
+    res.clearCookie("connect.sid", { path: "/" }); // clear legacy cookie if present
+    res.redirect(config.frontendUrl);
+  });
+});
+
+// ─── PUT /api/auth/profile — update user's display name ──────────────────────
+
+authRouter.put("/profile", requireAuth, (req, res) => {
+  const { firstName, lastName } = req.body as { firstName?: string; lastName?: string };
+  const email = req.session.email;
+  const orgId = req.session.orgId;
+
+  if (!email) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const first = firstName?.trim();
+  if (!first) {
+    res.status(400).json({ error: "First name is required" });
+    return;
+  }
+
+  const last = lastName?.trim();
+  const fullName = last ? `${first} ${last}` : first;
+
+  // Update in all orgs this user belongs to if no org selected, otherwise just current org
+  if (orgId) {
+    updateUserName(email, orgId, fullName);
+  } else {
+    const userRecords = getUsersByEmail(email);
+    for (const u of userRecords) {
+      updateUserName(email, u.orgId, fullName);
+    }
+  }
+
+  // Update session name too
+  req.session.name = fullName;
+  req.session.save((err) => {
+    if (err) {
+      logger.error({ err }, "Session save error during profile update");
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.json({ ok: true, name: fullName });
+  });
+});
+
+// ─── GET /api/auth/orgs — list orgs the current user belongs to ──────────────
+
+authRouter.get("/orgs", requireAuth, (req, res) => {
+  const email = req.session.email;
+  if (!email) {
+    res.json([]);
+    return;
+  }
+  const orgs = getOrgsForUser(email);
+  // Include user's role in each org
+  const result = orgs.map((org) => {
+    const userInOrg = getUserInOrg(email, org.id);
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      role: userInOrg?.role ?? "member",
+      selected: org.id === req.session.orgId,
+    };
+  });
+  res.json(result);
+});
+
+// ─── POST /api/auth/select-org — switch to a different org ──────────────────
+
+authRouter.post("/select-org", requireAuth, (req, res) => {
+  const { orgId } = req.body as { orgId?: string };
+  if (!orgId) {
+    res.status(400).json({ error: "orgId is required" });
+    return;
+  }
+
+  const email = req.session.email;
+  if (!email) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  // Verify user belongs to this org
+  const userInOrg = getUserInOrg(email, orgId);
+  if (!userInOrg) {
+    res.status(403).json({ error: "You are not a member of this organization" });
+    return;
+  }
+
+  const org = getOrg(orgId);
+  if (!org) {
+    res.status(404).json({ error: "Organization not found" });
+    return;
+  }
+
+  req.session.orgId = orgId;
+  req.session.orgSlug = org.slug;
+  req.session.isAdmin = userInOrg.role === "admin" || userInOrg.role === "owner";
+
+  req.session.save((err) => {
+    if (err) {
+      logger.error({ err }, "Session save error during org select");
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.json({ ok: true, orgId, orgSlug: org.slug, isAdmin: req.session.isAdmin });
   });
 });
 

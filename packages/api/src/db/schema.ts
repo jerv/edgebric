@@ -1,5 +1,58 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
+// ─── Organizations ──────────────────────────────────────────────────────────
+
+export const organizations = sqliteTable("organizations", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  plan: text("plan").notNull().default("free"), // free | pro | enterprise
+  settings: text("settings").notNull().default("{}"), // JSON
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name"),
+  picture: text("picture"),
+  role: text("role").notNull().default("member"), // owner | admin | member
+  status: text("status").notNull().default("active"), // active | invited
+  orgId: text("org_id").notNull(),
+  invitedBy: text("invited_by"),
+  lastLoginAt: text("last_login_at"),
+  createdAt: text("created_at").notNull(),
+});
+
+// ─── Knowledge Bases ──────────────────────────────────────────────────────────
+
+export const knowledgeBases = sqliteTable("knowledge_bases", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("organization"), // organization | personal
+  ownerId: text("owner_id").notNull(),
+  orgId: text("org_id"),
+  datasetName: text("dataset_name").notNull(),
+  documentCount: integer("document_count").notNull().default(0),
+  status: text("status").notNull().default("active"), // active | archived
+  accessMode: text("access_mode").notNull().default("all"), // all | restricted
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// ─── KB Access (for restricted KBs) ────────────────────────────────────────
+
+export const kbAccess = sqliteTable("kb_access", {
+  id: text("id").primaryKey(),
+  kbId: text("kb_id").notNull(),
+  email: text("email").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 // ─── Documents ────────────────────────────────────────────────────────────────
 
 export const documents = sqliteTable("documents", {
@@ -14,6 +67,8 @@ export const documents = sqliteTable("documents", {
   sectionHeadings: text("section_headings").notNull().default("[]"), // JSON array
   storageKey: text("storage_key").notNull(),
   datasetName: text("dataset_name"),
+  piiWarnings: text("pii_warnings"), // JSON array of PIIWarning, null = none detected
+  knowledgeBaseId: text("knowledge_base_id"), // FK to knowledge_bases.id
 });
 
 // ─── Chunk Registry ──────────────────────────────────────────────────────────
@@ -36,6 +91,7 @@ export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
   userEmail: text("user_email").notNull(),
   userName: text("user_name"),
+  orgId: text("org_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   archivedAt: text("archived_at"),
@@ -62,6 +118,7 @@ export const escalationTargets = sqliteTable("escalation_targets", {
   role: text("role"),
   slackUserId: text("slack_user_id"),
   email: text("email"),
+  orgId: text("org_id"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -80,6 +137,7 @@ export const escalations = sqliteTable("escalations", {
   targetId: text("target_id"),
   targetName: text("target_name"),
   method: text("method"),
+  orgId: text("org_id"),
   readAt: text("read_at"),
   readBy: text("read_by"),
   adminReply: text("admin_reply"),
@@ -115,6 +173,7 @@ export const feedback = sqliteTable("feedback", {
   messageSnapshot: text("message_snapshot").notNull(), // JSON array of {role, content}
   topic: text("topic"),
   comment: text("comment"), // optional note from user on thumbs-down
+  orgId: text("org_id"),
   createdAt: text("created_at").notNull(),
 });
 

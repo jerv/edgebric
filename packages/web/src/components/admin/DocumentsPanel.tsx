@@ -5,24 +5,18 @@ import { cn } from "@/lib/utils";
 import type { Document } from "@edgebric/types";
 
 function StatusBadge({ status }: { status: Document["status"] }) {
+  const config: Record<string, { bg: string; dot: string; label: string }> = {
+    ready: { bg: "bg-green-50 text-green-700", dot: "bg-green-500", label: "Ready" },
+    processing: { bg: "bg-amber-50 text-amber-700", dot: "bg-amber-500 animate-pulse", label: "Processing" },
+    failed: { bg: "bg-red-50 text-red-700", dot: "bg-red-500", label: "Failed" },
+    pii_review: { bg: "bg-orange-50 text-orange-700", dot: "bg-orange-500", label: "PII Review" },
+    rejected: { bg: "bg-red-50 text-red-600", dot: "bg-red-400", label: "Rejected" },
+  };
+  const c = config[status] ?? config.failed!;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium",
-        status === "ready" && "bg-green-50 text-green-700",
-        status === "processing" && "bg-amber-50 text-amber-700",
-        status === "failed" && "bg-red-50 text-red-700",
-      )}
-    >
-      <span
-        className={cn(
-          "w-1.5 h-1.5 rounded-full",
-          status === "ready" && "bg-green-500",
-          status === "processing" && "bg-amber-500 animate-pulse",
-          status === "failed" && "bg-red-500",
-        )}
-      />
-      {status === "ready" ? "Ready" : status === "processing" ? "Processing" : "Failed"}
+    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium", c.bg)}>
+      <span className={cn("w-1.5 h-1.5 rounded-full", c.dot)} />
+      {c.label}
     </span>
   );
 }
@@ -30,7 +24,7 @@ function StatusBadge({ status }: { status: Document["status"] }) {
 interface UploadingFile {
   name: string;
   docId?: string;
-  status: "uploading" | "processing" | "ready" | "failed";
+  status: "uploading" | "processing" | "ready" | "failed" | "pii_review" | "rejected";
   error?: string;
 }
 

@@ -35,6 +35,9 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
           >
             <span className="text-slate-300 mt-0.5 flex-shrink-0">↳</span>
             <span>
+              {citation.knowledgeBaseName && (
+                <span className="text-slate-400 text-[11px]">[{citation.knowledgeBaseName}] </span>
+              )}
               <span className="font-medium text-slate-700 group-hover/cite:underline">
                 {name}
               </span>

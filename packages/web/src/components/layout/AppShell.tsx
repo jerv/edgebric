@@ -1,14 +1,24 @@
 import { useState, useEffect } from "react";
-import { Outlet } from "@tanstack/react-router";
+import { Outlet, useNavigate } from "@tanstack/react-router";
 import { Menu, X, Lock, Shield } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/contexts/PrivacyContext";
+import { useUser } from "@/contexts/UserContext";
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { level, privacyMessages } = usePrivacy();
+  const user = useUser();
+  const navigate = useNavigate();
+
+  // Redirect admin to onboarding if not complete
+  useEffect(() => {
+    if (user?.isAdmin && !user.onboardingComplete) {
+      void navigate({ to: "/onboarding" });
+    }
+  }, [user, navigate]);
 
   // Warn on refresh/tab close if privacy mode has messages
   useEffect(() => {

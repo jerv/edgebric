@@ -8,10 +8,11 @@ export const analyticsRouter: IRouter = Router();
 analyticsRouter.use(requireAdmin);
 
 // GET /api/admin/analytics/summary — dashboard overview
-analyticsRouter.get("/summary", (_req, res) => {
-  const overview = getOverviewStats();
-  const feedbackStats = getFeedbackStats();
-  const escalationStats = getEscalationStats();
+analyticsRouter.get("/summary", (req, res) => {
+  const orgId = req.session.orgId;
+  const overview = getOverviewStats(orgId);
+  const feedbackStats = getFeedbackStats(undefined, orgId);
+  const escalationStats = getEscalationStats(orgId);
 
   res.json({
     overview,
@@ -26,27 +27,27 @@ analyticsRouter.get("/summary", (_req, res) => {
 // GET /api/admin/analytics/volume?days=30 — query volume over time
 analyticsRouter.get("/volume", (req, res) => {
   const days = parseInt(req.query["days"] as string) || 30;
-  const volume = getQueryVolume(Math.min(days, 365));
+  const volume = getQueryVolume(Math.min(days, 365), req.session.orgId);
   res.json(volume);
 });
 
 // GET /api/admin/analytics/topics?min=5 — topic clusters
 analyticsRouter.get("/topics", (req, res) => {
   const min = parseInt(req.query["min"] as string) || 5;
-  const topics = getTopicClusters(min);
+  const topics = getTopicClusters(min, req.session.orgId);
   res.json(topics);
 });
 
 // GET /api/admin/analytics/unanswered?limit=50 — unanswered questions
 analyticsRouter.get("/unanswered", (req, res) => {
   const limit = parseInt(req.query["limit"] as string) || 50;
-  const questions = getUnansweredQuestions(Math.min(limit, 200));
+  const questions = getUnansweredQuestions(Math.min(limit, 200), req.session.orgId);
   res.json(questions);
 });
 
 // GET /api/admin/analytics/unanswered/export — CSV export
-analyticsRouter.get("/unanswered/export", (_req, res) => {
-  const questions = getUnansweredQuestions(500);
+analyticsRouter.get("/unanswered/export", (req, res) => {
+  const questions = getUnansweredQuestions(500, req.session.orgId);
 
   const escape = (s: string) => {
     if (s.includes(",") || s.includes('"') || s.includes("\n")) {
@@ -69,7 +70,7 @@ analyticsRouter.get("/unanswered/export", (_req, res) => {
 // POST /api/admin/analytics/unanswered/:messageId/resolve — mark as resolved
 analyticsRouter.post("/unanswered/:messageId/resolve", (req, res) => {
   const { messageId } = req.params;
-  const adminEmail = (req.session as unknown as Record<string, unknown>)?.["userEmail"] as string | undefined;
+  const adminEmail = req.session.email;
   resolveQuestion(messageId!, adminEmail);
   res.json({ resolved: true });
 });
@@ -83,7 +84,7 @@ analyticsRouter.delete("/unanswered/:messageId/resolve", (req, res) => {
 // GET /api/admin/analytics/feedback — raw feedback list (meta only, no snapshot)
 analyticsRouter.get("/feedback", (req, res) => {
   const limit = parseInt(req.query["limit"] as string) || 100;
-  const items = listFeedback(Math.min(limit, 500));
+  const items = listFeedback(Math.min(limit, 500), req.session.orgId);
   const summary = items.map((fb) => ({
     id: fb.id,
     rating: fb.rating,

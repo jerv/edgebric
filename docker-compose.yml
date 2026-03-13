@@ -1,0 +1,36 @@
+services:
+  edgebric:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - edgebric-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/app/data
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
+      # OIDC configuration (required)
+      - OIDC_ISSUER=${OIDC_ISSUER}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-http://localhost:3001/api/auth/callback}
+      # Admin emails (comma-separated)
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+      # mimik edge runtime — runs on the HOST, not in the container.
+      # Use host.docker.internal to reach the host's localhost.
+      - MIMIK_BASE_URL=${MIMIK_BASE_URL:-http://host.docker.internal:8083}
+      - MIMIK_API_KEY=${MIMIK_API_KEY}
+      - MILM_MODEL=${MILM_MODEL:-qwen3.5-4b.gguf}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      # Chat model (llama-server on host)
+      - CHAT_BASE_URL=${CHAT_BASE_URL:-http://host.docker.internal:8080/v1}
+      - CHAT_API_KEY=${CHAT_API_KEY:-}
+      - CHAT_MODEL=${CHAT_MODEL:-qwen3.5-4b.gguf}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  edgebric-data:

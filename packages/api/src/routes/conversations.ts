@@ -1,18 +1,25 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireOrg } from "../middleware/auth.js";
 import {
   getConversation,
   getMessages,
   getConversationPreviews,
+  getConversationsByUser,
   archiveConversation,
   deleteConversation,
+  archiveAllConversations,
+  deleteAllConversations,
 } from "../services/conversationStore.js";
-import { getEscalationsByConversation } from "../services/escalationStore.js";
+import {
+  getEscalationsByConversation,
+  conversationHasEscalations,
+  getConversationIdsWithEscalations,
+} from "../services/escalationStore.js";
 import { getUnreadConversationIds } from "../services/notificationStore.js";
 
 export const conversationsRouter: IRouter = Router();
-conversationsRouter.use(requireAuth);
+conversationsRouter.use(requireOrg);
 
 // GET /api/conversations — list current user's conversations (with preview)
 conversationsRouter.get("/", (req, res) => {
@@ -21,9 +28,49 @@ conversationsRouter.get("/", (req, res) => {
     res.json([]);
     return;
   }
-  const convs = getConversationPreviews(email);
+  const convs = getConversationPreviews(email, req.session.orgId);
   const unreadIds = getUnreadConversationIds(email);
   res.json(convs.map((c) => ({ ...c, hasUnreadNotification: unreadIds.has(c.id) })));
+});
+
+// DELETE /api/conversations?mode=archive|delete — bulk remove all user's conversations
+conversationsRouter.delete("/", (req, res) => {
+  const email = req.session.email;
+  if (!email) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const mode = req.query["mode"] as string | undefined;
+  if (mode !== "archive" && mode !== "delete") {
+    res.status(400).json({ error: "mode query param must be 'archive' or 'delete'" });
+    return;
+  }
+
+  const orgId = req.session.orgId;
+
+  if (mode === "archive") {
+    const count = archiveAllConversations(email, orgId);
+    res.json({ ok: true, mode, count });
+    return;
+  }
+
+  // mode === "delete": archive escalated conversations, hard-delete the rest
+  const userConvs = getConversationsByUser(email, orgId);
+  const escalatedIds = getConversationIdsWithEscalations(userConvs.map((c) => c.id));
+  let deleted = 0;
+  let preserved = 0;
+  for (const conv of userConvs) {
+    if (escalatedIds.has(conv.id)) {
+      archiveConversation(conv.id);
+      preserved++;
+    } else {
+      deleteConversation(conv.id);
+      deleted++;
+    }
+  }
+
+  res.json({ ok: true, mode, count: deleted, preserved });
 });
 
 // GET /api/conversations/:id — get conversation + messages
@@ -68,6 +115,13 @@ conversationsRouter.delete("/:id", (req, res) => {
 
   if (!req.session.isAdmin && email !== conv.userEmail) {
     res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  if (mode === "delete" && conversationHasEscalations(conv.id)) {
+    // Escalated conversations are preserved for admin review — force archive instead
+    archiveConversation(conv.id);
+    res.json({ ok: true, mode: "archive", escalationProtected: true });
     return;
   }
 

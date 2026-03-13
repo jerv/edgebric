@@ -9,16 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ShellRouteImport } from './routes/_shell'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ShellIndexRouteImport } from './routes/_shell/index'
 import { Route as ShellSettingsRouteImport } from './routes/_shell/settings'
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
+import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
 import { Route as ShellAnalyticsRouteImport } from './routes/_shell/analytics'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
 import { Route as ShellConversationsIdRouteImport } from './routes/_shell/conversations.$id'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShellRoute = ShellRouteImport.update({
   id: '/_shell',
   getParentRoute: () => rootRouteImport,
@@ -41,6 +48,11 @@ const ShellSettingsRoute = ShellSettingsRouteImport.update({
 const ShellModelsRoute = ShellModelsRouteImport.update({
   id: '/models',
   path: '/models',
+  getParentRoute: () => ShellRoute,
+} as any)
+const ShellLibraryRoute = ShellLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => ShellRoute,
 } as any)
 const ShellDocumentsRoute = ShellDocumentsRouteImport.update({
@@ -66,18 +78,22 @@ const ShellConversationsIdRoute = ShellConversationsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
+  '/onboarding': typeof OnboardingRoute
   '/account': typeof ShellAccountRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
+  '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/settings': typeof ShellSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/conversations/$id': typeof ShellConversationsIdRoute
 }
 export interface FileRoutesByTo {
+  '/onboarding': typeof OnboardingRoute
   '/account': typeof ShellAccountRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
+  '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/settings': typeof ShellSettingsRoute
   '/': typeof ShellIndexRoute
@@ -87,9 +103,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_shell': typeof ShellRouteWithChildren
+  '/onboarding': typeof OnboardingRoute
   '/_shell/account': typeof ShellAccountRoute
   '/_shell/analytics': typeof ShellAnalyticsRoute
   '/_shell/documents': typeof ShellDocumentsRoute
+  '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
   '/_shell/settings': typeof ShellSettingsRoute
   '/_shell/': typeof ShellIndexRoute
@@ -100,18 +118,22 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/onboarding'
     | '/account'
     | '/analytics'
     | '/documents'
+    | '/library'
     | '/models'
     | '/settings'
     | '/admin/'
     | '/conversations/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/onboarding'
     | '/account'
     | '/analytics'
     | '/documents'
+    | '/library'
     | '/models'
     | '/settings'
     | '/'
@@ -120,9 +142,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_shell'
+    | '/onboarding'
     | '/_shell/account'
     | '/_shell/analytics'
     | '/_shell/documents'
+    | '/_shell/library'
     | '/_shell/models'
     | '/_shell/settings'
     | '/_shell/'
@@ -132,11 +156,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
+  OnboardingRoute: typeof OnboardingRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_shell': {
       id: '/_shell'
       path: ''
@@ -170,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/models'
       preLoaderRoute: typeof ShellModelsRouteImport
+      parentRoute: typeof ShellRoute
+    }
+    '/_shell/library': {
+      id: '/_shell/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof ShellLibraryRouteImport
       parentRoute: typeof ShellRoute
     }
     '/_shell/documents': {
@@ -207,6 +246,7 @@ interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellAnalyticsRoute: typeof ShellAnalyticsRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
+  ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
   ShellSettingsRoute: typeof ShellSettingsRoute
   ShellIndexRoute: typeof ShellIndexRoute
@@ -217,6 +257,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
   ShellAnalyticsRoute: ShellAnalyticsRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
+  ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,
   ShellSettingsRoute: ShellSettingsRoute,
   ShellIndexRoute: ShellIndexRoute,
@@ -227,6 +268,7 @@ const ShellRouteWithChildren = ShellRoute._addFileChildren(ShellRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
+  OnboardingRoute: OnboardingRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport

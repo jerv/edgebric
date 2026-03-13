@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Props {
   conversationId: string;
@@ -8,6 +8,23 @@ interface Props {
 
 export function DeleteConversationDialog({ conversationId, onClose, onDone }: Props) {
   const [pending, setPending] = useState<"archive" | "delete" | null>(null);
+  const [hasEscalations, setHasEscalations] = useState<boolean | null>(null);
+  const [hideConfirm, setHideConfirm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  // Check if this conversation has escalations
+  useEffect(() => {
+    fetch(`/api/conversations/${conversationId}`, { credentials: "same-origin" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.escalations?.length > 0) {
+          setHasEscalations(true);
+        } else {
+          setHasEscalations(false);
+        }
+      })
+      .catch(() => setHasEscalations(false));
+  }, [conversationId]);
 
   async function handleAction(mode: "archive" | "delete") {
     setPending(mode);
@@ -39,32 +56,81 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
           improvement. Removing this conversation affects that signal.
         </p>
 
-        <div className="space-y-2">
-          <button
-            onClick={() => void handleAction("archive")}
-            disabled={!!pending}
-            className="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+        <div className="space-y-3">
+          {/* Hide from sidebar — type HIDE to confirm */}
+          <div className="border border-slate-200 rounded-lg px-3 py-2.5 space-y-2">
             <span className="text-sm font-medium text-slate-800 block">
-              {pending === "archive" ? "Archiving..." : "Hide from sidebar"}
+              Hide from sidebar
             </span>
-            <span className="text-xs text-slate-400 block mt-0.5">
+            <span className="text-xs text-slate-400 block">
               Your questions still contribute to anonymized topic trends.
             </span>
-          </button>
+            <div className="pt-0.5">
+              <label className="text-xs text-slate-500 block mb-1">
+                Type <span className="font-mono font-semibold text-slate-700">HIDE</span> to confirm
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={hideConfirm}
+                  onChange={(e) => setHideConfirm(e.target.value)}
+                  placeholder="HIDE"
+                  className="border border-slate-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300"
+                />
+                <button
+                  onClick={() => void handleAction("archive")}
+                  disabled={hideConfirm !== "HIDE" || !!pending}
+                  className="bg-slate-900 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {pending === "archive" ? "Hiding..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
 
-          <button
-            onClick={() => void handleAction("delete")}
-            disabled={!!pending}
-            className="w-full text-left px-3 py-2.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span className="text-sm font-medium text-red-600 block">
-              {pending === "delete" ? "Deleting..." : "Delete permanently"}
-            </span>
-            <span className="text-xs text-slate-400 block mt-0.5">
-              Removes this conversation and all messages entirely.
-            </span>
-          </button>
+          {/* Delete permanently — type DELETE to confirm, or disabled if escalated */}
+          {hasEscalations ? (
+            <div className="border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
+              <span className="text-sm font-medium text-slate-400 block">
+                Delete permanently
+              </span>
+              <span className="text-xs text-slate-400 block mt-0.5">
+                This conversation includes a request for human verification and is
+                preserved for admin review. It can only be archived.
+              </span>
+            </div>
+          ) : (
+            <div className="border border-red-200 rounded-lg px-3 py-2.5 space-y-2">
+              <span className="text-sm font-medium text-red-600 block">
+                Delete permanently
+              </span>
+              <span className="text-xs text-slate-400 block">
+                Removes this conversation and all messages entirely.
+              </span>
+              <div className="pt-0.5">
+                <label className="text-xs text-slate-500 block mb-1">
+                  Type <span className="font-mono font-semibold text-slate-700">DELETE</span> to confirm
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.value)}
+                    placeholder="DELETE"
+                    disabled={hasEscalations === null}
+                    className="border border-slate-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-300 disabled:opacity-40"
+                  />
+                  <button
+                    onClick={() => void handleAction("delete")}
+                    disabled={deleteConfirm !== "DELETE" || !!pending || hasEscalations === null}
+                    className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    {pending === "delete" ? "Deleting..." : "Confirm"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <button

@@ -1,12 +1,15 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
+import { z } from "zod";
 import { answerStream, filterQuery } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import type { SearchResult } from "@edgebric/core/rag";
-import { requireAuth } from "../middleware/auth.js";
+import { requireOrg } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { lookupChunk } from "../services/chunkRegistry.js";
-import { getAllDocuments } from "../services/documentStore.js";
+import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
 import {
   createConversation,
   getConversation,
@@ -15,8 +18,20 @@ import {
   updateConversationTimestamp,
 } from "../services/conversationStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import type { Session, SessionMessage, PersistedMessage } from "@edgebric/types";
+import { listTargets } from "../services/escalationTargetStore.js";
+import { listKBs, listAccessibleKBs } from "../services/knowledgeBaseStore.js";
+import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
+
+const queryBodySchema = z.object({
+  query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
+  conversationId: z.string().optional(),
+  private: z.boolean().optional(),
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().max(8000),
+  })).max(20).optional(),
+});
 
 export const queryRouter: IRouter = Router();
 
@@ -36,28 +51,76 @@ const chatEdgeConfig = {
 };
 const chatClient = createMILMClient(chatEdgeConfig, "");
 
-queryRouter.use(requireAuth);
+queryRouter.use(requireOrg);
+
+/** Enrich citations with the knowledge base name based on document → KB lookup. */
+function enrichCitationsWithKBName(citations: Citation[]): void {
+  if (citations.length === 0) return;
+  const kbs = listKBs({ type: "organization" });
+  const kbMap = new Map(kbs.map((kb) => [kb.id, kb.name]));
+  for (const citation of citations) {
+    const doc = getDocument(citation.documentId);
+    if (doc?.knowledgeBaseId) {
+      const name = kbMap.get(doc.knowledgeBaseId);
+      if (name) citation.knowledgeBaseName = name;
+    }
+  }
+}
+
+/** Get dataset names accessible to a user. Falls back to legacy "knowledge-base" if no KBs exist. */
+function getAccessibleDatasetNames(email: string, isAdmin: boolean, orgId?: string): string[] {
+  const kbs = listAccessibleKBs(email, isAdmin, orgId);
+  if (kbs.length === 0) return ["knowledge-base"];
+  return kbs.map((kb) => kb.datasetName);
+}
+
+/**
+ * Search across multiple mKB datasets, merge results by similarity score,
+ * and enrich with chunk metadata from our registry.
+ */
+async function multiDatasetSearch(
+  datasetNames: string[],
+  queryText: string,
+  topK: number,
+): Promise<SearchResult[]> {
+  // Fan out to all datasets in parallel
+  const resultSets = await Promise.all(
+    datasetNames.map(async (ds) => {
+      try {
+        return await mkb.search(ds, queryText, topK);
+      } catch {
+        // Dataset may not exist yet or be empty — don't fail the whole query
+        return [];
+      }
+    }),
+  );
+
+  // Flatten and enrich
+  const allResults = resultSets.flat().map((r) => {
+    const stored = lookupChunk(r.chunkId);
+    if (stored) return { ...r, metadata: stored };
+    const meta = r.metadata;
+    if (!meta.documentName && !meta.sourceDocument) {
+      const firstDoc = getAllDocuments().find((d) => d.status === "ready");
+      if (firstDoc) meta.documentName = firstDoc.name;
+    }
+    return r;
+  });
+
+  // Sort by similarity (descending) and take top-K
+  allResults.sort((a, b) => b.similarity - a.similarity);
+  return allResults.slice(0, topK);
+}
 
 // Returns whether the system has at least one ready document to query against.
-queryRouter.get("/status", (_req, res) => {
-  const hasDocuments = getAllDocuments().some((d) => d.status === "ready");
+queryRouter.get("/status", (req, res) => {
+  const docs = req.session.orgId ? getDocumentsByOrg(req.session.orgId) : getAllDocuments();
+  const hasDocuments = docs.some((d) => d.status === "ready");
   res.json({ ready: hasDocuments });
 });
 
-queryRouter.post("/", async (req, res) => {
-  const { query, conversationId: existingConvId } = req.body as {
-    query?: string;
-    conversationId?: string;
-    private?: boolean;
-    messages?: Array<{ role: "user" | "assistant"; content: string }>;
-  };
-  const isPrivate = !!(req.body as { private?: boolean }).private;
-  const clientMessages = (req.body as { messages?: Array<{ role: "user" | "assistant"; content: string }> }).messages;
-
-  if (!query?.trim()) {
-    res.status(400).json({ error: "query is required" });
-    return;
-  }
+queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages } = req.body as z.infer<typeof queryBodySchema>;
 
   const filterResult = filterQuery(query);
   if (!filterResult.allowed) {
@@ -98,24 +161,15 @@ queryRouter.post("/", async (req, res) => {
     };
 
     try {
+      const orgId = req.session.orgId;
+      const targetNames = listTargets(orgId).map((t) => t.name);
+      const datasetNames = getAccessibleDatasetNames(req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       const stream = answerStream(
         query,
         session,
-        { datasetName: "knowledge-base", topK: 3, similarityThreshold: 0.3 },
+        { datasetName: datasetNames[0]!, datasetNames, topK: 3, similarityThreshold: 0.3, escalationTargetNames: targetNames },
         {
-          search: async (queryText, topK): Promise<SearchResult[]> => {
-            const raw = await mkb.search("knowledge-base", queryText, topK);
-            return raw.map((r) => {
-              const stored = lookupChunk(r.chunkId);
-              if (stored) return { ...r, metadata: stored };
-              const meta = r.metadata;
-              if (!meta.documentName && !meta.sourceDocument) {
-                const firstDoc = getAllDocuments().find((d) => d.status === "ready");
-                if (firstDoc) meta.documentName = firstDoc.name;
-              }
-              return r;
-            });
-          },
+          search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
           generate: (messages) => chatClient.chatStream(messages),
         },
       );
@@ -123,13 +177,14 @@ queryRouter.post("/", async (req, res) => {
       for await (const chunk of stream) {
         if (chunk.delta) sendEvent("delta", { delta: chunk.delta });
         if (chunk.final) {
+          enrichCitationsWithKBName(chunk.final.citations);
           // No DB writes — just send the final response
           sendEvent("done", { ...chunk.final, private: true });
         }
       }
     } catch (err) {
       sendEvent("error", { message: "An error occurred. Please try again." });
-      console.error("Private query error:", err);
+      logger.error({ err }, "Private query error");
     } finally {
       res.end();
     }
@@ -146,9 +201,10 @@ queryRouter.post("/", async (req, res) => {
     return;
   }
   const userName = req.session.name;
+  const orgId = req.session.orgId;
   let conversation = existingConvId ? getConversation(existingConvId) : undefined;
   if (!conversation) {
-    conversation = createConversation(userEmail, userName);
+    conversation = createConversation(userEmail, userName, orgId);
   }
 
   // Save user message to DB
@@ -185,33 +241,20 @@ queryRouter.post("/", async (req, res) => {
   };
 
   try {
+    const targetNames = listTargets(orgId).map((t) => t.name);
+    const datasetNames = getAccessibleDatasetNames(req.session.email ?? "", req.session.isAdmin ?? false, orgId);
     const stream = answerStream(
       query,
       session,
       {
-        datasetName: "knowledge-base",
+        datasetName: datasetNames[0]!,
+        datasetNames,
         topK: 3,
         similarityThreshold: 0.3,
+        escalationTargetNames: targetNames,
       },
       {
-        search: async (queryText, topK): Promise<SearchResult[]> => {
-          const raw = await mkb.search("knowledge-base", queryText, topK);
-          // Enrich results with chunk metadata from our registry
-          // (mKB v1.3.0 doesn't persist chunk metadata)
-          return raw.map((r) => {
-            const stored = lookupChunk(r.chunkId);
-            if (stored) return { ...r, metadata: stored };
-            // Fallback for chunks not in registry (e.g. old test data):
-            // try to get a reasonable documentName from the metadata mKB returned
-            const meta = r.metadata;
-            if (!meta.documentName && !meta.sourceDocument) {
-              // Best effort: use the first ready document's name
-              const firstDoc = getAllDocuments().find((d) => d.status === "ready");
-              if (firstDoc) meta.documentName = firstDoc.name;
-            }
-            return r;
-          });
-        },
+        search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
         generate: (messages) => chatClient.chatStream(messages),
       },
     );
@@ -221,6 +264,8 @@ queryRouter.post("/", async (req, res) => {
         sendEvent("delta", { delta: chunk.delta });
       }
       if (chunk.final) {
+        enrichCitationsWithKBName(chunk.final.citations);
+
         // Save assistant message to DB
         const assistantMsgId = randomUUID();
         const assistantMsg: PersistedMessage = {
@@ -245,7 +290,7 @@ queryRouter.post("/", async (req, res) => {
     }
   } catch (err) {
     sendEvent("error", { message: "An error occurred. Please try again." });
-    console.error("Query error:", err);
+    logger.error({ err }, "Query error");
   } finally {
     res.end();
   }

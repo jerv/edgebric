@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SettingsPage } from "@/components/SettingsPage";
 import type { SettingsTab } from "@/components/SettingsPage";
 
-const VALID_TABS: SettingsTab[] = ["account", "privacy", "models", "integrations", "escalations"];
+const VALID_TABS: SettingsTab[] = ["account", "privacy", "members", "models", "integrations", "escalations"];
 
 function SettingsRoute() {
   const { tab } = Route.useSearch();

@@ -657,10 +657,10 @@ export function ChatPanel() {
               </>
             ) : (
               <>
-                <p className="text-slate-900 text-xl font-medium mb-2">Knowledge base is empty</p>
+                <p className="text-slate-900 text-xl font-medium mb-2">Library is empty</p>
                 <p className="text-slate-400 text-sm max-w-sm">
                   {user?.isAdmin
-                    ? "Upload documents from the Documents panel to get started."
+                    ? "Upload documents from the Library to get started."
                     : "No documents have been loaded yet. Check back soon."}
                 </p>
               </>

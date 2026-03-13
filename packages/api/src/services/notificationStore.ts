@@ -1,7 +1,7 @@
 import type { Notification } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { notifications } from "../db/schema.js";
-import { eq, and, desc, isNull, count } from "drizzle-orm";
+import { eq, and, desc, isNull, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function rowToNotification(row: typeof notifications.$inferSelect): Notification {
@@ -18,6 +18,11 @@ function rowToNotification(row: typeof notifications.$inferSelect): Notification
   if (row.body != null) n.body = row.body;
   if (row.readAt != null) n.readAt = new Date(row.readAt);
   return n;
+}
+
+/** Build org filter condition: notification's conversation must belong to the given org. */
+function orgCondition(orgId: string) {
+  return sql`${notifications.conversationId} IN (SELECT id FROM conversations WHERE org_id = ${orgId})`;
 }
 
 export function createNotification(opts: {
@@ -51,24 +56,30 @@ export function createNotification(opts: {
   );
 }
 
-export function getNotificationsForUser(email: string, limit = 50): Notification[] {
+export function getNotificationsForUser(email: string, limit = 50, orgId?: string): Notification[] {
   const db = getDb();
+  const conditions = [eq(notifications.userEmail, email)];
+  if (orgId) conditions.push(orgCondition(orgId));
+
   const rows = db
     .select()
     .from(notifications)
-    .where(eq(notifications.userEmail, email))
+    .where(and(...conditions))
     .orderBy(desc(notifications.createdAt))
     .limit(limit)
     .all();
   return rows.map(rowToNotification);
 }
 
-export function getUnreadCountForUser(email: string): number {
+export function getUnreadCountForUser(email: string, orgId?: string): number {
   const db = getDb();
+  const conditions = [eq(notifications.userEmail, email), isNull(notifications.readAt)];
+  if (orgId) conditions.push(orgCondition(orgId));
+
   const result = db
     .select({ value: count() })
     .from(notifications)
-    .where(and(eq(notifications.userEmail, email), isNull(notifications.readAt)))
+    .where(and(...conditions))
     .get();
   return result?.value ?? 0;
 }
@@ -95,12 +106,15 @@ export function markReadForConversation(email: string, conversationId: string): 
     .run();
 }
 
-export function getUnreadConversationIds(email: string): Set<string> {
+export function getUnreadConversationIds(email: string, orgId?: string): Set<string> {
   const db = getDb();
+  const conditions = [eq(notifications.userEmail, email), isNull(notifications.readAt)];
+  if (orgId) conditions.push(orgCondition(orgId));
+
   const rows = db
     .select({ conversationId: notifications.conversationId })
     .from(notifications)
-    .where(and(eq(notifications.userEmail, email), isNull(notifications.readAt)))
+    .where(and(...conditions))
     .all();
   return new Set(rows.map((r) => r.conversationId));
 }

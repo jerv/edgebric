@@ -1,0 +1,202 @@
+import { Router } from "express";
+import type { Router as IRouter } from "express";
+import { z } from "zod";
+import path from "path";
+import fs from "fs/promises";
+import { randomUUID } from "crypto";
+import multer from "multer";
+import { requireOrg, requireAdmin } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import {
+  createKB,
+  getKB,
+  listAccessibleKBs,
+  updateKB,
+  archiveKB,
+  refreshDocumentCount,
+  getKBAccessList,
+  setKBAccessList,
+} from "../services/knowledgeBaseStore.js";
+import { getDocumentsByKB, setDocument, getDocument } from "../services/documentStore.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { config } from "../config.js";
+import type { Document, KBAccessMode } from "@edgebric/types";
+import { fileTypeFromBuffer } from "file-type";
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+
+const createKBSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  description: z.string().max(1000).optional(),
+});
+
+const updateKBSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  accessMode: z.enum(["all", "restricted"]).optional(),
+  accessList: z.array(z.string().email()).optional(),
+});
+
+// ─── KB Routes ──────────────────────────────────────────────────────────────
+
+export const knowledgeBasesRouter: IRouter = Router();
+
+// List KBs — filters by access for non-admin users
+knowledgeBasesRouter.get("/", requireOrg, (req, res) => {
+  const email = req.session.email ?? "";
+  const isAdmin = req.session.isAdmin ?? false;
+  const kbs = listAccessibleKBs(email, isAdmin, req.session.orgId);
+  res.json(kbs);
+});
+
+// Everything below is admin-only
+knowledgeBasesRouter.use(requireAdmin);
+
+knowledgeBasesRouter.post("/", validateBody(createKBSchema), (req, res) => {
+  const { name, description } = req.body as z.infer<typeof createKBSchema>;
+  const adminEmail = req.session.email ?? "unknown";
+
+  const desc = description?.trim();
+  const kb = createKB({
+    name: name.trim(),
+    ...(desc && { description: desc }),
+    type: "organization",
+    ownerId: adminEmail,
+    ...(req.session.orgId && { orgId: req.session.orgId }),
+  });
+  res.status(201).json(kb);
+});
+
+knowledgeBasesRouter.get("/:id", (req, res) => {
+  const kb = getKB(req.params["id"] as string);
+  if (!kb) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const docs = getDocumentsByKB(kb.id);
+
+  // Compute staleness
+  const cfg = getIntegrationConfig();
+  const thresholdDays = cfg.stalenessThresholdDays ?? 180;
+  const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const enrichedDocs = docs.map((doc) => ({
+    ...doc,
+    isStale: now - new Date(doc.updatedAt).getTime() > thresholdMs,
+  }));
+
+  // Include access list for restricted KBs
+  const accessList = kb.accessMode === "restricted" ? getKBAccessList(kb.id) : [];
+
+  res.json({ ...kb, documents: enrichedDocs, accessList });
+});
+
+knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
+  const { name, description, accessMode, accessList } = req.body as z.infer<typeof updateKBSchema>;
+  const updated = updateKB(req.params["id"] as string, {
+    ...(name !== undefined && { name: name.trim() }),
+    ...(description !== undefined && { description: description.trim() }),
+    ...(accessMode !== undefined && { accessMode: accessMode as KBAccessMode }),
+  });
+  if (!updated) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+
+  // Update access list if provided
+  if (accessList !== undefined) {
+    setKBAccessList(updated.id, accessList);
+  }
+
+  res.json({ ...updated, accessList: getKBAccessList(updated.id) });
+});
+
+knowledgeBasesRouter.delete("/:id", (req, res) => {
+  const kb = getKB(req.params["id"] as string);
+  if (!kb) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  archiveKB(kb.id);
+  res.json({ ok: true });
+});
+
+// ─── Upload document to specific KB ─────────────────────────────────────────
+
+const MAGIC_EXT_MAP: Record<string, Document["type"]> = { pdf: "pdf", docx: "docx" };
+const TEXT_EXTENSIONS = new Set(["txt", "md"]);
+
+const upload = multer({
+  dest: path.join(config.dataDir, "uploads"),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".pdf", ".docx", ".txt", ".md"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${ext}`));
+    }
+  },
+});
+
+knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
+  const kb = getKB(req.params["id"] as string);
+  if (!kb) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  // Magic bytes validation
+  const claimedExt = path.extname(req.file.originalname).toLowerCase().slice(1);
+  const header = Buffer.alloc(4100);
+  const fd = await fs.open(req.file.path, "r");
+  try { await fd.read(header, 0, 4100, 0); } finally { await fd.close(); }
+  const detected = await fileTypeFromBuffer(header);
+
+  let fileType: Document["type"] = claimedExt as Document["type"];
+  if (detected) {
+    const canonical = MAGIC_EXT_MAP[detected.ext];
+    if (canonical) {
+      if (canonical !== claimedExt) {
+        await fs.unlink(req.file.path).catch(() => {});
+        res.status(400).json({
+          error: "File type mismatch",
+          details: `Extension is .${claimedExt} but content is ${detected.mime}`,
+        });
+        return;
+      }
+      fileType = canonical;
+    }
+  } else if (!TEXT_EXTENSIONS.has(claimedExt)) {
+    await fs.unlink(req.file.path).catch(() => {});
+    res.status(400).json({ error: "File type mismatch" });
+    return;
+  }
+
+  const doc: Document = {
+    id: randomUUID(),
+    name: req.file.originalname,
+    type: fileType,
+    classification: "policy",
+    uploadedAt: new Date(),
+    updatedAt: new Date(),
+    status: "processing",
+    sectionHeadings: [],
+    storageKey: req.file.path,
+    knowledgeBaseId: kb.id,
+  };
+
+  setDocument(doc);
+  res.status(202).json({ documentId: doc.id, knowledgeBaseId: kb.id });
+
+  // Kick off ingestion with KB-scoped dataset name
+  void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
+    ingestDocument(doc, { datasetName: kb.datasetName }),
+  );
+});

@@ -13,6 +13,7 @@ import { getDb } from "../db/index.js";
 import { chunks, documents } from "../db/schema.js";
 import { eq, isNull } from "drizzle-orm";
 import { extractDocument } from "./extractors.js";
+import { logger } from "../lib/logger.js";
 
 export async function backfillChunkContent(): Promise<void> {
   const db = getDb();
@@ -27,12 +28,12 @@ export async function backfillChunkContent(): Promise<void> {
   const docIds = [...new Set(contentlessChunks.map((c) => c.sourceDocument))];
   if (docIds.length === 0) return;
 
-  console.log(`Backfill: ${docIds.length} document(s) have chunks without content`);
+  logger.info({ count: docIds.length }, "Backfill: documents have chunks without content");
 
   for (const docId of docIds) {
     const docRow = db.select().from(documents).where(eq(documents.id, docId)).get();
     if (!docRow) {
-      console.warn(`Backfill: document ${docId} not found, skipping`);
+      logger.warn({ docId }, "Backfill: document not found, skipping");
       continue;
     }
 
@@ -65,9 +66,9 @@ export async function backfillChunkContent(): Promise<void> {
           filled++;
         }
       }
-      console.log(`Backfill: ${docRow.name} — filled ${filled}/${docChunks.length} chunks`);
+      logger.info({ docName: docRow.name, filled, total: docChunks.length }, "Backfill: filled chunks");
     } catch (err) {
-      console.warn(`Backfill: failed for ${docRow.name}:`, err);
+      logger.warn({ err, docName: docRow.name }, "Backfill: failed for document");
     }
   }
 }

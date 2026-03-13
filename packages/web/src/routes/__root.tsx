@@ -1,10 +1,14 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserContext } from "@/contexts/UserContext";
 import type { User } from "@/contexts/UserContext";
 import { PrivacyProvider } from "@/contexts/PrivacyContext";
+import { OrgPicker } from "@/components/OrgPicker";
+import { LoginPage } from "@/components/LoginPage";
+import { NameSetup } from "@/components/NameSetup";
 
 function Root() {
+  const queryClient = useQueryClient();
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ["me"],
     queryFn: async () => {
@@ -26,21 +30,28 @@ function Root() {
   }
 
   if (!user) {
+    return <LoginPage />;
+  }
+
+  // User is authenticated but has no org selected — show org picker
+  if (!user.orgId) {
     return (
-      <div className="h-screen flex items-center justify-center bg-white">
-        <div className="text-center space-y-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Edgebric</h1>
-            <p className="text-sm text-slate-400 mt-1">Knowledge Assistant</p>
-          </div>
-          <a
-            href="/api/auth/login"
-            className="inline-block bg-slate-900 text-white rounded-xl px-6 py-3 text-sm font-medium hover:bg-slate-700 transition-colors"
-          >
-            Sign in
-          </a>
-        </div>
-      </div>
+      <OrgPicker
+        onSelected={() => {
+          void queryClient.invalidateQueries({ queryKey: ["me"] });
+        }}
+      />
+    );
+  }
+
+  // User needs to set their name (first sign-in)
+  if (user.needsNameSetup) {
+    return (
+      <NameSetup
+        onComplete={() => {
+          void queryClient.invalidateQueries({ queryKey: ["me"] });
+        }}
+      />
     );
   }
 

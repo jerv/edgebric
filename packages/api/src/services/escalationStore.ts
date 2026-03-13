@@ -1,7 +1,7 @@
 import type { Escalation } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { escalations } from "../db/schema.js";
-import { eq, desc, isNull, count } from "drizzle-orm";
+import { eq, desc, isNull, count, and } from "drizzle-orm";
 
 /** Convert a DB row to an Escalation. */
 function rowToEscalation(row: typeof escalations.$inferSelect): Escalation {
@@ -30,7 +30,7 @@ function rowToEscalation(row: typeof escalations.$inferSelect): Escalation {
   return esc;
 }
 
-export function addEscalation(esc: Escalation): void {
+export function addEscalation(esc: Escalation, orgId?: string): void {
   const db = getDb();
   db.insert(escalations)
     .values({
@@ -46,6 +46,7 @@ export function addEscalation(esc: Escalation): void {
       targetId: esc.targetId || null,
       targetName: esc.targetName ?? null,
       method: esc.method || null,
+      orgId: orgId ?? null,
       readAt: null,
       readBy: null,
       adminReply: null,
@@ -64,13 +65,13 @@ export function getEscalation(id: string): Escalation | undefined {
   return row ? rowToEscalation(row) : undefined;
 }
 
-export function listEscalations(): Escalation[] {
+export function listEscalations(orgId?: string): Escalation[] {
   const db = getDb();
-  const rows = db
-    .select()
-    .from(escalations)
-    .orderBy(desc(escalations.createdAt))
-    .all();
+  const conditions = orgId ? [eq(escalations.orgId, orgId)] : [];
+  const query = conditions.length > 0
+    ? db.select().from(escalations).where(and(...conditions))
+    : db.select().from(escalations);
+  const rows = query.orderBy(desc(escalations.createdAt)).all();
   return rows.map(rowToEscalation);
 }
 
@@ -90,12 +91,14 @@ export function markRead(escalationId: string, adminEmail: string): Escalation |
   return getEscalation(escalationId);
 }
 
-export function getUnreadCount(): number {
+export function getUnreadCount(orgId?: string): number {
   const db = getDb();
+  const conditions = [isNull(escalations.readAt)];
+  if (orgId) conditions.push(eq(escalations.orgId, orgId));
   const result = db
     .select({ value: count() })
     .from(escalations)
-    .where(isNull(escalations.readAt))
+    .where(and(...conditions))
     .get();
   return result?.value ?? 0;
 }
@@ -155,6 +158,29 @@ export function unresolveEscalation(id: string): Escalation | undefined {
     .where(eq(escalations.id, id))
     .run();
   return getEscalation(id);
+}
+
+/** Check if a conversation has any escalations. */
+export function conversationHasEscalations(conversationId: string): boolean {
+  const db = getDb();
+  const row = db
+    .select({ value: count() })
+    .from(escalations)
+    .where(eq(escalations.conversationId, conversationId))
+    .get();
+  return (row?.value ?? 0) > 0;
+}
+
+/** Get conversation IDs that have escalations from a list of IDs. */
+export function getConversationIdsWithEscalations(conversationIds: string[]): Set<string> {
+  if (conversationIds.length === 0) return new Set();
+  const db = getDb();
+  const rows = db
+    .select({ conversationId: escalations.conversationId })
+    .from(escalations)
+    .all();
+  const allEscalated = new Set(rows.map((r) => r.conversationId).filter(Boolean) as string[]);
+  return new Set(conversationIds.filter((id) => allEscalated.has(id)));
 }
 
 export function getEscalationsByConversation(conversationId: string): Escalation[] {

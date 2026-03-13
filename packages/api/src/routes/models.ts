@@ -5,6 +5,7 @@ import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 import { config, runtimeChatConfig } from "../config.js";
+import { logger } from "../lib/logger.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 export const modelsRouter: IRouter = Router();
@@ -73,7 +74,7 @@ modelsRouter.put("/active", (req, res) => {
     return;
   }
   runtimeChatConfig.model = modelId.trim();
-  console.log(`Active chat model switched to: ${runtimeChatConfig.model}`);
+  logger.info({ model: runtimeChatConfig.model }, "Active chat model switched");
   res.json({ activeModel: runtimeChatConfig.model });
 });
 
@@ -103,7 +104,7 @@ modelsRouter.post("/load", async (req, res) => {
   }
 
   loadingModelId = known.id;
-  console.log(`Loading model: ${known.id}`);
+  logger.info({ modelId: known.id }, "Loading model");
 
   // Kill existing llama-server on port 8080
   await new Promise<void>((resolve) => {
@@ -129,7 +130,7 @@ modelsRouter.post("/load", async (req, res) => {
   const deadline = Date.now() + 120_000; // 2 min max
   const poll = async () => {
     if (Date.now() > deadline) {
-      console.error(`Timed out waiting for llama-server to load ${known.id}`);
+      logger.error({ modelId: known.id }, "Timed out waiting for llama-server to load model");
       loadingModelId = null;
       return;
     }
@@ -140,7 +141,7 @@ modelsRouter.post("/load", async (req, res) => {
       if (r.ok) {
         runtimeChatConfig.model = known.id;
         runtimeChatConfig.baseUrl = `http://127.0.0.1:${port}/v1`;
-        console.log(`Model loaded: ${known.id}`);
+        logger.info({ modelId: known.id }, "Model loaded");
         loadingModelId = null;
         return;
       }

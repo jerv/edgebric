@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireOrg } from "../middleware/auth.js";
 import {
   getNotificationsForUser,
   getUnreadCountForUser,
@@ -9,9 +9,9 @@ import {
 } from "../services/notificationStore.js";
 
 export const notificationsRouter: IRouter = Router();
-notificationsRouter.use(requireAuth);
+notificationsRouter.use(requireOrg);
 
-// GET /api/notifications — list for current user
+// GET /api/notifications — list for current user, scoped to current org
 notificationsRouter.get("/", (req, res) => {
   const email = req.session.email;
   if (!email) {
@@ -19,7 +19,7 @@ notificationsRouter.get("/", (req, res) => {
     return;
   }
   const limit = parseInt(req.query["limit"] as string) || 50;
-  res.json(getNotificationsForUser(email, limit));
+  res.json(getNotificationsForUser(email, limit, req.session.orgId));
 });
 
 // GET /api/notifications/unread-count
@@ -29,7 +29,7 @@ notificationsRouter.get("/unread-count", (req, res) => {
     res.json({ count: 0 });
     return;
   }
-  res.json({ count: getUnreadCountForUser(email) });
+  res.json({ count: getUnreadCountForUser(email, req.session.orgId) });
 });
 
 // PATCH /api/notifications/:id/read

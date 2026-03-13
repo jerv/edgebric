@@ -1,7 +1,7 @@
 import type { ChunkMetadata } from "@edgebric/types";
 import { getDb } from "../db/index.js";
-import { chunks } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { chunks, documents, knowledgeBases } from "../db/schema.js";
+import { eq, sql, inArray, isNotNull, and } from "drizzle-orm";
 
 /** Convert a DB row to ChunkMetadata. */
 function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
@@ -66,13 +66,36 @@ export function lookupChunk(chunkId: string): ChunkMetadata | undefined {
   return row ? rowToMeta(row) : undefined;
 }
 
-/** Get all chunks (with content) for Vault Mode sync. */
-export function getAllChunksWithContent(): Array<{
+/** Get all chunks (with content) for Vault Mode sync, optionally filtered by org. */
+export function getAllChunksWithContent(orgId?: string): Array<{
   chunkId: string;
   content: string;
   metadata: ChunkMetadata;
 }> {
   const db = getDb();
+
+  if (orgId) {
+    // Filter chunks to those belonging to documents in KBs owned by this org
+    const orgKBIds = db.select({ id: knowledgeBases.id }).from(knowledgeBases)
+      .where(eq(knowledgeBases.orgId, orgId)).all().map((r) => r.id);
+    if (orgKBIds.length === 0) return [];
+    const orgDocIds = db.select({ id: documents.id }).from(documents)
+      .where(sql`${documents.knowledgeBaseId} IN (${sql.join(orgKBIds.map((id) => sql`${id}`), sql`, `)})`)
+      .all().map((r) => r.id);
+    if (orgDocIds.length === 0) return [];
+    const rows = db.select().from(chunks)
+      .where(and(
+        sql`${chunks.sourceDocument} IN (${sql.join(orgDocIds.map((id) => sql`${id}`), sql`, `)})`,
+        isNotNull(chunks.content),
+      ))
+      .all();
+    return rows.map((row) => ({
+      chunkId: row.chunkId,
+      content: row.content!,
+      metadata: rowToMeta(row),
+    }));
+  }
+
   const rows = db.select().from(chunks).all();
   return rows
     .filter((row) => row.content != null)

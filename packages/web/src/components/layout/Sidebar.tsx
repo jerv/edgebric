@@ -11,6 +11,7 @@ import {
   Trash2,
   Lock,
   Shield,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -33,7 +34,7 @@ interface NavItem {
 }
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
-  { href: "/documents", label: "Documents", icon: FileText, adminOnly: true },
+  { href: "/library", label: "Library", icon: Database, adminOnly: true },
   { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
 ];
 
@@ -120,11 +121,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
 
   return (
     <nav className="flex flex-col h-full py-4">
-      {/* Logo — links to chat */}
+      {/* Logo + Org name */}
       <Link
         to="/"
         onClick={onNavigate}
-        className={cn("mb-4 overflow-hidden block", collapsed ? "px-0 text-center" : "px-4")}
+        className={cn("mb-1 overflow-hidden block", collapsed ? "px-0 text-center" : "px-4")}
       >
         {collapsed ? (
           <span className="font-bold text-slate-900 text-base">E</span>
@@ -132,6 +133,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
           <span className="font-semibold text-slate-900 text-base">Edgebric</span>
         )}
       </Link>
+      {!collapsed && user?.orgName && (
+        <div className="px-4 mb-3 text-[11px] text-slate-400 truncate">{user.orgName}</div>
+      )}
 
       {/* New Chat button */}
       <div className="px-2 mb-1">

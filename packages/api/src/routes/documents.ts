@@ -4,17 +4,69 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { fileTypeFromBuffer } from "file-type";
+import { requireOrg, requireAdmin } from "../middleware/auth.js";
 import { config } from "../config.js";
-import { getAllDocuments, getDocument, setDocument, deleteDocument } from "../services/documentStore.js";
+import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { ensureDefaultKB } from "../services/knowledgeBaseStore.js";
 import type { Document } from "@edgebric/types";
+
+/** Map file-type detected extensions to our canonical type names */
+const MAGIC_EXT_MAP: Record<string, Document["type"]> = {
+  pdf: "pdf",
+  docx: "docx",
+};
+
+/** Extensions that are text-based and won't be detected by file-type (magic bytes) */
+const TEXT_EXTENSIONS = new Set(["txt", "md"]);
+
+/**
+ * Detect actual file type from magic bytes.
+ * Returns the canonical type and whether it mismatches the claimed extension.
+ */
+async function detectFileType(
+  filePath: string,
+  claimedExt: string,
+): Promise<{ type: Document["type"]; mismatch: boolean; detectedMime?: string }> {
+  const header = Buffer.alloc(4100);
+  const fd = await fs.open(filePath, "r");
+  try {
+    await fd.read(header, 0, 4100, 0);
+  } finally {
+    await fd.close();
+  }
+
+  const detected = await fileTypeFromBuffer(header);
+
+  if (detected) {
+    const canonicalType = MAGIC_EXT_MAP[detected.ext];
+    if (canonicalType) {
+      return {
+        type: canonicalType,
+        mismatch: canonicalType !== claimedExt,
+        detectedMime: detected.mime,
+      };
+    }
+    // Detected a binary type we don't support
+    return { type: claimedExt as Document["type"], mismatch: true, detectedMime: detected.mime };
+  }
+
+  // file-type returned undefined — likely a text file
+  if (TEXT_EXTENSIONS.has(claimedExt)) {
+    return { type: claimedExt as Document["type"], mismatch: false };
+  }
+
+  // Extension claims binary (pdf/docx) but magic bytes say otherwise
+  return { type: claimedExt as Document["type"], mismatch: true };
+}
 
 export const documentsRouter: IRouter = Router();
 
 // ─── Employee-accessible: document content for source viewer ────────────────
 // Must be defined BEFORE requireAdmin middleware so all authenticated users can access it.
-documentsRouter.get("/:id/content", requireAuth, (req, res) => {
+documentsRouter.get("/:id/content", requireOrg, (req, res) => {
   const id = req.params["id"] as string ?? "";
   const doc = getDocument(id);
   const sections = getChunksForDocument(id);
@@ -33,7 +85,7 @@ documentsRouter.get("/:id/content", requireAuth, (req, res) => {
 });
 
 // ─── Employee-accessible: raw file download ─────────────────────────────────
-documentsRouter.get("/:id/file", requireAuth, async (req, res) => {
+documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
   const doc = getDocument(req.params["id"] as string ?? "");
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
@@ -78,8 +130,18 @@ const upload = multer({
   },
 });
 
-documentsRouter.get("/", (_req, res) => {
-  res.json(getAllDocuments());
+documentsRouter.get("/", (req, res) => {
+  const docs = req.session.orgId ? getDocumentsByOrg(req.session.orgId) : getAllDocuments();
+  const cfg = getIntegrationConfig();
+  const thresholdDays = cfg.stalenessThresholdDays ?? 180;
+  const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const enriched = docs.map((doc) => ({
+    ...doc,
+    isStale: now - new Date(doc.updatedAt).getTime() > thresholdMs,
+  }));
+  res.json(enriched);
 });
 
 documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
@@ -88,17 +150,34 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
     return;
   }
 
-  const ext = path.extname(req.file.originalname).toLowerCase().slice(1) as Document["type"];
+  const claimedExt = path.extname(req.file.originalname).toLowerCase().slice(1);
+  const { type, mismatch, detectedMime } = await detectFileType(req.file.path, claimedExt);
+
+  if (mismatch) {
+    // Reject files where extension doesn't match actual content
+    await fs.unlink(req.file.path).catch(() => {});
+    res.status(400).json({
+      error: "File type mismatch",
+      details: `File extension is .${claimedExt} but content is ${detectedMime ?? "unknown/text"}. Please upload with the correct extension.`,
+    });
+    return;
+  }
+
+  // Assign to default KB (backward compatible — old /api/documents/upload route)
+  const adminEmail = req.session.email ?? "admin@edgebric.local";
+  const defaultKB = ensureDefaultKB(adminEmail);
+
   const doc: Document = {
     id: randomUUID(),
     name: req.file.originalname,
-    type: ext,
+    type,
     classification: "policy",
     uploadedAt: new Date(),
     updatedAt: new Date(),
     status: "processing",
     sectionHeadings: [],
     storageKey: req.file.path,
+    knowledgeBaseId: defaultKB.id,
   };
 
   setDocument(doc);
@@ -106,12 +185,17 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
 
   // Kick off ingestion in the background (non-blocking)
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
-    ingestDocument(doc),
+    ingestDocument(doc, { datasetName: defaultKB.datasetName }),
   );
 });
 
 documentsRouter.get("/:id", (req, res) => {
-  const doc = getDocument(req.params["id"] ?? "");
+  const id = req.params["id"] ?? "";
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  const doc = getDocument(id);
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -119,8 +203,79 @@ documentsRouter.get("/:id", (req, res) => {
   res.json(doc);
 });
 
+// ─── PII Review Gate ──────────────────────────────────────────────────────────
+
+documentsRouter.post("/:id/approve-pii", async (req, res) => {
+  const id = req.params["id"] ?? "";
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  const doc = getDocument(id);
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  if (doc.status !== "pii_review") {
+    res.status(400).json({ error: `Document is not pending PII review (status: ${doc.status})` });
+    return;
+  }
+
+  // Clear PII warnings, resume ingestion
+  const { piiWarnings: _cleared, ...rest } = doc;
+  const updated: Document = { ...rest, status: "processing", updatedAt: new Date() };
+  setDocument(updated);
+
+  // Resolve dataset name from KB if assigned
+  let kbDatasetName: string | undefined;
+  if (updated.knowledgeBaseId) {
+    const { getKB } = await import("../services/knowledgeBaseStore.js");
+    kbDatasetName = getKB(updated.knowledgeBaseId)?.datasetName;
+  }
+
+  // Resume the ingestion pipeline, skipping PII detection (admin already approved)
+  const opts: { skipPII: boolean; datasetName?: string } = { skipPII: true };
+  if (kbDatasetName) opts.datasetName = kbDatasetName;
+
+  void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
+    ingestDocument(updated, opts),
+  );
+
+  res.json({ status: "processing", message: "PII warnings acknowledged. Ingestion resumed." });
+});
+
+documentsRouter.post("/:id/reject-pii", async (req, res) => {
+  const id = req.params["id"] ?? "";
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  const doc = getDocument(id);
+  if (!doc) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  if (doc.status !== "pii_review") {
+    res.status(400).json({ error: `Document is not pending PII review (status: ${doc.status})` });
+    return;
+  }
+
+  const rejected: Document = { ...doc, status: "rejected", updatedAt: new Date() };
+  setDocument(rejected);
+
+  // Clean up the uploaded file
+  try { await fs.unlink(doc.storageKey); } catch { /* already gone */ }
+
+  res.json({ status: "rejected", message: "Document rejected due to PII concerns." });
+});
+
 documentsRouter.delete("/:id", async (req, res) => {
-  const doc = getDocument(req.params["id"] ?? "");
+  const id = req.params["id"] ?? "";
+  if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
+    res.status(404).json({ error: "Document not found" });
+    return;
+  }
+  const doc = getDocument(id);
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
     return;

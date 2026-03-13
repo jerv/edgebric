@@ -2,65 +2,217 @@
 
 ---
 
-## System Architecture
+## System Architecture — Three Modes
+
+### Mode 1: Org Mode (Single Node)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                     Company Infrastructure                    │
+│                     Company Network                           │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │                  Edgebric Edge Node                      │  │
-│  │               (mimik mim OE Runtime)                   │  │
+│  │              Edgebric Edge Node (Mac Mini / Server)     │  │
+│  │                   (mimik mim OE Runtime)               │  │
 │  │                                                        │  │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────┐            │  │
-│  │  │   mKB    │  │  mILM   │  │ mAIChain  │            │  │
-│  │  │(embeddings  │(local   │  │(RAG       │            │  │
-│  │  │+ vectors)│  │  LLM)   │  │ pipeline) │            │  │
+│  │  │   mKB    │  │  mILM   │  │    API    │            │  │
+│  │  │(vectors  │  │(local   │  │ (Express  │            │  │
+│  │  │+ embeds) │  │  LLM)   │  │  server)  │            │  │
 │  │  └──────────┘  └──────────┘  └───────────┘            │  │
 │  │                                                        │  │
 │  │  ┌────────────────────┐  ┌────────────────────────┐   │  │
-│  │  │  Policy Doc Store  │  │ Encrypted Personal      │   │  │
-│  │  │  (shared index)    │  │ Record Packages         │   │  │
-│  │  └────────────────────┘  │ (per-employee, write-   │   │  │
-│  │                          │  once, encrypted)        │   │  │
-│  │                          └────────────────────────┘   │  │
-│  │  ┌────────────────────────────────────────────────┐   │  │
-│  │  │            Admin API + Dashboard               │   │  │
-│  │  └────────────────────────────────────────────────┘   │  │
+│  │  │  Organization KBs  │  │    Admin Dashboard     │   │  │
+│  │  │  (HR, Benefits,    │  │    (React web app)     │   │  │
+│  │  │   Handbook, etc.)  │  │                        │   │  │
+│  │  └────────────────────┘  └────────────────────────┘   │  │
 │  └────────────────────────────────────────────────────────┘  │
-│                           │                                  │
-│             mimik Edge Service Mesh                          │
-│         (auto-discovery, device tokens, no IP config)        │
 │                           │                                  │
 │         ┌─────────────────┼─────────────────┐               │
 │         │                 │                 │               │
-│  ┌────────────┐   ┌────────────┐   ┌────────────┐           │
-│  │  Employee  │   │  Employee  │   │   Admin    │           │
-│  │  Browser   │   │  Browser   │   │  Dashboard │           │
-│  │ (anon token│   │ (anon token│   │  (authed)  │           │
-│  └────────────┘   └────────────┘   └────────────┘           │
-│                                                              │
+│  ┌────────────┐   ┌────────────┐   ┌────────────┐          │
+│  │  Employee  │   │  Employee  │   │   Admin    │          │
+│  │  Browser   │   │  Browser   │   │  Browser   │          │
+│  └────────────┘   └────────────┘   └────────────┘          │
 └──────────────────────────────────────────────────────────────┘
-
-╔═══════════════════════════════════════════════════╗
-║  INCOGNITO MODE (V2) — Employee Device Only       ║
-║                                                   ║
-║  ┌───────────────────────────────────────────┐    ║
-║  │  Biometric-Gated Local Vault              │    ║
-║  │  ┌─────────────────┐ ┌─────────────────┐  │    ║
-║  │  │ Policy Embeddings│ │Personal Records │  │    ║
-║  │  │ (synced from    │ │Package (optional│  │    ║
-║  │  │  edge node)     │ │ OTP download)   │  │    ║
-║  │  └─────────────────┘ └─────────────────┘  │    ║
-║  │  Local LLM (Phi-3.5 Mini / Qwen3-1.7B)   │    ║
-║  │  Zero network during queries              │    ║
-║  └───────────────────────────────────────────┘    ║
-╚═══════════════════════════════════════════════════╝
 
   ✗ No external cloud services
   ✗ No OpenAI / Azure / AWS
-  ✗ No telemetry or analytics to third parties
-  ✓ Internet optional after initial setup
+  ✓ Everything on one device
+  ✓ Simplest deployment
+```
+
+### Mode 2: Department / Security Mode (Multi-Node Mesh)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Company Network                              │
+│                                                                      │
+│  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐       │
+│  │  HR Node       │   │  Legal Node    │   │  Finance Node  │       │
+│  │  (Mac Mini)    │   │  (Mac Mini)    │   │  (Mac Mini)    │       │
+│  │                │   │                │   │                │       │
+│  │  mKB: HR       │   │  mKB: Legal    │   │  mKB: Finance  │       │
+│  │  Policies,     │   │  Contracts,    │   │  Expense       │       │
+│  │  Benefits,     │   │  Compliance,   │   │  Policy,       │       │
+│  │  Handbook      │   │  Regulatory    │   │  Procurement   │       │
+│  │                │   │                │   │                │       │
+│  │  mILM (local)  │   │  mILM (local)  │   │  mILM (local)  │       │
+│  └───────┬────────┘   └───────┬────────┘   └───────┬────────┘       │
+│          │                    │                    │                │
+│          └────────────────────┼────────────────────┘                │
+│                               │                                    │
+│               mimik Edge Service Mesh                              │
+│           (mDNS auto-discovery, supernode election,                │
+│            cross-device HTTP routing)                              │
+│                               │                                    │
+│  ┌────────────────────────────┴──────────────────────────────┐     │
+│  │              Coordinator Node (elected supernode)          │     │
+│  │                                                           │     │
+│  │  mAIChain: receives query → fans out to relevant KBs     │     │
+│  │           → collects responses → synthesizes answer       │     │
+│  │                                                           │     │
+│  │  API Server + Admin Dashboard + Web App                   │     │
+│  └───────────────────────────────────────────────────────────┘     │
+│                               │                                    │
+│         ┌─────────────────────┼─────────────────────┐             │
+│  ┌────────────┐   ┌────────────┐   ┌────────────┐                 │
+│  │  Employee  │   │  Employee  │   │   Admin    │                 │
+│  │  Browser   │   │  Browser   │   │  Browser   │                 │
+│  └────────────┘   └────────────┘   └────────────┘                 │
+└──────────────────────────────────────────────────────────────────────┘
+
+  KEY PRINCIPLE: Data never moves. Queries move.
+  ✓ HR data physically isolated on HR device
+  ✓ Legal data physically isolated on Legal device
+  ✓ Compromised node cannot access other departments' data
+  ✓ No central database holding all company knowledge
+```
+
+### Mode 3: Meeting Mode (Ephemeral Mesh)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                   Meeting Session: "LAUNCH-2024"                     │
+│                                                                      │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │  Alice (iPhone)  │  │  Bob (MacBook)   │  │  Carol (iPhone)  │  │
+│  │                  │  │                  │  │                  │  │
+│  │  Personal KB:    │  │  Personal KB:    │  │  Personal KB:    │  │
+│  │  "Marketing      │  │  "Eng Release    │  │  "Legal          │  │
+│  │   Campaign"      │  │   Notes"         │  │   Compliance"    │  │
+│  │  [SHARED ✓]      │  │  [SHARED ✓]      │  │  [SHARED ✓]      │  │
+│  │                  │  │                  │  │                  │  │
+│  │  Personal KB:    │  │  Org KB:         │  │  Personal KB:    │  │
+│  │  "My Research"   │  │  "Product Docs"  │  │  "Case Files"    │  │
+│  │  [NOT SHARED ✗]  │  │  [SHARED ✓]      │  │  [NOT SHARED ✗]  │  │
+│  │                  │  │                  │  │                  │  │
+│  │  mKB (local)     │  │  mKB (local)     │  │  mKB (local)     │  │
+│  │  mILM (local)    │  │  mILM (local)    │  │  mILM (local)    │  │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘  │
+│           │                     │                     │            │
+│           └─────────────────────┼─────────────────────┘            │
+│                                 │                                  │
+│                    mimik Edge Mesh                                 │
+│              (session-scoped, room code gated)                    │
+│                                 │                                  │
+│                    ┌────────────┴────────────┐                     │
+│                    │   Session Coordinator   │                     │
+│                    │   (elected supernode)   │                     │
+│                    │                         │                     │
+│                    │  Query: "Any compliance │                     │
+│                    │   issues with slide 12?"│                     │
+│                    │         │               │                     │
+│                    │    Fan out to:          │                     │
+│                    │    ├── Alice: Marketing │                     │
+│                    │    ├── Bob: Eng + Prod  │                     │
+│                    │    └── Carol: Legal     │                     │
+│                    │         │               │                     │
+│                    │    Synthesize answer    │                     │
+│                    │    with per-KB citations│                     │
+│                    └─────────────────────────┘                     │
+│                                                                    │
+│  Session ends → ephemeral sharing dissolves                       │
+│  No data was copied between devices                               │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Cross-Device Query Flow
+
+```
+Employee asks: "What's our parental leave policy and does it comply with state law?"
+
+  │
+  ▼
+1. QUERY RECEIVED by coordinator node
+   └── User authenticated, session validated
+
+  │
+  ▼
+2. QUERY CLASSIFICATION
+   ├── Query-time filter: person name + sensitive term? → intercept
+   ├── KB routing: which KBs are relevant? → HR KB + Legal KB
+   └── Node lookup: where do those KBs live? → HR node + Legal node
+
+  │
+  ▼
+3. PARALLEL FAN-OUT (via mAIChain / HTTP)
+   ├── → HR Node:    embed query → mKB search → top-k chunks returned
+   └── → Legal Node: embed query → mKB search → top-k chunks returned
+
+   (Data never leaves its node — only chunk text + metadata travel back)
+
+  │
+  ▼
+4. RESPONSE SYNTHESIS (on coordinator)
+   ├── Merge retrieved chunks from all nodes
+   ├── Assemble system prompt with combined context
+   ├── Generate answer via mILM (on coordinator)
+   └── Tag citations with source KB and node
+
+  │
+  ▼
+5. RESPONSE DELIVERY
+   ├── Answer text (streamed via SSE)
+   ├── Source citations: {KB name, document name, section, page}
+   ├── Which KBs contributed (visual indicator)
+   ├── Disclaimer: ⚠️ Verify important decisions with the appropriate team.
+   └── Escalation button (if not in meeting mode)
+```
+
+---
+
+## Meeting Mode Session Flow
+
+```
+1. CREATE SESSION
+   ├── Organizer clicks "Create Session"
+   ├── Server generates room code (e.g., "LAUNCH-2024")
+   ├── Session record created with: code, creator, created_at, expires_at
+   └── Organizer shares code (Slack, email, verbally)
+
+2. JOIN SESSION
+   ├── Participant enters room code in Edgebric
+   ├── Device joins session-scoped mesh group
+   ├── Participant sees their KBs with opt-in toggles
+   ├── Participant opts in specific KBs (granular, per-KB)
+   └── All participants see updated KB availability
+
+3. QUERY IN SESSION
+   ├── Any participant types a question
+   ├── Coordinator identifies all opted-in KBs across all devices
+   ├── Fan-out query to each device hosting an opted-in KB
+   ├── Each device runs local mKB search, returns chunk results
+   ├── Coordinator synthesizes answer with per-KB citations
+   └── Answer delivered to session chat (all participants see it)
+
+4. END SESSION
+   ├── Creator clicks "End Session" (or session expires)
+   ├── All ephemeral KB sharing permissions revoked
+   ├── Devices stop advertising KBs to this session
+   ├── Session transcript optionally exported
+   └── No data was ever copied between devices
 ```
 
 ---
@@ -68,7 +220,7 @@
 ## Document Ingestion Pipeline
 
 ```
-INPUT
+INPUT (PDF, .docx, .txt, .md)
   │
   ▼
 1. DETECTION
@@ -82,24 +234,21 @@ INPUT
    ├── Text PDF (any layout)    → Docling  ← primary, layout-aware
    ├── Scanned PDF (no text)    → Tesseract OCR → clean text
    ├── Word (.docx)             → Mammoth → Markdown
-   ├── Excel (.xlsx)            → pandas → structured Markdown tables
-   ├── HTML / Confluence export → BeautifulSoup + html2text
-   └── Plain text / Markdown   → direct pass-through
+   └── Plain text / Markdown    → direct pass-through
 
   │
   ▼
 3. CLEANING
-   ├── Strip repeated headers/footers (pollute chunks)
+   ├── Strip repeated headers/footers
    ├── Normalize bullet points and formatting artifacts
    ├── Remove inline page numbers
    └── Collapse excessive whitespace
 
   │
   ▼
-4. CHUNKING  (semantic, heading-based)
+4. CHUNKING (semantic, heading-based)
    ├── Split at heading boundaries (H1 → H2 → H3)
    ├── Tables: atomic chunks, column headers embedded in text
-   │          e.g. "Benefits Plan Table | Plan: Gold | Deductible: $500 | ..."
    ├── Long sections: split with 50-token overlap
    ├── Short adjacent sections: merge if total < 100 tokens
    ├── Max chunk size: 800 tokens
@@ -107,74 +256,17 @@ INPUT
 
   │
   ▼
-5. PII DETECTION  (before any embedding)
+5. PII DETECTION (before any embedding)
    ├── spaCy NER: flag PERSON entity + sensitive term co-occurrence
-   │             (salary, PIP, termination, accommodation, investigation)
    ├── Pattern matching: SSN-like patterns, salary figures attached to names
    └── If flagged → admin warning modal, admin must confirm to proceed
 
   │
   ▼
-6. EMBEDDING
-   └── nomic-embed-text or BGE-M3
-       (open source, runs fully locally, multilingual)
-       → stored via mimik mKB
-
-  │
-  ▼
-7. STORAGE
-   ├── Vector store (mKB): embeddings + chunk metadata
-   └── Document store: original files (for source link rendering)
-```
-
----
-
-## RAG Query Pipeline
-
-```
-Employee question (natural language)
-  │
-  ▼
-Query-time filter
-  ├── Contains person name + sensitive term? → intercept, redirect to administrator
-  └── Passes → continue
-
-  │
-  ▼
-Embed query
-  └── Same embedding model as ingestion (nomic-embed-text / BGE-M3)
-
-  │
-  ▼
-Retrieve top-k chunks (mKB)
-  └── Cosine similarity search, k=5 by default
-
-  │
-  ▼
-Context check
-  ├── Any relevant chunks found? → generate answer
-  └── No relevant chunks → return "no answer found" message, prompt to contact administrator
-
-  │
-  ▼
-Generate answer (mILM via OpenAI-compatible endpoint)
-  └── System prompt includes:
-      - Retrieved chunks as context
-      - Instruction: answer only from provided context
-      - Instruction: never reveal information about named individuals
-      - Instruction: if context is insufficient, say so clearly
-
-  │
-  ▼
-Response assembly
-  ├── Answer text (streamed via SSE)
-  ├── Source citations: {document name, section, page number}
-  ├── Conversation + messages persisted to SQLite (linked to user via session email)
-  ├── Disclaimer: ⚠️ Verify important decisions with the appropriate team.
-  └── Escalation: employee picks target + method (Slack DM or Email)
-      → Slack: chat.postMessage via Bot Token to target's user ID
-      → Email: SMTP via nodemailer to target's email address
-      → Both include "View Conversation" deep link to in-app conversation viewer
+6. EMBEDDING + STORAGE
+   ├── Embedding via mILM /embeddings endpoint (nomic-embed-text)
+   ├── Vectors stored in mKB dataset (local to the device)
+   └── Original files stored for source link rendering
 ```
 
 ---
@@ -183,60 +275,152 @@ Response assembly
 
 | Layer | Technology | Notes |
 |---|---|---|
-| Edge runtime | mimik mim OE | Runs on company hardware; handles service mesh |
-| Embeddings + vector store | mimik mKB | Local; no cloud dependency |
+| Edge runtime | mimik mim OE | Runs on company hardware; handles mesh, discovery, routing |
+| Embeddings + vector store | mimik mKB | Local per-device; no central database |
 | LLM inference | mimik mILM | OpenAI-compatible endpoint; model-agnostic |
-| RAG orchestration | mimik mAIChain | Wires retrieval + generation |
+| Multi-node coordination | mimik mAIChain | Fans out queries, synthesizes responses |
+| Device discovery | mimik mDNS | Zero-config, auto supernode election |
 | PDF extraction | Docling (IBM) | Layout-aware, table-aware, open source, local |
 | OCR fallback | Tesseract | For scanned PDFs |
 | Word extraction | Mammoth | .docx → clean Markdown |
 | PII detection | spaCy | NER, runs locally |
-| Embedding model | nomic-embed-text or BGE-M3 | Open source, multilingual, local |
-| Frontend | React | Web app, responsive; mobile browser supported |
-| Admin backend | Node.js | REST API |
+| Embedding model | nomic-embed-text | 768-dim, open source, runs locally via mILM |
+| Frontend | React (Vite + TanStack Router + shadcn/ui) | Web app, responsive; mobile browser supported |
+| iOS app | Swift + mimik iOS SDK (CocoaPods) | Knowledge node in mesh |
+| Backend | Node.js + Express | REST API, SSE streaming |
+| Database | SQLite + Drizzle ORM | Conversations, escalations, user sessions |
+| Auth | OIDC/SSO | Google dev IdP (dev), generic OIDC (prod) |
 
 ### Recommended LLM Defaults (Model-Agnostic)
 
-Edgebric's inference layer targets the **OpenAI-compatible API spec**. Any model/runtime exposing this interface can be substituted. No vendor lock-in.
+Edgebric's inference layer targets the **OpenAI-compatible API spec**. Any model/runtime exposing this interface can be substituted.
 
 | Mode | Recommended | Fallback | Notes |
 |---|---|---|---|
-| Server-side (standard) | Qwen3.5-9B Q4_K_M | Qwen3.5-4B | Single-file GGUF, strong instruction following |
-| On-device (incognito) | Qwen3.5-4B Q4_K_M | Qwen3.5-2B | Same model family — consistent behavior |
+| Server-side (coordinator) | Qwen3.5-9B Q4_K_M | Qwen3.5-4B | Strong instruction following, single-file GGUF |
+| Server-side (constrained) | Qwen3.5-4B Q4_K_M | Qwen3.5-2B | For Mac Mini M2 8GB deployments |
+| On-device (iOS/incognito) | Qwen3.5-2B Q4_K_M | — | Fits in phone memory, acceptable quality |
+
+### Hardware Recommendations
+
+| Hardware | Cost | Model Capacity | Daily Users | Best For |
+|---|---|---|---|---|
+| Mac Mini M2 (8GB) | $499 | Qwen3.5-4B @ ~35-45 tok/s | 50-100 | Single small office, KB-only node |
+| Mac Mini M4 (16GB) | $599 | Qwen3.5-4B @ ~35-50 tok/s | 100-200 | Primary node for 50-200 person company |
+| Mac Mini M2 Pro (16GB) | ~$800 used | Qwen3.5-9B @ ~37 tok/s | 150-300 | Multi-department coordinator |
+| iPhone (iOS 16+) | existing | Qwen3.5-2B | Personal use | Meeting mode knowledge node |
+
+mKB vector search on 50K chunks: <5ms latency, ~250MB RAM. Mac Mini idles at 3-4 watts (~$5-10/year electricity).
+
+---
+
+## mimik Platform API Summary
+
+All communication with mimik services is raw HTTP to `localhost:8083`. No Node.js SDK exists.
+
+### mILM (Local LLM Inference)
+- Endpoint: `http://localhost:8083/api/mim/v1`
+- Auth: `Authorization: Bearer <key>` (uppercase Bearer)
+- `POST /chat/completions` — OpenAI-compatible, supports streaming
+- `POST /embeddings` — text → vector (768-dim with nomic-embed-text)
+- `POST /models` — download and load models from URL (SSE progress)
+- Cold-start tokens (`<|loading_model|>`, `<|processing_prompt|>`) must be stripped client-side
+
+### mKB (Vector Storage)
+- Endpoint: `http://localhost:8083/api/mkb/v1`
+- Auth: `authorization: bearer <key>` (lowercase bearer — different from mILM)
+- `POST /datasets` — create dataset, requires `model` field
+- `POST /datasets/{name}/chunks` — multipart upload, NDJSON format, field="chunks"
+- `POST /search` — `{ datasetName, prompt, topN }` — mKB handles query embedding internally
+- Dataset "already exists" returns HTTP 400 (not 409)
+- Chunk upload returns empty body on success (HTTP 200)
+
+### mAIChain (Multi-Node Coordination)
+- Fans out queries to multiple Agent Machines
+- Synthesizes responses from multiple sources
+- Exact API: needs further documentation from mimik
+
+### MCM (Container Manager)
+- Endpoint: `http://localhost:8083/mcm/v1`
+- Deploys microservices as `.tar` containers
+- Used to deploy mILM, mKB, mAIChain on each node
+
+### Device Discovery (mDNS)
+- Automatic via mimik runtime
+- Three cluster types: Network (same LAN), Account (same user, any network), Proximity (nearby)
+- Supernode election handled by runtime
+- Cross-device HTTP calls routed through mesh
+
+---
+
+## iOS Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   iOS App                            │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐   │
+│  │         mimik mim OE Runtime                  │   │
+│  │    (CocoaPods: EdgeCore +                    │   │
+│  │     mim-OE-ai-SE-iOS-developer)             │   │
+│  │                                              │   │
+│  │  ┌──────────┐  ┌──────────┐                  │   │
+│  │  │   mKB    │  │  mILM   │                  │   │
+│  │  │ (local   │  │ (local   │                  │   │
+│  │  │  vectors)│  │  LLM)    │                  │   │
+│  │  └──────────┘  └──────────┘                  │   │
+│  │                                              │   │
+│  │  Auto-discovery via mDNS                     │   │
+│  │  Advertises KBs to mesh                      │   │
+│  │  Responds to cross-device queries            │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐   │
+│  │         App UI (SwiftUI)                      │   │
+│  │  ├── Personal KB management                  │   │
+│  │  ├── Document upload from Files              │   │
+│  │  ├── Private query interface                 │   │
+│  │  ├── Meeting session (join via code)          │   │
+│  │  └── KB sharing controls                     │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                     │
+│  Requirements:                                     │
+│  - iOS 16.0+                                       │
+│  - Physical device only (no simulator)             │
+│  - ~2GB storage for model + embeddings             │
+└─────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Non-Functional Requirements
 
 ### Performance
-- Standard mode query: < 5 seconds end-to-end (server RAG + inference on reasonable hardware)
-- Incognito mode query: < 30 seconds on minimum-spec device (acceptable — still faster than emailing HR)
+- Single-node query: < 5 seconds end-to-end
+- Cross-node query (2-3 nodes): < 8 seconds end-to-end
+- Meeting mode query (3-5 nodes): < 12 seconds end-to-end
 - Document ingestion: < 2 minutes per 100-page PDF
 - Dashboard load: < 2 seconds
+- Device discovery: < 5 seconds on local network
 
 ### Security
 - All data at rest: AES-256 encrypted
-- All data in transit: TLS 1.3
-- Admin panel: authenticated access only
-- Employee standard mode: anonymous device token required (not raw network access)
-- Incognito vault: biometric-gated, device-bound key (secure enclave / Android Keystore)
+- All data in transit: TLS 1.3 (mesh uses mimik's built-in TLS)
+- Physical data isolation: each node holds only its assigned KBs
+- Admin panel: authenticated access only (OIDC/SSO)
 - No telemetry or analytics transmitted to any external server
-- No training data leaves company infrastructure under any circumstance
+- No training data leaves company infrastructure
 
 ### Privacy
-- Standard mode: individual queries not stored beyond session; only aggregate topic-level analytics retained
-- Analytics: topics suppressed until minimum 5 distinct queries contribute (prevents de-anonymization in small teams)
-- Incognito mode: zero query data touches any server — enforced by architecture, not policy
-- Personal records: server stores encrypted package only; after employee download, queries are entirely local
-- Escalation records: retained for compliance purposes with configurable retention period
+- Standard mode: individual queries not stored beyond session; only aggregate analytics
+- Analytics: topics suppressed until minimum 5 distinct queries
+- Meeting mode: session transcript stored only if opted in; source documents never copied
+- Personal KBs: never searchable by others unless explicitly opted in to a session
+- Escalation records: retained for compliance with configurable retention
 
-### Compliance Posture (out-of-the-box)
-- **GDPR**: data residency by design — data never crosses borders unless company's own infrastructure does
-- **CCPA**: data stays on company infrastructure, fully auditable with one-sentence answer
-- **HIPAA**: health benefits data processed locally, no ePHI transmitted externally
-- **EU AI Act**: human-in-the-loop (escalation) built into core product; disclaimer on every response; not used for automated employment decisions
-
-### Reliability
-- Uptime: dependent on company's own server infrastructure
-- Graceful degradation: clear "Edgebric is offline" state when edge node unreachable — no silent failure
-- No single-point-of-failure dependency on external services
+### Compliance Posture
+- **On-prem software model = selling software, not a service.** SOC 2, HIPAA certifications barely apply to the vendor when data never touches vendor infrastructure.
+- **GDPR**: data residency by design — data never crosses device boundaries unless the user explicitly shares in a session
+- **CCPA**: data stays on company/personal devices, fully auditable
+- **HIPAA**: health data processed locally, no ePHI transmitted
+- **EU AI Act**: human-in-the-loop (escalation) built in; disclaimer on every response

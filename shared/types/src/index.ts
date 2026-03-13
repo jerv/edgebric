@@ -1,7 +1,66 @@
+// ─── Organizations ───────────────────────────────────────────────────────────
+
+export type OrgPlan = "free" | "pro" | "enterprise";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  plan: OrgPlan;
+  settings: OrgSettings;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrgSettings {
+  onboardingComplete?: boolean;
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+export type UserRole = "owner" | "admin" | "member";
+export type UserStatus = "active" | "invited";
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  role: UserRole;
+  status: UserStatus;
+  orgId: string;
+  invitedBy?: string;
+  lastLoginAt?: Date;
+  createdAt: Date;
+}
+
+// ─── Knowledge Bases ──────────────────────────────────────────────────────────
+
+export type KnowledgeBaseType = "organization" | "personal";
+export type KnowledgeBaseStatus = "active" | "archived";
+
+export type KBAccessMode = "all" | "restricted";
+
+export interface KnowledgeBase {
+  id: string;
+  name: string;
+  description?: string;
+  type: KnowledgeBaseType;
+  /** Admin email (org KB) or user email (personal KB). */
+  ownerId: string;
+  /** The mKB dataset name for this knowledge base. */
+  datasetName: string;
+  documentCount: number;
+  status: KnowledgeBaseStatus;
+  accessMode: KBAccessMode;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // ─── Documents ────────────────────────────────────────────────────────────────
 
 export type DocumentType = "pdf" | "docx" | "txt" | "md";
-export type DocumentStatus = "processing" | "ready" | "failed";
+export type DocumentStatus = "processing" | "ready" | "failed" | "pii_review" | "rejected";
 
 export interface Document {
   id: string;
@@ -18,6 +77,10 @@ export interface Document {
   storageKey: string;
   /** Populated after processing; the mKB dataset name for this document. */
   datasetName?: string;
+  /** PII warnings detected during ingestion — admin must approve before proceeding. */
+  piiWarnings?: PIIWarning[];
+  /** FK to knowledge_bases.id — which KB this document belongs to. */
+  knowledgeBaseId?: string;
 }
 
 // ─── Chunks ───────────────────────────────────────────────────────────────────
@@ -51,6 +114,8 @@ export interface Citation {
   pageNumber: number;
   /** The relevant passage from the chunk, shown inline. */
   excerpt: string;
+  /** Which knowledge base this citation came from (populated by query route). */
+  knowledgeBaseName?: string;
 }
 
 export interface AnswerResponse {
@@ -62,6 +127,8 @@ export interface AnswerResponse {
    */
   hasConfidentAnswer: boolean;
   sessionId: string;
+  /** Which datasets were searched (for multi-KB transparency). */
+  searchedDatasets?: string[];
   /** Populated by the API route layer, not the orchestrator. */
   conversationId?: string;
   /** UUID of the persisted assistant message — populated by the API route layer. */
@@ -216,6 +283,8 @@ export interface IntegrationConfig {
   email?: EmailIntegration;
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
+  /** Documents older than this are flagged as stale. Default: 180 days. */
+  stalenessThresholdDays?: number;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

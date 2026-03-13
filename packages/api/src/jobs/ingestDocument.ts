@@ -4,6 +4,7 @@ import { runtimeEdgeConfig } from "../config.js";
 import { registerChunks, clearChunksForDocument } from "../services/chunkRegistry.js";
 import { setDocument } from "../services/documentStore.js";
 import { extractDocument } from "./extractors.js";
+import { logger } from "../lib/logger.js";
 import type { Document } from "@edgebric/types";
 
 const milm = createMILMClient(runtimeEdgeConfig);
@@ -26,6 +27,7 @@ const mkb = createMKBClient(runtimeEdgeConfig);
  */
 export async function ingestDocument(
   doc: Document,
+  options?: { skipPII?: boolean; datasetName?: string },
 ): Promise<void> {
   try {
     const { markdown, headingPageMap } = await extractDocument(doc.storageKey, doc.type);
@@ -39,18 +41,24 @@ export async function ingestDocument(
       }
     }
 
-    const piiWarnings = detectPII(chunks);
+    const piiWarnings = options?.skipPII ? [] : detectPII(chunks);
     if (piiWarnings.length > 0) {
-      // Store warnings on the document for admin review
-      // Admin must confirm before proceeding (UI flow — not implemented yet)
-      console.warn(`PII detected in ${doc.name}:`, piiWarnings);
-      // For now, continue ingestion. UI will surface the warnings separately.
+      logger.warn({ docName: doc.name, count: piiWarnings.length }, "PII detected in document");
+      const paused: Document = {
+        ...doc,
+        status: "pii_review",
+        updatedAt: new Date(),
+        piiWarnings,
+        sectionHeadings: [
+          ...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean)),
+        ],
+      };
+      setDocument(paused);
+      return; // Halt — admin must approve before ingestion continues
     }
 
-    // All documents share a single mKB dataset.
-    // This lets a single search call retrieve relevant chunks across the entire corpus.
-    // Consequence: deleting a document does not remove its chunks from the index (V2 limitation).
-    const datasetName = "knowledge-base";
+    // Use KB-scoped dataset name, or fall back to the legacy shared dataset.
+    const datasetName = options?.datasetName ?? "knowledge-base";
     await mkb.createDataset(datasetName); // no-op if already exists
 
     // Clear any previous registry entries for this document (handles re-ingestion)
@@ -60,7 +68,7 @@ export async function ingestDocument(
     // mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially
     // across all uploads to the dataset.
     const startIndex = await mkb.getDatasetChunkCount(datasetName);
-    console.log(`Ingesting ${doc.name}: startIndex=${startIndex}, chunkCount=${chunks.length}`);
+    logger.info({ docName: doc.name, startIndex, chunkCount: chunks.length }, "Ingesting document");
 
     // Embed each chunk
     const embeddedChunks: Array<{ text: string; embedding: number[] }> = [];
@@ -74,8 +82,9 @@ export async function ingestDocument(
     const postCount = await mkb.getDatasetChunkCount(datasetName);
     const actualStartIndex = postCount - chunks.length;
     if (actualStartIndex !== startIndex) {
-      console.warn(
-        `Chunk ID offset mismatch: expected startIndex=${startIndex}, actual=${actualStartIndex}. Using actual.`,
+      logger.warn(
+        { expected: startIndex, actual: actualStartIndex },
+        "Chunk ID offset mismatch — using actual",
       );
     }
 
@@ -100,9 +109,9 @@ export async function ingestDocument(
     };
     setDocument(updated);
 
-    console.log(`Ingestion complete: ${doc.name} (${chunks.length} chunks)`);
+    logger.info({ docName: doc.name, chunkCount: chunks.length }, "Ingestion complete");
   } catch (err) {
-    console.error(`Ingestion failed for ${doc.name}:`, err);
+    logger.error({ err, docName: doc.name }, "Ingestion failed");
     const failed: Document = { ...doc, status: "failed", updatedAt: new Date() };
     setDocument(failed);
   }

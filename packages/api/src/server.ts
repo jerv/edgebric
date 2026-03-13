@@ -2,7 +2,11 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import session from "express-session";
+import rateLimit from "express-rate-limit";
+import pinoHttpModule from "pino-http";
+const pinoHttp = pinoHttpModule.default ?? pinoHttpModule;
 import FileStoreFactory from "session-file-store";
+import { logger } from "./lib/logger.js";
 import { authRouter } from "./routes/auth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { queryRouter } from "./routes/query.js";
@@ -19,8 +23,13 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { syncRouter } from "./routes/sync.js";
 import { feedbackRouter } from "./routes/feedback.js";
 import { analyticsRouter } from "./routes/analytics.js";
+import { healthRouter } from "./routes/health.js";
+import { knowledgeBasesRouter } from "./routes/knowledgeBases.js";
+import { orgRouter } from "./routes/org.js";
 import { initDatabase } from "./db/index.js";
 import { backfillChunkContent } from "./jobs/backfillChunkContent.js";
+import { migrateOrphanedDocumentsToDefaultKB } from "./jobs/migrateDefaultKB.js";
+import { ensureDefaultOrg } from "./services/orgStore.js";
 import { config } from "./config.js";
 import fs from "fs/promises";
 import path from "path";
@@ -34,6 +43,8 @@ declare module "express-session" {
     email?: string;
     name?: string;
     picture?: string;
+    orgId?: string; // currently selected org
+    orgSlug?: string; // slug of currently selected org
     oidcState?: string; // transient — cleared after callback
     codeVerifier?: string; // transient — cleared after callback
   }
@@ -46,10 +57,59 @@ const sessionsDir = path.join(config.dataDir, "sessions");
 
 const app = express();
 
-// ─── Middleware ────────────────────────────────────────────────────────────────
+const isDev = process.env["NODE_ENV"] !== "production";
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-app.use(express.json());
+// ─── HTTP Request Logging ────────────────────────────────────────────────────
+
+app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => (req.url ?? "").startsWith("/api/health") } }));
+
+// ─── CORS ────────────────────────────────────────────────────────────────────
+
+const allowedOrigins = [config.frontendUrl];
+if (isDev) {
+  // In dev, also allow common localhost variants
+  allowedOrigins.push("http://localhost:5173", "http://127.0.0.1:5173");
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, server-to-server, mobile)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+  }),
+);
+
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 100,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later" },
+});
+
+const queryLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => req.session?.queryToken ?? req.ip ?? "unknown",
+  message: { error: "Query rate limit exceeded. Please wait before asking another question." },
+});
+
+app.use(globalLimiter);
+
+// ─── Body parsing ────────────────────────────────────────────────────────────
+
+app.use(express.json({ limit: "1mb" }));
+
+// ─── Sessions ────────────────────────────────────────────────────────────────
+
 app.use(
   session({
     store: new FileStore({
@@ -66,16 +126,17 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       maxAge: 86_400_000, // 24 hours in ms
-      secure: process.env["NODE_ENV"] === "production",
+      secure: !isDev,
     },
   }),
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/documents", documentsRouter);
-app.use("/api/query", queryRouter);
+app.use("/api/query", queryLimiter, queryRouter);
 app.use("/api/admin/models", modelsRouter);
 app.use("/api/escalate", escalateRouter);
 app.use("/api/escalation-targets", targetsRouter);
@@ -87,17 +148,36 @@ app.use("/api/notifications", notificationsRouter);
 app.use("/api/sync", syncRouter);
 app.use("/api/feedback", feedbackRouter);
 app.use("/api/admin/analytics", analyticsRouter);
+app.use("/api/knowledge-bases", knowledgeBasesRouter);
+app.use("/api/admin/org", orgRouter);
 
-// Health check
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+// ─── Static frontend (production) ─────────────────────────────────────────────
+
+const webDistDir = path.join(import.meta.dirname, "..", "..", "web", "dist");
+if (!isDev) {
+  app.use(express.static(webDistDir));
+  // SPA fallback: serve index.html for all non-API routes
+  app.get("*", (_req, res, next) => {
+    if (_req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(webDistDir, "index.html"));
+  });
+}
 
 // ─── Error handler ─────────────────────────────────────────────────────────────
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("Unhandled error:", err);
-  res.status(500).json({ error: "Internal server error" });
+  logger.error({ err }, "Unhandled error");
+
+  // CORS errors
+  if (err.message.startsWith("CORS:")) {
+    res.status(403).json({ error: err.message });
+    return;
+  }
+
+  res.status(500).json({
+    error: "Internal server error",
+    ...(isDev && { message: err.message }),
+  });
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
@@ -107,19 +187,26 @@ async function start() {
   await fs.mkdir(sessionsDir, { recursive: true });
   initDatabase();
 
+  // Ensure default org + KB exist and assign orphaned documents (idempotent)
+  ensureDefaultOrg();
+  migrateOrphanedDocumentsToDefaultKB();
+
   // Backfill chunk content for Vault Mode sync (no-op if already done)
   backfillChunkContent().catch((err) =>
-    console.warn("Chunk content backfill failed:", err),
+    logger.warn({ err }, "Chunk content backfill failed"),
   );
 
   app.listen(config.port, () => {
-    console.log(`Edgebric API running on http://localhost:${config.port}`);
-    console.log(`mimik edge: ${config.edge.baseUrl}`);
-    console.log(`Admin emails: ${config.adminEmails.join(", ") || "(none)"}`);
+    logger.info({
+      port: config.port,
+      corsOrigin: config.frontendUrl,
+      edgeBaseUrl: config.edge.baseUrl,
+      adminEmails: config.adminEmails,
+    }, `Edgebric API running on http://localhost:${config.port}`);
   });
 }
 
 start().catch((err) => {
-  console.error("Failed to start server:", err);
+  logger.fatal({ err }, "Failed to start server");
   process.exit(1);
 });

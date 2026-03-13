@@ -6,8 +6,13 @@ export interface User {
   email?: string;
   name?: string;
   picture?: string;
+  orgId?: string;
+  orgName?: string;
+  orgSlug?: string;
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
+  onboardingComplete?: boolean;
+  needsNameSetup?: boolean;
 }
 
 export const UserContext = createContext<User | null | undefined>(undefined);

@@ -2,623 +2,428 @@
 
 ---
 
-## Reality Check on mimik APIs
+## Current State
 
-Before diving into phases, here is what we actually know from researching mimik's real developer documentation (GitHub: edgeMicroservice, mimik-ai, mimik-mimOE-ai orgs; SwaggerHub OpenAPI specs):
+The existing codebase has a working single-node Edgebric:
+- **packages/api/** — Express backend with OIDC auth, SQLite + Drizzle, escalation/notification routes, SSE streaming, document upload + ingestion
+- **packages/web/** — Vite + React + TanStack Router, admin dashboard, employee query interface, conversation viewer, escalation reply/resolve workflow
+- **packages/core/** — Chunker, query filter, system prompt (2 test files)
+- **packages/edge/** — mimik API wrappers (mILM, mKB)
+- **shared/types/** — TypeScript interfaces
+- **End-to-end working:** upload → Docling extract → chunk → embed via mILM → store in mKB → query → SSE stream → citations
 
-**What mimik actually gives us:**
-- `mILM` — OpenAI-compatible REST API at `localhost:8083/api/milm/v1`. Handles both `/chat/completions` and `/embeddings`. Model-agnostic (download from Hugging Face). Streams supported.
-- `mKB` — REST vector store at `localhost:8083/api/mkb/v1`. Create datasets, upload pre-computed embedding chunks, semantic similarity search. Simple, no bells.
-- `mAI` — Multi-agent coordinator. Wires multiple mILM nodes with a summarizer. Useful for multi-node deployments; optional for MVP single-node.
-- `MCM` — mimik Container Manager at `localhost:8083/mcm/v1`. Deploys microservices as `.tar` binaries.
-- **No Node.js SDK** — all interaction is raw HTTP. We wrap it ourselves.
-- **Auth** — static API key for mILM/mKB/mAI. edgeEngine handles device mesh auth separately.
-
-**What this means for our code:**
-- The "RAG pipeline" is entirely our code. mimik provides LLM inference and vector storage primitives — we build the orchestration (chunking, embedding, retrieval, prompt assembly) in `packages/core`.
-- `packages/edge` is a thin HTTP client wrapping mimik's raw endpoints.
-- For MVP: mILM + mKB. mAI is V2 (multi-node federation).
+**What needs to happen:** Transform this single-node chatbot into a distributed knowledge platform with multi-device mesh, meeting mode, and personal KBs — with demo readiness as the first milestone.
 
 ---
 
-## Monorepo Structure
+## Phase Sequencing
+
+```
+Phase 1: Foundation — Personal KBs + Multi-KB Architecture       (prerequisite for everything)
+Phase 2: iOS Companion App — Knowledge node on iPhone              (prerequisite for demo)
+Phase 3: Mesh Discovery + Cross-Device Queries                     (the core distributed feature)
+Phase 4: Meeting Mode — Session management + room codes            (the daily-use hook)
+Phase 5: Demo Polish — Three-device demo readiness                 (mimik demo)
+Phase 6: Productization — Onboarding, org management, hardening    (shippable product)
+```
+
+---
+
+## Phase 1 — Foundation: Multi-KB Architecture + Personal Knowledge Bases
+
+**Goal:** Transform the current single-dataset model into a multi-KB system where users can create, manage, and query their own knowledge bases alongside organization KBs.
+
+### 1.1 — Data Model Changes
+
+**`shared/types/src/index.ts`** — New interfaces:
+
+```typescript
+interface KnowledgeBase {
+  id: string;                      // UUID
+  name: string;                    // e.g., "HR Policies", "My Research"
+  description?: string;
+  type: "organization" | "personal";
+  ownerId: string;                 // admin email (org) or user email (personal)
+  nodeId?: string;                 // which device hosts this KB (null = primary node)
+  datasetName: string;             // mKB dataset name (unique per KB)
+  documentCount: number;
+  status: "active" | "archived";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface KBDocument {
+  id: string;
+  knowledgeBaseId: string;         // FK to KnowledgeBase
+  name: string;
+  type: "pdf" | "docx" | "txt" | "md";
+  status: "processing" | "ready" | "failed";
+  pageCount?: number;
+  sectionHeadings: string[];
+  storageKey: string;
+  uploadedAt: string;
+  updatedAt: string;
+}
+```
+
+**`packages/api/src/db/schema.ts`** — New tables:
+- `knowledge_bases` — id, name, description, type, owner_id, node_id, dataset_name, document_count, status, timestamps
+- Refactor `documents` → `kb_documents` with `knowledge_base_id` FK
+
+### 1.2 — KB Management API
+
+**New routes in `packages/api/src/routes/`:**
+
+```
+POST   /api/knowledge-bases              # Create KB (personal or org)
+GET    /api/knowledge-bases              # List user's KBs (personal) + org KBs they can access
+GET    /api/knowledge-bases/:id          # KB details + document list
+DELETE /api/knowledge-bases/:id          # Delete KB (personal only, or admin for org)
+PUT    /api/knowledge-bases/:id          # Update name/description
+
+POST   /api/knowledge-bases/:id/documents/upload    # Upload document to specific KB
+DELETE /api/knowledge-bases/:id/documents/:docId     # Remove document from KB
+```
+
+### 1.3 — Multi-KB Query Routing
+
+**`packages/core/src/rag/orchestrator.ts`** — Update to accept multiple KB dataset names:
+
+```typescript
+async function answer(
+  query: string,
+  kbDatasetNames: string[],     // query across multiple KBs
+  session: Session,
+  deps: { embed, search, generate }
+): Promise<AnswerResponse>
+```
+
+- Query embeds once, searches across all specified mKB datasets
+- Citations tagged with which KB each result came from
+- UI shows KB source alongside document/section/page
+
+### 1.4 — Frontend: KB Management UI
+
+**`packages/web/`** — New components:
+- `KnowledgeBaseList` — shows personal KBs + org KBs with create/manage actions
+- `KnowledgeBaseDetail` — document list, upload, status for a single KB
+- `KBSelector` — choose which KBs to query (in query interface)
+- Sidebar: rename "Documents" to "Knowledge Base"
+- Employee view: "My Knowledge Bases" section
+
+### 1.5 — Migration
+
+- Migrate existing `documents` table data into new `kb_documents` structure
+- Create a default "Policy Documents" organization KB for existing uploads
+- Maintain backward compatibility with existing API consumers during transition
+
+---
+
+## Phase 2 — iOS Companion App
+
+**Goal:** Build an iOS app that runs mimik mim OE Runtime, hosts a local mKB, and functions as a knowledge node in the mesh.
+
+### 2.1 — Project Setup
+
+- Xcode project with Swift/SwiftUI
+- CocoaPods: `EdgeCore` + `mim-OE-ai-SE-iOS-developer`
+- iOS 16.0+ target, physical device only
+- mimik developer account + edge license
+
+### 2.2 — Core iOS Features
+
+```swift
+// App architecture:
+// 1. Start mim OE runtime on app launch
+// 2. Deploy mKB microservice via MCM
+// 3. Create local dataset, accept document uploads
+// 4. Advertise KB availability to mesh
+// 5. Respond to incoming search queries from mesh peers
+```
+
+**MVP iOS features:**
+- Start/stop mimik runtime
+- Create personal KB (name, upload documents from iOS Files)
+- Simple document viewer (list uploaded docs)
+- mKB search endpoint accessible to mesh peers
+- Join meeting session via room code input
+- KB sharing toggle per session (granular)
+
+**What the iOS app does NOT do (MVP):**
+- No local mILM inference (phone is a KB node, not an inference node)
+- No full chat UI (queries go through the web app or coordinator)
+- No offline query (requires mesh connection)
+
+### 2.3 — Document Handling on iOS
+
+- Accept files from iOS Files app, Photos (for scanned docs), or clipboard
+- On-device text extraction: PDFKit for text PDFs, Vision framework for OCR
+- Chunking uses the same `packages/core` logic (ported to Swift or called via JS bridge)
+- Chunks embedded via mILM call to coordinator node (phone doesn't run embedding model)
+- Vectors stored in local mKB on the phone
+
+### 2.4 — Mesh Integration
+
+- App registers with mimik mesh on startup
+- Advertises available KBs with metadata (name, document count, dataset name)
+- Responds to `/search` requests from other mesh nodes
+- Handles session join/leave for meeting mode
+
+---
+
+## Phase 3 — Mesh Discovery + Cross-Device Queries
+
+**Goal:** Enable automatic device discovery and cross-device query routing so that a query on one device can search knowledge bases on other devices.
+
+### 3.1 — Node Registry Service
+
+**`packages/api/src/services/nodeRegistry.ts`:**
+
+```typescript
+interface MeshNode {
+  id: string;                    // mimik device ID
+  name: string;                  // human-readable label
+  type: "coordinator" | "kb-node";
+  status: "online" | "offline";
+  knowledgeBases: KnowledgeBase[];
+  lastSeen: string;
+  endpoint: string;              // mesh-routable URL
+}
+```
+
+- Polls mimik mesh for discovered devices
+- Tracks which KBs are on which nodes
+- Updates status on heartbeat/timeout
+- Exposes `GET /api/nodes` for admin dashboard
+
+### 3.2 — Cross-Device Query Router
+
+**`packages/api/src/services/queryRouter.ts`:**
+
+```typescript
+async function routeQuery(
+  query: string,
+  targetKBs: string[],     // KB IDs to search
+  nodeRegistry: NodeRegistry
+): Promise<CrossNodeResult[]>
+```
+
+- Looks up which nodes host the target KBs
+- For local KBs: direct mKB search
+- For remote KBs: HTTP request through mimik mesh to the remote node's search endpoint
+- Parallel fan-out to all relevant nodes
+- Collects results, tags with source node + KB
+- Passes merged results to mILM on coordinator for synthesis
+
+### 3.3 — Remote Search Endpoint
+
+Each node exposes a standardized search endpoint that mesh peers can call:
+
+```
+POST /api/mesh/search
+Body: { query: string, datasetName: string, topN: number }
+Response: { chunks: ChunkResult[], nodeId: string, kbName: string }
+```
+
+This is the endpoint the coordinator calls when it needs to search a KB on a remote device.
+
+### 3.4 — Admin Node Dashboard
+
+**`packages/web/src/components/admin/NodeDashboard.tsx`:**
+- List all discovered mesh nodes with status
+- Show which KBs are on each node
+- Assign organization KBs to specific nodes
+- Health indicators (online/offline/last seen)
+
+---
+
+## Phase 4 — Meeting Mode
+
+**Goal:** Implement ephemeral knowledge-sharing sessions with room codes, participant management, and cross-device query synthesis.
+
+### 4.1 — Session Management
+
+**`packages/api/src/services/sessionStore.ts`:**
+
+```typescript
+interface MeetingSession {
+  id: string;
+  code: string;                  // room code
+  creatorId: string;             // email of creator
+  participants: SessionParticipant[];
+  status: "active" | "ended";
+  createdAt: string;
+  expiresAt: string;
+}
+
+interface SessionParticipant {
+  userId: string;                // email
+  nodeId: string;                // their device
+  sharedKBs: string[];           // KB IDs they've opted in
+  joinedAt: string;
+}
+```
+
+**API routes:**
+```
+POST   /api/sessions              # Create session (returns room code)
+POST   /api/sessions/join         # Join session by room code
+GET    /api/sessions/:id          # Session details + participants + shared KBs
+POST   /api/sessions/:id/share    # Opt in/out KBs for this session
+POST   /api/sessions/:id/query    # Query all shared KBs in session
+POST   /api/sessions/:id/leave    # Leave session
+POST   /api/sessions/:id/end      # End session (creator only)
+```
+
+### 4.2 — Session Query Flow
+
+1. User submits query to session endpoint
+2. Server identifies all shared KBs across all participants
+3. Router fans out query to each node hosting a shared KB
+4. Results collected and merged with per-KB citations
+5. mILM generates synthesized answer on coordinator
+6. Answer streamed to all session participants via SSE
+7. Session transcript optionally saved
+
+### 4.3 — Session UI
+
+**`packages/web/src/components/meeting/`:**
+- `CreateSession` — form to create session, displays room code
+- `JoinSession` — room code input
+- `SessionView` — participant list, shared KBs, chat interface
+- `KBSharePanel` — toggle which of your KBs to share in this session
+- `SessionChat` — question/answer thread, per-KB citation indicators
+
+### 4.4 — Real-Time Session Updates
+
+- Use SSE for session state updates (participant joins/leaves, KB sharing changes)
+- All participants see the same chat thread
+- Coordinator node manages session state
+
+---
+
+## Phase 5 — Demo Polish
+
+**Goal:** Make the three-device demo (MacBook + 2 iPhones) flawless for the mimik leadership demo.
+
+### 5.1 — Demo Data Preparation
+
+- Curate 3 distinct knowledge bases with realistic content:
+  - KB 1 (iPhone A): "Marketing — Campaign Brief" (product claims, messaging, audience)
+  - KB 2 (iPhone B): "Legal — Compliance Checklist" (regulatory requirements, restrictions)
+  - KB 3 (MacBook): "Engineering — Release Notes" (features, known issues, timelines)
+- Prepare 5 demo questions that require cross-KB synthesis:
+  - "Are there any compliance issues with our marketing claims?"
+  - "What features are shipping in Q3 and what's the marketing angle for each?"
+  - "Which release items need legal review before announcement?"
+
+### 5.2 — Demo Flow Script
+
+See [09-demo-plan.md](09-demo-plan.md) for full script. Key moments:
+1. Auto-discovery: show phones appearing in mesh
+2. Meeting mode: create session, phones join via code
+3. Cross-device query: question hits all 3 KBs, synthesized answer
+4. Physical isolation: show that KB data is on each device, not central
+5. Graceful degradation: pull one phone off network, query handles it
+6. Recovery: phone reconnects, auto-rediscovers
+
+### 5.3 — UI Polish
+
+- Loading states for cross-device queries (which nodes are being queried)
+- Per-KB citation indicators (color-coded or labeled by source KB)
+- Session participant avatars/names
+- Clean mobile-responsive design for demo on phones
+
+---
+
+## Phase 6 — Productization
+
+**Goal:** Transform the demo into a shippable product. See [08-productization.md](08-productization.md) for full requirements.
+
+### 6.1 — Organization & User Management
+
+- Organization model: name, plan, settings, created_at
+- User roles: owner, admin, member
+- Onboarding wizard: create org → configure auth → create first KB → upload first document
+- Invite flow: admin invites users by email
+
+### 6.2 — Security Hardening
+
+- CORS configuration (dynamic, per-org)
+- Rate limiting (per-user, per-org)
+- Input validation (zod schemas on all API routes)
+- CSRF protection
+- Content Security Policy headers
+
+### 6.3 — Deployment
+
+- Docker Compose for single-node
+- Docker image with mimik runtime bundled
+- Environment variable documentation
+- Health check endpoint
+- Graceful shutdown handling
+
+### 6.4 — Testing
+
+- Unit tests for core business logic (chunker, query filter, orchestrator)
+- Integration tests for API routes
+- E2E tests for critical flows (upload → query → answer)
+- iOS app: XCTest for mimik runtime lifecycle
+
+### 6.5 — Monitoring & Observability
+
+- Structured logging (replace console.log with pino)
+- Request tracing (correlation IDs across mesh queries)
+- Error tracking
+- Resource usage monitoring per node
+
+---
+
+## Monorepo Structure (Updated)
 
 ```
 edgebric/
 ├── packages/
-│   ├── core/          # Business logic — ingestion, RAG, PII detection. Zero framework deps.
-│   ├── api/           # Express server — REST endpoints the web app calls
-│   ├── web/           # React (Vite + TanStack Router + shadcn/ui) — employee + admin UI
-│   └── edge/          # mimik API client — thin wrappers for mILM, mKB, mAI
-├── spikes/            # Throwaway experiments. NOT production code.
-│   ├── spike-mkb/     # Does mKB accept our chunk format?
-│   ├── spike-milm/    # Can mILM run Qwen3-4B? How fast?
-│   ├── spike-docling/  # Does Docling actually handle complex PDFs?
-│   └── spike-rag/     # End-to-end: ingest doc → embed → store → query → answer
+│   ├── core/          # Business logic — ingestion, RAG, PII detection. Zero deps.
+│   ├── api/           # Express server — REST endpoints, SSE, session management
+│   ├── web/           # React (Vite + TanStack Router + shadcn/ui) — all UIs
+│   ├── edge/          # mimik API client — mILM, mKB, mAIChain, mesh discovery
+│   └── ios/           # Swift iOS app — knowledge node (Xcode project)
 ├── shared/
 │   └── types/         # TypeScript interfaces shared across packages
-├── scripts/           # Dev setup, deploy helpers
-├── docs/              # PRD and architecture docs (already exists)
+├── spikes/            # Completed throwaway experiments (all 4 spikes PASS)
+├── scripts/           # Dev setup, deploy helpers, mimik binary management
+├── docs/              # Product documentation (this file and 01-09)
 └── package.json       # Workspace root (pnpm workspaces)
 ```
 
-**Why this structure:**
-- `core` has zero knowledge of Express, React, or mimik. Pure functions. Independently testable.
-- `edge` has zero knowledge of our business logic. Just HTTP.
-- `api` composes `core` + `edge`. It is the only layer that knows both.
-- `web` calls `api` only — never touches `core` or `edge` directly.
-- Clear seam: if mimik changes their API, you touch `packages/edge` only.
-
 ---
 
-## Data Schema — Design First
+## What NOT to Build Yet
 
-This is the most important pre-coding decision. Get this wrong and you pay for it everywhere.
-
-### Core Entities
-
-```typescript
-// shared/types/index.ts
-
-// A document uploaded by an admin
-interface Document {
-  id: string;                    // UUID
-  name: string;                  // Original filename
-  type: 'pdf' | 'docx' | 'txt' | 'md';
-  classification: 'policy';      // Only 'policy' goes into shared index (V1)
-  uploadedAt: Date;
-  updatedAt: Date;
-  status: 'processing' | 'ready' | 'failed';
-  pageCount?: number;
-  sectionHeadings: string[];
-  storageKey: string;            // Reference to raw file storage
-}
-
-// A chunk of text extracted from a document
-interface Chunk {
-  id: string;                    // UUID
-  documentId: string;
-  content: string;               // The text content (100–800 tokens)
-  metadata: {
-    sourceDocument: string;      // Document name
-    sectionPath: string[];       // e.g. ["Benefits", "Health Insurance", "Deductibles"]
-    pageNumber: number;
-    heading: string;
-    chunkIndex: number;          // Position within document
-  };
-  embeddingId?: string;          // Reference to mKB chunk after embedding
-}
-
-// An anonymous device token for standard mode
-interface DeviceToken {
-  id: string;                    // The UUID token itself
-  issuedAt: Date;
-  lastSeenAt: Date;
-  isRevoked: boolean;
-  label?: string;                // Admin-assigned label e.g. "MacBook - John's desk"
-}
-
-// An escalation submitted by an employee
-interface Escalation {
-  id: string;
-  createdAt: Date;
-  question: string;
-  aiAnswer: string;              // The AI's answer the employee wants verified
-  sourceCitations: Citation[];
-  status: 'open' | 'answered' | 'closed';
-  hrResponse?: string;
-  hrRespondedAt?: Date;
-}
-
-// A source citation attached to an answer
-interface Citation {
-  documentId: string;
-  documentName: string;
-  sectionPath: string[];
-  pageNumber: number;
-  excerpt: string;               // Relevant passage from the chunk
-}
-
-// The response returned to the employee
-interface AnswerResponse {
-  answer: string;
-  citations: Citation[];
-  hasConfidentAnswer: boolean;   // false → show "contact HR" fallback
-  sessionId: string;
-}
-
-// A query session (for multi-turn context)
-interface Session {
-  id: string;
-  createdAt: Date;
-  messages: Array<{
-    role: 'user' | 'assistant';
-    content: string;
-    citations?: Citation[];
-  }>;
-}
-
-// Analytics topic cluster (aggregate only)
-interface TopicCluster {
-  id: string;
-  label: string;                 // e.g. "PTO & Leave Policy"
-  queryCount: number;            // Suppressed in UI if < 5
-  period: { start: Date; end: Date };
-}
-```
-
-**Why design schema now:** Every pipeline step — ingestion, RAG, escalation, admin dashboard — moves these objects around. Naming them now means no refactoring when API layer meets the frontend.
-
----
-
-## Phase 0 — Monorepo Bootstrap (Day 1)
-
-Do this once. Get it right. Never think about it again.
-
-**Tasks:**
-1. `pnpm init` at root, configure workspaces for `packages/*` and `shared/*`
-2. Root `tsconfig.json` with path aliases (`@edgebric/core`, `@edgebric/edge`, `@edgebric/types`)
-3. Each package gets its own `tsconfig.json` extending root
-4. ESLint + Prettier configured once at root, shared by all packages
-5. `shared/types` package — export the schema above
-6. Vitest configured for `packages/core` (pure functions → easy to test)
-7. `scripts/dev.sh` — starts API server + Vite dev server in parallel
-
-**What you do NOT set up yet:** Docker, CI/CD, database migrations, any mimik deployment. None of that until spikes confirm assumptions.
-
----
-
-## Phase 1 — Spikes (Before Writing a Single Line of Product Code)
-
-A **spike** is throwaway code that answers one specific question. It lives in `/spikes`. It never gets refactored into production. When the spike is done, you write down what you learned and move on.
-
-**Why spikes first:** The biggest risks are technical unknowns. A spike costs 1–2 days. Discovering the same problem after building 3 weeks of product costs 3 weeks.
-
-### Spike 1 — mILM: Can it run our target model?
-
-**Question:** Does Qwen3-4B run on a typical laptop/server? What's the token throughput? Does the streaming response format match OpenAI's?
-
-**What to build:** Single `spikes/spike-milm/test.http` file + `README.md` documenting results.
-
-Steps:
-1. Download edgeEngine for macOS from GitHub Releases
-2. Deploy mILM via MCM (upload .tar, start container)
-3. `POST /models` — download Qwen3-4B-Instruct GGUF from Hugging Face
-4. `POST /chat/completions` — simple prompt, verify streaming response format
-5. Measure: time to first token, tokens/second, memory usage
-
-**Success criteria:** Model loads, responses stream, format is valid OpenAI JSON. Document the actual numbers.
-
-**Fallback decision:** If Qwen3-4B is too slow on available hardware, use Qwen3-1.7B or Llama-3.2-3B instead.
-
-### Spike 2 — mKB: Does it accept our chunk format?
-
-**Question:** Exactly what JSON structure does mKB expect for chunk upload? Does the similarity search return useful results?
-
-**What to build:** `spikes/spike-mkb/test.ts` — programmatic version so we get the real request/response types.
-
-Steps:
-1. Deploy mKB via MCM
-2. Create a dataset
-3. Call mILM `/embeddings` with 5 test sentences
-4. Format the embedding response into chunks, upload to mKB
-5. Run a similarity search query
-6. Inspect the response — is similarity scoring usable? What's the score range?
-
-**Success criteria:** Embed → store → search pipeline works. Document exact request/response shapes.
-
-**What this confirms:** Our `packages/edge` interface will be correct.
-
-### Spike 3 — Docling: Does it handle real HR PDFs?
-
-**Question:** Does Docling actually extract structured text from a messy HR PDF (multi-column, tables, footnotes)?
-
-**What to build:** `spikes/spike-docling/test.py` — Python script, not TypeScript. Docling is Python. We call it from Node.js via a child process in production. This spike confirms the output quality.
-
-Steps:
-1. `pip install docling`
-2. Run against 3 test PDFs: a simple one-column policy, a multi-column benefits guide, a scanned PDF
-3. Inspect the Markdown output — are tables preserved? Are headings detected? Is the scanned PDF handled?
-4. If scanned PDF fails → confirm Tesseract fallback works
-
-**Success criteria:** Complex PDF produces clean, structured Markdown with headings and tables intact. Document what breaks and what workarounds exist.
-
-### Spike 4 — End-to-End RAG: Does it produce a good answer?
-
-**Question:** Does the full pipeline (PDF → chunks → embeddings → mKB → retrieval → mILM generation) produce a correct, cited answer from a real policy document?
-
-**What to build:** `spikes/spike-rag/pipeline.ts` — single script, hardcoded config.
-
-Steps:
-1. Take a real PDF (any employee handbook or benefits doc found online)
-2. Extract with Docling → chunk → embed with mILM → store in mKB
-3. Ask 5 questions: 2 that should be answerable, 1 table-based (e.g. deductible amount), 1 that tests the "no answer found" path, 1 that tests the PII filter
-4. Measure: answer quality, citation accuracy, latency
-
-**Success criteria:** Answerable questions get correct answers with accurate citations. Non-answerable question gets clean "I don't know" response. PII question gets redirected. Document failure cases.
-
-**This spike is the most important one.** If RAG quality is bad at this stage, we know before building a UI around it.
-
----
-
-## Phase 2 — Core Package (`packages/core`)
-
-After spikes, you know the exact shapes of everything. Now build the real thing.
-
-`packages/core` is the heart of Edgebric. It has no HTTP layer. No database. No mimik. Just functions.
-
-### 2.1 — Document Processor
-
-```typescript
-// packages/core/src/ingestion/processor.ts
-
-interface ProcessResult {
-  chunks: Chunk[];
-  metadata: Pick<Document, 'pageCount' | 'sectionHeadings'>;
-}
-
-async function processDocument(
-  file: Buffer,
-  filename: string,
-  mimeType: string
-): Promise<ProcessResult>
-```
-
-Internally: routes to Docling (PDF) | Mammoth (.docx) | direct pass (.txt/.md) → clean → chunk.
-
-### 2.2 — Chunker
-
-```typescript
-// packages/core/src/ingestion/chunker.ts
-
-function chunkMarkdown(
-  markdown: string,
-  documentId: string,
-  options?: { maxTokens?: number; overlapTokens?: number }
-): Chunk[]
-```
-
-Implements heading-based semantic chunking. Tables are atomic. Long sections split with overlap. Short adjacent sections merged.
-
-### 2.3 — PII Detector
-
-```typescript
-// packages/core/src/ingestion/piiDetector.ts
-
-interface PIIWarning {
-  chunkIndex: number;
-  excerpt: string;        // The flagged text
-  pattern: string;        // What was detected: "PERSON + salary", "SSN pattern", etc.
-}
-
-async function detectPII(chunks: Chunk[]): Promise<PIIWarning[]>
-```
-
-Uses `compromise` (JS NLP) or calls Python spaCy via child process for NER. Returns warnings — admin decides whether to proceed.
-
-### 2.4 — Query Filter
-
-```typescript
-// packages/core/src/rag/queryFilter.ts
-
-interface FilterResult {
-  allowed: boolean;
-  reason?: 'person_name_sensitive_term';
-  redirectMessage?: string;
-}
-
-function filterQuery(query: string): FilterResult
-```
-
-Pattern matching + simple NER. If `PERSON + [salary, PIP, fired, complaint, accommodation, performance]` → intercept.
-
-### 2.5 — RAG Orchestrator
-
-```typescript
-// packages/core/src/rag/orchestrator.ts
-
-interface RAGOptions {
-  topK?: number;          // default: 5
-  datasetName: string;
-}
-
-async function answer(
-  query: string,
-  session: Session,
-  options: RAGOptions,
-  deps: {
-    embed: (text: string) => Promise<number[]>;
-    search: (embedding: number[], topK: number) => Promise<SearchResult[]>;
-    generate: (messages: Message[], context: string) => AsyncIterable<string>;
-  }
-): Promise<AnswerResponse>
-```
-
-Notice: `deps` are injected. The orchestrator doesn't know it's calling mILM and mKB. In tests, you pass mock functions. In production, you pass the real mimik clients. This is the key architectural pattern.
-
-The orchestrator:
-1. Calls `filterQuery` → intercept if needed
-2. Calls `embed(query)` → gets embedding vector
-3. Calls `search(embedding, topK)` → gets relevant chunks
-4. If no relevant chunks found → returns `hasConfidentAnswer: false`
-5. Assembles system prompt with retrieved chunks + instructions
-6. Calls `generate(messages, context)` → streams the answer
-7. Extracts citations from used chunks
-8. Returns `AnswerResponse`
-
-### 2.6 — System Prompt
-
-```typescript
-// packages/core/src/rag/systemPrompt.ts
-
-function buildSystemPrompt(chunks: Chunk[]): string
-```
-
-The actual text of the system prompt. Documented as a first-class concern, not buried in a string. Easy to update without digging through code.
-
-Contents:
-- You are a company knowledge assistant.
-- Answer only using the provided context. If the answer is not in the context, say so clearly.
-- Never reveal information about named individuals.
-- Always cite the source document, section, and page number for each claim.
-- Your answers are informational, not legal advice.
-
----
-
-## Phase 3 — Edge Package (`packages/edge`)
-
-Thin HTTP client for mimik services. Every function is a direct translation of the raw HTTP calls we confirmed in spikes.
-
-```typescript
-// packages/edge/src/milm.ts
-
-interface MILMClient {
-  embed(text: string): Promise<number[]>;
-  chat(messages: Message[], options?: { stream?: boolean }): AsyncIterable<string>;
-  downloadModel(modelId: string, url: string): Promise<void>;
-}
-
-function createMILMClient(config: {
-  baseUrl: string;      // http://localhost:8083/api/milm/v1
-  apiKey: string;
-  model: string;
-}): MILMClient
-```
-
-```typescript
-// packages/edge/src/mkb.ts
-
-interface MKBClient {
-  createDataset(name: string, modelId: string): Promise<void>;
-  uploadChunks(datasetName: string, chunks: EmbeddedChunk[]): Promise<void>;
-  search(datasetName: string, embedding: number[], topN: number): Promise<SearchResult[]>;
-}
-
-function createMKBClient(config: {
-  baseUrl: string;      // http://localhost:8083/api/mkb/v1
-  apiKey: string;
-}): MKBClient
-```
-
-No business logic in here. Just fetch calls and error handling.
-
----
-
-## Phase 4 — API Package (`packages/api`)
-
-Express server. This layer wires `core` + `edge` together and exposes REST endpoints to the web app.
-
-### Routes
-
-```
-POST   /api/documents/upload       # Admin: upload + ingest document
-GET    /api/documents              # Admin: list all documents
-DELETE /api/documents/:id          # Admin: archive document
-GET    /api/documents/:id/status   # Ingestion status polling
-
-POST   /api/query                  # Employee: ask a question (streams response)
-POST   /api/escalate               # Employee: submit escalation (sent to Slack)
-
-GET    /api/admin/analytics        # Admin: topic clusters
-GET    /api/admin/escalations      # Admin: escalation audit log
-GET    /api/admin/escalations/export  # Admin: CSV export of escalations
-
-GET    /api/admin/integrations     # Admin: get Slack webhook config
-PUT    /api/admin/integrations     # Admin: update Slack webhook config
-POST   /api/admin/integrations/test  # Admin: test Slack webhook
-
-GET    /api/admin/devices          # Device token management
-DELETE /api/admin/devices/:id      # Revoke a device token
-
-POST   /api/auth/token             # Issue anonymous device token (first launch)
-```
-
-### Middleware Stack
-
-```
-1. Request logging
-2. Device token validation (all employee routes)
-3. Admin session validation (all admin routes)
-4. Rate limiting (per device token)
-5. Error handler
-```
-
-### Document Upload Flow (the complex one)
-
-```
-POST /api/documents/upload
-  → validate device token (admin)
-  → save raw file to disk (multer)
-  → create Document record (status: 'processing')
-  → respond 202 Accepted with documentId
-  → [background job starts]:
-      → core.processDocument(file)
-      → core.detectPII(chunks) → if warnings → store, mark for admin review
-      → edge.mkb.createDataset(documentId)
-      → for each chunk: edge.milm.embed(chunk.content) → edge.mkb.uploadChunks(...)
-      → update Document record (status: 'ready' or 'failed')
-```
-
-Background job runs in-process (simple `setImmediate` / async queue for MVP). Not a separate worker. Upgrade to a real queue (BullMQ) in V2 if needed.
-
-### Query Flow (streaming)
-
-```
-POST /api/query
-  → validate device token
-  → filterQuery → if blocked → return redirect message
-  → core.answer(query, session, options, { embed, search, generate })
-  → stream SSE response to client
-```
-
-Streaming is SSE (Server-Sent Events). Not WebSockets. Simpler, no connection management.
-
----
-
-## Phase 5 — Web Package (`packages/web`)
-
-React app. Vite. TanStack Router. shadcn/ui. Light theme.
-
-### Routes
-
-```
-/                    → Employee home (query interface)
-/incognito           → (V2) Incognito mode entry
-/admin               → Admin login
-/admin/dashboard     → Analytics overview
-/admin/documents     → Document library + upload
-/admin/devices       → Device token management
-```
-
-### Component Philosophy
-
-- Components are dumb. They display data and call handlers.
-- Data fetching lives in TanStack Query hooks, not in components.
-- All server state is via `react-query`. No `useEffect` for data fetching.
-- Streaming query response uses `EventSource` (SSE) — wrap in a custom hook.
-
-### Employee Query Interface
-
-The main screen. Intentionally simple.
-
-```
-┌─────────────────────────────────────────────┐
-│  [Edgebric logo]                    [Lock]  │
-├─────────────────────────────────────────────┤
-│                                             │
-│  Ask a question                             │
-│  ┌─────────────────────────────────────┐   │
-│  │                                     │   │
-│  │                                     │   │
-│  │                              [Send] │   │
-│  └─────────────────────────────────────┘   │
-│                                             │
-│  ┌─────────────────────────────────────┐   │
-│  │ Answer (streams in)                 │   │
-│  │                                     │   │
-│  │ Source: [Employee Handbook, §3, p4] │   │
-│  │                                     │   │
-│  │ ⚠️ Verify important decisions with    │   │
-│  │  the appropriate team                │   │
-│  │                [Request verification]│   │
-│  └─────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
-```
-
-### Admin Dashboard
-
-Two main panels:
-1. **Documents** — table view, drag-and-drop upload zone, status badges, staleness alerts
-2. **Analytics** — topic cluster cards (suppressed if < 5 queries), unanswered questions list
-
-Escalation audit log and Slack integration config live in the Settings page.
-
----
-
-## Phase 6 — Integration & First Demo
-
-After Phases 2–5 are working independently:
-
-1. Wire `api` ↔ `edge` (real mimik calls replacing mock deps in `core`)
-2. Wire `web` ↔ `api` (real HTTP calls replacing hardcoded fixtures)
-3. End-to-end demo scenario:
-   - Upload a policy PDF → see it process → status turns "ready"
-   - Ask a question → see streaming answer → click source citation
-   - Admin sees the question show up in analytics (after 5 queries)
-   - Click "Request verification" → escalation sent to Slack → appears in audit log
-
-**Demo goal:** A 5-minute walkthrough that makes someone say "I get it." Not impressive code. An impressive product moment.
-
----
-
-## What NOT to Build in MVP
-
-These are real temptations. Resist them.
-
-| Temptation | Why to Skip It |
+| Temptation | Why Skip |
 |---|---|
-| Docker Compose setup | Run services directly in dev. Containerize before demo if needed. |
-| Database migrations system | SQLite with a simple schema file. Prisma or Drizzle is V2. |
-| Full CI/CD pipeline | Not needed for a portfolio project. |
-| WebSocket streaming | SSE is simpler and works for our use case. |
-| User accounts system | Anonymous device tokens only. No auth library. |
-| Redis job queue | In-process background jobs are fine until they aren't. |
-| Multi-node federation (mAI) | Single edge node for MVP. mAI adds complexity with no MVP benefit. |
-| mAIChain integration | mILM + mKB directly. mAIChain is for multi-agent scenarios. |
-| Incognito mode | V2. Marked as V2 in PRD for a reason. |
-| Test suite > core package | Test `core` thoroughly. Snapshot test `web`. Skip API integration tests for now. |
+| mAIChain integration | Implement our own fan-out first; mAIChain API undocumented |
+| Full role-based access control | ADMIN_EMAILS env var is fine through Phase 5 |
+| Incognito mode | V2 — complex, requires biometric APIs, not needed for demo |
+| Android app | iOS first (demo devices are iPhones), Android in V2 |
+| Multi-office federation | Same-network mesh first, cross-network in V2 |
+| Billing / subscriptions | Not needed until product launch |
+| CI/CD pipeline | Manual deploy is fine through demo phase |
 
 ---
 
-## Spike-to-Production Decision Points
-
-After each spike, you make a real decision. Document it in `05-decisions.md`.
-
-| Spike | Decision triggered |
-|---|---|
-| Spike 1 (mILM) | Which model? What's the actual latency we can promise? |
-| Spike 2 (mKB) | Exact chunk format spec. mKB embedding search threshold. |
-| Spike 3 (Docling) | Do we need a Python subprocess or can we use a JS alternative? |
-| Spike 4 (RAG) | Is retrieval quality good enough to ship? What's the min doc corpus size? |
-
----
-
-## Local Development Setup
-
-What a new dev (or you, coming back after a week) needs to run the project:
-
-**Prerequisites:**
-- Node.js 20+ and pnpm
-- Python 3.10+ (for Docling / spaCy)
-- mimik edgeEngine binary downloaded and running (macOS or Linux)
-- mILM and mKB `.tar` files downloaded from edgeMicroservice GitHub Releases
-
-**One-time setup:**
-```bash
-pnpm install
-python -m pip install docling spacy
-python -m spacy download en_core_web_sm
-# Deploy mILM + mKB via MCM (script in /scripts/deploy-mimik.sh)
-# Download and register LLM model (script in /scripts/download-model.sh)
-```
-
-**Dev run:**
-```bash
-pnpm dev   # starts api + web in parallel
-```
-
----
-
-## Order of Work (Summary)
+## Order of Work
 
 ```
-Week 1:  Phase 0 (monorepo) + Phase 1 (all 4 spikes)
-Week 2:  Phase 2 (packages/core — ingestion + RAG, fully tested)
-Week 3:  Phase 3 (packages/edge — mimik clients) + Phase 4 (packages/api — routes)
-Week 4:  Phase 5 (packages/web — employee UI + admin dashboard)
-Week 5:  Phase 6 (integration + demo prep)
+Weeks 1-2:  Phase 1 — Multi-KB architecture, personal KBs, migration
+Weeks 3-4:  Phase 2 — iOS app scaffold, mim OE runtime, basic KB hosting
+Weeks 5-6:  Phase 3 — Mesh discovery, cross-device query routing
+Weeks 7-8:  Phase 4 — Meeting mode, session management, session UI
+Week 9:     Phase 5 — Demo polish, data prep, rehearsal
+Weeks 10+:  Phase 6 — Productization (ongoing)
 ```
 
-These are not deadlines. They are a sequencing guide. The spikes can't run in parallel with each other if you're on one machine. Core can be built without a running mimik instance (inject mocks). Web can be scaffolded before the API is complete (use fixture data).
+These are sequencing guides, not deadlines. Phase 1 and Phase 2 can partially overlap (TypeScript backend work + Swift app scaffold are independent). Phase 3 requires both to be working.
 
-The demo-worthy milestone is: upload a real PDF → ask a question → get a real answer with a real citation.
+**The demo-worthy milestone:** Create a meeting session on the MacBook → 2 iPhones join with room code → each shares a different KB → cross-domain question gets synthesized answer with citations from all 3 devices → pull one phone off network → graceful degradation → reconnect → auto-recovery.

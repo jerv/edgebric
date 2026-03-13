@@ -1,7 +1,7 @@
-import type { Document } from "@edgebric/types";
+import type { Document, PIIWarning } from "@edgebric/types";
 import { getDb } from "../db/index.js";
-import { documents } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { documents, knowledgeBases } from "../db/schema.js";
+import { eq, sql } from "drizzle-orm";
 
 /** Convert a DB row to the application Document type. */
 function rowToDoc(row: typeof documents.$inferSelect): Document {
@@ -18,6 +18,8 @@ function rowToDoc(row: typeof documents.$inferSelect): Document {
   };
   if (row.pageCount != null) doc.pageCount = row.pageCount;
   if (row.datasetName != null) doc.datasetName = row.datasetName;
+  if (row.piiWarnings != null) doc.piiWarnings = JSON.parse(row.piiWarnings) as PIIWarning[];
+  if (row.knowledgeBaseId != null) doc.knowledgeBaseId = row.knowledgeBaseId;
   return doc;
 }
 
@@ -53,6 +55,8 @@ export function setDocument(doc: Document): void {
       sectionHeadings: JSON.stringify(doc.sectionHeadings),
       storageKey: doc.storageKey,
       datasetName: doc.datasetName ?? null,
+      piiWarnings: doc.piiWarnings ? JSON.stringify(doc.piiWarnings) : null,
+      knowledgeBaseId: doc.knowledgeBaseId ?? null,
     })
     .onConflictDoUpdate({
       target: documents.id,
@@ -67,9 +71,53 @@ export function setDocument(doc: Document): void {
         sectionHeadings: JSON.stringify(doc.sectionHeadings),
         storageKey: doc.storageKey,
         datasetName: doc.datasetName ?? null,
+        piiWarnings: doc.piiWarnings ? JSON.stringify(doc.piiWarnings) : null,
+        knowledgeBaseId: doc.knowledgeBaseId ?? null,
       },
     })
     .run();
+}
+
+/** Get all documents for KBs belonging to a specific org. */
+export function getDocumentsByOrg(orgId: string): Document[] {
+  const db = getDb();
+  const orgKBIds = db
+    .select({ id: knowledgeBases.id })
+    .from(knowledgeBases)
+    .where(eq(knowledgeBases.orgId, orgId))
+    .all()
+    .map((r) => r.id);
+  if (orgKBIds.length === 0) return [];
+  const rows = db
+    .select()
+    .from(documents)
+    .where(sql`${documents.knowledgeBaseId} IN (${sql.join(orgKBIds.map((id) => sql`${id}`), sql`, `)})`)
+    .all();
+  return rows
+    .map(rowToDoc)
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
+}
+
+/** Check if a document belongs to an org (via its KB). */
+export function documentBelongsToOrg(docId: string, orgId: string): boolean {
+  const doc = getDocument(docId);
+  if (!doc?.knowledgeBaseId) return false;
+  const db = getDb();
+  const kb = db
+    .select({ orgId: knowledgeBases.orgId })
+    .from(knowledgeBases)
+    .where(eq(knowledgeBases.id, doc.knowledgeBaseId))
+    .get();
+  return kb?.orgId === orgId;
+}
+
+/** Get all documents for a specific knowledge base. */
+export function getDocumentsByKB(knowledgeBaseId: string): Document[] {
+  const db = getDb();
+  const rows = db.select().from(documents).where(eq(documents.knowledgeBaseId, knowledgeBaseId)).all();
+  return rows
+    .map(rowToDoc)
+    .sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime());
 }
 
 /** Delete a document by ID. */

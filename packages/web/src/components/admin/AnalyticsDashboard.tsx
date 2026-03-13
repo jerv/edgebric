@@ -693,7 +693,7 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: string | number;
-  subtitle?: string;
+  subtitle?: string | undefined;
 }) {
   return (
     <div className="border border-slate-200 rounded-2xl p-4">

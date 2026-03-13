@@ -1,7 +1,44 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
+import { z } from "zod";
 import type { Escalation, EscalateRequest, IntegrationConfig } from "@edgebric/types";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { requireOrg, requireAdmin } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+import { logger } from "../lib/logger.js";
+
+const escalateSchema = z.object({
+  question: z.string().min(1, "Question is required").max(4000),
+  aiAnswer: z.string().min(1, "AI answer is required").max(8000),
+  citations: z.array(z.object({
+    documentId: z.string().default(""),
+    documentName: z.string(),
+    sectionPath: z.array(z.string()),
+    pageNumber: z.number(),
+    excerpt: z.string(),
+  })).optional(),
+  conversationId: z.string().min(1),
+  messageId: z.string().min(1),
+  targetId: z.string().min(1),
+  method: z.enum(["slack", "email"]),
+});
+
+const replySchema = z.object({
+  reply: z.string().min(1, "Reply cannot be empty").max(8000),
+});
+
+const resolveSchema = z.object({
+  note: z.string().max(2000).optional(),
+});
+
+const targetSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  role: z.string().max(200).optional(),
+  slackUserId: z.string().max(50).optional(),
+  email: z.string().email().optional(),
+}).refine(
+  (data) => data.slackUserId || data.email,
+  { message: "At least one contact method (Slack User ID or email) is required" },
+);
 import {
   addEscalation,
   listEscalations,
@@ -26,19 +63,10 @@ import { config } from "../config.js";
 // ─── Employee escalation ─────────────────────────────────────────────────────
 
 export const escalateRouter: IRouter = Router();
-escalateRouter.use(requireAuth);
+escalateRouter.use(requireOrg);
 
-escalateRouter.post("/", async (req, res) => {
-  const body = req.body as EscalateRequest;
-
-  if (!body.question?.trim() || !body.aiAnswer?.trim()) {
-    res.status(400).json({ error: "question and aiAnswer are required" });
-    return;
-  }
-  if (!body.conversationId || !body.messageId || !body.targetId || !body.method) {
-    res.status(400).json({ error: "conversationId, messageId, targetId, and method are required" });
-    return;
-  }
+escalateRouter.post("/", validateBody(escalateSchema), async (req, res) => {
+  const body = req.body as z.infer<typeof escalateSchema>;
 
   const target = getTarget(body.targetId);
   if (!target) {
@@ -74,7 +102,7 @@ escalateRouter.post("/", async (req, res) => {
         escalation.notifiedVia = "slack";
       } else {
         escalation.status = "failed";
-        console.error("Slack DM failed:", result.error);
+        logger.error({ error: result.error }, "Slack DM failed");
       }
     }
   } else if (body.method === "email") {
@@ -85,12 +113,12 @@ escalateRouter.post("/", async (req, res) => {
         escalation.notifiedVia = "email";
       } else {
         escalation.status = "failed";
-        console.error("Email delivery failed:", result.error);
+        logger.error({ error: result.error }, "Email delivery failed");
       }
     }
   }
 
-  addEscalation(escalation);
+  addEscalation(escalation, req.session.orgId);
 
   res.json({
     id: escalation.id,
@@ -105,10 +133,10 @@ escalateRouter.post("/", async (req, res) => {
 // ─── Employee: available targets ─────────────────────────────────────────────
 
 export const targetsRouter: IRouter = Router();
-targetsRouter.use(requireAuth);
+targetsRouter.use(requireOrg);
 
-targetsRouter.get("/", (_req, res) => {
-  const targets = listTargets();
+targetsRouter.get("/", (req, res) => {
+  const targets = listTargets(req.session.orgId);
   const cfg = getIntegrationConfig();
   const slackEnabled = !!(cfg.slack?.enabled && cfg.slack.botToken);
   const emailEnabled = !!cfg.email?.enabled;
@@ -130,17 +158,17 @@ targetsRouter.get("/", (_req, res) => {
 export const adminEscalationsRouter: IRouter = Router();
 adminEscalationsRouter.use(requireAdmin);
 
-adminEscalationsRouter.get("/", (_req, res) => {
-  res.json(listEscalations());
+adminEscalationsRouter.get("/", (req, res) => {
+  res.json(listEscalations(req.session.orgId));
 });
 
-adminEscalationsRouter.get("/unread-count", (_req, res) => {
-  res.json({ count: getUnreadCount() });
+adminEscalationsRouter.get("/unread-count", (req, res) => {
+  res.json({ count: getUnreadCount(req.session.orgId) });
 });
 
 adminEscalationsRouter.patch("/:id/read", (req, res) => {
   const adminEmail = req.session.email ?? "unknown";
-  const updated = markRead(req.params.id!, adminEmail);
+  const updated = markRead(req.params["id"] as string, adminEmail);
   if (!updated) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -148,8 +176,8 @@ adminEscalationsRouter.patch("/:id/read", (req, res) => {
   res.json(updated);
 });
 
-adminEscalationsRouter.get("/export", (_req, res) => {
-  const escalationList = listEscalations();
+adminEscalationsRouter.get("/export", (req, res) => {
+  const escalationList = listEscalations(req.session.orgId);
 
   const escape = (s: string) => {
     if (s.includes(",") || s.includes('"') || s.includes("\n")) {
@@ -186,16 +214,11 @@ adminEscalationsRouter.get("/export", (_req, res) => {
 
 // ─── Admin: reply to escalation ──────────────────────────────────────────────
 
-adminEscalationsRouter.post("/:id/reply", (req, res) => {
+adminEscalationsRouter.post("/:id/reply", validateBody(replySchema), (req, res) => {
   const adminEmail = req.session.email ?? "unknown";
-  const { reply } = req.body as { reply?: string };
+  const { reply } = req.body as z.infer<typeof replySchema>;
 
-  if (!reply?.trim()) {
-    res.status(400).json({ error: "reply is required" });
-    return;
-  }
-
-  const esc = getEscalation(req.params.id!);
+  const esc = getEscalation(req.params["id"] as string);
   if (!esc) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -222,7 +245,7 @@ adminEscalationsRouter.post("/:id/reply", (req, res) => {
     createdAt: new Date(),
   });
 
-  const updated = replyToEscalation(req.params.id!, adminEmail, reply.trim(), messageId);
+  const updated = replyToEscalation(req.params["id"] as string, adminEmail, reply.trim(), messageId);
   updateConversationTimestamp(esc.conversationId);
 
   // Notify the employee
@@ -241,11 +264,11 @@ adminEscalationsRouter.post("/:id/reply", (req, res) => {
 
 // ─── Admin: resolve/unresolve escalation ────────────────────────────────────
 
-adminEscalationsRouter.post("/:id/resolve", (req, res) => {
+adminEscalationsRouter.post("/:id/resolve", validateBody(resolveSchema), (req, res) => {
   const adminEmail = req.session.email ?? "unknown";
-  const { note } = req.body as { note?: string };
+  const { note } = req.body as z.infer<typeof resolveSchema>;
 
-  const esc = getEscalation(req.params.id!);
+  const esc = getEscalation(req.params["id"] as string);
   if (!esc) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -263,7 +286,7 @@ adminEscalationsRouter.post("/:id/resolve", (req, res) => {
     createdAt: new Date(),
   });
 
-  const updated = resolveEscalation(req.params.id!, adminEmail);
+  const updated = resolveEscalation(req.params["id"] as string, adminEmail);
   updateConversationTimestamp(esc.conversationId);
 
   const conv = getConversation(esc.conversationId);
@@ -282,7 +305,7 @@ adminEscalationsRouter.post("/:id/resolve", (req, res) => {
 });
 
 adminEscalationsRouter.delete("/:id/resolve", (req, res) => {
-  const updated = unresolveEscalation(req.params.id!);
+  const updated = unresolveEscalation(req.params["id"] as string);
   if (!updated) {
     res.status(404).json({ error: "Escalation not found" });
     return;
@@ -295,32 +318,19 @@ adminEscalationsRouter.delete("/:id/resolve", (req, res) => {
 export const adminTargetsRouter: IRouter = Router();
 adminTargetsRouter.use(requireAdmin);
 
-adminTargetsRouter.get("/", (_req, res) => {
-  res.json(listTargets());
+adminTargetsRouter.get("/", (req, res) => {
+  res.json(listTargets(req.session.orgId));
 });
 
-adminTargetsRouter.post("/", (req, res) => {
-  const { name, role, slackUserId, email } = req.body as {
-    name?: string;
-    role?: string;
-    slackUserId?: string;
-    email?: string;
-  };
-
-  if (!name?.trim()) {
-    res.status(400).json({ error: "name is required" });
-    return;
-  }
-  if (!slackUserId?.trim() && !email?.trim()) {
-    res.status(400).json({ error: "At least one contact method (Slack User ID or email) is required" });
-    return;
-  }
+adminTargetsRouter.post("/", validateBody(targetSchema), (req, res) => {
+  const { name, role, slackUserId, email } = req.body as z.infer<typeof targetSchema>;
 
   const target = createTarget({
     name: name.trim(),
     ...(role?.trim() && { role: role.trim() }),
     ...(slackUserId?.trim() && { slackUserId: slackUserId.trim() }),
     ...(email?.trim() && { email: email.trim() }),
+    ...(req.session.orgId && { orgId: req.session.orgId }),
   });
   res.status(201).json(target);
 });
@@ -339,7 +349,7 @@ adminTargetsRouter.put("/:id", (req, res) => {
   if (slackUserId !== undefined) data.slackUserId = slackUserId;
   if (email !== undefined) data.email = email;
 
-  const updated = updateTarget(req.params.id!, data);
+  const updated = updateTarget(req.params["id"] as string, data);
   if (!updated) {
     res.status(404).json({ error: "Target not found" });
     return;
@@ -348,7 +358,7 @@ adminTargetsRouter.put("/:id", (req, res) => {
 });
 
 adminTargetsRouter.delete("/:id", (req, res) => {
-  deleteTarget(req.params.id!);
+  deleteTarget(req.params["id"] as string);
   res.json({ ok: true });
 });
 

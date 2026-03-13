@@ -1,7 +1,7 @@
 import type { AnswerResponse, Citation, Chunk, Session } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { filterQuery } from "./queryFilter.js";
-import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
+import { buildSystemPrompt, NO_ANSWER_RESPONSE, buildNoAnswerResponse } from "./systemPrompt.js";
 
 // ─── Dependency interfaces ─────────────────────────────────────────────────────
 // The orchestrator has no knowledge of mimik, HTTP, or any specific library.
@@ -36,9 +36,14 @@ export interface OrchestratorDeps {
 
 export interface RAGOptions {
   topK?: number;
+  /** Primary dataset name (backward compat). */
   datasetName: string;
+  /** All datasets being searched. Defaults to [datasetName] if not provided. */
+  datasetNames?: string[];
   /** Minimum similarity score to consider a chunk relevant (0–1). */
   similarityThreshold?: number;
+  /** Names of escalation targets to suggest when no answer is found. */
+  escalationTargetNames?: string[];
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────────────────────
@@ -85,10 +90,11 @@ export async function* answerStream(
 
   if (relevantResults.length === 0) {
     const response: AnswerResponse = {
-      answer: NO_ANSWER_RESPONSE,
+      answer: buildNoAnswerResponse(options.escalationTargetNames),
       citations: [],
       hasConfidentAnswer: false,
       sessionId: session.id,
+      searchedDatasets: options.datasetNames ?? [options.datasetName],
     };
     yield { final: response };
     return;
@@ -136,6 +142,7 @@ export async function* answerStream(
     citations,
     hasConfidentAnswer: true,
     sessionId: session.id,
+    searchedDatasets: options.datasetNames ?? [options.datasetName],
   };
 
   yield { final: response };

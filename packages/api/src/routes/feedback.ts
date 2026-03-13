@@ -1,6 +1,8 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { z } from "zod";
+import { requireOrg } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
 import {
   addFeedback,
   getFeedbackByMessageId,
@@ -8,26 +10,19 @@ import {
 } from "../services/feedbackStore.js";
 import { getMessages } from "../services/conversationStore.js";
 
+const feedbackSchema = z.object({
+  conversationId: z.string().min(1),
+  messageId: z.string().min(1),
+  rating: z.enum(["up", "down"]),
+  comment: z.string().max(2000).optional(),
+});
+
 export const feedbackRouter: IRouter = Router();
-feedbackRouter.use(requireAuth);
+feedbackRouter.use(requireOrg);
 
 // POST /api/feedback — submit a rating for a message
-feedbackRouter.post("/", (req, res) => {
-  const { conversationId, messageId, rating, comment } = req.body as {
-    conversationId?: string;
-    messageId?: string;
-    rating?: string;
-    comment?: string;
-  };
-
-  if (!conversationId || !messageId) {
-    res.status(400).json({ error: "conversationId and messageId are required" });
-    return;
-  }
-  if (rating !== "up" && rating !== "down") {
-    res.status(400).json({ error: "rating must be 'up' or 'down'" });
-    return;
-  }
+feedbackRouter.post("/", validateBody(feedbackSchema), (req, res) => {
+  const { conversationId, messageId, rating, comment } = req.body as z.infer<typeof feedbackSchema>;
 
   // Prevent double-rating
   const existing = getFeedbackByMessageId(messageId);
@@ -54,6 +49,7 @@ feedbackRouter.post("/", (req, res) => {
     rating,
     messageSnapshot: snapshot,
     comment: rating === "down" ? comment?.trim() || undefined : undefined,
+    orgId: req.session.orgId,
   });
 
   // Fire-and-forget topic extraction

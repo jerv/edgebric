@@ -1,7 +1,7 @@
 import type { EscalationTarget } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { escalationTargets } from "../db/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function rowToTarget(row: typeof escalationTargets.$inferSelect): EscalationTarget {
@@ -21,6 +21,7 @@ export function createTarget(data: {
   role?: string;
   slackUserId?: string;
   email?: string;
+  orgId?: string;
 }): EscalationTarget {
   const db = getDb();
   const target: EscalationTarget = {
@@ -38,6 +39,7 @@ export function createTarget(data: {
       role: target.role ?? null,
       slackUserId: target.slackUserId ?? null,
       email: target.email ?? null,
+      orgId: data.orgId ?? null,
       createdAt: target.createdAt.toISOString(),
     })
     .run();
@@ -50,13 +52,12 @@ export function getTarget(id: string): EscalationTarget | undefined {
   return row ? rowToTarget(row) : undefined;
 }
 
-export function listTargets(): EscalationTarget[] {
+export function listTargets(orgId?: string): EscalationTarget[] {
   const db = getDb();
-  const rows = db
-    .select()
-    .from(escalationTargets)
-    .orderBy(desc(escalationTargets.createdAt))
-    .all();
+  const query = orgId
+    ? db.select().from(escalationTargets).where(eq(escalationTargets.orgId, orgId))
+    : db.select().from(escalationTargets);
+  const rows = query.orderBy(desc(escalationTargets.createdAt)).all();
   return rows.map(rowToTarget);
 }
 

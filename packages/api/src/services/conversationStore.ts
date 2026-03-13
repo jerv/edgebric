@@ -30,7 +30,7 @@ function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
   return msg;
 }
 
-export function createConversation(userEmail: string, userName?: string): Conversation {
+export function createConversation(userEmail: string, userName?: string, orgId?: string): Conversation {
   const db = getDb();
   const now = new Date().toISOString();
   const conv: Conversation = {
@@ -45,6 +45,7 @@ export function createConversation(userEmail: string, userName?: string): Conver
       id: conv.id,
       userEmail,
       userName: userName ?? null,
+      orgId: orgId ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -58,12 +59,14 @@ export function getConversation(id: string): Conversation | undefined {
   return row ? rowToConversation(row) : undefined;
 }
 
-export function getConversationsByUser(email: string): Conversation[] {
+export function getConversationsByUser(email: string, orgId?: string): Conversation[] {
   const db = getDb();
+  const conditions = [eq(conversations.userEmail, email)];
+  if (orgId) conditions.push(eq(conversations.orgId, orgId));
   const rows = db
     .select()
     .from(conversations)
-    .where(eq(conversations.userEmail, email))
+    .where(and(...conditions))
     .orderBy(desc(conversations.updatedAt))
     .all();
   return rows.map(rowToConversation);
@@ -105,12 +108,15 @@ export function getMessage(id: string): PersistedMessage | undefined {
 /** Get conversations for a user with a preview of the first user message. */
 export function getConversationPreviews(
   email: string,
+  orgId?: string,
 ): Array<Conversation & { preview?: string }> {
   const db = getDb();
+  const conditions = [eq(conversations.userEmail, email), isNull(conversations.archivedAt)];
+  if (orgId) conditions.push(eq(conversations.orgId, orgId));
   const convs = db
     .select()
     .from(conversations)
-    .where(and(eq(conversations.userEmail, email), isNull(conversations.archivedAt)))
+    .where(and(...conditions))
     .orderBy(desc(conversations.updatedAt))
     .all();
 
@@ -145,6 +151,41 @@ export function deleteConversation(id: string): void {
   const db = getDb();
   db.delete(messages).where(eq(messages.conversationId, id)).run();
   db.delete(conversations).where(eq(conversations.id, id)).run();
+}
+
+/** Archive all conversations for a user in a specific org. Returns count. */
+export function archiveAllConversations(email: string, orgId?: string): number {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const conditions = [eq(conversations.userEmail, email), isNull(conversations.archivedAt)];
+  if (orgId) conditions.push(eq(conversations.orgId, orgId));
+  const result = db
+    .update(conversations)
+    .set({ archivedAt: now })
+    .where(and(...conditions))
+    .run();
+  return result.changes;
+}
+
+/** Hard delete all conversations (and their messages) for a user in a specific org. Returns count. */
+export function deleteAllConversations(email: string, orgId?: string): number {
+  const db = getDb();
+  const conditions = [eq(conversations.userEmail, email)];
+  if (orgId) conditions.push(eq(conversations.orgId, orgId));
+  const userConvs = db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(and(...conditions))
+    .all();
+  for (const conv of userConvs) {
+    db.delete(messages).where(eq(messages.conversationId, conv.id)).run();
+  }
+  let deleted = 0;
+  for (const conv of userConvs) {
+    db.delete(conversations).where(eq(conversations.id, conv.id)).run();
+    deleted++;
+  }
+  return deleted;
 }
 
 export function updateConversationTimestamp(id: string): void {
