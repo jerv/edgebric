@@ -258,9 +258,9 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   try {
     const defaultOrg = sqlite.prepare("SELECT id FROM organizations LIMIT 1").get() as { id: string } | undefined;
     if (defaultOrg) {
-      const tables = ["conversations", "escalations", "escalation_targets", "knowledge_bases", "feedback"];
+      const tables = ["conversations", "escalations", "escalation_targets", "knowledge_bases", "feedback"] as const;
       for (const table of tables) {
-        sqlite.exec(`UPDATE ${table} SET org_id = '${defaultOrg.id}' WHERE org_id IS NULL`);
+        sqlite.prepare(`UPDATE ${table} SET org_id = ? WHERE org_id IS NULL`).run(defaultOrg.id);
       }
     }
   } catch { /* backfill already done or no default org yet */ }

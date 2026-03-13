@@ -73,7 +73,12 @@ modelsRouter.put("/active", (req, res) => {
     res.status(400).json({ error: "modelId is required" });
     return;
   }
-  runtimeChatConfig.model = modelId.trim();
+  const known = KNOWN_MODELS.find((m) => m.id === modelId.trim());
+  if (!known) {
+    res.status(400).json({ error: "Unknown model" });
+    return;
+  }
+  runtimeChatConfig.model = known.id;
   logger.info({ model: runtimeChatConfig.model }, "Active chat model switched");
   res.json({ activeModel: runtimeChatConfig.model });
 });

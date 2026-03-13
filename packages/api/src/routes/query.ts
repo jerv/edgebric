@@ -182,9 +182,10 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
           sendEvent("done", { ...chunk.final, private: true });
         }
       }
-    } catch (err) {
+    } catch {
       sendEvent("error", { message: "An error occurred. Please try again." });
-      logger.error({ err }, "Private query error");
+      // Intentionally suppress error details — private mode must leave no trace in logs
+      logger.error("Private query error");
     } finally {
       res.end();
     }

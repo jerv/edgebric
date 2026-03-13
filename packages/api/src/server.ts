@@ -61,7 +61,16 @@ const isDev = process.env["NODE_ENV"] !== "production";
 
 // ─── HTTP Request Logging ────────────────────────────────────────────────────
 
-app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => (req.url ?? "").startsWith("/api/health") } }));
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    ignore: (req) => {
+      const url = req.url ?? "";
+      // Suppress request logging for health checks and query endpoint (private mode privacy)
+      return url.startsWith("/api/health") || url.startsWith("/api/query");
+    },
+  },
+}));
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 
