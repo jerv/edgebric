@@ -118,6 +118,8 @@ export const escalationTargets = sqliteTable("escalation_targets", {
   role: text("role"),
   slackUserId: text("slack_user_id"),
   email: text("email"),
+  slackNotify: integer("slack_notify"),
+  emailNotify: integer("email_notify"),
   orgId: text("org_id"),
   createdAt: text("created_at").notNull(),
 });

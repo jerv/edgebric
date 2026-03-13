@@ -35,6 +35,8 @@ const targetSchema = z.object({
   role: z.string().max(200).optional(),
   slackUserId: z.string().max(50).optional(),
   email: z.string().email().optional(),
+  slackNotify: z.boolean().optional(),
+  emailNotify: z.boolean().optional(),
 }).refine(
   (data) => data.slackUserId || data.email,
   { message: "At least one contact method (Slack User ID or email) is required" },
@@ -144,8 +146,8 @@ targetsRouter.get("/", (req, res) => {
   const available = targets
     .map((t) => {
       const methods: ("slack" | "email")[] = [];
-      if (slackEnabled && t.slackUserId) methods.push("slack");
-      if (emailEnabled && t.email) methods.push("email");
+      if (slackEnabled && t.slackUserId && t.slackNotify !== false) methods.push("slack");
+      if (emailEnabled && t.email && t.emailNotify !== false) methods.push("email");
       return { id: t.id, name: t.name, role: t.role, methods };
     })
     .filter((t) => t.methods.length > 0);
@@ -323,31 +325,37 @@ adminTargetsRouter.get("/", (req, res) => {
 });
 
 adminTargetsRouter.post("/", validateBody(targetSchema), (req, res) => {
-  const { name, role, slackUserId, email } = req.body as z.infer<typeof targetSchema>;
+  const { name, role, slackUserId, email, slackNotify, emailNotify } = req.body as z.infer<typeof targetSchema>;
 
   const target = createTarget({
     name: name.trim(),
     ...(role?.trim() && { role: role.trim() }),
     ...(slackUserId?.trim() && { slackUserId: slackUserId.trim() }),
     ...(email?.trim() && { email: email.trim() }),
+    ...(slackNotify !== undefined && { slackNotify }),
+    ...(emailNotify !== undefined && { emailNotify }),
     ...(req.session.orgId && { orgId: req.session.orgId }),
   });
   res.status(201).json(target);
 });
 
 adminTargetsRouter.put("/:id", (req, res) => {
-  const { name, role, slackUserId, email } = req.body as {
+  const { name, role, slackUserId, email, slackNotify, emailNotify } = req.body as {
     name?: string;
     role?: string;
     slackUserId?: string;
     email?: string;
+    slackNotify?: boolean;
+    emailNotify?: boolean;
   };
 
-  const data: { name?: string; role?: string; slackUserId?: string; email?: string } = {};
+  const data: { name?: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } = {};
   if (name !== undefined) data.name = name;
   if (role !== undefined) data.role = role;
   if (slackUserId !== undefined) data.slackUserId = slackUserId;
   if (email !== undefined) data.email = email;
+  if (slackNotify !== undefined) data.slackNotify = slackNotify;
+  if (emailNotify !== undefined) data.emailNotify = emailNotify;
 
   const updated = updateTarget(req.params["id"] as string, data);
   if (!updated) {

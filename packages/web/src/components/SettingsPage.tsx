@@ -1106,6 +1106,8 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
   const [targetRole, setTargetRole] = useState("");
   const [targetSlackId, setTargetSlackId] = useState("");
   const [targetEmail, setTargetEmail] = useState("");
+  const [targetSlackNotify, setTargetSlackNotify] = useState(true);
+  const [targetEmailNotify, setTargetEmailNotify] = useState(true);
 
   // ─── Queries ─────
   const { data: integrationConfig } = useQuery<IntegrationConfig>({
@@ -1132,7 +1134,7 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
 
   // ─── Target mutations ─────
   const createTargetMutation = useMutation({
-    mutationFn: (data: { name: string; role?: string; slackUserId?: string; email?: string }) =>
+    mutationFn: (data: { name: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean }) =>
       fetch("/api/admin/targets", {
         method: "POST",
         credentials: "same-origin",
@@ -1149,7 +1151,7 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
   });
 
   const updateTargetMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; role?: string; slackUserId?: string; email?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } }) =>
       fetch(`/api/admin/targets/${id}`, {
         method: "PUT",
         credentials: "same-origin",
@@ -1161,7 +1163,6 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "targets"] });
-      resetTargetForm();
     },
   });
 
@@ -1183,6 +1184,8 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
     setTargetRole("");
     setTargetSlackId("");
     setTargetEmail("");
+    setTargetSlackNotify(true);
+    setTargetEmailNotify(true);
   }
 
   function startEditTarget(target: EscalationTarget) {
@@ -1191,19 +1194,23 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
     setTargetRole(target.role ?? "");
     setTargetSlackId(target.slackUserId ?? "");
     setTargetEmail(target.email ?? "");
+    setTargetSlackNotify(target.slackNotify !== false);
+    setTargetEmailNotify(target.emailNotify !== false);
     setShowTargetForm(true);
   }
 
   function handleSaveTarget() {
-    const data: { name: string; role?: string; slackUserId?: string; email?: string } = {
+    const data: { name: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } = {
       name: targetName.trim(),
     };
     if (targetRole.trim()) data.role = targetRole.trim();
     if (targetSlackId.trim()) data.slackUserId = targetSlackId.trim();
     if (targetEmail.trim()) data.email = targetEmail.trim();
+    data.slackNotify = targetSlackNotify;
+    data.emailNotify = targetEmailNotify;
 
     if (editingTargetId) {
-      updateTargetMutation.mutate({ id: editingTargetId, data });
+      updateTargetMutation.mutateAsync({ id: editingTargetId, data }).then(() => resetTargetForm());
     } else {
       createTargetMutation.mutate(data);
     }
@@ -1315,6 +1322,34 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
                 </div>
               )}
             </div>
+            {/* Notification method toggles */}
+            {slackEnabled && emailEnabled && (targetSlackId.trim() || targetEmail.trim()) && (
+              <div className="flex items-center gap-5">
+                <p className="text-xs font-medium text-slate-500">Notify via:</p>
+                {targetSlackId.trim() && (
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={targetSlackNotify}
+                      onChange={(e) => setTargetSlackNotify(e.target.checked)}
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
+                    />
+                    Slack
+                  </label>
+                )}
+                {targetEmail.trim() && (
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={targetEmailNotify}
+                      onChange={(e) => setTargetEmailNotify(e.target.checked)}
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
+                    />
+                    Email
+                  </label>
+                )}
+              </div>
+            )}
             <p className="text-xs text-slate-400">
               {slackEnabled && emailEnabled
                 ? "At least one contact method (Slack ID or email) is required."
@@ -1355,6 +1390,7 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
                   <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Role</th>
                   {slackEnabled && <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Slack ID</th>}
                   {emailEnabled && <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Email</th>}
+                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-2">Notify</th>
                   <th className="text-right text-xs font-medium text-slate-500 px-4 py-2 w-20"></th>
                 </tr>
               </thead>
@@ -1365,6 +1401,35 @@ function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: SettingsTab) => vo
                     <td className="px-4 py-2.5 text-xs text-slate-500">{t.role ?? "—"}</td>
                     {slackEnabled && <td className="px-4 py-2.5 text-xs text-slate-500 font-mono">{t.slackUserId ?? "—"}</td>}
                     {emailEnabled && <td className="px-4 py-2.5 text-xs text-slate-500">{t.email ?? "—"}</td>}
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-center gap-3">
+                        {slackEnabled && t.slackUserId && (
+                          <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer" title="Slack notifications">
+                            <input
+                              type="checkbox"
+                              checked={t.slackNotify !== false}
+                              onChange={(e) => updateTargetMutation.mutate({ id: t.id, data: { slackNotify: e.target.checked } })}
+                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
+                            />
+                            <Slack className="w-3 h-3" />
+                          </label>
+                        )}
+                        {emailEnabled && t.email && (
+                          <label className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer" title="Email notifications">
+                            <input
+                              type="checkbox"
+                              checked={t.emailNotify !== false}
+                              onChange={(e) => updateTargetMutation.mutate({ id: t.id, data: { emailNotify: e.target.checked } })}
+                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
+                            />
+                            <Mail className="w-3 h-3" />
+                          </label>
+                        )}
+                        {!(slackEnabled && t.slackUserId) && !(emailEnabled && t.email) && (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button

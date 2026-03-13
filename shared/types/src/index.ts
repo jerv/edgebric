@@ -191,6 +191,10 @@ export interface EscalationTarget {
   role?: string;
   slackUserId?: string;
   email?: string;
+  /** Whether this target can receive Slack DM notifications. Defaults to true if slackUserId is set. */
+  slackNotify?: boolean;
+  /** Whether this target can receive email notifications. Defaults to true if email is set. */
+  emailNotify?: boolean;
   createdAt: Date;
 }
 

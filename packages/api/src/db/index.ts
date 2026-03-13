@@ -218,6 +218,9 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE escalation_targets ADD COLUMN org_id TEXT",
     "ALTER TABLE knowledge_bases ADD COLUMN org_id TEXT",
     "ALTER TABLE feedback ADD COLUMN org_id TEXT",
+    // Per-target notification method toggles
+    "ALTER TABLE escalation_targets ADD COLUMN slack_notify INTEGER",
+    "ALTER TABLE escalation_targets ADD COLUMN email_notify INTEGER",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

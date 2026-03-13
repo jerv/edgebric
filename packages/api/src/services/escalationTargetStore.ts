@@ -13,6 +13,9 @@ function rowToTarget(row: typeof escalationTargets.$inferSelect): EscalationTarg
   if (row.role != null) target.role = row.role;
   if (row.slackUserId != null) target.slackUserId = row.slackUserId;
   if (row.email != null) target.email = row.email;
+  // Default to true if the contact method exists and the column is null (pre-migration rows)
+  target.slackNotify = row.slackNotify != null ? !!row.slackNotify : !!row.slackUserId;
+  target.emailNotify = row.emailNotify != null ? !!row.emailNotify : !!row.email;
   return target;
 }
 
@@ -21,6 +24,8 @@ export function createTarget(data: {
   role?: string;
   slackUserId?: string;
   email?: string;
+  slackNotify?: boolean;
+  emailNotify?: boolean;
   orgId?: string;
 }): EscalationTarget {
   const db = getDb();
@@ -32,6 +37,9 @@ export function createTarget(data: {
   if (data.role) target.role = data.role;
   if (data.slackUserId) target.slackUserId = data.slackUserId;
   if (data.email) target.email = data.email;
+  // Default notify to true if contact method exists
+  target.slackNotify = data.slackNotify ?? !!data.slackUserId;
+  target.emailNotify = data.emailNotify ?? !!data.email;
   db.insert(escalationTargets)
     .values({
       id: target.id,
@@ -39,6 +47,8 @@ export function createTarget(data: {
       role: target.role ?? null,
       slackUserId: target.slackUserId ?? null,
       email: target.email ?? null,
+      slackNotify: target.slackNotify ? 1 : 0,
+      emailNotify: target.emailNotify ? 1 : 0,
       orgId: data.orgId ?? null,
       createdAt: target.createdAt.toISOString(),
     })
@@ -63,7 +73,7 @@ export function listTargets(orgId?: string): EscalationTarget[] {
 
 export function updateTarget(
   id: string,
-  data: { name?: string; role?: string; slackUserId?: string; email?: string },
+  data: { name?: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean },
 ): EscalationTarget | undefined {
   const db = getDb();
   const existing = db.select().from(escalationTargets).where(eq(escalationTargets.id, id)).get();
@@ -74,6 +84,8 @@ export function updateTarget(
   if (data.role !== undefined) updates.role = data.role || null;
   if (data.slackUserId !== undefined) updates.slackUserId = data.slackUserId || null;
   if (data.email !== undefined) updates.email = data.email || null;
+  if (data.slackNotify !== undefined) updates.slackNotify = data.slackNotify ? 1 : 0;
+  if (data.emailNotify !== undefined) updates.emailNotify = data.emailNotify ? 1 : 0;
 
   if (Object.keys(updates).length > 0) {
     db.update(escalationTargets).set(updates).where(eq(escalationTargets.id, id)).run();
