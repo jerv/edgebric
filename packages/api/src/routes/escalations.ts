@@ -391,16 +391,32 @@ adminIntegrationsRouter.put("/", async (req, res) => {
     return;
   }
 
-  // Preserve existing secrets if masked values are sent back
+  // Merge with existing config so saving email doesn't wipe slack and vice versa
   const existing = getIntegrationConfig();
-  if (body.slack?.botToken === "xoxb-****" && existing.slack?.botToken) {
-    body.slack.botToken = existing.slack.botToken;
-  }
-  if (body.email?.smtpPass === "****" && existing.email?.smtpPass) {
-    body.email.smtpPass = existing.email.smtpPass;
+  const merged: IntegrationConfig = { ...existing };
+
+  if (body.privateModeEnabled !== undefined) merged.privateModeEnabled = body.privateModeEnabled;
+  if (body.vaultModeEnabled !== undefined) merged.vaultModeEnabled = body.vaultModeEnabled;
+
+  if (body.slack) {
+    merged.slack = { ...existing.slack, ...body.slack };
+    if (merged.slack.botToken === "xoxb-****" && existing.slack?.botToken) {
+      merged.slack.botToken = existing.slack.botToken;
+    }
   }
 
-  setIntegrationConfig(body);
+  if (body.email) {
+    merged.email = { ...existing.email, ...body.email };
+    if (merged.email.smtpPass === "****" && existing.email?.smtpPass) {
+      merged.email.smtpPass = existing.email.smtpPass;
+    }
+    // Sanitize SMTP host (strip trailing commas, whitespace)
+    if (merged.email.smtpHost) {
+      merged.email.smtpHost = merged.email.smtpHost.replace(/[,\s]+$/, "").trim();
+    }
+  }
+
+  setIntegrationConfig(merged);
   // Return masked version, pass through non-secret flags
   const saved = getIntegrationConfig();
   const masked: IntegrationConfig = {

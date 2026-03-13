@@ -10,9 +10,9 @@ export async function sendEscalationEmail(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const transporter = nodemailer.createTransport({
-      host: emailConfig.smtpHost,
+      host: emailConfig.smtpHost?.replace(/[,\s]+$/, "").trim(),
       port: emailConfig.smtpPort,
-      secure: emailConfig.useTls,
+      secure: emailConfig.smtpPort === 465,
       auth: {
         user: emailConfig.smtpUser,
         pass: emailConfig.smtpPass,
@@ -91,9 +91,9 @@ export async function testEmailConfig(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const transporter = nodemailer.createTransport({
-      host: emailConfig.smtpHost,
+      host: emailConfig.smtpHost?.replace(/[,\s]+$/, "").trim(),
       port: emailConfig.smtpPort,
-      secure: emailConfig.useTls,
+      secure: emailConfig.smtpPort === 465,
       auth: {
         user: emailConfig.smtpUser,
         pass: emailConfig.smtpPass,

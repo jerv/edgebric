@@ -992,6 +992,7 @@ function IntegrationsTab() {
                 placeholder="noreply@company.com"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
               />
+              <p className="text-[11px] text-slate-400 mt-1">Gmail SMTP overrides this with your login email. Use a domain SMTP provider (SendGrid, Resend, SES) for custom from addresses.</p>
             </div>
             <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 cursor-pointer">

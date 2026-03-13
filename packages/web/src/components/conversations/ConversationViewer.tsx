@@ -171,7 +171,7 @@ export function ConversationViewer() {
             const isHighlighted = highlightMessageId && msg.id === highlightMessageId;
             const isAdminReply = msg.source === "admin";
             const isSystemNote = msg.source === "system";
-            const showFeedback = msg.id && (isAdminReply || !msg.source || msg.source === "ai");
+            const showFeedback = msg.id && !isAdminReply && (!msg.source || msg.source === "ai");
 
             // System notes render as centered muted text
             if (isSystemNote) {
@@ -197,10 +197,7 @@ export function ConversationViewer() {
                   </div>
                 ) : (
                   <div
-                    className={cn(
-                      "max-w-2xl w-full space-y-3",
-                      isHighlighted && "ring-2 ring-blue-400 ring-offset-2 rounded-2xl",
-                    )}
+                    className="max-w-2xl w-full space-y-3"
                   >
                     <div
                       className={cn(
@@ -208,6 +205,7 @@ export function ConversationViewer() {
                         isAdminReply
                           ? "bg-blue-50 border border-blue-200 text-slate-800"
                           : "bg-slate-50 border border-slate-200 text-slate-800",
+                        isHighlighted && "ring-2 ring-slate-300 ring-offset-2",
                       )}
                     >
                       {isAdminReply && (
