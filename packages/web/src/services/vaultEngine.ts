@@ -1,9 +1,15 @@
 /**
- * Vault Mode engine — local Ollama + IndexedDB RAG.
+ * Vault Mode engine — local Ollama + IndexedDB RAG with AES-256-GCM encryption.
  *
  * All inference and search runs on the user's device via Ollama.
- * Chunks are synced from the server and embedded locally.
+ * Chunks are synced from the server, encrypted at rest, and embedded locally.
  * Nothing leaves the device during queries.
+ *
+ * Security model:
+ * - Content and metadata are AES-256-GCM encrypted in IndexedDB.
+ * - Embeddings remain unencrypted (required for cosine similarity search).
+ * - Encryption key is a non-extractable CryptoKey stored in IndexedDB.
+ * - clearAllData() destroys the key, making all stored data unrecoverable.
  */
 
 import { openDB, type IDBPDatabase } from "idb";
@@ -11,7 +17,19 @@ import type { ChunkMetadata, Citation } from "@edgebric/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface StoredChunk {
+/** What's actually stored in IndexedDB — content and metadata are encrypted. */
+interface EncryptedStoredChunk {
+  chunkId: string;
+  /** AES-256-GCM encrypted content: first 12 bytes = IV, rest = ciphertext */
+  encContent: ArrayBuffer;
+  /** AES-256-GCM encrypted metadata JSON: first 12 bytes = IV, rest = ciphertext */
+  encMetadata: ArrayBuffer;
+  /** Embeddings remain plaintext for cosine similarity search */
+  embedding?: number[];
+}
+
+/** Decrypted chunk used internally after retrieval. */
+interface DecryptedChunk {
   chunkId: string;
   content: string;
   metadata: ChunkMetadata;
@@ -27,7 +45,7 @@ interface SyncMeta {
 }
 
 interface ScoredChunk {
-  chunk: StoredChunk;
+  chunk: DecryptedChunk;
   score: number;
 }
 
@@ -72,7 +90,7 @@ const QUERY_FILTER_REDIRECT =
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DB_NAME = "edgebric-vault";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // v2: encrypted chunks + vaultKeys store
 const OLLAMA_URL = "http://localhost:11434";
 const EMBEDDING_MODEL = "nomic-embed-text";
 const VAULT_CHAT_MODEL_KEY = "edgebric-vault-chat-model";
@@ -100,24 +118,85 @@ Context from company policy documents:`;
 const NO_ANSWER_RESPONSE =
   "I couldn't find a clear answer in the current documentation. Please contact your administrator or the relevant team directly.";
 
+// ─── AES-256-GCM Encryption ─────────────────────────────────────────────────
+
+const AES_ALGO = "AES-GCM";
+const IV_LENGTH = 12; // 96-bit IV recommended for AES-GCM
+
+/** Generate a non-extractable AES-256-GCM key. */
+async function generateVaultKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey(
+    { name: AES_ALGO, length: 256 },
+    false, // non-extractable — can't be read from JS, only used for encrypt/decrypt
+    ["encrypt", "decrypt"],
+  );
+}
+
+/** Encrypt plaintext string → ArrayBuffer (IV prepended to ciphertext). */
+async function encryptText(key: CryptoKey, plaintext: string): Promise<ArrayBuffer> {
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: AES_ALGO, iv },
+    key,
+    encoded,
+  );
+  // Prepend IV to ciphertext for self-contained storage
+  const combined = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), IV_LENGTH);
+  return combined.buffer as ArrayBuffer;
+}
+
+/** Decrypt ArrayBuffer (IV-prepended) → plaintext string. */
+async function decryptText(key: CryptoKey, data: ArrayBuffer): Promise<string> {
+  const bytes = new Uint8Array(data);
+  const iv = bytes.slice(0, IV_LENGTH);
+  const ciphertext = bytes.slice(IV_LENGTH);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: AES_ALGO, iv },
+    key,
+    ciphertext,
+  );
+  return new TextDecoder().decode(decrypted);
+}
+
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
 type VaultDB = IDBPDatabase<{
-  chunks: { key: string; value: StoredChunk };
+  chunks: { key: string; value: EncryptedStoredChunk };
   syncMeta: { key: string; value: SyncMeta };
+  vaultKeys: { key: string; value: { id: string; key: CryptoKey } };
 }>;
 
 export async function openVaultDB(): Promise<VaultDB> {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains("chunks")) {
+    upgrade(db, oldVersion) {
+      // v1 → v2: wipe old unencrypted chunks, add vaultKeys store
+      if (oldVersion < 2) {
+        if (db.objectStoreNames.contains("chunks")) {
+          db.deleteObjectStore("chunks");
+        }
         db.createObjectStore("chunks", { keyPath: "chunkId" });
       }
       if (!db.objectStoreNames.contains("syncMeta")) {
         db.createObjectStore("syncMeta", { keyPath: "id" });
       }
+      if (!db.objectStoreNames.contains("vaultKeys")) {
+        db.createObjectStore("vaultKeys", { keyPath: "id" });
+      }
     },
   }) as Promise<VaultDB>;
+}
+
+/** Get or create the vault encryption key. Persists in IndexedDB as non-extractable CryptoKey. */
+export async function getOrCreateVaultKey(db: VaultDB): Promise<CryptoKey> {
+  const existing = await db.get("vaultKeys", "main");
+  if (existing) return existing.key;
+
+  const key = await generateVaultKey();
+  await db.put("vaultKeys", { id: "main", key });
+  return key;
 }
 
 export async function storeChunks(
@@ -129,12 +208,15 @@ export async function storeChunks(
     embedding: number[];
   }>,
 ): Promise<void> {
+  const key = await getOrCreateVaultKey(db);
   const tx = db.transaction("chunks", "readwrite");
   for (const chunk of chunks) {
+    const encContent = await encryptText(key, chunk.content);
+    const encMetadata = await encryptText(key, JSON.stringify(chunk.metadata));
     await tx.store.put({
       chunkId: chunk.chunkId,
-      content: chunk.content,
-      metadata: chunk.metadata as unknown as ChunkMetadata,
+      encContent,
+      encMetadata,
       embedding: chunk.embedding,
     });
   }
@@ -148,6 +230,7 @@ export async function storeSyncMeta(
   await db.put("syncMeta", { id: "main", ...meta });
 }
 
+/** Wipe all vault data AND destroy the encryption key. */
 export async function clearAllData(db: VaultDB): Promise<void> {
   const tx1 = db.transaction("chunks", "readwrite");
   await tx1.store.clear();
@@ -155,6 +238,16 @@ export async function clearAllData(db: VaultDB): Promise<void> {
   const tx2 = db.transaction("syncMeta", "readwrite");
   await tx2.store.clear();
   await tx2.done;
+  const tx3 = db.transaction("vaultKeys", "readwrite");
+  await tx3.store.clear();
+  await tx3.done;
+}
+
+/** Decrypt a single stored chunk. */
+async function decryptChunk(key: CryptoKey, enc: EncryptedStoredChunk): Promise<DecryptedChunk> {
+  const content = await decryptText(key, enc.encContent);
+  const metadata = JSON.parse(await decryptText(key, enc.encMetadata)) as ChunkMetadata;
+  return { chunkId: enc.chunkId, content, metadata, embedding: enc.embedding };
 }
 
 /** Get all local chunks for a document, ordered by chunkIndex. Used by source viewer in vault mode. */
@@ -166,19 +259,36 @@ export async function getLocalChunksForDocument(documentId: string): Promise<Arr
   content: string;
 }>> {
   const db = await openVaultDB();
-  const allChunks = await db.getAll("chunks");
+  const key = await getOrCreateVaultKey(db);
+  const allEncrypted = await db.getAll("chunks");
   db.close();
 
-  return allChunks
-    .filter((c) => c.metadata.sourceDocument === documentId)
-    .map((c) => ({
-      chunkIndex: c.metadata.chunkIndex,
-      heading: c.metadata.heading,
-      sectionPath: c.metadata.sectionPath,
-      pageNumber: c.metadata.pageNumber,
-      content: c.content,
-    }))
-    .sort((a, b) => a.chunkIndex - b.chunkIndex);
+  const results: Array<{
+    chunkIndex: number;
+    heading: string;
+    sectionPath: string[];
+    pageNumber: number;
+    content: string;
+  }> = [];
+
+  for (const enc of allEncrypted) {
+    try {
+      const chunk = await decryptChunk(key, enc);
+      if (chunk.metadata.sourceDocument === documentId) {
+        results.push({
+          chunkIndex: chunk.metadata.chunkIndex,
+          heading: chunk.metadata.heading,
+          sectionPath: chunk.metadata.sectionPath,
+          pageNumber: chunk.metadata.pageNumber,
+          content: chunk.content,
+        });
+      }
+    } catch {
+      // Skip corrupted chunks
+    }
+  }
+
+  return results.sort((a, b) => a.chunkIndex - b.chunkIndex);
 }
 
 // ─── Ollama connectivity ─────────────────────────────────────────────────────
@@ -234,17 +344,32 @@ async function searchChunks(
   topK = 5,
 ): Promise<ScoredChunk[]> {
   const queryEmbedding = await embed(queryText);
-  const allChunks = await db.getAll("chunks");
+  const allEncrypted = await db.getAll("chunks");
+  const key = await getOrCreateVaultKey(db);
 
-  const scored: ScoredChunk[] = allChunks
+  // Score by embedding similarity (unencrypted), then decrypt only the top-K
+  const scored = allEncrypted
     .filter((c) => c.embedding != null)
-    .map((chunk) => ({
-      chunk,
-      score: cosineSimilarity(queryEmbedding, chunk.embedding!),
+    .map((enc) => ({
+      enc,
+      score: cosineSimilarity(queryEmbedding, enc.embedding!),
     }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topK);
+  const topResults = scored.slice(0, topK);
+
+  // Decrypt only the chunks we'll actually use — skip corrupted chunks gracefully
+  const decrypted: ScoredChunk[] = [];
+  for (const r of topResults) {
+    try {
+      const chunk = await decryptChunk(key, r.enc);
+      decrypted.push({ chunk, score: r.score });
+    } catch {
+      // Corrupted or re-keyed chunk — skip rather than failing the entire query
+      console.warn(`Vault: failed to decrypt chunk ${r.enc.chunkId}, skipping`);
+    }
+  }
+  return decrypted;
 }
 
 // ─── Query (full RAG pipeline) ───────────────────────────────────────────────
@@ -265,7 +390,8 @@ export async function* vaultQuery(
 
   const db = await openVaultDB();
 
-  // 1. Search local chunks
+  // 1. Search local chunks (embedding comparison is on unencrypted vectors,
+  //    content decryption only happens for top-K results)
   const results = await searchChunks(db, query, 5);
   db.close();
 

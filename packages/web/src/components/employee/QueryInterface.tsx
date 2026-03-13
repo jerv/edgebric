@@ -127,15 +127,49 @@ export function ChatPanel() {
       try {
         // Check if server version differs from local
         const versionR = await fetch("/api/sync/version", { credentials: "same-origin" });
-        if (!versionR.ok || cancelled) return;
-        const { version: serverVersion } = (await versionR.json()) as { version: string };
+        if (cancelled) return;
+
+        // Handle revocation: vault mode disabled server-side → wipe local data
+        if (!versionR.ok) {
+          const { openVaultDB, clearAllData } = await import("@/services/vaultEngine");
+          const db = await openVaultDB();
+          await clearAllData(db);
+          db.close();
+          console.log("Vault: access revoked — local data wiped");
+          return;
+        }
+
+        const { version: serverVersion, revoked, accessibleChunkIds } = (await versionR.json()) as {
+          version: string; revoked?: boolean; accessibleChunkIds?: string[];
+        };
+        if (revoked) {
+          const { openVaultDB, clearAllData } = await import("@/services/vaultEngine");
+          const db = await openVaultDB();
+          await clearAllData(db);
+          db.close();
+          console.log("Vault: access revoked — local data wiped");
+          return;
+        }
 
         const { openVaultDB, storeChunks, storeSyncMeta } = await import("@/services/vaultEngine");
         const db = await openVaultDB();
         const meta = await db.get("syncMeta", "main");
         if (cancelled) { db.close(); return; }
 
-        // Skip if already up to date
+        // Prune local chunks the user no longer has access to (KB permissions changed)
+        if (accessibleChunkIds) {
+          const accessibleSet = new Set(accessibleChunkIds);
+          const localChunkIds = await db.getAllKeys("chunks");
+          const pruneTx = db.transaction("chunks", "readwrite");
+          for (const localId of localChunkIds) {
+            if (!accessibleSet.has(localId as string)) {
+              await pruneTx.store.delete(localId);
+            }
+          }
+          await pruneTx.done;
+        }
+
+        // Skip full re-sync if already up to date
         if (meta?.version === serverVersion) { db.close(); return; }
 
         console.log("Vault: background resync — server version changed");
