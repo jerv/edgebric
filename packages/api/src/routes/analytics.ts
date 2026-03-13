@@ -26,14 +26,14 @@ analyticsRouter.get("/summary", (req, res) => {
 
 // GET /api/admin/analytics/volume?days=30 — query volume over time
 analyticsRouter.get("/volume", (req, res) => {
-  const days = parseInt(req.query["days"] as string) || 30;
-  const volume = getQueryVolume(Math.min(days, 365), req.session.orgId);
+  const days = Math.max(1, Math.min(parseInt(req.query["days"] as string) || 30, 365));
+  const volume = getQueryVolume(days, req.session.orgId);
   res.json(volume);
 });
 
 // GET /api/admin/analytics/topics?min=5 — topic clusters
 analyticsRouter.get("/topics", (req, res) => {
-  const min = parseInt(req.query["min"] as string) || 5;
+  const min = Math.max(1, Math.min(parseInt(req.query["min"] as string) || 5, 100));
   const topics = getTopicClusters(min, req.session.orgId);
   res.json(topics);
 });
@@ -85,8 +85,8 @@ analyticsRouter.delete("/unanswered/:messageId/resolve", (req, res) => {
 
 // GET /api/admin/analytics/feedback — raw feedback list (meta only, no snapshot)
 analyticsRouter.get("/feedback", (req, res) => {
-  const limit = parseInt(req.query["limit"] as string) || 100;
-  const items = listFeedback(Math.min(limit, 500), req.session.orgId);
+  const limit = Math.max(1, Math.min(parseInt(req.query["limit"] as string) || 100, 500));
+  const items = listFeedback(limit, req.session.orgId);
   const summary = items.map((fb) => ({
     id: fb.id,
     rating: fb.rating,

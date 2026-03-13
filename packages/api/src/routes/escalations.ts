@@ -76,6 +76,13 @@ escalateRouter.post("/", validateBody(escalateSchema), async (req, res) => {
     return;
   }
 
+  // Verify the conversation belongs to the caller's org
+  const conv = getConversation(body.conversationId);
+  if (!conv || (req.session.orgId && conv.orgId !== req.session.orgId)) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
   const escalation: Escalation = {
     id: crypto.randomUUID(),
     createdAt: new Date(),

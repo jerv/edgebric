@@ -18,7 +18,7 @@ notificationsRouter.get("/", (req, res) => {
     res.json([]);
     return;
   }
-  const limit = parseInt(req.query["limit"] as string) || 50;
+  const limit = Math.max(1, Math.min(parseInt(req.query["limit"] as string) || 50, 500));
   res.json(getNotificationsForUser(email, limit, req.session.orgId));
 });
 

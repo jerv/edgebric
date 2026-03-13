@@ -167,6 +167,7 @@ export interface Conversation {
   id: string;
   userEmail: string;
   userName?: string;
+  orgId?: string;
   createdAt: Date;
   updatedAt: Date;
   archivedAt?: Date;
