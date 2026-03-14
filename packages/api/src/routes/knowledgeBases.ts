@@ -30,6 +30,8 @@ import { fileTypeFromBuffer } from "file-type";
 const createKBSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(1000).optional(),
+  accessMode: z.enum(["all", "restricted"]).optional(),
+  accessList: z.array(z.string().email()).optional(),
 });
 
 const updateKBSchema = z.object({
@@ -66,7 +68,7 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
     }
   }
 
-  const { name, description } = req.body as z.infer<typeof createKBSchema>;
+  const { name, description, accessMode, accessList } = req.body as z.infer<typeof createKBSchema>;
   const desc = description?.trim();
   const kb = createKB({
     name: name.trim(),
@@ -75,7 +77,17 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
     ownerId: email,
     ...(orgId && { orgId }),
   });
-  res.status(201).json(kb);
+
+  // Apply access settings if provided
+  if (accessMode && accessMode !== "all") {
+    updateKB(kb.id, { accessMode: accessMode as KBAccessMode });
+  }
+  if (accessList && accessList.length > 0) {
+    setKBAccessList(kb.id, accessList);
+  }
+
+  const final = getKB(kb.id)!;
+  res.status(201).json({ ...final, accessList: accessList ?? [] });
 });
 
 // Everything below is admin-only
