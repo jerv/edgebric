@@ -41,6 +41,53 @@ interface ModelsResponse {
   activeModel: string;
 }
 
+// ─── Thinking Indicator ─────────────────────────────────────────────────────
+
+const THINKING_WORDS = [
+  "Thinking",
+  "Searching knowledge bases",
+  "Reading documents",
+  "Analyzing",
+  "Composing answer",
+  "Reviewing sources",
+  "Cross-referencing",
+  "Synthesizing",
+];
+
+function ThinkingIndicator() {
+  const [index, setIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIndex((i) => (i + 1) % THINKING_WORDS.length);
+        setFade(true);
+      }, 200);
+    }, 2400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <div className="flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+      </div>
+      <span
+        className={cn(
+          "text-xs text-slate-400 transition-opacity duration-200",
+          fade ? "opacity-100" : "opacity-0",
+        )}
+      >
+        {THINKING_WORDS[index]}
+      </span>
+    </div>
+  );
+}
+
 // ─── Bot Avatar ──────────────────────────────────────────────────────────────
 
 interface KBAvatar {
@@ -175,7 +222,7 @@ function EscalationPicker({
 }: {
   targets: AvailableTarget[];
   isPending: boolean;
-  onSelect: (targetId: string, method: string) => void;
+  onSelect: (targetId: string, method: "email" | "slack") => void;
 }) {
   const [search, setSearch] = useState("");
   const showSearch = targets.length > 5;
@@ -327,10 +374,10 @@ export function ChatPanel() {
     }
   }, [urlConvId]);
 
-  // Auto-resync IndexedDB chunks when entering Vault mode with a fresh chat.
+  // Auto-resync IndexedDB chunks when entering Vault mode.
   // Runs in the background — user can start chatting immediately with existing data.
   useEffect(() => {
-    if (privacyLevel !== "vault" || savedPrivacyMessages.length > 0) return;
+    if (privacyLevel !== "vault") return;
     let cancelled = false;
 
     async function backgroundSync() {
@@ -426,7 +473,7 @@ export function ChatPanel() {
 
     void backgroundSync();
     return () => { cancelled = true; };
-  }, [privacyLevel, savedPrivacyMessages.length]);
+  }, [privacyLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load conversation messages when conversationId changes (from URL or new creation)
   // Skip in privacy modes — messages are ephemeral
@@ -1079,14 +1126,7 @@ export function ChatPanel() {
                       : "bg-slate-50 border border-slate-200",
                   )}>
                     {message.isStreaming && !displayContent ? (
-                      <span className="flex items-center gap-3">
-                        <span className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
-                        </span>
-                        <span className="text-xs text-slate-400 tracking-wide">Thinking</span>
-                      </span>
+                      <ThinkingIndicator />
                     ) : (
                       <>
                         <div className={cn(...PROSE_CLASSES)}>

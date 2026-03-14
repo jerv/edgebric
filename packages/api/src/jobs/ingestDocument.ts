@@ -3,6 +3,7 @@ import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import { runtimeEdgeConfig } from "../config.js";
 import { registerChunks, clearChunksForDocument } from "../services/chunkRegistry.js";
 import { setDocument } from "../services/documentStore.js";
+import { refreshDocumentCount } from "../services/knowledgeBaseStore.js";
 import { extractDocument } from "./extractors.js";
 import { logger } from "../lib/logger.js";
 import type { Document } from "@edgebric/types";
@@ -108,6 +109,11 @@ export async function ingestDocument(
       ],
     };
     setDocument(updated);
+
+    // Update the cached document count on the KB
+    if (doc.knowledgeBaseId) {
+      refreshDocumentCount(doc.knowledgeBaseId);
+    }
 
     logger.info({ docName: doc.name, chunkCount: chunks.length }, "Ingestion complete");
   } catch (err) {

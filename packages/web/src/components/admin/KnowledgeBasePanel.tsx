@@ -21,7 +21,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
-import type { Document, KnowledgeBase } from "@edgebric/types";
+import { SourcePanel } from "@/components/employee/SourcePanel";
+import type { Document, KnowledgeBase, PIIWarning } from "@edgebric/types";
 
 /** Format a full name into "First L." display format. */
 function nameToDisplay(name: string): string {
@@ -54,7 +55,7 @@ function StatusBadge({ status }: { status: Document["status"] }) {
     ready: { bg: "bg-green-50 text-green-700", dot: "bg-green-500", label: "Ready" },
     processing: { bg: "bg-amber-50 text-amber-700", dot: "bg-amber-500 animate-pulse", label: "Processing" },
     failed: { bg: "bg-red-50 text-red-700", dot: "bg-red-500", label: "Failed" },
-    pii_review: { bg: "bg-orange-50 text-orange-700", dot: "bg-orange-500", label: "PII Review" },
+    pii_review: { bg: "bg-orange-50 text-orange-700", dot: "bg-orange-500", label: "Needs Review" },
     rejected: { bg: "bg-red-50 text-red-600", dot: "bg-red-400", label: "Rejected" },
   };
   const c = config[status] ?? config.failed!;
@@ -80,6 +81,49 @@ interface KBDetailResponse extends KnowledgeBase {
   accessList?: string[];
 }
 
+/** Tooltip that shows PII reasons on hover — uses fixed positioning to escape overflow containers. */
+function PIIReasonTooltip({ warnings }: { warnings: PIIWarning[] }) {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLSpanElement>(null);
+
+  const reasonCounts = new Map<string, number>();
+  for (const w of warnings) {
+    reasonCounts.set(w.pattern, (reasonCounts.get(w.pattern) ?? 0) + 1);
+  }
+
+  function handleEnter() {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setPos({ x: rect.left, y: rect.bottom + 4 });
+    }
+    setShow(true);
+  }
+
+  return (
+    <>
+      <span ref={ref} onMouseEnter={handleEnter} onMouseLeave={() => setShow(false)} className="cursor-help">
+        <StatusBadge status="pii_review" />
+      </span>
+      {show && (
+        <div
+          className="fixed w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-2.5 z-50 space-y-1"
+          style={{ left: pos.x, top: pos.y }}
+        >
+          {[...reasonCounts.entries()].map(([reason, count]) => (
+            <p key={reason} className="text-[11px] text-slate-600 leading-tight">
+              {reason}{count > 1 ? ` (${count} sections)` : ""}
+            </p>
+          ))}
+          <p className="text-[11px] text-slate-400 leading-tight pt-0.5">
+            Use the actions on the right to approve or reject.
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── KB List View ────────────────────────────────────────────────────────────
 
 function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
@@ -93,6 +137,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const [createAccessList, setCreateAccessList] = useState<string[]>([]);
   const [createAccessEmail, setCreateAccessEmail] = useState("");
   const [createShowSuggestions, setCreateShowSuggestions] = useState(false);
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<KBFilter>("all");
 
@@ -142,6 +188,9 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
     setCreateAccessMode("all");
     setCreateAccessList([]);
     setCreateAccessEmail("");
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setPendingAvatar(null);
+    setAvatarPreview(undefined);
   }
 
   const createMutation = useMutation({
@@ -155,7 +204,17 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         if (!r.ok) throw new Error("Failed to create KB");
         return r.json() as Promise<KnowledgeBase>;
       }),
-    onSuccess: (kb) => {
+    onSuccess: async (kb) => {
+      // Upload pending avatar if one was selected
+      if (pendingAvatar) {
+        const form = new FormData();
+        form.append("avatar", pendingAvatar);
+        await fetch(`/api/knowledge-bases/${kb.id}/avatar`, {
+          method: "POST",
+          credentials: "same-origin",
+          body: form,
+        }).catch(() => {}); // best effort — KB is created either way
+      }
       void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
       resetCreateForm();
       onSelect(kb);
@@ -214,7 +273,26 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         {/* Create KB form */}
         {showCreate && (
           <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50">
-            <h2 className="text-sm font-semibold text-slate-900">Create Knowledge Base</h2>
+            <div className="flex items-center gap-3">
+              <AvatarUpload
+                avatarUrl={avatarPreview}
+                onUpload={async (file) => {
+                  setPendingAvatar(file);
+                  const url = URL.createObjectURL(file);
+                  if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                  setAvatarPreview(url);
+                  return url;
+                }}
+                onRemove={async () => {
+                  if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                  setPendingAvatar(null);
+                  setAvatarPreview(undefined);
+                }}
+                size={48}
+                fallbackText={name || "KB"}
+              />
+              <h2 className="text-sm font-semibold text-slate-900">Create Knowledge Base</h2>
+            </div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -397,7 +475,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           <div className="text-center py-16">
             <Database className="w-10 h-10 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No knowledge bases yet.</p>
-            <p className="text-xs text-slate-400 mt-1">Create one to start uploading documents.</p>
+            <p className="text-xs text-slate-400 mt-1">Create one to start uploading files.</p>
           </div>
         ) : filteredKBs.length === 0 ? (
           <div className="text-center py-12">
@@ -418,16 +496,22 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   className="text-left border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:bg-slate-50 transition-colors group"
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <div className={cn(
-                      "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
-                      isMine ? "bg-blue-50" : "bg-slate-100",
-                    )}>
-                      <Database className={cn("w-4 h-4", isMine ? "text-blue-500" : "text-slate-500")} />
-                    </div>
+                    {kb.avatarUrl ? (
+                      <div className="w-9 h-9 rounded-xl flex-shrink-0 overflow-hidden">
+                        <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className={cn(
+                        "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
+                        isMine ? "bg-blue-50" : "bg-slate-100",
+                      )}>
+                        <Database className={cn("w-4 h-4", isMine ? "text-blue-500" : "text-slate-500")} />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-slate-900 truncate">{kb.name}</h3>
                       <p className="text-xs text-slate-400">
-                        {kb.documentCount} document{kb.documentCount !== 1 ? "s" : ""}
+                        {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
@@ -485,6 +569,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
   const [editDesc, setEditDesc] = useState(kb.description ?? "");
   const [accessEmail, setAccessEmail] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery<KBDetailResponse>({
     queryKey: ["knowledge-bases", kb.id],
@@ -847,7 +932,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800">Delete "{data?.name ?? kb.name}"?</p>
-                <p className="text-xs text-red-600 mt-0.5">This will permanently delete this knowledge base and all its documents.</p>
+                <p className="text-xs text-red-600 mt-0.5">This will permanently delete this knowledge base and all its files.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -918,15 +1003,15 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
           </div>
         )}
 
-        {/* Document list */}
+        {/* File list */}
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading documents...
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading files...
           </div>
         ) : docs.length === 0 && uploading.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No documents in this knowledge base.</p>
+            <p className="text-sm text-slate-500">No files in this knowledge base.</p>
             <p className="text-xs text-slate-400 mt-1">Drop files above to get started.</p>
           </div>
         ) : (
@@ -945,9 +1030,22 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-800 truncate block max-w-xs">{doc.name}</span>
+                        <button
+                          onClick={() => {
+                            if (doc.status === "ready") {
+                              setViewingDoc({ id: doc.id, name: doc.name });
+                            } else {
+                              // For non-ready docs, open the raw file in a new tab
+                              window.open(`/api/documents/${doc.id}/file`, "_blank");
+                            }
+                          }}
+                          className="font-medium truncate block max-w-xs text-left text-slate-800 hover:text-slate-900 hover:underline cursor-pointer"
+                          title={doc.status === "ready" ? "View file content" : "Download original file"}
+                        >
+                          {doc.name}
+                        </button>
                         {doc.isStale && (
-                          <span title="Document may be outdated" className="flex-shrink-0">
+                          <span title="File may be outdated" className="flex-shrink-0">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                           </span>
                         )}
@@ -957,10 +1055,37 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       <span className="uppercase text-xs font-medium text-slate-500">{doc.type}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={doc.status} />
+                      {doc.status === "pii_review" && doc.piiWarnings && doc.piiWarnings.length > 0 ? (
+                        <PIIReasonTooltip warnings={doc.piiWarnings} />
+                      ) : (
+                        <StatusBadge status={doc.status} />
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {canEdit && (deleteConfirm === doc.id ? (
+                      {canEdit && doc.status === "pii_review" ? (
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={async () => {
+                              await fetch(`/api/documents/${doc.id}/approve-pii`, { method: "POST", credentials: "same-origin" });
+                              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
+                            }}
+                            className="text-slate-300 hover:text-green-600 transition-colors p-1"
+                            title="Approve file"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await fetch(`/api/documents/${doc.id}/reject-pii`, { method: "POST", credentials: "same-origin" });
+                              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
+                            }}
+                            className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                            title="Reject file"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : canEdit && (deleteConfirm === doc.id ? (
                         <div className="flex items-center gap-2 justify-end">
                           <span className="text-xs text-slate-500">Delete?</span>
                           <button
@@ -981,7 +1106,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                         <button
                           onClick={() => setDeleteConfirm(doc.id)}
                           className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                          title="Delete document"
+                          title="Delete file"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -994,6 +1119,17 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
           </div>
         )}
       </div>
+
+      {/* File viewer panel */}
+      {viewingDoc && (
+        <SourcePanel
+          documentId={viewingDoc.id}
+          documentName={viewingDoc.name}
+          sectionPath={[]}
+          pageNumber={0}
+          onClose={() => setViewingDoc(null)}
+        />
+      )}
     </div>
   );
 }

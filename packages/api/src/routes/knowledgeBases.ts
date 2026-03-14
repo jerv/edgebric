@@ -255,6 +255,7 @@ knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async 
   };
 
   setDocument(doc);
+  refreshDocumentCount(kb.id);
   res.status(202).json({ documentId: doc.id, knowledgeBaseId: kb.id });
 
   // Kick off ingestion with KB-scoped dataset name

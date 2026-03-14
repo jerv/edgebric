@@ -10,7 +10,7 @@ import { config } from "../config.js";
 import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { ensureDefaultKB } from "../services/knowledgeBaseStore.js";
+import { ensureDefaultKB, refreshDocumentCount } from "../services/knowledgeBaseStore.js";
 import type { Document } from "@edgebric/types";
 
 /** Map file-type detected extensions to our canonical type names */
@@ -196,6 +196,7 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
   };
 
   setDocument(doc);
+  refreshDocumentCount(defaultKB.id);
   res.status(202).json({ documentId: doc.id });
 
   // Kick off ingestion in the background (non-blocking)
@@ -296,8 +297,11 @@ documentsRouter.delete("/:id", async (req, res) => {
     return;
   }
 
+  const kbId = doc.knowledgeBaseId;
   deleteDocument(doc.id);
   clearChunksForDocument(doc.id);
+
+  if (kbId) refreshDocumentCount(kbId);
 
   try {
     await fs.unlink(doc.storageKey);
