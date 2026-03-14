@@ -20,10 +20,12 @@ import {
 } from "../services/knowledgeBaseStore.js";
 import { getDocumentsByKB, setDocument, getDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { getUserInOrg } from "../services/userStore.js";
+import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { config } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { fileTypeFromBuffer } from "file-type";
+import sharp from "sharp";
+import { getOrg } from "../services/orgStore.js";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -50,7 +52,19 @@ knowledgeBasesRouter.get("/", requireOrg, (req, res) => {
   const email = req.session.email ?? "";
   const isAdmin = req.session.isAdmin ?? false;
   const kbs = listAccessibleKBs(email, isAdmin, req.session.orgId);
-  res.json(kbs);
+
+  // Enrich with owner display names
+  const ownerCache = new Map<string, string>();
+  const enriched = kbs.map((kb) => {
+    if (!ownerCache.has(kb.ownerId)) {
+      const ownerUser = getUserByEmail(kb.ownerId);
+      ownerCache.set(kb.ownerId, ownerUser?.name ?? "");
+    }
+    const ownerName = ownerCache.get(kb.ownerId);
+    return ownerName ? { ...kb, ownerName } : kb;
+  });
+
+  res.json(enriched);
 });
 
 // Create KB — admins or members with canCreateKBs permission
@@ -90,10 +104,8 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
   res.status(201).json({ ...final, accessList: accessList ?? [] });
 });
 
-// Everything below is admin-only
-knowledgeBasesRouter.use(requireAdmin);
-
-knowledgeBasesRouter.get("/:id", (req, res) => {
+// GET /:id — any org member can view KB details (read-only)
+knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
     res.status(404).json({ error: "Knowledge base not found" });
@@ -117,11 +129,15 @@ knowledgeBasesRouter.get("/:id", (req, res) => {
     isStale: now - new Date(doc.updatedAt).getTime() > thresholdMs,
   }));
 
-  // Include access list for restricted KBs
-  const accessList = kb.accessMode === "restricted" ? getKBAccessList(kb.id) : [];
+  // Include access list for restricted KBs (admin only)
+  const isAdmin = req.session.isAdmin ?? false;
+  const accessList = isAdmin && kb.accessMode === "restricted" ? getKBAccessList(kb.id) : [];
 
   res.json({ ...kb, documents: enrichedDocs, accessList });
 });
+
+// Everything below is admin-only
+knowledgeBasesRouter.use(requireAdmin);
 
 knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
   const kbId = req.params["id"] as string;
@@ -245,4 +261,78 @@ knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async 
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
     ingestDocument(doc, { datasetName: kb.datasetName }),
   );
+});
+
+// ─── KB Avatar Upload ──────────────────────────────────────────────────────
+
+const avatarUpload = multer({
+  dest: path.join(config.dataDir, "uploads"),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error(`Unsupported image type: ${ext}`));
+  },
+});
+
+// POST /:id/avatar — upload KB avatar (admin or KB owner with canCreateKBs)
+knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const kb = getKB(kbId);
+  if (!kb) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  try {
+    const avatarDir = path.join(config.dataDir, "avatars");
+    await fs.mkdir(avatarDir, { recursive: true });
+    const filename = `kb-${kb.id}.png`;
+    const destPath = path.join(avatarDir, filename);
+
+    await sharp(req.file.path)
+      .resize(256, 256, { fit: "cover" })
+      .png()
+      .toFile(destPath);
+
+    await fs.unlink(req.file.path).catch(() => {});
+
+    const avatarUrl = `/api/avatars/${filename}`;
+    updateKB(kb.id, { avatarUrl });
+
+    res.json({ avatarUrl });
+  } catch {
+    await fs.unlink(req.file.path).catch(() => {});
+    res.status(500).json({ error: "Failed to process image" });
+  }
+});
+
+// DELETE /:id/avatar — remove KB avatar
+knowledgeBasesRouter.delete("/:id/avatar", async (req, res) => {
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+  const kb = getKB(kbId);
+  if (!kb) {
+    res.status(404).json({ error: "Knowledge base not found" });
+    return;
+  }
+
+  if (kb.avatarUrl) {
+    const filename = kb.avatarUrl.split("/").pop();
+    if (filename) await fs.unlink(path.join(config.dataDir, "avatars", filename)).catch(() => {});
+  }
+  updateKB(kb.id, { avatarUrl: "" });
+  res.json({ ok: true });
 });

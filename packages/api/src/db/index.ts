@@ -223,6 +223,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE escalation_targets ADD COLUMN email_notify INTEGER",
     // Per-user KB creation permission
     "ALTER TABLE users ADD COLUMN can_create_kbs INTEGER DEFAULT 0",
+    // KB avatar
+    "ALTER TABLE knowledge_bases ADD COLUMN avatar_url TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

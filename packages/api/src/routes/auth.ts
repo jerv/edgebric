@@ -72,6 +72,8 @@ authRouter.get("/me", (req, res) => {
     canCreateKBs,
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
+    orgAvatarUrl: org?.settings.avatarUrl,
+    avatarMode: org?.settings.avatarMode ?? "org",
   });
 });
 

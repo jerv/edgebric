@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate } from "@tanstack/react-router";
-import { Menu, X, Lock, Shield } from "lucide-react";
+import { Menu, X, EyeOff, ShieldCheck } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/contexts/PrivacyContext";
@@ -77,14 +77,14 @@ export function AppShell() {
         {/* Privacy mode indicator bar */}
         {level === "private" && (
           <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 border-b border-slate-200 text-slate-600">
-            <Lock className="w-3.5 h-3.5" />
+            <EyeOff className="w-3.5 h-3.5" />
             <span className="text-xs font-medium">Private Mode — anonymous, not logged</span>
             <span className="text-[11px] text-slate-400 ml-1">Queries are processed on org servers</span>
           </div>
         )}
         {level === "vault" && (
           <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50 border-b border-emerald-200 text-emerald-700">
-            <Shield className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-3.5 h-3.5" />
             <span className="text-xs font-medium">Vault Mode — queries never leave your device</span>
             <span className="text-[11px] text-emerald-500 ml-1">Conversation is lost on page refresh</span>
           </div>

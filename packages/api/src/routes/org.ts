@@ -1,9 +1,15 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { z } from "zod";
+import path from "path";
+import fs from "fs/promises";
+import multer from "multer";
+import sharp from "sharp";
+import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { getOrg, updateOrg } from "../services/orgStore.js";
+import { config } from "../config.js";
 import {
   listUsers,
   inviteUser,
@@ -54,6 +60,94 @@ orgRouter.post("/complete-onboarding", (req, res) => {
   const updated = updateOrg(org.id, {
     settings: { ...org.settings, onboardingComplete: true },
   });
+  res.json(updated);
+});
+
+// ─── Avatar Upload ────────────────────────────────────────────────────────
+
+const avatarDir = path.join(config.dataDir, "avatars");
+
+const avatarUpload = multer({
+  dest: path.join(config.dataDir, "uploads"),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error(`Unsupported image type: ${ext}`));
+  },
+});
+
+// POST /api/admin/org/avatar — upload org avatar
+orgRouter.post("/avatar", avatarUpload.single("avatar"), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  const org = getOrg(req.session.orgId!);
+  if (!org) {
+    res.status(404).json({ error: "No organization found" });
+    return;
+  }
+
+  try {
+    await fs.mkdir(avatarDir, { recursive: true });
+    const filename = `org-${org.id}.png`;
+    const destPath = path.join(avatarDir, filename);
+
+    // Resize and convert to PNG
+    await sharp(req.file.path)
+      .resize(256, 256, { fit: "cover" })
+      .png()
+      .toFile(destPath);
+
+    // Clean up temp upload
+    await fs.unlink(req.file.path).catch(() => {});
+
+    const avatarUrl = `/api/avatars/${filename}`;
+    updateOrg(org.id, { settings: { ...org.settings, avatarUrl } });
+
+    res.json({ avatarUrl });
+  } catch (err) {
+    await fs.unlink(req.file.path).catch(() => {});
+    res.status(500).json({ error: "Failed to process image" });
+  }
+});
+
+// DELETE /api/admin/org/avatar — remove org avatar
+orgRouter.delete("/avatar", (req, res) => {
+  const org = getOrg(req.session.orgId!);
+  if (!org) {
+    res.status(404).json({ error: "No organization found" });
+    return;
+  }
+
+  const { avatarUrl, ...restSettings } = org.settings;
+  updateOrg(org.id, { settings: restSettings });
+
+  // Delete file (best effort)
+  if (avatarUrl) {
+    const filename = avatarUrl.split("/").pop();
+    if (filename) void fs.unlink(path.join(avatarDir, filename)).catch(() => {});
+  }
+
+  res.json({ ok: true });
+});
+
+// PUT /api/admin/org/avatar-settings — update avatar mode
+const avatarSettingsSchema = z.object({
+  avatarMode: z.enum(["org", "kb"]),
+});
+
+orgRouter.put("/avatar-settings", validateBody(avatarSettingsSchema), (req, res) => {
+  const org = getOrg(req.session.orgId!);
+  if (!org) {
+    res.status(404).json({ error: "No organization found" });
+    return;
+  }
+  const { avatarMode } = req.body as z.infer<typeof avatarSettingsSchema>;
+  const updated = updateOrg(org.id, { settings: { ...org.settings, avatarMode } });
   res.json(updated);
 });
 

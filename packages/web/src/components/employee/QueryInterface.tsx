@@ -8,7 +8,7 @@ import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel, employeeLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, Slack, Mail, Lock, Shield, Circle, CheckCircle, X, Database, Check } from "lucide-react";
+import { ChevronDown, Slack, Mail, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserRound, Search, Send, Square } from "lucide-react";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
@@ -39,6 +39,207 @@ interface MILMModel {
 interface ModelsResponse {
   models: MILMModel[];
   activeModel: string;
+}
+
+// ─── Bot Avatar ──────────────────────────────────────────────────────────────
+
+interface KBAvatar {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+function BotAvatar({
+  citations,
+  orgAvatarUrl,
+  avatarMode,
+  privacyLevel,
+  orgName,
+}: {
+  citations?: Citation[];
+  orgAvatarUrl?: string;
+  avatarMode?: "org" | "kb";
+  privacyLevel: "standard" | "private" | "vault";
+  orgName?: string;
+}) {
+  // Privacy modes: show icon instead
+  if (privacyLevel === "vault") {
+    return (
+      <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0">
+        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+      </div>
+    );
+  }
+  if (privacyLevel === "private") {
+    return (
+      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+        <EyeOff className="w-4 h-4 text-slate-400" />
+      </div>
+    );
+  }
+
+  // KB-specific avatars mode
+  if (avatarMode === "kb" && citations && citations.length > 0) {
+    // Deduplicate KBs from citations
+    const kbMap = new Map<string, KBAvatar>();
+    for (const c of citations) {
+      if (c.knowledgeBaseId && !kbMap.has(c.knowledgeBaseId)) {
+        kbMap.set(c.knowledgeBaseId, {
+          id: c.knowledgeBaseId,
+          name: c.knowledgeBaseName ?? "KB",
+          avatarUrl: c.knowledgeBaseAvatarUrl,
+        });
+      }
+    }
+    const kbs = Array.from(kbMap.values());
+
+    if (kbs.length === 1) {
+      const kb = kbs[0]!;
+      return (
+        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={kb.name}>
+          {kb.avatarUrl ? (
+            <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
+          ) : orgAvatarUrl ? (
+            <img src={orgAvatarUrl} alt={orgName ?? "Org"} className="w-full h-full object-cover" />
+          ) : (
+            <Building2 className="w-4 h-4 text-slate-400" />
+          )}
+        </div>
+      );
+    }
+
+    if (kbs.length >= 2) {
+      const showKbs = kbs.slice(0, 3);
+      const remaining = kbs.length - 3;
+      const tooltipText = kbs.map((kb) => kb.name).join(", ");
+
+      return (
+        <div className="relative w-8 h-8 flex-shrink-0" title={tooltipText}>
+          {showKbs.map((kb, idx) => {
+            const offset = idx * 5;
+            const zIndex = showKbs.length - idx;
+            return (
+              <div
+                key={kb.id}
+                className="absolute rounded-full bg-slate-100 border-2 border-white overflow-hidden"
+                style={{
+                  width: 22,
+                  height: 22,
+                  left: offset,
+                  top: idx % 2 === 0 ? 0 : 10,
+                  zIndex,
+                }}
+              >
+                {kb.avatarUrl ? (
+                  <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
+                ) : orgAvatarUrl ? (
+                  <img src={orgAvatarUrl} alt={orgName ?? "Org"} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="w-full h-full flex items-center justify-center text-[8px] font-semibold text-slate-400">
+                    {kb.name.slice(0, 1)}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+          {remaining > 0 && (
+            <div
+              className="absolute rounded-full bg-slate-200 border-2 border-white flex items-center justify-center"
+              style={{ width: 22, height: 22, left: showKbs.length * 5, top: 5, zIndex: 0 }}
+            >
+              <span className="text-[8px] font-bold text-slate-500">+{remaining}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+  }
+
+  // Default: org avatar
+  return (
+    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
+      {orgAvatarUrl ? (
+        <img src={orgAvatarUrl} alt={orgName ?? "Organization"} className="w-full h-full object-cover" />
+      ) : (
+        <Building2 className="w-4 h-4 text-slate-400" />
+      )}
+    </div>
+  );
+}
+
+/** Escalation target picker — scrollable with search when there are many targets. */
+function EscalationPicker({
+  targets,
+  isPending,
+  onSelect,
+}: {
+  targets: AvailableTarget[];
+  isPending: boolean;
+  onSelect: (targetId: string, method: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const showSearch = targets.length > 5;
+
+  const filtered = search
+    ? targets.filter(
+        (t) =>
+          t.name.toLowerCase().includes(search.toLowerCase()) ||
+          (t.role && t.role.toLowerCase().includes(search.toLowerCase())),
+      )
+    : targets;
+
+  return (
+    <div className="absolute right-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
+      {targets.length === 0 ? (
+        <div className="px-3 py-2 text-xs text-slate-400">
+          No escalation targets configured. Ask your administrator to set up targets in Settings.
+        </div>
+      ) : (
+        <>
+          {showSearch && (
+            <div className="px-2 pt-2 pb-1 border-b border-slate-100">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                <Search className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search contacts..."
+                  className="flex-1 bg-transparent text-xs outline-none placeholder:text-slate-400"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-slate-400">No matches</div>
+            ) : (
+              filtered.map((target) => (
+                <div key={target.id} className="px-3 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <div className="text-xs font-medium text-slate-700">{target.name}</div>
+                  {target.role && <div className="text-[11px] text-slate-400">{target.role}</div>}
+                  <div className="flex gap-1 mt-1.5">
+                    {target.methods.map((method) => (
+                      <button
+                        key={method}
+                        onClick={() => onSelect(target.id, method)}
+                        disabled={isPending}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-colors disabled:opacity-40"
+                      >
+                        {method === "slack" ? <Slack className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                        {method === "slack" ? "Slack" : "Email"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function ChatPanel() {
@@ -785,7 +986,7 @@ export function ChatPanel() {
           <div className="flex flex-col items-center justify-center h-full text-center">
             {privacyLevel === "vault" ? (
               <>
-                <Shield className="w-8 h-8 text-emerald-400 mb-3" />
+                <ShieldCheck className="w-8 h-8 text-emerald-400 mb-3" />
                 <p className="text-slate-900 text-xl font-medium mb-2">Vault Mode</p>
                 <p className="text-slate-400 text-sm max-w-sm">
                   Queries are processed entirely on your device. Nothing is sent to any server.
@@ -796,7 +997,7 @@ export function ChatPanel() {
               </>
             ) : privacyLevel === "private" ? (
               <>
-                <Lock className="w-8 h-8 text-slate-400 mb-3" />
+                <EyeOff className="w-8 h-8 text-slate-400 mb-3" />
                 <p className="text-slate-900 text-xl font-medium mb-2">Private Mode</p>
                 <p className="text-slate-400 text-sm max-w-sm">
                   Your identity is hidden from administrators and conversations are not saved.
@@ -857,7 +1058,17 @@ export function ChatPanel() {
                   {message.content}
                 </div>
               ) : (
-                <div className="max-w-2xl w-full space-y-3">
+                <div className="flex gap-3 max-w-2xl w-full">
+                  <div className="mt-1 flex-shrink-0">
+                    <BotAvatar
+                      citations={message.citations}
+                      orgAvatarUrl={user?.orgAvatarUrl}
+                      avatarMode={user?.avatarMode}
+                      privacyLevel={privacyLevel}
+                      orgName={user?.orgName}
+                    />
+                  </div>
+                <div className="min-w-0 flex-1 space-y-3">
                   {message.source === "admin" && (
                     <div className="text-xs font-medium text-blue-600 px-1">Admin Reply</div>
                   )}
@@ -913,9 +1124,9 @@ export function ChatPanel() {
                               : "text-slate-500 bg-slate-100",
                           )}>
                             {privacyLevel === "vault" ? (
-                              <Shield className="w-3 h-3" />
+                              <ShieldCheck className="w-3 h-3" />
                             ) : (
-                              <Lock className="w-3 h-3" />
+                              <EyeOff className="w-3 h-3" />
                             )}
                             {privacyLevel === "vault" ? "Vault — fully local" : "Private — not saved"}
                           </span>
@@ -939,7 +1150,7 @@ export function ChatPanel() {
                           </div>
                         )}
                       </div>
-                      {!isPrivacyMode && message.hasConfidentAnswer && conversationId && message.id && (
+                      {!isPrivacyMode && conversationId && message.id && (
                         <div className="relative">
                           {escalatedIndices.has(i) ? (
                             <span className="text-xs text-green-600 px-2.5 py-1">Sent for review</span>
@@ -947,59 +1158,37 @@ export function ChatPanel() {
                             <button
                               onClick={() => setEscalationPickerIndex(escalationPickerIndex === i ? null : i)}
                               disabled={escalateMutation.isPending}
-                              className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2.5 py-1 hover:border-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2.5 py-1 hover:border-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              {escalateMutation.isPending && escalationPickerIndex === i ? "Sending..." : "Human Verification"}
+                              {escalateMutation.isPending && escalationPickerIndex === i ? "Sending..." : (<><UserRound className="w-3.5 h-3.5" /> Verify with a Human</>)}
                             </button>
                           )}
                           {escalationPickerIndex === i && !escalatedIndices.has(i) && (
-                            <div className="absolute right-0 bottom-full mb-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20">
-                              {(!availableTargets || availableTargets.length === 0) ? (
-                                <div className="px-3 py-2 text-xs text-slate-400">
-                                  No escalation targets configured. Ask your administrator to set up targets in Settings.
-                                </div>
-                              ) : (
-                                availableTargets.map((target) => (
-                                  <div key={target.id} className="px-3 py-2 border-b border-slate-50 last:border-0">
-                                    <div className="text-xs font-medium text-slate-700">{target.name}</div>
-                                    {target.role && <div className="text-xs text-slate-400">{target.role}</div>}
-                                    <div className="flex gap-1 mt-1.5">
-                                      {target.methods.map((method) => (
-                                        <button
-                                          key={method}
-                                          onClick={() => {
-                                            const userMsg = messages[i - 1];
-                                            if (!userMsg || !conversationId || !message.id) return;
-                                            escalateMutation.mutate(
-                                              {
-                                                question: userMsg.content,
-                                                aiAnswer: message.content,
-                                                citations: message.citations ?? [],
-                                                conversationId,
-                                                messageId: message.id,
-                                                targetId: target.id,
-                                                method,
-                                              },
-                                              {
-                                                onSuccess: () => {
-                                                  setEscalatedIndices((prev) => new Set(prev).add(i));
-                                                  setEscalationPickerIndex(null);
-                                                },
-                                              },
-                                            );
-                                          }}
-                                          disabled={escalateMutation.isPending}
-                                          className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-40"
-                                        >
-                                          {method === "slack" ? <Slack className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
-                                          {method === "slack" ? "Slack" : "Email"}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
+                            <EscalationPicker
+                              targets={availableTargets ?? []}
+                              isPending={escalateMutation.isPending}
+                              onSelect={(targetId, method) => {
+                                const userMsg = messages[i - 1];
+                                if (!userMsg || !conversationId || !message.id) return;
+                                escalateMutation.mutate(
+                                  {
+                                    question: userMsg.content,
+                                    aiAnswer: message.content,
+                                    citations: message.citations ?? [],
+                                    conversationId,
+                                    messageId: message.id,
+                                    targetId,
+                                    method,
+                                  },
+                                  {
+                                    onSuccess: () => {
+                                      setEscalatedIndices((prev) => new Set(prev).add(i));
+                                      setEscalationPickerIndex(null);
+                                    },
+                                  },
+                                );
+                              }}
+                            />
                           )}
                         </div>
                       )}
@@ -1017,6 +1206,7 @@ export function ChatPanel() {
                       onCancel={() => fb.setFeedbackCommentId(null)}
                     />
                   )}
+                </div>
                 </div>
               )}
             </div>
@@ -1050,11 +1240,11 @@ export function ChatPanel() {
                   )}
                 >
                   {privacyLevel === "vault" ? (
-                    <Shield className="w-3.5 h-3.5" />
+                    <ShieldCheck className="w-3.5 h-3.5" />
                   ) : privacyLevel === "private" ? (
-                    <Lock className="w-3.5 h-3.5" />
+                    <EyeOff className="w-3.5 h-3.5" />
                   ) : (
-                    <Circle className="w-3.5 h-3.5" />
+                    <Eye className="w-3.5 h-3.5" />
                   )}
                   {privacyLevel === "vault" ? "Vault" : privacyLevel === "private" ? "Private" : "Standard"}
                   <ChevronDown className={cn("w-3 h-3 transition-transform", privacyPopoverOpen && "rotate-180")} />
@@ -1069,7 +1259,7 @@ export function ChatPanel() {
                         privacyLevel === "standard" ? "bg-slate-50" : "hover:bg-slate-50",
                       )}
                     >
-                      <Circle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-slate-400" />
+                      <Eye className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-slate-400" />
                       <div>
                         <span className={cn("block font-medium", privacyLevel === "standard" ? "text-slate-900" : "text-slate-700")}>Standard</span>
                         <span className="block text-[11px] text-slate-400 mt-0.5">Conversations saved normally</span>
@@ -1083,7 +1273,7 @@ export function ChatPanel() {
                           privacyLevel === "private" ? "bg-amber-50/50" : "hover:bg-slate-50",
                         )}
                       >
-                        <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-500" />
+                        <EyeOff className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-500" />
                         <div>
                           <span className={cn("block font-medium", privacyLevel === "private" ? "text-amber-700" : "text-slate-700")}>Private</span>
                           <span className="block text-[11px] text-slate-400 mt-0.5">Messages never saved to server</span>
@@ -1098,7 +1288,7 @@ export function ChatPanel() {
                           privacyLevel === "vault" ? "bg-emerald-50/50" : "hover:bg-slate-50",
                         )}
                       >
-                        <Shield className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-500" />
+                        <ShieldCheck className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-500" />
                         <div>
                           <span className={cn("block font-medium", privacyLevel === "vault" ? "text-emerald-700" : "text-slate-700")}>Vault</span>
                           <span className="block text-[11px] text-slate-400 mt-0.5">Encrypted, fully on-device</span>
@@ -1242,7 +1432,7 @@ export function ChatPanel() {
                 </div>
               )}
 
-              <div className="flex gap-3 items-end">
+              <div className="flex gap-2 items-end">
                 <div className="flex-1 relative">
                   {/* Mention picker */}
                   {mentionPickerOpen && (
@@ -1275,16 +1465,18 @@ export function ChatPanel() {
                   <button
                     type="button"
                     onClick={handleStop}
-                    className="bg-slate-100 text-slate-700 rounded-xl px-4 py-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
                   >
+                    <Square className="w-3.5 h-3.5 fill-current" />
                     Stop
                   </button>
                 ) : (
                   <button
                     type="submit"
                     disabled={!input.trim()}
-                    className="bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 bg-slate-900 text-white rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                   >
+                    <Send className="w-3.5 h-3.5" />
                     Send
                   </button>
                 )}

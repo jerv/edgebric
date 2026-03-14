@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Shield, Lock, CheckCircle, XCircle, Loader2, Copy, Trash2, RefreshCw, ExternalLink,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Copy, Trash2, RefreshCw, ExternalLink,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";
@@ -53,7 +53,7 @@ function AdminToggles() {
 
       <div className="space-y-3">
         <ToggleCard
-          icon={<Lock className="w-4 h-4" />}
+          icon={<EyeOff className="w-4 h-4" />}
           title="Private Mode"
           description="Members can make queries anonymously. Conversations are not logged and admin cannot see them."
           enabled={config?.privateModeEnabled ?? false}
@@ -61,7 +61,7 @@ function AdminToggles() {
           onToggle={(v) => mutation.mutate({ privateModeEnabled: v })}
         />
         <ToggleCard
-          icon={<Shield className="w-4 h-4" />}
+          icon={<ShieldCheck className="w-4 h-4" />}
           title="Vault Mode"
           description="Members can run queries entirely on their own device using Ollama. Nothing is sent to the server. Requires one-time setup per member."
           enabled={config?.vaultModeEnabled ?? false}
@@ -649,7 +649,7 @@ export function PrivacyTab() {
       {!user?.isAdmin && !user?.privateModeEnabled && !user?.vaultModeEnabled && (
         <div className="border border-slate-100 rounded-xl px-4 py-8 text-center">
           <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-            <Shield className="w-5 h-5 text-slate-400" />
+            <ShieldCheck className="w-5 h-5 text-slate-400" />
           </div>
           <p className="text-sm text-slate-500 mt-3">
             No privacy features are enabled for your organization.
@@ -665,7 +665,7 @@ export function PrivacyTab() {
         <div className="border border-slate-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
-              <Lock className="w-4 h-4" />
+              <EyeOff className="w-4 h-4" />
             </div>
             <div>
               <p className="text-sm font-medium text-slate-900">

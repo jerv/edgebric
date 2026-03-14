@@ -14,6 +14,10 @@ export interface Organization {
 
 export interface OrgSettings {
   onboardingComplete?: boolean;
+  /** URL path to the org avatar image (e.g. /api/avatars/org-xxx.png). */
+  avatarUrl?: string;
+  /** Whether bots use org avatar or KB-specific avatars. Default: "org". */
+  avatarMode?: "org" | "kb";
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -50,11 +54,15 @@ export interface KnowledgeBase {
   type: KnowledgeBaseType;
   /** Admin email (org KB) or user email (personal KB). */
   ownerId: string;
+  /** Resolved display name of the owner (populated by API, not stored). */
+  ownerName?: string;
   /** The mKB dataset name for this knowledge base. */
   datasetName: string;
   documentCount: number;
   status: KnowledgeBaseStatus;
   accessMode: KBAccessMode;
+  /** URL path to the KB avatar image (used when org avatarMode is "kb"). */
+  avatarUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -118,6 +126,10 @@ export interface Citation {
   excerpt: string;
   /** Which knowledge base this citation came from (populated by query route). */
   knowledgeBaseName?: string;
+  /** KB ID for avatar lookup (populated by query route). */
+  knowledgeBaseId?: string;
+  /** KB avatar URL (populated by query route when avatarMode is "kb"). */
+  knowledgeBaseAvatarUrl?: string;
 }
 
 export interface AnswerResponse {

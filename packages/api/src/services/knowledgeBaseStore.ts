@@ -18,6 +18,7 @@ function rowToKB(row: typeof knowledgeBases.$inferSelect): KnowledgeBase {
     updatedAt: new Date(row.updatedAt),
   };
   if (row.description != null) kb.description = row.description;
+  if (row.avatarUrl != null) kb.avatarUrl = row.avatarUrl;
   return kb;
 }
 
@@ -136,7 +137,7 @@ export function listAccessibleKBs(email: string, isAdmin: boolean, orgId?: strin
 /** Update KB metadata. */
 export function updateKB(
   id: string,
-  data: { name?: string; description?: string; accessMode?: KBAccessMode },
+  data: { name?: string; description?: string; accessMode?: KBAccessMode; avatarUrl?: string },
 ): KnowledgeBase | undefined {
   const db = getDb();
   const existing = getKB(id);
@@ -148,6 +149,7 @@ export function updateKB(
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.accessMode !== undefined && { accessMode: data.accessMode }),
+      ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       updatedAt: now,
     })
     .where(eq(knowledgeBases.id, id))

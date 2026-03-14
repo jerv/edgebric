@@ -9,8 +9,8 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  Lock,
-  Shield,
+  EyeOff,
+  ShieldCheck,
   Database,
   Building2,
   User,
@@ -129,9 +129,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
 
   const unreadCount = unreadData?.count ?? 0;
 
-  // Admin nav items
+  // Nav items (some admin-only, some conditional)
   const adminNavItems: NavItem[] = [
-    { href: "/library", label: "Library", icon: Database, adminOnly: true },
+    { href: "/library", label: "Library", icon: Database },
     { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
     { href: "/escalations", label: "Escalations", icon: MessageSquareMore, adminOnly: true, badge: unreadCount },
   ];
@@ -208,9 +208,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
             privacy.level === "vault" ? "text-emerald-700" : "text-slate-600",
           )}>
             {privacy.level === "vault" ? (
-              <Shield className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3.5 h-3.5" />
             ) : (
-              <Lock className="w-3.5 h-3.5" />
+              <EyeOff className="w-3.5 h-3.5" />
             )}
             {privacy.level === "vault" ? "Vault Mode" : "Private Mode"}
           </div>

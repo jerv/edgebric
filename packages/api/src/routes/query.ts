@@ -55,16 +55,20 @@ const chatClient = createMILMClient(chatEdgeConfig, "");
 
 queryRouter.use(requireOrg);
 
-/** Enrich citations with the knowledge base name based on document → KB lookup. */
+/** Enrich citations with the knowledge base name, ID, and avatar based on document → KB lookup. */
 function enrichCitationsWithKBName(citations: Citation[]): void {
   if (citations.length === 0) return;
   const kbs = listKBs({ type: "organization" });
-  const kbMap = new Map(kbs.map((kb) => [kb.id, kb.name]));
+  const kbMap = new Map(kbs.map((kb) => [kb.id, kb]));
   for (const citation of citations) {
     const doc = getDocument(citation.documentId);
     if (doc?.knowledgeBaseId) {
-      const name = kbMap.get(doc.knowledgeBaseId);
-      if (name) citation.knowledgeBaseName = name;
+      const kb = kbMap.get(doc.knowledgeBaseId);
+      if (kb) {
+        citation.knowledgeBaseName = kb.name;
+        citation.knowledgeBaseId = kb.id;
+        if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+      }
     }
   }
 }

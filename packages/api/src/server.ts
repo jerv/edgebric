@@ -109,6 +109,7 @@ const queryLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => req.session?.queryToken ?? req.ip ?? "unknown",
   message: { error: "Query rate limit exceeded. Please wait before asking another question." },
+  validate: { keyGeneratorIpFallback: false },
 });
 
 app.use(globalLimiter);
@@ -159,6 +160,12 @@ app.use("/api/feedback", feedbackRouter);
 app.use("/api/admin/analytics", analyticsRouter);
 app.use("/api/knowledge-bases", knowledgeBasesRouter);
 app.use("/api/admin/org", orgRouter);
+
+// Serve avatar images (public, no auth — they're just images)
+app.use("/api/avatars", express.static(path.join(config.dataDir, "avatars"), {
+  maxAge: "1h",
+  immutable: false,
+}));
 
 // ─── Static frontend (production) ─────────────────────────────────────────────
 

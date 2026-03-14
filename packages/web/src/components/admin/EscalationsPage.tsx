@@ -6,6 +6,7 @@ import {
   Download,
   Slack,
   Mail,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Escalation } from "@edgebric/types";
@@ -46,11 +47,21 @@ export function EscalationsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Escalations</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Verification requests from members. Click a row to view the conversation.
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-900">Escalations</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Verification requests from members. Click a row to view the conversation.
+            </p>
+          </div>
+          <Link
+            to="/organization"
+            search={{ tab: "escalations" }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Configure
+          </Link>
         </div>
 
         {isLoading ? (

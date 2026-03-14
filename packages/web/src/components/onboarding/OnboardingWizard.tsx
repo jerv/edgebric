@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckCircle, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AvatarUpload } from "@/components/shared/AvatarUpload";
 
 const STEPS = [
   { label: "Organization" },
@@ -23,6 +24,9 @@ export function OnboardingWizard() {
 
   // Step 1: Organization name
   const [orgName, setOrgName] = useState("My Company");
+
+  // Step 1 avatar
+  const [orgAvatarUrl, setOrgAvatarUrl] = useState<string | undefined>(undefined);
 
   // Step 2: KB
   const [kbName, setKbName] = useState("Policy Documents");
@@ -170,6 +174,31 @@ export function OnboardingWizard() {
         {/* Step 1: Organization */}
         {step === 0 && (
           <div className="space-y-4">
+            <div className="flex flex-col items-center gap-3">
+              <AvatarUpload
+                avatarUrl={orgAvatarUrl}
+                onUpload={async (file) => {
+                  const form = new FormData();
+                  form.append("avatar", file);
+                  const res = await fetch("/api/admin/org/avatar", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    body: form,
+                  });
+                  if (!res.ok) throw new Error("Upload failed");
+                  const data = await res.json() as { avatarUrl: string };
+                  setOrgAvatarUrl(data.avatarUrl);
+                  return data.avatarUrl;
+                }}
+                onRemove={async () => {
+                  await fetch("/api/admin/org/avatar", { method: "DELETE", credentials: "same-origin" });
+                  setOrgAvatarUrl(undefined);
+                }}
+                size={80}
+                fallbackText={orgName.slice(0, 2) || "CO"}
+              />
+              <p className="text-xs text-slate-400">Organization logo (optional)</p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Organization Name</label>
               <input
