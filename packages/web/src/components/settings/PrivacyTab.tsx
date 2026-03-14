@@ -71,12 +71,19 @@ function AdminToggles() {
       </div>
 
       {config?.vaultModeEnabled && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
           <p className="text-xs text-amber-800 leading-relaxed">
             Vault Mode syncs company document chunks to member devices for
             local processing. This is the same content members can already
             query via the web app. Enabling this means accepting that company
             data will be cached locally.
+          </p>
+          <p className="text-xs text-amber-700 leading-relaxed">
+            <span className="font-medium">Limitations:</span> Vault Mode
+            processes documents on-device, which supports text-based PDFs and
+            Word documents. Scanned or image-only PDFs cannot be processed
+            locally. All data is encrypted at rest with AES-256 and can be
+            remotely wiped if a device is lost.
           </p>
         </div>
       )}

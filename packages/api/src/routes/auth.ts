@@ -55,6 +55,9 @@ authRouter.get("/me", (req, res) => {
   const userRecord = (orgId && req.session.email) ? getUserInOrg(req.session.email, orgId) : undefined;
   const displayName = userRecord?.name ?? req.session.name;
 
+  // canCreateKBs: admins always can; members need explicit permission
+  const canCreateKBs = isAdmin || (userRecord?.canCreateKBs ?? false);
+
   res.json({
     isAdmin,
     queryToken: req.session.queryToken,
@@ -66,6 +69,7 @@ authRouter.get("/me", (req, res) => {
     orgSlug: org?.slug,
     privateModeEnabled: orgConfig.privateModeEnabled ?? false,
     vaultModeEnabled: orgConfig.vaultModeEnabled ?? false,
+    canCreateKBs,
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
   });

@@ -17,6 +17,7 @@ function rowToUser(row: typeof users.$inferSelect): User {
   if (row.picture != null) user.picture = row.picture;
   if (row.lastLoginAt != null) user.lastLoginAt = new Date(row.lastLoginAt);
   if (row.invitedBy != null) user.invitedBy = row.invitedBy;
+  if (row.canCreateKBs) user.canCreateKBs = true;
   return user;
 }
 
@@ -83,6 +84,7 @@ export function upsertUser(data: {
     status: "active",
     orgId: data.orgId,
     invitedBy: null,
+    canCreateKBs: 0,
     lastLoginAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
@@ -114,6 +116,7 @@ export function inviteUser(data: {
     status: "invited",
     orgId: data.orgId,
     invitedBy: data.invitedBy,
+    canCreateKBs: 0,
     lastLoginAt: null,
     createdAt: new Date().toISOString(),
   };
@@ -154,6 +157,26 @@ export function updateUserName(email: string, orgId: string, name: string): User
     .where(eq(users.id, existing.id))
     .run();
   return getUser(existing.id);
+}
+
+/** Update a user's permissions (e.g. canCreateKBs). */
+export function updateUserPermissions(
+  userId: string,
+  permissions: { canCreateKBs?: boolean | undefined },
+): User | undefined {
+  const db = getDb();
+  const existing = db.select().from(users).where(eq(users.id, userId)).get();
+  if (!existing) return undefined;
+
+  const updates: Record<string, unknown> = {};
+  if (permissions.canCreateKBs !== undefined) {
+    updates.canCreateKBs = permissions.canCreateKBs ? 1 : 0;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    db.update(users).set(updates).where(eq(users.id, userId)).run();
+  }
+  return getUser(userId);
 }
 
 export function listUsers(orgId: string): User[] {

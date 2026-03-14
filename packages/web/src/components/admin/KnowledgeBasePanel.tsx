@@ -16,9 +16,24 @@ import {
   Lock,
   X,
   ChevronDown,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/contexts/UserContext";
 import type { Document, KnowledgeBase } from "@edgebric/types";
+
+/** Format an email into a display name: "john.doe@co.com" → "John D." */
+function emailToDisplayName(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  const parts = local.replace(/[._]/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return email;
+  const first = parts[0]!;
+  const firstCap = first.charAt(0).toUpperCase() + first.slice(1);
+  if (parts.length === 1) return firstCap;
+  return `${firstCap} ${parts[parts.length - 1]!.charAt(0).toUpperCase()}.`;
+}
+
+type KBFilter = "all" | "mine";
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 
@@ -56,10 +71,14 @@ interface KBDetailResponse extends KnowledgeBase {
 // ─── KB List View ────────────────────────────────────────────────────────────
 
 function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
+  const user = useUser();
+  const canCreate = user?.canCreateKBs ?? user?.isAdmin ?? false;
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<KBFilter>("all");
 
   const { data: kbs = [], isLoading } = useQuery<KnowledgeBase[]>({
     queryKey: ["knowledge-bases"],
@@ -74,7 +93,10 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(body),
-      }).then((r) => r.json() as Promise<KnowledgeBase>),
+      }).then((r) => {
+        if (!r.ok) throw new Error("Failed to create KB");
+        return r.json() as Promise<KnowledgeBase>;
+      }),
     onSuccess: (kb) => {
       void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
       setShowCreate(false);
@@ -84,22 +106,53 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
     },
   });
 
+  const myEmail = user?.email?.toLowerCase() ?? "";
+  const myKBCount = kbs.filter((kb) => kb.ownerId.toLowerCase() === myEmail).length;
+
+  const filteredKBs = useMemo(() => {
+    let list = kbs;
+    // Filter by ownership
+    if (filter === "mine") {
+      list = list.filter((kb) => kb.ownerId.toLowerCase() === myEmail);
+    }
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(
+        (kb) =>
+          kb.name.toLowerCase().includes(q) ||
+          kb.description?.toLowerCase().includes(q) ||
+          emailToDisplayName(kb.ownerId).toLowerCase().includes(q),
+      );
+    }
+    // Sort: user's KBs first, then by name
+    return list.sort((a, b) => {
+      const aIsMine = a.ownerId.toLowerCase() === myEmail ? 0 : 1;
+      const bIsMine = b.ownerId.toLowerCase() === myEmail ? 0 : 1;
+      if (aIsMine !== bIsMine) return aIsMine - bIsMine;
+      return a.name.localeCompare(b.name);
+    });
+  }, [kbs, filter, search, myEmail]);
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Library</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Manage your organization's knowledge bases and documents.
+              {kbs.length} knowledge base{kbs.length !== 1 ? "s" : ""} in your organization
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> New KB
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> New KB
+            </button>
+          )}
         </div>
 
         {/* Create KB form */}
@@ -134,10 +187,63 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 {createMutation.isPending ? "Creating..." : "Create"}
               </button>
             </div>
+            {createMutation.isError && (
+              <p className="text-xs text-red-600">You do not have permission to create knowledge bases. Ask an admin to grant access.</p>
+            )}
           </div>
         )}
 
-        {/* KB list */}
+        {/* Search + filter bar */}
+        {kbs.length > 0 && (
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search knowledge bases..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter tabs */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setFilter("all")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                  filter === "all"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                All ({kbs.length})
+              </button>
+              <button
+                onClick={() => setFilter("mine")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                  filter === "mine"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                Created by me ({myKBCount})
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* KB grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-slate-400">
             <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
@@ -148,44 +254,63 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
             <p className="text-sm text-slate-500">No knowledge bases yet.</p>
             <p className="text-xs text-slate-400 mt-1">Create one to start uploading documents.</p>
           </div>
+        ) : filteredKBs.length === 0 ? (
+          <div className="text-center py-12">
+            <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
+            <p className="text-sm text-slate-500">No matching knowledge bases.</p>
+            <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
+              Clear filters
+            </button>
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {kbs.map((kb) => (
-              <button
-                key={kb.id}
-                onClick={() => onSelect(kb)}
-                className="text-left border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <Database className="w-4 h-4 text-slate-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-900 truncate">{kb.name}</h3>
-                    <p className="text-xs text-slate-400">
-                      {kb.documentCount} document{kb.documentCount !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                </div>
-                {kb.description && (
-                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">{kb.description}</p>
-                )}
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
-                    kb.accessMode === "restricted"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-amber-50 text-amber-600",
-                  )}
+            {filteredKBs.map((kb) => {
+              const isMine = kb.ownerId.toLowerCase() === myEmail;
+              return (
+                <button
+                  key={kb.id}
+                  onClick={() => onSelect(kb)}
+                  className="text-left border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:bg-slate-50 transition-colors group"
                 >
-                  {kb.accessMode === "restricted" ? (
-                    <><Lock className="w-3 h-3" /> Restricted by user</>
-                  ) : (
-                    <><Globe className="w-3 h-3" /> Whole org</>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={cn(
+                      "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
+                      isMine ? "bg-blue-50" : "bg-slate-100",
+                    )}>
+                      <Database className={cn("w-4 h-4", isMine ? "text-blue-500" : "text-slate-500")} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 truncate">{kb.name}</h3>
+                      <p className="text-xs text-slate-400">
+                        {kb.documentCount} document{kb.documentCount !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {kb.description && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-3">{kb.description}</p>
                   )}
-                </span>
-              </button>
-            ))}
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
+                        kb.accessMode === "restricted"
+                          ? "bg-green-50 text-green-600"
+                          : "bg-amber-50 text-amber-600",
+                      )}
+                    >
+                      {kb.accessMode === "restricted" ? (
+                        <><Lock className="w-3 h-3" /> Restricted</>
+                      ) : (
+                        <><Globe className="w-3 h-3" /> Whole org</>
+                      )}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {isMine ? "You" : emailToDisplayName(kb.ownerId)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

@@ -31,6 +31,8 @@ const queryBodySchema = z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(8000),
   })).max(20).optional(),
+  /** Optional KB IDs to restrict search scope. Omit for default (all accessible org KBs). */
+  knowledgeBaseIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
 export const queryRouter: IRouter = Router();
@@ -72,6 +74,36 @@ function getAccessibleDatasetNames(email: string, isAdmin: boolean, orgId?: stri
   const kbs = listAccessibleKBs(email, isAdmin, orgId);
   if (kbs.length === 0) return ["knowledge-base"];
   return kbs.map((kb) => kb.datasetName);
+}
+
+/**
+ * Resolve target dataset names from client-provided KB IDs.
+ * Always intersects with the user's accessible set (security: prevents unauthorized KB access).
+ * Falls back to all accessible datasets if no IDs provided.
+ */
+function resolveTargetDatasets(
+  requestedKBIds: string[] | undefined,
+  email: string,
+  isAdmin: boolean,
+  orgId?: string,
+): string[] {
+  const accessibleKBs = listAccessibleKBs(email, isAdmin, orgId);
+  if (accessibleKBs.length === 0) return ["knowledge-base"];
+
+  // No filter requested — search all accessible KBs (default behavior)
+  if (!requestedKBIds || requestedKBIds.length === 0) {
+    return accessibleKBs.map((kb) => kb.datasetName);
+  }
+
+  // Intersect requested IDs with accessible set
+  const requestedSet = new Set(requestedKBIds);
+  const filtered = accessibleKBs.filter((kb) => requestedSet.has(kb.id));
+
+  // If intersection is empty (user requested KBs they can't access), return empty
+  // This will produce a "no results" response rather than silently searching everything
+  if (filtered.length === 0) return [];
+
+  return filtered.map((kb) => kb.datasetName);
 }
 
 /**
@@ -120,7 +152,7 @@ queryRouter.get("/status", (req, res) => {
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, knowledgeBaseIds } = req.body as z.infer<typeof queryBodySchema>;
 
   const filterResult = filterQuery(query);
   if (!filterResult.allowed) {
@@ -163,7 +195,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const targetNames = listTargets(orgId).map((t) => t.name);
-      const datasetNames = getAccessibleDatasetNames(req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       const stream = answerStream(
         query,
         session,
@@ -247,7 +279,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   try {
     const targetNames = listTargets(orgId).map((t) => t.name);
-    const datasetNames = getAccessibleDatasetNames(req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+    const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
     const stream = answerStream(
       query,
       session,

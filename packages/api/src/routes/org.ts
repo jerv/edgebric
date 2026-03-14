@@ -8,6 +8,7 @@ import {
   listUsers,
   inviteUser,
   updateUserRole,
+  updateUserPermissions,
   removeUser,
   getUserInOrg,
   getUser,
@@ -150,4 +151,31 @@ orgRouter.delete("/members/:id", (req, res) => {
     return;
   }
   res.json({ ok: true });
+});
+
+// ─── Permissions ──────────────────────────────────────────────────────────
+
+const updatePermissionsSchema = z.object({
+  canCreateKBs: z.boolean().optional(),
+});
+
+// PATCH /api/admin/org/members/:id/permissions — update a user's permissions
+orgRouter.patch("/members/:id/permissions", validateBody(updatePermissionsSchema), (req, res) => {
+  const userId = req.params["id"] as string;
+  const orgId = req.session.orgId!;
+  const perms = req.body as z.infer<typeof updatePermissionsSchema>;
+
+  // Verify target user belongs to this org
+  const targetUser = getUser(userId);
+  if (!targetUser || targetUser.orgId !== orgId) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const updated = updateUserPermissions(userId, perms);
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(updated);
 });

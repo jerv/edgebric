@@ -128,19 +128,26 @@ export async function* answerStream(
     yield { delta };
   }
 
-  // Build citations from the chunks that were used as context
-  const citations: Citation[] = relevantResults.map((r) => ({
-    documentId: r.metadata.sourceDocument,
-    documentName: r.metadata.documentName ?? r.metadata.sourceDocument,
-    sectionPath: r.metadata.sectionPath,
-    pageNumber: r.metadata.pageNumber,
-    excerpt: r.chunk.slice(0, 300),
-  }));
+  // Detect if the model declined to answer from context (said it couldn't find info).
+  const noAnswerPattern = /couldn'?t find a clear answer|not (?:found|covered|mentioned|addressed) in (?:the |any )?(?:current |provided |available )?(?:documentation|documents|context|policy)/i;
+  const modelDeclined = noAnswerPattern.test(fullAnswer);
+
+  // Build citations from the chunks that were used as context —
+  // but only if the model actually used the context to answer.
+  const citations: Citation[] = modelDeclined
+    ? []
+    : relevantResults.map((r) => ({
+        documentId: r.metadata.sourceDocument,
+        documentName: r.metadata.documentName ?? r.metadata.sourceDocument,
+        sectionPath: r.metadata.sectionPath,
+        pageNumber: r.metadata.pageNumber,
+        excerpt: r.chunk.slice(0, 300),
+      }));
 
   const response: AnswerResponse = {
     answer: fullAnswer,
     citations,
-    hasConfidentAnswer: true,
+    hasConfidentAnswer: !modelDeclined,
     sessionId: session.id,
     searchedDatasets: options.datasetNames ?? [options.datasetName],
   };

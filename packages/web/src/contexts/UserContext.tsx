@@ -11,6 +11,7 @@ export interface User {
   orgSlug?: string;
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
+  canCreateKBs?: boolean;
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
 }

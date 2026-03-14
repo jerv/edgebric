@@ -34,7 +34,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   { id: "general", label: "General" },
   { id: "privacy", label: "Privacy", memberLabel: "Vault Mode" },
-  { id: "members", label: "Members", adminOnly: true },
+  { id: "members", label: "Permissions", adminOnly: true },
   { id: "service", label: "Service", adminOnly: true },
   { id: "integrations", label: "Integrations", adminOnly: true },
   { id: "escalations", label: "Escalations", adminOnly: true },

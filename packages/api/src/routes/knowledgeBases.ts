@@ -20,6 +20,7 @@ import {
 } from "../services/knowledgeBaseStore.js";
 import { getDocumentsByKB, setDocument, getDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { getUserInOrg } from "../services/userStore.js";
 import { config } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { fileTypeFromBuffer } from "file-type";
@@ -50,23 +51,35 @@ knowledgeBasesRouter.get("/", requireOrg, (req, res) => {
   res.json(kbs);
 });
 
-// Everything below is admin-only
-knowledgeBasesRouter.use(requireAdmin);
+// Create KB — admins or members with canCreateKBs permission
+knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, res) => {
+  const isAdmin = req.session.isAdmin ?? false;
+  const email = req.session.email ?? "";
+  const orgId = req.session.orgId;
 
-knowledgeBasesRouter.post("/", validateBody(createKBSchema), (req, res) => {
+  // Check permission: admin always can, members need canCreateKBs
+  if (!isAdmin) {
+    const userRecord = orgId ? getUserInOrg(email, orgId) : undefined;
+    if (!userRecord?.canCreateKBs) {
+      res.status(403).json({ error: "You do not have permission to create knowledge bases" });
+      return;
+    }
+  }
+
   const { name, description } = req.body as z.infer<typeof createKBSchema>;
-  const adminEmail = req.session.email ?? "unknown";
-
   const desc = description?.trim();
   const kb = createKB({
     name: name.trim(),
     ...(desc && { description: desc }),
     type: "organization",
-    ownerId: adminEmail,
-    ...(req.session.orgId && { orgId: req.session.orgId }),
+    ownerId: email,
+    ...(orgId && { orgId }),
   });
   res.status(201).json(kb);
 });
+
+// Everything below is admin-only
+knowledgeBasesRouter.use(requireAdmin);
 
 knowledgeBasesRouter.get("/:id", (req, res) => {
   const kbId = req.params["id"] as string;

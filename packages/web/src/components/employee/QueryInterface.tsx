@@ -8,12 +8,14 @@ import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel, employeeLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, Slack, Mail, Lock, Shield, Circle, CheckCircle } from "lucide-react";
+import { ChevronDown, Slack, Mail, Lock, Shield, Circle, CheckCircle, X, Database, Check } from "lucide-react";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
 import { FeedbackButtons, FeedbackCommentForm } from "@/components/shared/MessageFeedback";
 import { SourcePanel } from "./SourcePanel";
+import { KBMentionPicker, type KBTarget, type KBMentionPickerHandle } from "./KBMentionPicker";
+import type { KnowledgeBase } from "@edgebric/types";
 
 interface Message {
   role: "user" | "assistant";
@@ -97,6 +99,13 @@ export function ChatPanel() {
     pageNumber: number;
   } | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [targetKBs, setTargetKBs] = useState<KBTarget[]>([]);
+  const [kbSelectorOpen, setKbSelectorOpen] = useState(false);
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState<number>(-1);
+  const mentionPickerRef = useRef<KBMentionPickerHandle>(null);
+  const kbSelectorRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -336,6 +345,16 @@ export function ChatPanel() {
     staleTime: 60_000,
   });
 
+  const { data: availableKBs } = useQuery<KnowledgeBase[]>({
+    queryKey: ["knowledge-bases"],
+    queryFn: () =>
+      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [];
+        return r.json() as Promise<KnowledgeBase[]>;
+      }),
+    staleTime: 60_000,
+  });
+
   const escalateMutation = useMutation({
     mutationFn: (payload: {
       question: string;
@@ -387,6 +406,18 @@ export function ChatPanel() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [privacyPopoverOpen]);
 
+  // Close KB selector on outside click
+  useEffect(() => {
+    if (!kbSelectorOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (kbSelectorRef.current && !kbSelectorRef.current.contains(e.target as Node)) {
+        setKbSelectorOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [kbSelectorOpen]);
+
   function handlePrivacySelect(newLevel: typeof privacyLevel) {
     setPrivacyPopoverOpen(false);
     if (newLevel === privacyLevel) return;
@@ -408,6 +439,32 @@ export function ChatPanel() {
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
   }
+
+  /** Toggle a KB in the target list (used by the mouse-friendly KB selector). */
+  function toggleKBTarget(target: KBTarget) {
+    setTargetKBs((prev) => {
+      // If it's a shortcut, replace everything
+      if (target.type === "shortcut") {
+        // If already selected, deselect (back to default)
+        if (prev.some((t) => t.id === target.id)) return [];
+        return [target];
+      }
+      // Specific KB — remove any shortcuts first
+      const withoutShortcuts = prev.filter((t) => t.type !== "shortcut");
+      // Toggle: remove if already present, add if not
+      if (withoutShortcuts.some((t) => t.id === target.id)) {
+        return withoutShortcuts.filter((t) => t.id !== target.id);
+      }
+      return [...withoutShortcuts, target];
+    });
+  }
+
+  /** Label shown on the KB selector button. */
+  const kbSelectorLabel = targetKBs.length === 0
+    ? "All KBs"
+    : targetKBs.length === 1
+      ? targetKBs[0]!.name
+      : `${targetKBs.length} KBs`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -503,13 +560,21 @@ export function ChatPanel() {
 
     // ─── Private / Standard Mode: query server ─────────────────────────────
     try {
+      // Resolve KB IDs from target chips
+      const resolvedKBIds = targetKBs.length === 0 || targetKBs.some((t) => t.id === "__org__")
+        ? undefined // default: search accessible org KBs
+        : targetKBs.some((t) => t.id === "__all__")
+          ? undefined // @all = search everything (same as default until personal KBs exist)
+          : targetKBs.filter((t) => t.type !== "shortcut").map((t) => t.id);
+
       const requestBody = isPrivacyMode
         ? {
             query,
             private: true,
             messages: messages.slice(-4).map((m) => ({ role: m.role, content: m.content })),
+            knowledgeBaseIds: resolvedKBIds,
           }
-        : { query, conversationId };
+        : { query, conversationId, knowledgeBaseIds: resolvedKBIds };
 
       const response = await fetch("/api/query", {
         method: "POST",
@@ -649,7 +714,60 @@ export function ChatPanel() {
     abortRef.current?.abort();
   }
 
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const value = e.target.value;
+    setInput(value);
+
+    // Detect @mention trigger
+    const cursor = e.target.selectionStart ?? value.length;
+    const textBeforeCursor = value.slice(0, cursor);
+    const mentionMatch = textBeforeCursor.match(/@([^\s@]*)$/);
+
+    if (mentionMatch) {
+      setMentionPickerOpen(true);
+      setMentionFilter(mentionMatch[1] ?? "");
+      setMentionStartIndex(cursor - mentionMatch[0].length);
+    } else {
+      setMentionPickerOpen(false);
+      setMentionFilter("");
+      setMentionStartIndex(-1);
+    }
+  }
+
+  function handleMentionSelect(target: KBTarget) {
+    // Remove the @mention text from input
+    if (mentionStartIndex >= 0) {
+      const cursor = inputRef.current?.selectionStart ?? input.length;
+      const before = input.slice(0, mentionStartIndex);
+      const after = input.slice(cursor);
+      setInput(before + after);
+    }
+
+    // If selecting @org or @all, replace all targets with just that shortcut
+    if (target.id === "__org__" || target.id === "__all__") {
+      setTargetKBs([target]);
+    } else {
+      // Remove any shortcuts and add the specific KB
+      setTargetKBs((prev) => {
+        const withoutShortcuts = prev.filter((t) => t.type !== "shortcut");
+        if (withoutShortcuts.some((t) => t.id === target.id)) return withoutShortcuts;
+        return [...withoutShortcuts, target];
+      });
+    }
+
+    setMentionPickerOpen(false);
+    setMentionFilter("");
+    setMentionStartIndex(-1);
+    inputRef.current?.focus();
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // When mention picker is open, delegate navigation keys to it
+    if (mentionPickerOpen && mentionPickerRef.current) {
+      const handled = mentionPickerRef.current.handleKeyDown(e);
+      if (handled) return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void handleSubmit(e as unknown as React.FormEvent);
@@ -671,6 +789,9 @@ export function ChatPanel() {
                 <p className="text-slate-900 text-xl font-medium mb-2">Vault Mode</p>
                 <p className="text-slate-400 text-sm max-w-sm">
                   Queries are processed entirely on your device. Nothing is sent to any server.
+                </p>
+                <p className="text-slate-300 text-xs max-w-sm mt-2">
+                  Encrypted on-device. Supports text-based PDFs and Word docs. Scanned PDFs are not supported locally.
                 </p>
               </>
             ) : privacyLevel === "private" ? (
@@ -798,11 +919,11 @@ export function ChatPanel() {
                             )}
                             {privacyLevel === "vault" ? "Vault — fully local" : "Private — not saved"}
                           </span>
-                        ) : (
+                        ) : message.hasConfidentAnswer ? (
                           <p className="text-xs text-amber-600">
                             Verify all important answers with the appropriate human.
                           </p>
-                        )}
+                        ) : null}
 
                         {/* Feedback thumbs up/down — standard mode only */}
                         {!isPrivacyMode && message.id && (
@@ -912,8 +1033,9 @@ export function ChatPanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Header row: privacy selector (left) + model selector (right) */}
+            {/* Header row: privacy + KB selector (left) + model selector (right) */}
             <div className="flex items-center justify-between">
+             <div className="flex items-center gap-1">
               {/* Privacy mode selector */}
               <div ref={privacyRef} className="relative">
                 <button
@@ -987,6 +1109,79 @@ export function ChatPanel() {
                 )}
               </div>
 
+              {/* KB scope selector */}
+              <div ref={kbSelectorRef} className="relative">
+                <button
+                  onClick={() => setKbSelectorOpen((o) => !o)}
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
+                    targetKBs.length > 0
+                      ? "text-blue-600 hover:bg-blue-50"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                  )}
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  {kbSelectorLabel}
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", kbSelectorOpen && "rotate-180")} />
+                </button>
+
+                {kbSelectorOpen && (
+                  <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+                    {/* Default: All KBs */}
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setTargetKBs([]);
+                        setKbSelectorOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
+                        targetKBs.length === 0 ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                      )}
+                    >
+                      <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="truncate">All knowledge bases</span>
+                      {targetKBs.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
+                    </button>
+
+                    {/* Individual KBs */}
+                    {(availableKBs ?? []).filter((kb) => kb.status === "active").length > 0 && (
+                      <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
+                        Knowledge Bases
+                      </div>
+                    )}
+                    {(availableKBs ?? [])
+                      .filter((kb) => kb.status === "active")
+                      .map((kb) => {
+                        const isSelected = targetKBs.some((t) => t.id === kb.id);
+                        return (
+                          <button
+                            key={kb.id}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              toggleKBTarget({
+                                id: kb.id,
+                                name: kb.name,
+                                datasetName: kb.datasetName,
+                                type: kb.type === "personal" ? "personal" : "organization",
+                              });
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
+                              isSelected ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                            )}
+                          >
+                            <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{kb.name}</span>
+                            {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+             </div>
+
               {/* Model selector — admin only */}
               {user?.isAdmin && activeModel && (
                 <div ref={pickerRef} className="relative">
@@ -1025,39 +1220,75 @@ export function ChatPanel() {
               )}
             </div>
 
-            <form onSubmit={(e) => void handleSubmit(e)} className="flex gap-3 items-end">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask a question..."
-                rows={1}
-                className="flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent max-h-32 overflow-y-auto"
-                style={{ height: "auto" }}
-                onInput={(e) => {
-                  const target = e.currentTarget;
-                  target.style.height = "auto";
-                  target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-                }}
-              />
-              {isLoading ? (
-                <button
-                  type="button"
-                  onClick={handleStop}
-                  className="bg-slate-100 text-slate-700 rounded-xl px-4 py-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                >
-                  Send
-                </button>
+            <form onSubmit={(e) => void handleSubmit(e)} className="space-y-2">
+              {/* KB target chips */}
+              {targetKBs.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-1">
+                  {targetKBs.map((kb) => (
+                    <span
+                      key={kb.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700"
+                    >
+                      @{kb.name}
+                      <button
+                        type="button"
+                        onClick={() => setTargetKBs((prev) => prev.filter((t) => t.id !== kb.id))}
+                        className="text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
+
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  {/* Mention picker */}
+                  {mentionPickerOpen && (
+                    <KBMentionPicker
+                      ref={mentionPickerRef}
+                      filter={mentionFilter}
+                      knowledgeBases={availableKBs ?? []}
+                      selected={targetKBs}
+                      onSelect={handleMentionSelect}
+                      onDismiss={() => setMentionPickerOpen(false)}
+                    />
+                  )}
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask a question..."
+                    rows={1}
+                    className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent max-h-32 overflow-y-auto"
+                    style={{ height: "auto" }}
+                    onInput={(e) => {
+                      const target = e.currentTarget;
+                      target.style.height = "auto";
+                      target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
+                    }}
+                  />
+                </div>
+                {isLoading ? (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="bg-slate-100 text-slate-700 rounded-xl px-4 py-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
+                  >
+                    Stop
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className="bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                  >
+                    Send
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         )}

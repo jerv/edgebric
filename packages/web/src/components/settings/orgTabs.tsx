@@ -84,6 +84,23 @@ export function MembersTab() {
     },
   });
 
+  const permsMutation = useMutation({
+    mutationFn: async ({ userId, canCreateKBs }: { userId: string; canCreateKBs: boolean }) => {
+      const res = await fetch(`/api/admin/org/members/${userId}/permissions`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ canCreateKBs }),
+      });
+      if (!res.ok) throw new Error("Failed to update permissions");
+      return res.json() as Promise<User>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "org", "members"] });
+    },
+  });
+
+  const [pendingRole, setPendingRole] = useState<{ userId: string; role: string } | null>(null);
   const [removeConfirm, setRemoveConfirm] = useState<string | null>(null);
 
   return (
@@ -144,6 +161,7 @@ export function MembersTab() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">User</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Role</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Create KBs</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -175,16 +193,62 @@ export function MembersTab() {
                           {m.role === "admin" ? "Admin" : "Member"}
                           <span className="text-slate-300">(you)</span>
                         </span>
+                      ) : pendingRole?.userId === m.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={pendingRole.role}
+                            onChange={(e) => setPendingRole({ userId: m.id, role: e.target.value })}
+                            className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                          >
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button
+                            onClick={() => {
+                              roleMutation.mutate({ userId: pendingRole.userId, role: pendingRole.role });
+                              setPendingRole(null);
+                            }}
+                            disabled={roleMutation.isPending || pendingRole.role === m.role}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setPendingRole(null)}
+                            className="text-xs text-slate-400 hover:text-slate-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       ) : (
-                        <select
-                          value={m.role}
-                          onChange={(e) => roleMutation.mutate({ userId: m.id, role: e.target.value })}
-                          disabled={roleMutation.isPending}
-                          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        <button
+                          onClick={() => setPendingRole({ userId: m.id, role: m.role })}
+                          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white hover:border-slate-300 transition-colors inline-flex items-center gap-1"
                         >
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                          {m.role === "admin" ? "Admin" : "Member"}
+                          <ChevronDown className="w-3 h-3 text-slate-400" />
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {m.role === "admin" || m.role === "owner" ? (
+                        <span className="text-xs text-slate-400">Always</span>
+                      ) : (
+                        <button
+                          onClick={() => permsMutation.mutate({ userId: m.id, canCreateKBs: !m.canCreateKBs })}
+                          disabled={permsMutation.isPending}
+                          className={cn(
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                            m.canCreateKBs ? "bg-blue-500" : "bg-slate-200",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                              m.canCreateKBs ? "translate-x-4" : "translate-x-1",
+                            )}
+                          />
+                        </button>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">

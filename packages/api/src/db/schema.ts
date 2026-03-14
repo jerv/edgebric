@@ -24,6 +24,7 @@ export const users = sqliteTable("users", {
   orgId: text("org_id").notNull(),
   invitedBy: text("invited_by"),
   lastLoginAt: text("last_login_at"),
+  canCreateKBs: integer("can_create_kbs").default(0), // 0 = no, 1 = yes
   createdAt: text("created_at").notNull(),
 });
 

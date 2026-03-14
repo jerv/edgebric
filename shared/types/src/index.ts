@@ -31,6 +31,8 @@ export interface User {
   orgId: string;
   invitedBy?: string;
   lastLoginAt?: Date;
+  /** Whether this member can create org-shared knowledge bases. Admins always can. */
+  canCreateKBs?: boolean;
   createdAt: Date;
 }
 
