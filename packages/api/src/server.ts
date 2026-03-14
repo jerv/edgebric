@@ -207,6 +207,14 @@ async function start() {
   ensureDefaultOrg();
   migrateOrphanedDocumentsToDefaultKB();
 
+  // Refresh all KB document counts (fixes stale cached counts)
+  {
+    const { listKBs, refreshDocumentCount } = await import("./services/knowledgeBaseStore.js");
+    for (const kb of listKBs()) {
+      refreshDocumentCount(kb.id);
+    }
+  }
+
   // Backfill chunk content for Vault Mode sync (no-op if already done)
   backfillChunkContent().catch((err) =>
     logger.warn({ err }, "Chunk content backfill failed"),

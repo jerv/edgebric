@@ -187,7 +187,7 @@ function TopicsTab() {
   const { data: topics, isLoading } = useQuery<TopicCluster[]>({
     queryKey: ["admin", "analytics", "topics"],
     queryFn: () =>
-      fetch("/api/admin/analytics/topics?min=5", { credentials: "same-origin" })
+      fetch("/api/admin/analytics/topics?min=1", { credentials: "same-origin" })
         .then((r) => r.json() as Promise<TopicCluster[]>),
     staleTime: 60_000,
   });
