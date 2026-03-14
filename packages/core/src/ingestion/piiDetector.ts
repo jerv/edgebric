@@ -6,8 +6,8 @@ import { looksLikePersonName, findSensitiveTerm } from "../shared/piiTerms.js";
  * These are flagged unconditionally.
  */
 const PII_PATTERNS: Array<{ regex: RegExp; label: string }> = [
-  { regex: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/, label: "SSN pattern" },
-  { regex: /\$\s?\d{1,3}(,\d{3})*(\.\d{2})?\s*(\/\s*(hr|hour|yr|year|month|week))?/i, label: "salary figure" },
+  { regex: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/, label: "Contains what looks like a Social Security Number" },
+  { regex: /\$\s?\d{1,3}(,\d{3})*(\.\d{2})?\s*(\/\s*(hr|hour|yr|year|month|week))?/i, label: "Contains dollar amounts (may include salary or compensation data)" },
 ];
 
 /**

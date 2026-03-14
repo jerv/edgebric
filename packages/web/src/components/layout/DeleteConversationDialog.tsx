@@ -9,8 +9,7 @@ interface Props {
 export function DeleteConversationDialog({ conversationId, onClose, onDone }: Props) {
   const [pending, setPending] = useState<"archive" | "delete" | null>(null);
   const [hasEscalations, setHasEscalations] = useState<boolean | null>(null);
-  const [hideConfirm, setHideConfirm] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [confirmStep, setConfirmStep] = useState<"archive" | "delete" | null>(null);
 
   // Check if this conversation has escalations
   useEffect(() => {
@@ -57,7 +56,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
         </p>
 
         <div className="space-y-3">
-          {/* Hide from sidebar — type HIDE to confirm */}
+          {/* Hide from sidebar */}
           <div className="border border-slate-200 rounded-lg px-3 py-2.5 space-y-2">
             <span className="text-sm font-medium text-slate-800 block">
               Hide from sidebar
@@ -65,30 +64,38 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
             <span className="text-xs text-slate-400 block">
               Your questions still contribute to anonymized topic trends.
             </span>
-            <div className="pt-0.5">
-              <label className="text-xs text-slate-500 block mb-1">
-                Type <span className="font-mono font-semibold text-slate-700">HIDE</span> to confirm
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={hideConfirm}
-                  onChange={(e) => setHideConfirm(e.target.value)}
-                  placeholder="HIDE"
-                  className="border border-slate-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-300"
-                />
+            <div className="flex items-center gap-2 pt-1">
+              {confirmStep === "archive" ? (
+                <>
+                  <span className="text-xs text-slate-500">Are you sure?</span>
+                  <button
+                    onClick={() => void handleAction("archive")}
+                    disabled={!!pending}
+                    className="bg-slate-900 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-30"
+                  >
+                    {pending === "archive" ? "Hiding..." : "Yes, hide"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmStep(null)}
+                    disabled={!!pending}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
                 <button
-                  onClick={() => void handleAction("archive")}
-                  disabled={hideConfirm !== "HIDE" || !!pending}
-                  className="bg-slate-900 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  onClick={() => setConfirmStep("archive")}
+                  disabled={!!pending}
+                  className="bg-slate-100 text-slate-700 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-200 transition-colors disabled:opacity-30"
                 >
-                  {pending === "archive" ? "Hiding..." : "Confirm"}
+                  Hide
                 </button>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Delete permanently — type DELETE to confirm, or disabled if escalated */}
+          {/* Delete permanently */}
           {hasEscalations ? (
             <div className="border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
               <span className="text-sm font-medium text-slate-400 block">
@@ -107,27 +114,34 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
               <span className="text-xs text-slate-400 block">
                 Removes this conversation and all messages entirely.
               </span>
-              <div className="pt-0.5">
-                <label className="text-xs text-slate-500 block mb-1">
-                  Type <span className="font-mono font-semibold text-slate-700">DELETE</span> to confirm
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={deleteConfirm}
-                    onChange={(e) => setDeleteConfirm(e.target.value)}
-                    placeholder="DELETE"
-                    disabled={hasEscalations === null}
-                    className="border border-slate-200 rounded-md px-3 py-1.5 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-300 disabled:opacity-40"
-                  />
+              <div className="flex items-center gap-2 pt-1">
+                {confirmStep === "delete" ? (
+                  <>
+                    <span className="text-xs text-slate-500">Are you sure?</span>
+                    <button
+                      onClick={() => void handleAction("delete")}
+                      disabled={!!pending || hasEscalations === null}
+                      className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30"
+                    >
+                      {pending === "delete" ? "Deleting..." : "Yes, delete"}
+                    </button>
+                    <button
+                      onClick={() => setConfirmStep(null)}
+                      disabled={!!pending}
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
                   <button
-                    onClick={() => void handleAction("delete")}
-                    disabled={deleteConfirm !== "DELETE" || !!pending || hasEscalations === null}
-                    className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    onClick={() => setConfirmStep("delete")}
+                    disabled={hasEscalations === null}
+                    className="bg-red-50 text-red-600 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-30"
                   >
-                    {pending === "delete" ? "Deleting..." : "Confirm"}
+                    Delete
                   </button>
-                </div>
+                )}
               </div>
             </div>
           )}
