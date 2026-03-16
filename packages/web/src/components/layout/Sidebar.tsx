@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart2,
@@ -16,6 +16,7 @@ import {
   HelpCircle,
   Users,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -39,21 +40,59 @@ interface NavItem {
   badge?: number;
 }
 
+// ─── Unified sidebar item ─────────────────────────────────────────────────────
+
+type SidebarItem =
+  | { type: "conversation"; id: string; label: string; updatedAt: Date; hasUnread: boolean }
+  | { type: "group-chat"; id: string; label: string; updatedAt: Date; status: string; memberCount: number };
+
+function buildUnifiedList(
+  conversations: ConversationPreview[] | undefined,
+  groupChats: GroupChat[] | undefined,
+): SidebarItem[] {
+  const items: SidebarItem[] = [];
+
+  for (const conv of conversations ?? []) {
+    items.push({
+      type: "conversation",
+      id: conv.id,
+      label: conv.preview || "New conversation",
+      updatedAt: new Date(conv.updatedAt),
+      hasUnread: !!conv.hasUnreadNotification,
+    });
+  }
+
+  for (const gc of groupChats ?? []) {
+    items.push({
+      type: "group-chat",
+      id: gc.id,
+      label: gc.name,
+      updatedAt: new Date(gc.updatedAt),
+      status: gc.status,
+      memberCount: gc.members.length,
+    });
+  }
+
+  // Sort by most recent first
+  items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return items;
+}
+
 // ─── Date grouping ───────────────────────────────────────────────────────────
 
 interface DateGroup {
   label: string;
-  conversations: ConversationPreview[];
+  items: SidebarItem[];
 }
 
-function groupConversationsByDate(conversations: ConversationPreview[]): DateGroup[] {
+function groupByDate(items: SidebarItem[]): DateGroup[] {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
   const weekStart = new Date(todayStart.getTime() - 7 * 86_400_000);
   const monthStart = new Date(todayStart.getTime() - 30 * 86_400_000);
 
-  const groups: Record<string, ConversationPreview[]> = {
+  const groups: Record<string, SidebarItem[]> = {
     Today: [],
     Yesterday: [],
     "Previous 7 days": [],
@@ -61,19 +100,18 @@ function groupConversationsByDate(conversations: ConversationPreview[]): DateGro
     Older: [],
   };
 
-  for (const conv of conversations) {
-    const d = new Date(conv.updatedAt);
-    if (d >= todayStart) groups["Today"]!.push(conv);
-    else if (d >= yesterdayStart) groups["Yesterday"]!.push(conv);
-    else if (d >= weekStart) groups["Previous 7 days"]!.push(conv);
-    else if (d >= monthStart) groups["Previous 30 days"]!.push(conv);
-    else groups["Older"]!.push(conv);
+  for (const item of items) {
+    const d = item.updatedAt;
+    if (d >= todayStart) groups["Today"]!.push(item);
+    else if (d >= yesterdayStart) groups["Yesterday"]!.push(item);
+    else if (d >= weekStart) groups["Previous 7 days"]!.push(item);
+    else if (d >= monthStart) groups["Previous 30 days"]!.push(item);
+    else groups["Older"]!.push(item);
   }
 
-  // Only return non-empty groups, in order
   return ["Today", "Yesterday", "Previous 7 days", "Previous 30 days", "Older"]
     .filter((label) => groups[label]!.length > 0)
-    .map((label) => ({ label, conversations: groups[label]! }));
+    .map((label) => ({ label, items: groups[label]! }));
 }
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
@@ -86,15 +124,18 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: SidebarProps) {
   const user = useUser();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const searchParams = new URLSearchParams(routerState.location.search);
   const activeConvId = currentPath === "/" ? searchParams.get("c") : null;
+  const activeGroupChatId = currentPath.startsWith("/group-chats/") ? currentPath.split("/")[2] : null;
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
   const [showNewChatMenu, setShowNewChatMenu] = useState(false);
   const [showCreateGroupChat, setShowCreateGroupChat] = useState(false);
+  const [leavingGroupChatId, setLeavingGroupChatId] = useState<string | null>(null);
   const privacy = usePrivacy();
   const isPrivacyActive = privacy.level !== "standard";
   const isAdmin = !!user?.isAdmin;
@@ -107,6 +148,21 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       window.history.pushState({}, "", "/");
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
+  }
+
+  async function handleLeaveGroupChat() {
+    if (!leavingGroupChatId || !user?.email) return;
+    try {
+      await fetch(`/api/group-chats/${leavingGroupChatId}/members/${encodeURIComponent(user.email)}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["group-chats"] });
+      if (activeGroupChatId === leavingGroupChatId) {
+        void navigate({ to: "/" });
+      }
+    } catch { /* ignore */ }
+    setLeavingGroupChatId(null);
   }
 
   const { data: conversations } = useQuery<ConversationPreview[]>({
@@ -144,7 +200,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
 
   const unreadCount = unreadData?.count ?? 0;
 
-  // Nav items (some admin-only, some conditional)
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Library", icon: Database },
     { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
@@ -153,6 +208,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
 
   const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);
   const isOnChat = currentPath === "/";
+
+  // Build unified list of conversations + group chats
+  const unifiedItems = buildUnifiedList(conversations, groupChats);
+  const dateGroups = groupByDate(unifiedItems);
+  const hasItems = unifiedItems.length > 0;
 
   return (
     <nav className="flex flex-col h-full py-4">
@@ -279,47 +339,80 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
         </div>
       )}
 
-      {/* Conversation history — hidden in privacy modes */}
-      {!isPrivacyActive && !collapsed && conversations && conversations.length > 0 && (
+      {/* Unified conversation + group chat list */}
+      {!isPrivacyActive && !collapsed && hasItems && (
         <div className="flex-1 overflow-y-auto px-2 min-h-0 scrollbar-thin">
-          {groupConversationsByDate(conversations).map((group) => (
+          {dateGroups.map((group) => (
             <div key={group.label}>
               <div className="px-3 pt-3 pb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider select-none">
                 {group.label}
               </div>
-              {group.conversations.map((conv) => {
-                const isActive = isOnChat && activeConvId === conv.id;
+              {group.items.map((item) => {
+                if (item.type === "conversation") {
+                  const isActive = isOnChat && activeConvId === item.id;
+                  return (
+                    <div
+                      key={`c-${item.id}`}
+                      className={cn(
+                        "flex items-center rounded-lg transition-colors px-3 py-1.5 group",
+                        isActive
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                      )}
+                    >
+                      <span
+                        className="flex-1 min-w-0 cursor-pointer flex items-center gap-1.5"
+                        onClick={() => {
+                          window.history.pushState({}, "", `/?c=${item.id}`);
+                          window.dispatchEvent(new PopStateEvent("popstate"));
+                          onNavigate?.();
+                        }}
+                      >
+                        {item.hasUnread && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                        )}
+                        <span className="block truncate text-xs">{item.label}</span>
+                      </span>
+                      <button
+                        onClick={() => setDeletingConvId(item.id)}
+                        className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-opacity flex-shrink-0"
+                        title="Remove conversation"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                }
+
+                // Group chat item
+                const isActive = activeGroupChatId === item.id;
                 return (
                   <div
-                    key={conv.id}
+                    key={`gc-${item.id}`}
                     className={cn(
-                      "flex items-center rounded-lg transition-colors px-3 py-1.5 group",
+                      "flex items-center rounded-lg transition-colors px-3 py-1.5 group cursor-pointer",
                       isActive
                         ? "bg-slate-100 text-slate-900"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                     )}
+                    onClick={() => {
+                      void navigate({ to: "/group-chats/$id", params: { id: item.id } });
+                      onNavigate?.();
+                    }}
                   >
-                    <span
-                      className="flex-1 min-w-0 cursor-pointer flex items-center gap-1.5"
-                      onClick={() => {
-                        window.history.pushState({}, "", `/?c=${conv.id}`);
-                        window.dispatchEvent(new PopStateEvent("popstate"));
-                        onNavigate?.();
-                      }}
-                    >
-                      {conv.hasUnreadNotification && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-                      )}
-                      <span className="block truncate text-xs">
-                        {conv.preview || "New conversation"}
-                      </span>
+                    <Users className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400" />
+                    <span className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <span className="block truncate text-xs">{item.label}</span>
                     </span>
                     <button
-                      onClick={() => setDeletingConvId(conv.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLeavingGroupChatId(item.id);
+                      }}
                       className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-400 transition-opacity flex-shrink-0"
-                      title="Remove conversation"
+                      title="Leave group chat"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <LogOut className="w-3 h-3" />
                     </button>
                   </div>
                 );
@@ -329,40 +422,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
         </div>
       )}
 
-      {/* Group Chats section */}
-      {!isPrivacyActive && !collapsed && groupChats && groupChats.length > 0 && (
-        <div className="px-2 border-t border-slate-100 mt-1">
-          <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider select-none">
-            Group Chats
-          </div>
-          {groupChats.slice(0, 10).map((gc) => {
-            const isGCActive = currentPath === `/group-chats/${gc.id}`;
-            return (
-              <Link
-                key={gc.id}
-                to="/group-chats/$id"
-                params={{ id: gc.id }}
-                onClick={onNavigate}
-                className={cn(
-                  "flex items-center rounded-lg transition-colors px-3 py-1.5",
-                  isGCActive
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
-                )}
-              >
-                <Users className="w-3 h-3 flex-shrink-0 mr-1.5" />
-                <span className="block truncate text-xs">{gc.name}</span>
-                {gc.status === "expired" && (
-                  <span className="ml-auto text-[9px] text-amber-500 flex-shrink-0">expired</span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
-      {/* When collapsed, no conversations, or privacy mode, fill remaining space */}
-      {(isPrivacyActive || collapsed || !conversations || conversations.length === 0) && (
+      {/* When collapsed, no items, or privacy mode, fill remaining space */}
+      {(isPrivacyActive || collapsed || !hasItems) && (
         <div className="flex-1" />
       )}
 
@@ -519,6 +580,34 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
               </button>
               <button
                 onClick={() => setNewChatConfirmOpen(false)}
+                className="text-xs text-slate-500 hover:text-slate-700 px-4 py-2 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leavingGroupChatId && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setLeavingGroupChatId(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">Leave group chat?</h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              You will lose access to this group chat and its shared knowledge bases.
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleLeaveGroupChat()}
+                className="bg-red-600 text-white rounded-lg px-4 py-2 text-xs font-medium hover:bg-red-500 transition-colors"
+              >
+                Leave
+              </button>
+              <button
+                onClick={() => setLeavingGroupChatId(null)}
                 className="text-xs text-slate-500 hover:text-slate-700 px-4 py-2 transition-colors"
               >
                 Cancel
