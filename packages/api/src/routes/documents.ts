@@ -10,7 +10,7 @@ import { config } from "../config.js";
 import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { ensureDefaultKB, refreshDocumentCount } from "../services/knowledgeBaseStore.js";
+import { ensureDefaultKB, refreshDocumentCount, getKB } from "../services/knowledgeBaseStore.js";
 import type { Document } from "@edgebric/types";
 
 /** Map file-type detected extensions to our canonical type names */
@@ -83,6 +83,15 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
     return;
   }
 
+  // Enforce per-KB source viewing toggle — admins bypass this restriction
+  if (doc?.knowledgeBaseId && !req.session.isAdmin) {
+    const kb = getKB(doc.knowledgeBaseId);
+    if (kb && !kb.allowSourceViewing) {
+      res.status(403).json({ error: "Source document viewing is disabled for this knowledge base" });
+      return;
+    }
+  }
+
   res.json({
     document: doc
       ? { id: doc.id, name: doc.name, type: doc.type }
@@ -105,6 +114,15 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
   if (!doc) {
     res.status(404).json({ error: "Document not found" });
     return;
+  }
+
+  // Enforce per-KB source viewing toggle — admins bypass this restriction
+  if (doc.knowledgeBaseId && !req.session.isAdmin) {
+    const kb = getKB(doc.knowledgeBaseId);
+    if (kb && !kb.allowSourceViewing) {
+      res.status(403).json({ error: "Source document viewing is disabled for this knowledge base" });
+      return;
+    }
   }
 
   try {

@@ -67,6 +67,44 @@ function StatusBadge({ status }: { status: Document["status"] }) {
   );
 }
 
+// ─── Security Toggle ─────────────────────────────────────────────────────────
+
+function SecurityToggle({ label, description, checked, onChange, disabled }: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer group">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        disabled={disabled}
+        className={cn(
+          "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1 mt-0.5",
+          checked ? "bg-slate-900" : "bg-slate-200",
+          disabled && "opacity-50 cursor-not-allowed",
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 ease-in-out",
+            checked ? "translate-x-4" : "translate-x-0",
+          )}
+        />
+      </button>
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{label}</span>
+        <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+      </div>
+    </label>
+  );
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface UploadingFile {
@@ -612,7 +650,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; description?: string; accessMode?: string; accessList?: string[] }) =>
+    mutationFn: (body: { name?: string; description?: string; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
       fetch(`/api/knowledge-bases/${kb.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -843,6 +881,34 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   </div>
                 )}
               </div>
+
+              {/* Security toggles */}
+              {user?.isAdmin && (
+                <div className="space-y-3 pt-1 border-t border-slate-200">
+                  <label className="text-xs font-medium text-slate-500 pt-3 block">Security</label>
+                  <SecurityToggle
+                    label="Allow source document viewing"
+                    description="Members can view raw document text via the source viewer. Turn off for sensitive procedural docs."
+                    checked={data?.allowSourceViewing ?? kb.allowSourceViewing ?? true}
+                    onChange={(v) => updateMutation.mutate({ allowSourceViewing: v })}
+                    disabled={updateMutation.isPending}
+                  />
+                  <SecurityToggle
+                    label="Allow device sync (Vault Mode)"
+                    description="This KB's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
+                    checked={data?.allowVaultSync ?? kb.allowVaultSync ?? true}
+                    onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
+                    disabled={updateMutation.isPending}
+                  />
+                  <SecurityToggle
+                    label="Allow external network access"
+                    description="Members can access this KB from outside the local network. Turn off for on-premises-only data."
+                    checked={data?.allowExternalAccess ?? kb.allowExternalAccess ?? true}
+                    onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
+                    disabled={updateMutation.isPending}
+                  />
+                </div>
+              )}
 
               <div className="flex gap-2 justify-end">
                 <button

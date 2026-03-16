@@ -20,11 +20,24 @@ syncRouter.use(requireOrg);
 function getAccessibleChunks(email: string, isAdmin: boolean, orgId?: string) {
   const allChunks = getAllChunksWithContent(orgId);
 
-  // Admins get everything in their org
-  if (isAdmin) return allChunks;
+  // Even admins are subject to vault sync restrictions — filter out chunks from KBs that block vault sync
+  if (isAdmin) {
+    const adminKBs = listAccessibleKBs(email, true, orgId);
+    const syncableKBIds = new Set(adminKBs.filter((kb) => kb.allowVaultSync).map((kb) => kb.id));
+    const db = getDb();
+    const syncableDocIds = new Set<string>();
+    for (const kbId of syncableKBIds) {
+      const docs = db.select({ id: documents.id }).from(documents)
+        .where(sql`${documents.knowledgeBaseId} = ${kbId}`)
+        .all();
+      for (const doc of docs) syncableDocIds.add(doc.id);
+    }
+    return allChunks.filter((c) => syncableDocIds.has(c.metadata.sourceDocument));
+  }
 
-  // Get accessible KB IDs for this user
-  const accessibleKBs = listAccessibleKBs(email, false, orgId);
+  // Get accessible KB IDs for this user — only KBs that allow vault sync
+  const accessibleKBs = listAccessibleKBs(email, false, orgId)
+    .filter((kb) => kb.allowVaultSync);
   if (accessibleKBs.length === 0) return [];
 
   const accessibleKBIds = new Set(accessibleKBs.map((kb) => kb.id));

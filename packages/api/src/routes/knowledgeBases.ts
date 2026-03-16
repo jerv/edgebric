@@ -41,6 +41,9 @@ const updateKBSchema = z.object({
   description: z.string().max(1000).optional(),
   accessMode: z.enum(["all", "restricted"]).optional(),
   accessList: z.array(z.string().email()).optional(),
+  allowSourceViewing: z.boolean().optional(),
+  allowVaultSync: z.boolean().optional(),
+  allowExternalAccess: z.boolean().optional(),
 });
 
 // ─── KB Routes ──────────────────────────────────────────────────────────────
@@ -145,11 +148,14 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
     res.status(404).json({ error: "Knowledge base not found" });
     return;
   }
-  const { name, description, accessMode, accessList } = req.body as z.infer<typeof updateKBSchema>;
+  const { name, description, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
   const updated = updateKB(kbId, {
     ...(name !== undefined && { name: name.trim() }),
     ...(description !== undefined && { description: description.trim() }),
     ...(accessMode !== undefined && { accessMode: accessMode as KBAccessMode }),
+    ...(allowSourceViewing !== undefined && { allowSourceViewing }),
+    ...(allowVaultSync !== undefined && { allowVaultSync }),
+    ...(allowExternalAccess !== undefined && { allowExternalAccess }),
   });
   if (!updated) {
     res.status(404).json({ error: "Knowledge base not found" });

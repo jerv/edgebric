@@ -14,6 +14,9 @@ function rowToKB(row: typeof knowledgeBases.$inferSelect): KnowledgeBase {
     documentCount: row.documentCount,
     status: row.status as KnowledgeBase["status"],
     accessMode: (row.accessMode ?? "all") as KBAccessMode,
+    allowSourceViewing: row.allowSourceViewing !== 0,
+    allowVaultSync: row.allowVaultSync !== 0,
+    allowExternalAccess: row.allowExternalAccess !== 0,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
@@ -137,7 +140,15 @@ export function listAccessibleKBs(email: string, isAdmin: boolean, orgId?: strin
 /** Update KB metadata. */
 export function updateKB(
   id: string,
-  data: { name?: string; description?: string; accessMode?: KBAccessMode; avatarUrl?: string },
+  data: {
+    name?: string;
+    description?: string;
+    accessMode?: KBAccessMode;
+    avatarUrl?: string;
+    allowSourceViewing?: boolean;
+    allowVaultSync?: boolean;
+    allowExternalAccess?: boolean;
+  },
 ): KnowledgeBase | undefined {
   const db = getDb();
   const existing = getKB(id);
@@ -150,6 +161,9 @@ export function updateKB(
       ...(data.description !== undefined && { description: data.description }),
       ...(data.accessMode !== undefined && { accessMode: data.accessMode }),
       ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+      ...(data.allowSourceViewing !== undefined && { allowSourceViewing: data.allowSourceViewing ? 1 : 0 }),
+      ...(data.allowVaultSync !== undefined && { allowVaultSync: data.allowVaultSync ? 1 : 0 }),
+      ...(data.allowExternalAccess !== undefined && { allowExternalAccess: data.allowExternalAccess ? 1 : 0 }),
       updatedAt: now,
     })
     .where(eq(knowledgeBases.id, id))

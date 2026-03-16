@@ -227,6 +227,10 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE users ADD COLUMN can_create_kbs INTEGER DEFAULT 0",
     // KB avatar
     "ALTER TABLE knowledge_bases ADD COLUMN avatar_url TEXT",
+    // Per-KB security toggles (default: all allowed)
+    "ALTER TABLE knowledge_bases ADD COLUMN allow_source_viewing INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE knowledge_bases ADD COLUMN allow_vault_sync INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE knowledge_bases ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

@@ -42,6 +42,10 @@ export const knowledgeBases = sqliteTable("knowledge_bases", {
   status: text("status").notNull().default("active"), // active | archived
   accessMode: text("access_mode").notNull().default("all"), // all | restricted
   avatarUrl: text("avatar_url"),
+  // Per-KB security toggles (1 = allowed, 0 = blocked; default: all allowed)
+  allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
+  allowVaultSync: integer("allow_vault_sync").notNull().default(1),
+  allowExternalAccess: integer("allow_external_access").notNull().default(1),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

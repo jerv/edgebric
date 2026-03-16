@@ -63,6 +63,15 @@ export interface KnowledgeBase {
   accessMode: KBAccessMode;
   /** URL path to the KB avatar image (used when org avatarMode is "kb"). */
   avatarUrl?: string;
+
+  // ─── Per-KB security toggles ──────────────────────────────────────────────
+  /** Can members view raw source document text? (default: true) */
+  allowSourceViewing: boolean;
+  /** Can this KB's chunks be synced to member devices for Vault Mode? (default: true) */
+  allowVaultSync: boolean;
+  /** Can members access this KB from outside the local network? (default: true) */
+  allowExternalAccess: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
