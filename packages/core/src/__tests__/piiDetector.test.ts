@@ -30,7 +30,7 @@ describe("detectPII", () => {
     const chunks = [makeChunk("Employee SSN is 123-45-6789 on file.")];
     const warnings = detectPII(chunks);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]!.pattern).toBe("SSN pattern");
+    expect(warnings[0]!.pattern).toContain("Social Security Number");
     expect(warnings[0]!.chunkIndex).toBe(0);
   });
 
@@ -43,15 +43,14 @@ describe("detectPII", () => {
     const chunks = [makeChunk("John earns $85,000 per year.")];
     const warnings = detectPII(chunks);
     expect(warnings.length).toBeGreaterThanOrEqual(1);
-    // Should detect either salary figure or name+sensitive term
-    expect(warnings.some((w) => w.pattern === "salary figure")).toBe(true);
+    expect(warnings.some((w) => w.pattern.includes("dollar amounts"))).toBe(true);
   });
 
   it("detects hourly rate format", () => {
     const chunks = [makeChunk("The rate is $25.50/hr for contractors.")];
     const warnings = detectPII(chunks);
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]!.pattern).toBe("salary figure");
+    expect(warnings[0]!.pattern).toContain("dollar amounts");
   });
 
   it("detects person name + sensitive term co-occurrence", () => {
@@ -77,7 +76,7 @@ describe("detectPII", () => {
     const warnings = detectPII(chunks);
     // Only one regex pattern match per chunk (breaks after first)
     const regexWarnings = warnings.filter(
-      (w) => w.pattern === "SSN pattern" || w.pattern === "salary figure",
+      (w) => w.pattern.includes("Social Security") || w.pattern.includes("dollar amounts"),
     );
     expect(regexWarnings).toHaveLength(1);
   });
