@@ -24,10 +24,11 @@ Phase 1 is complete. The single-node product is fully working:
 ```
 Phase 1: Foundation — Multi-KB, auth, org model, security, privacy     ✅ COMPLETE
 Phase 2: Productization — Installer, hardening, testing, deployment     (shippable product)
-Phase 3: Distributed — Mesh discovery + cross-device queries            (the core platform feature)
+Phase 3: Distributed — Mesh discovery + cross-device queries            (multi-Mac mesh)
 Phase 4: Meeting Mode — Ephemeral sessions + room codes                 (the daily-use hook)
-Phase 5: Mobile — iOS/Android companion apps                            (post-launch)
 ```
+
+V1/beta is macOS-only. Mobile apps, Android, and cross-platform are V2+.
 
 ---
 
