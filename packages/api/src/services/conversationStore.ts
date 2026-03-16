@@ -12,6 +12,7 @@ function rowToConversation(row: typeof conversations.$inferSelect): Conversation
     updatedAt: new Date(row.updatedAt),
   };
   if (row.userName != null) conv.userName = row.userName;
+  if (row.orgId != null) conv.orgId = row.orgId;
   if (row.archivedAt != null) conv.archivedAt = new Date(row.archivedAt);
   return conv;
 }
