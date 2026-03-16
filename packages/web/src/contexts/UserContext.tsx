@@ -12,6 +12,7 @@ export interface User {
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
   canCreateKBs?: boolean;
+  canCreateGroupChats?: boolean;
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
   orgAvatarUrl?: string;

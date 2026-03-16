@@ -19,11 +19,13 @@ import { Route as ShellSettingsRouteImport } from './routes/_shell/settings'
 import { Route as ShellOrganizationRouteImport } from './routes/_shell/organization'
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
 import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
+import { Route as ShellGroupChatsRouteImport } from './routes/_shell/group-chats'
 import { Route as ShellEscalationsRouteImport } from './routes/_shell/escalations'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
 import { Route as ShellAnalyticsRouteImport } from './routes/_shell/analytics'
 import { Route as ShellAdminGuideRouteImport } from './routes/_shell/admin-guide'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
+import { Route as ShellGroupChatsIdRouteImport } from './routes/_shell/group-chats.$id'
 import { Route as ShellConversationsIdRouteImport } from './routes/_shell/conversations.$id'
 
 const TermsRoute = TermsRouteImport.update({
@@ -75,6 +77,11 @@ const ShellLibraryRoute = ShellLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellGroupChatsRoute = ShellGroupChatsRouteImport.update({
+  id: '/group-chats',
+  path: '/group-chats',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellEscalationsRoute = ShellEscalationsRouteImport.update({
   id: '/escalations',
   path: '/escalations',
@@ -100,6 +107,11 @@ const ShellAccountRoute = ShellAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellGroupChatsIdRoute = ShellGroupChatsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ShellGroupChatsRoute,
+} as any)
 const ShellConversationsIdRoute = ShellConversationsIdRouteImport.update({
   id: '/conversations/$id',
   path: '/conversations/$id',
@@ -116,12 +128,14 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
   '/escalations': typeof ShellEscalationsRoute
+  '/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
   '/settings': typeof ShellSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/conversations/$id': typeof ShellConversationsIdRoute
+  '/group-chats/$id': typeof ShellGroupChatsIdRoute
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
@@ -132,6 +146,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
   '/escalations': typeof ShellEscalationsRoute
+  '/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
@@ -139,6 +154,7 @@ export interface FileRoutesByTo {
   '/': typeof ShellIndexRoute
   '/admin': typeof AdminIndexRoute
   '/conversations/$id': typeof ShellConversationsIdRoute
+  '/group-chats/$id': typeof ShellGroupChatsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -151,6 +167,7 @@ export interface FileRoutesById {
   '/_shell/analytics': typeof ShellAnalyticsRoute
   '/_shell/documents': typeof ShellDocumentsRoute
   '/_shell/escalations': typeof ShellEscalationsRoute
+  '/_shell/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
   '/_shell/organization': typeof ShellOrganizationRoute
@@ -158,6 +175,7 @@ export interface FileRoutesById {
   '/_shell/': typeof ShellIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/_shell/conversations/$id': typeof ShellConversationsIdRoute
+  '/_shell/group-chats/$id': typeof ShellGroupChatsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,12 +189,14 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/documents'
     | '/escalations'
+    | '/group-chats'
     | '/library'
     | '/models'
     | '/organization'
     | '/settings'
     | '/admin/'
     | '/conversations/$id'
+    | '/group-chats/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
@@ -187,6 +207,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/documents'
     | '/escalations'
+    | '/group-chats'
     | '/library'
     | '/models'
     | '/organization'
@@ -194,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/conversations/$id'
+    | '/group-chats/$id'
   id:
     | '__root__'
     | '/_shell'
@@ -205,6 +227,7 @@ export interface FileRouteTypes {
     | '/_shell/analytics'
     | '/_shell/documents'
     | '/_shell/escalations'
+    | '/_shell/group-chats'
     | '/_shell/library'
     | '/_shell/models'
     | '/_shell/organization'
@@ -212,6 +235,7 @@ export interface FileRouteTypes {
     | '/_shell/'
     | '/admin/'
     | '/_shell/conversations/$id'
+    | '/_shell/group-chats/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -294,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellLibraryRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/group-chats': {
+      id: '/_shell/group-chats'
+      path: '/group-chats'
+      fullPath: '/group-chats'
+      preLoaderRoute: typeof ShellGroupChatsRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/escalations': {
       id: '/_shell/escalations'
       path: '/escalations'
@@ -329,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellAccountRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/group-chats/$id': {
+      id: '/_shell/group-chats/$id'
+      path: '/$id'
+      fullPath: '/group-chats/$id'
+      preLoaderRoute: typeof ShellGroupChatsIdRouteImport
+      parentRoute: typeof ShellGroupChatsRoute
+    }
     '/_shell/conversations/$id': {
       id: '/_shell/conversations/$id'
       path: '/conversations/$id'
@@ -339,12 +377,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ShellGroupChatsRouteChildren {
+  ShellGroupChatsIdRoute: typeof ShellGroupChatsIdRoute
+}
+
+const ShellGroupChatsRouteChildren: ShellGroupChatsRouteChildren = {
+  ShellGroupChatsIdRoute: ShellGroupChatsIdRoute,
+}
+
+const ShellGroupChatsRouteWithChildren = ShellGroupChatsRoute._addFileChildren(
+  ShellGroupChatsRouteChildren,
+)
+
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellAdminGuideRoute: typeof ShellAdminGuideRoute
   ShellAnalyticsRoute: typeof ShellAnalyticsRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
   ShellEscalationsRoute: typeof ShellEscalationsRoute
+  ShellGroupChatsRoute: typeof ShellGroupChatsRouteWithChildren
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
   ShellOrganizationRoute: typeof ShellOrganizationRoute
@@ -359,6 +410,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellAnalyticsRoute: ShellAnalyticsRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
   ShellEscalationsRoute: ShellEscalationsRoute,
+  ShellGroupChatsRoute: ShellGroupChatsRouteWithChildren,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,
   ShellOrganizationRoute: ShellOrganizationRoute,

@@ -14,12 +14,13 @@ import {
   User,
   MessageSquareMore,
   HelpCircle,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { DeleteConversationDialog } from "./DeleteConversationDialog";
-import type { Conversation } from "@edgebric/types";
+import type { Conversation, GroupChat } from "@edgebric/types";
 
 interface ConversationPreview extends Conversation {
   preview?: string;
@@ -115,6 +116,17 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
     refetchInterval: 30_000,
   });
 
+  const { data: groupChats } = useQuery<GroupChat[]>({
+    queryKey: ["group-chats"],
+    queryFn: () =>
+      fetch("/api/group-chats", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [];
+        return r.json() as Promise<GroupChat[]>;
+      }),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+  });
+
   const { data: unreadData } = useQuery<{ count: number }>({
     queryKey: ["admin", "escalations", "unread-count"],
     queryFn: () =>
@@ -131,6 +143,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
   // Nav items (some admin-only, some conditional)
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Library", icon: Database },
+    { href: "/group-chats", label: "Group Chats", icon: Users },
     { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
     { href: "/escalations", label: "Escalations", icon: MessageSquareMore, adminOnly: true, badge: unreadCount },
   ];
@@ -263,6 +276,45 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
               })}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Group Chats section */}
+      {!isPrivacyActive && !collapsed && groupChats && groupChats.length > 0 && (
+        <div className="px-2 border-t border-slate-100 mt-1">
+          <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider select-none flex items-center justify-between">
+            <span>Group Chats</span>
+            <Link
+              to="/group-chats"
+              onClick={onNavigate}
+              className="text-[10px] text-slate-400 hover:text-slate-600 normal-case tracking-normal font-normal"
+            >
+              View all
+            </Link>
+          </div>
+          {groupChats.slice(0, 5).map((gc) => {
+            const isGCActive = currentPath === `/group-chats/${gc.id}`;
+            return (
+              <Link
+                key={gc.id}
+                to="/group-chats/$id"
+                params={{ id: gc.id }}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center rounded-lg transition-colors px-3 py-1.5",
+                  isGCActive
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                )}
+              >
+                <Users className="w-3 h-3 flex-shrink-0 mr-1.5" />
+                <span className="block truncate text-xs">{gc.name}</span>
+                {gc.status === "expired" && (
+                  <span className="ml-auto text-[9px] text-amber-500 flex-shrink-0">expired</span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       )}
 
