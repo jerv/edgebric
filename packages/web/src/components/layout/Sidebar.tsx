@@ -15,11 +15,13 @@ import {
   MessageSquareMore,
   HelpCircle,
   Users,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { DeleteConversationDialog } from "./DeleteConversationDialog";
+import { CreateGroupChatDialog } from "@/components/groupChat/CreateGroupChatDialog";
 import type { Conversation, GroupChat } from "@edgebric/types";
 
 interface ConversationPreview extends Conversation {
@@ -91,6 +93,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
   const activeConvId = currentPath === "/" ? searchParams.get("c") : null;
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [newChatConfirmOpen, setNewChatConfirmOpen] = useState(false);
+  const [showNewChatMenu, setShowNewChatMenu] = useState(false);
+  const [showCreateGroupChat, setShowCreateGroupChat] = useState(false);
   const privacy = usePrivacy();
   const isPrivacyActive = privacy.level !== "standard";
   const isAdmin = !!user?.isAdmin;
@@ -143,7 +147,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
   // Nav items (some admin-only, some conditional)
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Library", icon: Database },
-    { href: "/group-chats", label: "Group Chats", icon: Users },
     { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
     { href: "/escalations", label: "Escalations", icon: MessageSquareMore, adminOnly: true, badge: unreadCount },
   ];
@@ -194,21 +197,61 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
             {!collapsed && <span>New Chat</span>}
           </button>
         ) : (
-          <Link
-            to="/"
-            onClick={onNavigate}
-            title={collapsed ? "New Chat" : undefined}
-            className={cn(
-              "flex items-center rounded-lg text-sm transition-colors",
-              collapsed ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
-              isOnChat && !activeConvId
-                ? "bg-slate-900 text-white"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          <div className="relative flex items-center">
+            <Link
+              to="/"
+              onClick={onNavigate}
+              title={collapsed ? "New Chat" : undefined}
+              className={cn(
+                "flex items-center rounded-lg text-sm transition-colors flex-1",
+                collapsed ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
+                isOnChat && !activeConvId
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+              )}
+            >
+              <Plus className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span>New Chat</span>}
+            </Link>
+            {!collapsed && (
+              <button
+                onClick={() => setShowNewChatMenu((v) => !v)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                title="More options"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
             )}
-          >
-            <Plus className="w-4 h-4 flex-shrink-0" />
-            {!collapsed && <span>New Chat</span>}
-          </Link>
+            {showNewChatMenu && !collapsed && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowNewChatMenu(false)} />
+                <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-full min-w-[180px]">
+                  <button
+                    onClick={() => {
+                      setShowNewChatMenu(false);
+                      window.history.pushState({}, "", "/");
+                      window.dispatchEvent(new PopStateEvent("popstate"));
+                      onNavigate?.();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    New Chat
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewChatMenu(false);
+                      setShowCreateGroupChat(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    New Group Chat
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -282,17 +325,10 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       {/* Group Chats section */}
       {!isPrivacyActive && !collapsed && groupChats && groupChats.length > 0 && (
         <div className="px-2 border-t border-slate-100 mt-1">
-          <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider select-none flex items-center justify-between">
-            <span>Group Chats</span>
-            <Link
-              to="/group-chats"
-              onClick={onNavigate}
-              className="text-[10px] text-slate-400 hover:text-slate-600 normal-case tracking-normal font-normal"
-            >
-              View all
-            </Link>
+          <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider select-none">
+            Group Chats
           </div>
-          {groupChats.slice(0, 5).map((gc) => {
+          {groupChats.slice(0, 10).map((gc) => {
             const isGCActive = currentPath === `/group-chats/${gc.id}`;
             return (
               <Link
@@ -483,6 +519,10 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
             </div>
           </div>
         </div>
+      )}
+
+      {showCreateGroupChat && (
+        <CreateGroupChatDialog onClose={() => setShowCreateGroupChat(false)} />
       )}
     </nav>
   );
