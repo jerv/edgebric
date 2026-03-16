@@ -1,6 +1,8 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
+import { z } from "zod";
 import { requireOrg } from "../middleware/auth.js";
+import { validateQuery } from "../middleware/validate.js";
 import {
   getConversation,
   getMessages,
@@ -18,6 +20,10 @@ import {
 } from "../services/escalationStore.js";
 import { getUnreadConversationIds } from "../services/notificationStore.js";
 
+const deleteQuerySchema = z.object({
+  mode: z.enum(["archive", "delete"], { message: "mode must be 'archive' or 'delete'" }),
+});
+
 export const conversationsRouter: IRouter = Router();
 conversationsRouter.use(requireOrg);
 
@@ -34,18 +40,14 @@ conversationsRouter.get("/", (req, res) => {
 });
 
 // DELETE /api/conversations?mode=archive|delete — bulk remove all user's conversations
-conversationsRouter.delete("/", (req, res) => {
+conversationsRouter.delete("/", validateQuery(deleteQuerySchema), (req, res) => {
   const email = req.session.email;
   if (!email) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const mode = req.query["mode"] as string | undefined;
-  if (mode !== "archive" && mode !== "delete") {
-    res.status(400).json({ error: "mode query param must be 'archive' or 'delete'" });
-    return;
-  }
+  const mode = req.query["mode"] as "archive" | "delete";
 
   const orgId = req.session.orgId;
 
@@ -94,20 +96,16 @@ conversationsRouter.get("/:id", (req, res) => {
 });
 
 // DELETE /api/conversations/:id?mode=archive|delete
-conversationsRouter.delete("/:id", (req, res) => {
+conversationsRouter.delete("/:id", validateQuery(deleteQuerySchema), (req, res) => {
   const email = req.session.email;
   if (!email) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const mode = req.query["mode"] as string | undefined;
-  if (mode !== "archive" && mode !== "delete") {
-    res.status(400).json({ error: "mode query param must be 'archive' or 'delete'" });
-    return;
-  }
+  const mode = req.query["mode"] as "archive" | "delete";
 
-  const conv = getConversation(req.params.id!);
+  const conv = getConversation(req.params["id"] as string);
   if (!conv) {
     res.status(404).json({ error: "Conversation not found" });
     return;

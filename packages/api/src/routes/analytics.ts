@@ -1,8 +1,26 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
+import { z } from "zod";
 import { requireAdmin } from "../middleware/auth.js";
+import { validateQuery } from "../middleware/validate.js";
 import { getFeedbackStats, getTopicClusters, listFeedback } from "../services/feedbackStore.js";
 import { getQueryVolume, getUnansweredQuestions, getEscalationStats, getOverviewStats, resolveQuestion, unresolveQuestion } from "../services/analyticsStore.js";
+
+const volumeQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).optional().default(30),
+});
+
+const topicsQuerySchema = z.object({
+  min: z.coerce.number().int().min(1).max(100).optional().default(5),
+});
+
+const limitQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional().default(50),
+});
+
+const feedbackQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional().default(100),
+});
 
 export const analyticsRouter: IRouter = Router();
 analyticsRouter.use(requireAdmin);
@@ -25,23 +43,23 @@ analyticsRouter.get("/summary", (req, res) => {
 });
 
 // GET /api/admin/analytics/volume?days=30 — query volume over time
-analyticsRouter.get("/volume", (req, res) => {
-  const days = Math.max(1, Math.min(parseInt(req.query["days"] as string) || 30, 365));
+analyticsRouter.get("/volume", validateQuery(volumeQuerySchema), (req, res) => {
+  const days = Number(req.query["days"]) || 30;
   const volume = getQueryVolume(days, req.session.orgId);
   res.json(volume);
 });
 
 // GET /api/admin/analytics/topics?min=5 — topic clusters
-analyticsRouter.get("/topics", (req, res) => {
-  const min = Math.max(1, Math.min(parseInt(req.query["min"] as string) || 5, 100));
+analyticsRouter.get("/topics", validateQuery(topicsQuerySchema), (req, res) => {
+  const min = Number(req.query["min"]) || 5;
   const topics = getTopicClusters(min, req.session.orgId);
   res.json(topics);
 });
 
 // GET /api/admin/analytics/unanswered?limit=50 — unanswered questions
-analyticsRouter.get("/unanswered", (req, res) => {
-  const limit = parseInt(req.query["limit"] as string) || 50;
-  const questions = getUnansweredQuestions(Math.min(limit, 200), req.session.orgId);
+analyticsRouter.get("/unanswered", validateQuery(limitQuerySchema), (req, res) => {
+  const limit = Number(req.query["limit"]) || 50;
+  const questions = getUnansweredQuestions(limit, req.session.orgId);
   res.json(questions);
 });
 
@@ -84,8 +102,8 @@ analyticsRouter.delete("/unanswered/:messageId/resolve", (req, res) => {
 });
 
 // GET /api/admin/analytics/feedback — raw feedback list (meta only, no snapshot)
-analyticsRouter.get("/feedback", (req, res) => {
-  const limit = Math.max(1, Math.min(parseInt(req.query["limit"] as string) || 100, 500));
+analyticsRouter.get("/feedback", validateQuery(feedbackQuerySchema), (req, res) => {
+  const limit = Number(req.query["limit"]) || 100;
   const items = listFeedback(limit, req.session.orgId);
   const summary = items.map((fb) => ({
     id: fb.id,

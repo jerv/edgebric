@@ -4,9 +4,15 @@ import { spawn, exec } from "child_process";
 import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { join, dirname } from "path";
+import { z } from "zod";
 import { config, runtimeChatConfig } from "../config.js";
 import { logger } from "../lib/logger.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
+
+const modelIdSchema = z.object({
+  modelId: z.string().min(1, "modelId is required").transform((s) => s.trim()),
+});
 
 export const modelsRouter: IRouter = Router();
 
@@ -67,13 +73,9 @@ modelsRouter.get("/", async (_req, res) => {
 });
 
 // PUT /api/admin/models/active — hot-swap model name in runtimeChatConfig (no restart)
-modelsRouter.put("/active", (req, res) => {
-  const { modelId } = req.body as { modelId?: string };
-  if (!modelId?.trim()) {
-    res.status(400).json({ error: "modelId is required" });
-    return;
-  }
-  const known = KNOWN_MODELS.find((m) => m.id === modelId.trim());
+modelsRouter.put("/active", validateBody(modelIdSchema), (req, res) => {
+  const { modelId } = req.body as z.infer<typeof modelIdSchema>;
+  const known = KNOWN_MODELS.find((m) => m.id === modelId);
   if (!known) {
     res.status(400).json({ error: "Unknown model" });
     return;
@@ -151,14 +153,10 @@ modelsRouter.post("/restart", async (_req, res) => {
 });
 
 // POST /api/admin/models/load — kill llama-server and restart with a different model
-modelsRouter.post("/load", async (req, res) => {
-  const { modelId } = req.body as { modelId?: string };
-  if (!modelId?.trim()) {
-    res.status(400).json({ error: "modelId is required" });
-    return;
-  }
+modelsRouter.post("/load", validateBody(modelIdSchema), async (req, res) => {
+  const { modelId } = req.body as z.infer<typeof modelIdSchema>;
 
-  const known = KNOWN_MODELS.find((m) => m.id === modelId.trim());
+  const known = KNOWN_MODELS.find((m) => m.id === modelId);
   if (!known) {
     res.status(404).json({ error: "Unknown model" });
     return;

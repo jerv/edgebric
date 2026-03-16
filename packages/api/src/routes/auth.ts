@@ -2,12 +2,23 @@ import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { Issuer, generators } from "openid-client";
 import { randomUUID } from "crypto";
+import { z } from "zod";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { ensureDefaultOrg, getDefaultOrg, getOrg, getOrgsForUser } from "../services/orgStore.js";
 import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName } from "../services/userStore.js";
+
+const profileSchema = z.object({
+  firstName: z.string().min(1, "First name is required").max(100).transform((s) => s.trim()),
+  lastName: z.string().max(100).optional().transform((s) => s?.trim()),
+});
+
+const selectOrgSchema = z.object({
+  orgId: z.string().min(1, "orgId is required"),
+});
 
 export const authRouter: IRouter = Router();
 
@@ -212,8 +223,8 @@ authRouter.post("/logout-redirect", (req, res) => {
 
 // ─── PUT /api/auth/profile — update user's display name ──────────────────────
 
-authRouter.put("/profile", requireAuth, (req, res) => {
-  const { firstName, lastName } = req.body as { firstName?: string; lastName?: string };
+authRouter.put("/profile", requireAuth, validateBody(profileSchema), (req, res) => {
+  const { firstName, lastName } = req.body as z.infer<typeof profileSchema>;
   const email = req.session.email;
   const orgId = req.session.orgId;
 
@@ -222,14 +233,7 @@ authRouter.put("/profile", requireAuth, (req, res) => {
     return;
   }
 
-  const first = firstName?.trim();
-  if (!first) {
-    res.status(400).json({ error: "First name is required" });
-    return;
-  }
-
-  const last = lastName?.trim();
-  const fullName = last ? `${first} ${last}` : first;
+  const fullName = lastName ? `${firstName} ${lastName}` : firstName;
 
   // Update in all orgs this user belongs to if no org selected, otherwise just current org
   if (orgId) {
@@ -278,12 +282,8 @@ authRouter.get("/orgs", requireAuth, (req, res) => {
 
 // ─── POST /api/auth/select-org — switch to a different org ──────────────────
 
-authRouter.post("/select-org", requireAuth, (req, res) => {
-  const { orgId } = req.body as { orgId?: string };
-  if (!orgId) {
-    res.status(400).json({ error: "orgId is required" });
-    return;
-  }
+authRouter.post("/select-org", requireAuth, validateBody(selectOrgSchema), (req, res) => {
+  const { orgId } = req.body as z.infer<typeof selectOrgSchema>;
 
   const email = req.session.email;
   if (!email) {
