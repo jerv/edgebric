@@ -63,6 +63,13 @@ async function start() {
     logger.warn({ err }, "Chunk content backfill failed"),
   );
 
+  // Expire stale group chats every 5 minutes
+  const { expireStaleChats } = await import("./services/groupChatStore.js");
+  setInterval(() => {
+    const count = expireStaleChats();
+    if (count > 0) logger.info({ count }, "Expired stale group chats");
+  }, 5 * 60 * 1000);
+
   const server = app.listen(config.port, () => {
     logger.info({
       port: config.port,
