@@ -1,6 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { GroupChatList } from "@/components/groupChat/GroupChatList";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_shell/group-chats")({
-  component: GroupChatList,
+  component: () => <Outlet />,
 });
