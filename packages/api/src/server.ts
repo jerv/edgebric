@@ -246,17 +246,46 @@ if (!isDev) {
   });
 }
 
-// ─── Error handler ─────────────────────────────────────────────────────────────
+// ─── Global Error Handler ────────────────────────────────────────────────────
 
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error({ err }, "Unhandled error");
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   // CORS errors
-  if (err.message.startsWith("CORS:")) {
+  if (err.message?.startsWith("CORS:")) {
     res.status(403).json({ error: err.message });
     return;
   }
 
+  // Multer errors (file upload)
+  if (err.name === "MulterError") {
+    const messages: Record<string, string> = {
+      LIMIT_FILE_SIZE: "File is too large (max 50MB)",
+      LIMIT_UNEXPECTED_FILE: "Unexpected file field",
+    };
+    res.status(400).json({ error: messages[err.code] ?? `Upload error: ${err.message}` });
+    return;
+  }
+
+  // Multer file filter rejection (e.g. unsupported file type)
+  if (err.message?.startsWith("Unsupported file type")) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+
+  // JSON parse errors (malformed request body)
+  if (err.type === "entity.parse.failed") {
+    res.status(400).json({ error: "Invalid JSON in request body" });
+    return;
+  }
+
+  // Body size limit exceeded
+  if (err.type === "entity.too.large") {
+    res.status(413).json({ error: "Request body too large (max 1MB)" });
+    return;
+  }
+
+  // Everything else — log and return generic error
+  logger.error({ err }, "Unhandled error");
   res.status(500).json({
     error: "Internal server error",
     ...(isDev && { message: err.message }),
