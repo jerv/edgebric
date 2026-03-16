@@ -183,6 +183,31 @@ Response: { chunks: ChunkResult[], nodeId: string, kbName: string }
 - Health indicators (online/offline/last seen)
 - Assign organization KBs to specific nodes
 
+### 3.5 — Testable Security & Correctness Assertions
+
+These claims MUST be verified before Phase 3 ships. Each is a pass/fail test.
+
+**Data isolation:**
+- [ ] A query on Node A that searches a KB on Node B never copies chunk data to Node A's disk or database
+- [ ] After a cross-device query, Node A holds only the synthesized answer and citation metadata — not the raw chunks
+- [ ] Disconnecting Node B from the network makes its KBs immediately unsearchable from Node A (no cached data served)
+- [ ] Node B's mKB search endpoint is only reachable through the mimik mesh — not exposed on a public port
+
+**Discovery & availability:**
+- [ ] Two Macs on the same LAN running mim OE discover each other within 30 seconds without manual configuration
+- [ ] A node going offline is detected (heartbeat timeout) and marked offline in the registry within 60 seconds
+- [ ] A query targeting an offline node returns results from available nodes with a clear indication that some sources were unavailable
+
+**Query correctness:**
+- [ ] A cross-device query returns the same chunks as querying each node's mKB directly (no results lost in fan-out/merge)
+- [ ] Citations from cross-device queries include the source node and KB name
+- [ ] Parallel fan-out does not duplicate results when the same document exists on multiple nodes
+
+**Auth & access control:**
+- [ ] Mesh search requests are authenticated — a rogue device on the LAN cannot query KBs without a valid mesh token
+- [ ] KB access controls (org-scoping, permissions) are enforced on the remote node, not just the coordinator
+- [ ] A user without access to a KB on Node B gets no results from it, even when querying from Node A
+
 ---
 
 ## Phase 4 — Meeting Mode: Ephemeral Knowledge Sharing
@@ -244,6 +269,24 @@ POST   /api/sessions/:id/end      # End session (creator only)
 - SSE for session state updates (participant joins/leaves, KB sharing changes)
 - All participants see the same chat thread
 - Coordinator node manages session state
+
+### 4.5 — Testable Security & Correctness Assertions
+
+**Ephemeral access:**
+- [ ] After a session ends, no participant can query another participant's KBs through any endpoint
+- [ ] Session data (transcript, participant list) is fully purged after expiry — no residual data on any node
+- [ ] A participant who leaves a session loses access to shared KBs immediately — next query attempt fails
+- [ ] Shared KB access is read-only — session participants cannot upload, modify, or delete documents on another node's KBs
+
+**Session isolation:**
+- [ ] Room codes are cryptographically random — not sequential or guessable
+- [ ] A valid room code from Session A cannot be used to access Session B's shared KBs
+- [ ] Only the session creator can end a session — participants can only leave
+
+**Data movement:**
+- [ ] During a session query, raw chunks from remote KBs are not persisted on the coordinator or any other participant's node
+- [ ] Session transcripts (if saved) are stored only on the coordinator node, not replicated to participants
+- [ ] A participant toggling a KB off mid-session removes it from subsequent queries immediately — no stale cache
 
 ---
 
