@@ -18,7 +18,7 @@ import {
   getMainMessages,
   getThreadMessages,
 } from "../services/groupChatStore.js";
-import { getUserInOrg } from "../services/userStore.js";
+import { getUserInOrg, listUsers } from "../services/userStore.js";
 import { getKB, kbBelongsToOrg } from "../services/knowledgeBaseStore.js";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -100,6 +100,28 @@ groupChatsRouter.get("/", (req, res) => {
   const orgId = req.session.orgId!;
   const chats = listGroupChatsForUser(email, orgId);
   res.json(chats);
+});
+
+// GET /api/group-chats/members/search?q=... — search org members by name or email
+groupChatsRouter.get("/members/search", (req, res) => {
+  const orgId = req.session.orgId!;
+  const q = (typeof req.query["q"] === "string" ? req.query["q"] : "").toLowerCase().trim();
+  if (!q) {
+    res.json([]);
+    return;
+  }
+
+  const allUsers = listUsers(orgId);
+  const matches = allUsers
+    .filter((u) => {
+      const email = u.email.toLowerCase();
+      const name = (u.name ?? "").toLowerCase();
+      return email.includes(q) || name.includes(q);
+    })
+    .slice(0, 10)
+    .map((u) => ({ email: u.email, name: u.name ?? null, picture: u.picture ?? null }));
+
+  res.json(matches);
 });
 
 // GET /api/group-chats/:id — get group chat detail

@@ -1484,7 +1484,7 @@ export function ChatPanel() {
                 </div>
               )}
 
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-end">
                 <div className="flex-1 relative">
                   {/* Mention picker */}
                   {mentionPickerOpen && (

@@ -578,7 +578,7 @@ export function GroupChatView() {
               )}
 
               {/* Input + send */}
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-end">
                 <textarea
                   ref={inputRef}
                   value={input}
