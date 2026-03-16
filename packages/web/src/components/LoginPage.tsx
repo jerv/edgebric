@@ -17,6 +17,11 @@ export function LoginPage() {
             <GoogleIcon />
             Sign in with Google
           </a>
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
+            <a href="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+            <span>·</span>
+            <a href="/terms" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+          </div>
         </div>
       </div>
     </div>

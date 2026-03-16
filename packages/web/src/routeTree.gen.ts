@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ShellRouteImport } from './routes/_shell'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -20,9 +22,20 @@ import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
 import { Route as ShellEscalationsRouteImport } from './routes/_shell/escalations'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
 import { Route as ShellAnalyticsRouteImport } from './routes/_shell/analytics'
+import { Route as ShellAdminGuideRouteImport } from './routes/_shell/admin-guide'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
 import { Route as ShellConversationsIdRouteImport } from './routes/_shell/conversations.$id'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -77,6 +90,11 @@ const ShellAnalyticsRoute = ShellAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellAdminGuideRoute = ShellAdminGuideRouteImport.update({
+  id: '/admin-guide',
+  path: '/admin-guide',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellAccountRoute = ShellAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -91,7 +109,10 @@ const ShellConversationsIdRoute = ShellConversationsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
+  '/admin-guide': typeof ShellAdminGuideRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
   '/escalations': typeof ShellEscalationsRoute
@@ -104,7 +125,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
+  '/admin-guide': typeof ShellAdminGuideRoute
   '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
   '/escalations': typeof ShellEscalationsRoute
@@ -120,7 +144,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_shell': typeof ShellRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/_shell/account': typeof ShellAccountRoute
+  '/_shell/admin-guide': typeof ShellAdminGuideRoute
   '/_shell/analytics': typeof ShellAnalyticsRoute
   '/_shell/documents': typeof ShellDocumentsRoute
   '/_shell/escalations': typeof ShellEscalationsRoute
@@ -137,7 +164,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
+    | '/privacy'
+    | '/terms'
     | '/account'
+    | '/admin-guide'
     | '/analytics'
     | '/documents'
     | '/escalations'
@@ -150,7 +180,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/onboarding'
+    | '/privacy'
+    | '/terms'
     | '/account'
+    | '/admin-guide'
     | '/analytics'
     | '/documents'
     | '/escalations'
@@ -165,7 +198,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_shell'
     | '/onboarding'
+    | '/privacy'
+    | '/terms'
     | '/_shell/account'
+    | '/_shell/admin-guide'
     | '/_shell/analytics'
     | '/_shell/documents'
     | '/_shell/escalations'
@@ -181,11 +217,27 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
@@ -263,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellAnalyticsRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/admin-guide': {
+      id: '/_shell/admin-guide'
+      path: '/admin-guide'
+      fullPath: '/admin-guide'
+      preLoaderRoute: typeof ShellAdminGuideRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/account': {
       id: '/_shell/account'
       path: '/account'
@@ -282,6 +341,7 @@ declare module '@tanstack/react-router' {
 
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
+  ShellAdminGuideRoute: typeof ShellAdminGuideRoute
   ShellAnalyticsRoute: typeof ShellAnalyticsRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
   ShellEscalationsRoute: typeof ShellEscalationsRoute
@@ -295,6 +355,7 @@ interface ShellRouteChildren {
 
 const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
+  ShellAdminGuideRoute: ShellAdminGuideRoute,
   ShellAnalyticsRoute: ShellAnalyticsRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
   ShellEscalationsRoute: ShellEscalationsRoute,
@@ -311,6 +372,8 @@ const ShellRouteWithChildren = ShellRoute._addFileChildren(ShellRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport

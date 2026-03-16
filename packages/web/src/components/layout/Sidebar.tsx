@@ -13,6 +13,7 @@ import {
   Building2,
   User,
   MessageSquareMore,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -350,6 +351,22 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
         >
           <User className="w-4 h-4 flex-shrink-0" />
           {!collapsed && <span>Account</span>}
+        </Link>
+
+        <Link
+          to="/admin-guide"
+          onClick={onNavigate}
+          title={collapsed ? "Help" : undefined}
+          className={cn(
+            "flex items-center rounded-lg text-sm transition-colors",
+            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+            currentPath.startsWith("/admin-guide")
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          )}
+        >
+          <HelpCircle className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Help</span>}
         </Link>
 
         {onToggleCollapse && (
