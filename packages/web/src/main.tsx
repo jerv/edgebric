@@ -1,13 +1,26 @@
-import "./lib/api"; // CSRF fetch interceptor — must be first
+import "./lib/api"; // CSRF + session expiry interceptor — must be first
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { showToast } from "./hooks/useToast";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 
 const router = createRouter({ routeTree });
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    mutations: {
+      onError: (error) => {
+        showToast({
+          title: "Action failed",
+          description: error instanceof Error ? error.message : "An unexpected error occurred",
+          variant: "destructive",
+        });
+      },
+    },
+  },
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
