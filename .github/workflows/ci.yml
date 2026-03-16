@@ -1,17 +1,31 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CI — Runs on every push and pull request
+#
+# What it does:
+#   1. Lint (ESLint) — catches code style and potential bugs
+#   2. Typecheck (tsc) — catches type errors across all packages
+#   3. Test (vitest) — runs all unit tests
+#   4. Build — verifies the full build succeeds
+#
+# When it runs:
+#   - Every push to dev or main
+#   - Every pull request targeting dev or main
+# ─────────────────────────────────────────────────────────────────────────────
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint-typecheck-test:
+  check:
+    name: Lint + Typecheck + Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -38,9 +52,10 @@ jobs:
         run: pnpm test
 
   build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: lint-typecheck-test
+    needs: check
 
     steps:
       - uses: actions/checkout@v4

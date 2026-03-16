@@ -12,6 +12,8 @@ shared/*/src/**/*.d.ts
 shared/*/src/**/*.d.ts.map
 .env
 .env.local
+.env.production
+.env.staging
 *.log
 .DS_Store
 *.tar

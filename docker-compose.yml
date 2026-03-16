@@ -1,3 +1,18 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker Compose — Development
+#
+# Usage:
+#   docker compose up --build
+#
+# What it does:
+#   - Builds the Edgebric image from source
+#   - Runs with dev-friendly defaults (relaxed secrets, localhost URLs)
+#   - Data persists in a named volume (survives container restarts)
+#
+# Environment:
+#   - Copy .env.example to .env and fill in your values
+#   - Or set variables inline: OIDC_CLIENT_ID=xxx docker compose up
+# ─────────────────────────────────────────────────────────────────────────────
 services:
   edgebric:
     build: .
@@ -5,29 +20,16 @@ services:
       - "3001:3001"
     volumes:
       - edgebric-data:/app/data
+    env_file:
+      - ./packages/api/.env
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=3001
       - DATA_DIR=/app/data
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
-      # OIDC configuration (required)
-      - OIDC_ISSUER=${OIDC_ISSUER}
-      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
-      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
-      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-http://localhost:3001/api/auth/callback}
-      # Admin emails (comma-separated)
-      - ADMIN_EMAILS=${ADMIN_EMAILS}
-      # mimik edge runtime — runs on the HOST, not in the container.
-      # Use host.docker.internal to reach the host's localhost.
+      - FRONTEND_URL=http://localhost:3001
+      # mimik edge runtime runs on the HOST, not in the container.
       - MIMIK_BASE_URL=${MIMIK_BASE_URL:-http://host.docker.internal:8083}
-      - MIMIK_API_KEY=${MIMIK_API_KEY}
-      - MILM_MODEL=${MILM_MODEL:-qwen3.5-4b.gguf}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
-      # Chat model (llama-server on host)
       - CHAT_BASE_URL=${CHAT_BASE_URL:-http://host.docker.internal:8080/v1}
-      - CHAT_API_KEY=${CHAT_API_KEY:-}
-      - CHAT_MODEL=${CHAT_MODEL:-qwen3.5-4b.gguf}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

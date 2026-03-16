@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Docker Compose — Production
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# What's different from dev:
+#   - Uses a pre-built image from GitHub Container Registry (not built locally)
+#   - NODE_ENV=production (strict session secret, secure cookies, no debug)
+#   - Requires a .env.production file with real credentials
+#   - Restart policy: always (auto-restart on crash or reboot)
+#   - Health check enabled (Docker monitors the container)
+#
+# Setup:
+#   1. Copy .env.production.example to .env.production
+#   2. Fill in all required values
+#   3. Run: docker compose -f docker-compose.prod.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  edgebric:
+    image: ghcr.io/jerv/edgebric:latest
+    ports:
+      - "3001:3001"
+    volumes:
+      - edgebric-data:/app/data
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  edgebric-data:
