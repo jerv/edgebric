@@ -1025,8 +1025,20 @@ export function ChatPanel() {
   const activeModel = modelsData?.activeModel;
   const readyModels = (modelsData?.models ?? []).filter((m) => m.readyToUse);
 
+  const chatTitle = (() => {
+    const firstUserMsg = messages.find((m) => m.role === "user");
+    if (!firstUserMsg) return "New Chat";
+    const text = firstUserMsg.content.slice(0, 80);
+    return text.length < firstUserMsg.content.length ? text + "..." : text;
+  })();
+
   return (
     <div className="flex flex-col h-full bg-white">
+      {/* Header bar */}
+      <div className="border-b border-slate-200 px-6 py-3 flex items-center">
+        <h1 className="text-sm font-semibold text-slate-900 truncate">{chatTitle}</h1>
+      </div>
+
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {messages.length === 0 && (
@@ -1472,7 +1484,7 @@ export function ChatPanel() {
                 </div>
               )}
 
-              <div className="flex gap-2 items-end">
+              <div className="flex gap-2 items-center">
                 <div className="flex-1 relative">
                   {/* Mention picker */}
                   {mentionPickerOpen && (

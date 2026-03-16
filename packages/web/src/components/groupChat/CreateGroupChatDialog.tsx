@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
-import type { GroupChat, GroupChatExpiration } from "@edgebric/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { X, Database, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { GroupChat, GroupChatExpiration, KnowledgeBase } from "@edgebric/types";
 
 const EXPIRATION_OPTIONS: { value: GroupChatExpiration; label: string }[] = [
   { value: "24h", label: "24 hours" },
@@ -18,10 +19,28 @@ interface Props {
 export function CreateGroupChatDialog({ onClose }: Props) {
   const [name, setName] = useState("");
   const [expiration, setExpiration] = useState<GroupChatExpiration>("1w");
+  const [selectedKBIds, setSelectedKBIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const { data: kbs } = useQuery<KnowledgeBase[]>({
+    queryKey: ["knowledge-bases"],
+    queryFn: () =>
+      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [];
+        return r.json() as Promise<KnowledgeBase[]>;
+      }),
+  });
+
+  const activeKBs = (kbs ?? []).filter((kb) => kb.status === "active");
+
+  function toggleKB(id: string) {
+    setSelectedKBIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
 
   async function handleCreate() {
     if (!name.trim()) return;
@@ -29,6 +48,7 @@ export function CreateGroupChatDialog({ onClose }: Props) {
     setError(null);
 
     try {
+      // 1. Create the group chat
       const res = await fetch("/api/group-chats", {
         method: "POST",
         credentials: "same-origin",
@@ -43,6 +63,17 @@ export function CreateGroupChatDialog({ onClose }: Props) {
       }
 
       const chat = (await res.json()) as GroupChat;
+
+      // 2. Share selected KBs (fire-and-forget, don't block navigation)
+      for (const kbId of selectedKBIds) {
+        void fetch(`/api/group-chats/${chat.id}/shared-kbs`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ knowledgeBaseId: kbId, allowSourceViewing: true }),
+        });
+      }
+
       void queryClient.invalidateQueries({ queryKey: ["group-chats"] });
       onClose();
       void navigate({ to: "/group-chats/$id", params: { id: chat.id } });
@@ -88,11 +119,12 @@ export function CreateGroupChatDialog({ onClose }: Props) {
                 <button
                   key={opt.value}
                   onClick={() => setExpiration(opt.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                     expiration === opt.value
                       ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                  )}
                 >
                   {opt.label}
                 </button>
@@ -102,6 +134,40 @@ export function CreateGroupChatDialog({ onClose }: Props) {
               After expiration, shared KBs are no longer queryable and the chat becomes read-only.
             </p>
           </div>
+
+          {/* KB selection */}
+          {activeKBs.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Share Knowledge Bases
+                <span className="font-normal text-slate-400 ml-1">(optional)</span>
+              </label>
+              <div className="space-y-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-1">
+                {activeKBs.map((kb) => {
+                  const isSelected = selectedKBIds.includes(kb.id);
+                  return (
+                    <button
+                      key={kb.id}
+                      onClick={() => toggleKB(kb.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
+                        isSelected
+                          ? "bg-slate-100 text-slate-900"
+                          : "text-slate-600 hover:bg-slate-50",
+                      )}
+                    >
+                      <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <span className="text-xs truncate flex-1">{kb.name}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Selected KBs will be shared with all group chat members. You can add more later.
+              </p>
+            </div>
+          )}
 
           {error && (
             <p className="text-xs text-red-600">{error}</p>

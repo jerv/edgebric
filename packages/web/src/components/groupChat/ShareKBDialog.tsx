@@ -28,10 +28,8 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
   });
 
   const alreadySharedIds = new Set(existingShares.map((s) => s.knowledgeBaseId));
-  const availableKBs = (kbs ?? []).filter(
-    (kb) => !alreadySharedIds.has(kb.id) && kb.status !== "archived",
-  );
-  const selectedKB = availableKBs.find((kb) => kb.id === selectedKBId);
+  const allActiveKBs = (kbs ?? []).filter((kb) => kb.status !== "archived");
+  const selectedKB = allActiveKBs.find((kb) => kb.id === selectedKBId);
 
   async function handleShare() {
     if (!selectedKBId) return;
@@ -73,7 +71,10 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
     >
       <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-900">Share Knowledge Base</h2>
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-semibold text-slate-900">Share KB</h2>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-4 h-4" />
           </button>
@@ -81,36 +82,46 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
 
         {step === "select" && (
           <>
-            {availableKBs.length === 0 ? (
+            {allActiveKBs.length === 0 ? (
               <p className="text-xs text-slate-500 py-4 text-center">
-                No additional knowledge bases available to share.
+                No knowledge bases available.
               </p>
             ) : (
               <div className="space-y-1 max-h-60 overflow-y-auto">
-                {availableKBs.map((kb) => (
-                  <button
-                    key={kb.id}
-                    onClick={() => setSelectedKBId(kb.id)}
-                    className={cn(
-                      "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-                      selectedKBId === kb.id
-                        ? "bg-slate-900 text-white"
-                        : "bg-slate-50 text-slate-700 hover:bg-slate-100",
-                    )}
-                  >
-                    <Database className={cn("w-4 h-4 flex-shrink-0", selectedKBId === kb.id ? "text-white/70" : "text-slate-400")} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{kb.name}</p>
-                      <p className={cn("text-[11px] truncate", selectedKBId === kb.id ? "text-white/60" : "text-slate-400")}>
-                        {kb.documentCount ?? 0} document{kb.documentCount !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                {allActiveKBs.map((kb) => {
+                  const isAlreadyShared = alreadySharedIds.has(kb.id);
+                  const isSelected = selectedKBId === kb.id;
+
+                  return (
+                    <button
+                      key={kb.id}
+                      onClick={() => !isAlreadyShared && setSelectedKBId(kb.id)}
+                      disabled={isAlreadyShared}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+                        isAlreadyShared
+                          ? "opacity-50 cursor-not-allowed bg-slate-50"
+                          : isSelected
+                            ? "bg-slate-900 text-white"
+                            : "bg-slate-50 text-slate-700 hover:bg-slate-100",
+                      )}
+                    >
+                      <Database className={cn("w-4 h-4 flex-shrink-0", isSelected && !isAlreadyShared ? "text-white/70" : "text-slate-400")} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{kb.name}</p>
+                        <p className={cn("text-[11px] truncate", isSelected && !isAlreadyShared ? "text-white/60" : "text-slate-400")}>
+                          {isAlreadyShared
+                            ? "Already shared"
+                            : `${kb.documentCount ?? 0} document${kb.documentCount !== 1 ? "s" : ""}`}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {selectedKBId && (
+            {selectedKBId && !alreadySharedIds.has(selectedKBId) && (
               <div className="mt-4 border-t border-slate-100 pt-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -135,7 +146,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
             <div className="flex items-center gap-2 mt-5">
               <button
                 onClick={() => setStep("confirm")}
-                disabled={!selectedKBId}
+                disabled={!selectedKBId || alreadySharedIds.has(selectedKBId)}
                 className="bg-slate-900 text-white rounded-lg px-4 py-2 text-xs font-medium hover:bg-slate-700 transition-colors disabled:opacity-50"
               >
                 Next
