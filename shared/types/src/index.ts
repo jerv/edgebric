@@ -37,6 +37,8 @@ export interface User {
   lastLoginAt?: Date;
   /** Whether this member can create org-shared knowledge bases. Admins always can. */
   canCreateKBs?: boolean;
+  /** Whether this member can create group chats. Admins always can. */
+  canCreateGroupChats?: boolean;
   createdAt: Date;
 }
 
@@ -399,6 +401,59 @@ export interface UnansweredQuestion {
   messageId: string;
   feedback?: { rating: "up" | "down"; comment?: string | undefined } | undefined;
   resolvedAt?: string | undefined;
+}
+
+// ─── Group Chats ─────────────────────────────────────────────────────────────
+
+export type GroupChatStatus = "active" | "expired" | "archived";
+export type GroupChatMemberRole = "creator" | "member";
+export type GroupChatExpiration = "24h" | "1w" | "1m" | "never";
+
+export interface GroupChat {
+  id: string;
+  name: string;
+  creatorEmail: string;
+  orgId: string;
+  expiresAt?: Date;
+  status: GroupChatStatus;
+  members: GroupChatMember[];
+  sharedKBs: GroupChatSharedKB[];
+  threadCount?: number;
+  messageCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GroupChatMember {
+  userEmail: string;
+  userName?: string;
+  role: GroupChatMemberRole;
+  joinedAt: Date;
+}
+
+export interface GroupChatSharedKB {
+  id: string;
+  knowledgeBaseId: string;
+  knowledgeBaseName: string;
+  sharedByEmail: string;
+  sharedByName?: string;
+  allowSourceViewing: boolean;
+  sharedAt: Date;
+}
+
+export interface GroupChatMessage {
+  id: string;
+  groupChatId: string;
+  threadParentId?: string;
+  authorEmail?: string;
+  authorName?: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  citations?: Citation[];
+  hasConfidentAnswer?: boolean;
+  /** Number of replies in thread (populated on main chat messages only). */
+  threadReplyCount?: number;
+  createdAt: Date;
 }
 
 // ─── mimik / Edge Config ──────────────────────────────────────────────────────

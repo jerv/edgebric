@@ -231,6 +231,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE knowledge_bases ADD COLUMN allow_source_viewing INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE knowledge_bases ADD COLUMN allow_vault_sync INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE knowledge_bases ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
+    // Group chat permission
+    "ALTER TABLE users ADD COLUMN can_create_group_chats INTEGER DEFAULT 0",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
@@ -246,6 +248,60 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     );
     CREATE INDEX IF NOT EXISTS idx_kb_access_kb_id ON kb_access(kb_id);
     CREATE INDEX IF NOT EXISTS idx_kb_access_email ON kb_access(email);
+  `);
+
+  // Group chat tables
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS group_chats (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      creator_email TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      expires_at TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      context_summary TEXT,
+      context_summary_up_to TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS group_chat_members (
+      group_chat_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      user_name TEXT,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TEXT NOT NULL,
+      PRIMARY KEY (group_chat_id, user_email)
+    );
+
+    CREATE TABLE IF NOT EXISTS group_chat_shared_kbs (
+      id TEXT PRIMARY KEY,
+      group_chat_id TEXT NOT NULL,
+      knowledge_base_id TEXT NOT NULL,
+      shared_by_email TEXT NOT NULL,
+      allow_source_viewing INTEGER NOT NULL DEFAULT 1,
+      shared_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS group_chat_messages (
+      id TEXT PRIMARY KEY,
+      group_chat_id TEXT NOT NULL,
+      thread_parent_id TEXT,
+      author_email TEXT,
+      author_name TEXT,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      citations TEXT,
+      has_confident_answer INTEGER,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_group_chat_members_email ON group_chat_members(user_email);
+    CREATE INDEX IF NOT EXISTS idx_group_chat_messages_chat_id ON group_chat_messages(group_chat_id);
+    CREATE INDEX IF NOT EXISTS idx_group_chat_messages_thread ON group_chat_messages(thread_parent_id);
+    CREATE INDEX IF NOT EXISTS idx_group_chat_shared_kbs_chat_id ON group_chat_shared_kbs(group_chat_id);
+    CREATE INDEX IF NOT EXISTS idx_group_chats_org_id ON group_chats(org_id);
+    CREATE INDEX IF NOT EXISTS idx_group_chats_status ON group_chats(status);
   `);
 
   // Create index after migration ensures the column exists

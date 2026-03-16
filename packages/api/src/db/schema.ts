@@ -25,6 +25,7 @@ export const users = sqliteTable("users", {
   invitedBy: text("invited_by"),
   lastLoginAt: text("last_login_at"),
   canCreateKBs: integer("can_create_kbs").default(0), // 0 = no, 1 = yes
+  canCreateGroupChats: integer("can_create_group_chats").default(0), // 0 = no, 1 = yes
   createdAt: text("created_at").notNull(),
 });
 
@@ -191,6 +192,51 @@ export const questionResolutions = sqliteTable("question_resolutions", {
   messageId: text("message_id").primaryKey(), // assistant message id
   resolvedAt: text("resolved_at").notNull(),
   resolvedBy: text("resolved_by"),
+});
+
+// ─── Group Chats ──────────────────────────────────────────────────────────────
+
+export const groupChats = sqliteTable("group_chats", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  creatorEmail: text("creator_email").notNull(),
+  orgId: text("org_id").notNull(),
+  expiresAt: text("expires_at"), // ISO string; NULL = never
+  status: text("status").notNull().default("active"), // active | expired | archived
+  contextSummary: text("context_summary"), // cached LLM summary of older messages
+  contextSummaryUpTo: text("context_summary_up_to"), // message ID the summary covers through
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const groupChatMembers = sqliteTable("group_chat_members", {
+  groupChatId: text("group_chat_id").notNull(),
+  userEmail: text("user_email").notNull(),
+  userName: text("user_name"),
+  role: text("role").notNull().default("member"), // creator | member
+  joinedAt: text("joined_at").notNull(),
+});
+
+export const groupChatSharedKBs = sqliteTable("group_chat_shared_kbs", {
+  id: text("id").primaryKey(),
+  groupChatId: text("group_chat_id").notNull(),
+  knowledgeBaseId: text("knowledge_base_id").notNull(),
+  sharedByEmail: text("shared_by_email").notNull(),
+  allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
+  sharedAt: text("shared_at").notNull(),
+});
+
+export const groupChatMessages = sqliteTable("group_chat_messages", {
+  id: text("id").primaryKey(),
+  groupChatId: text("group_chat_id").notNull(),
+  threadParentId: text("thread_parent_id"), // NULL = main chat, set = thread reply
+  authorEmail: text("author_email"), // NULL for bot messages
+  authorName: text("author_name"),
+  role: text("role").notNull(), // user | assistant | system
+  content: text("content").notNull(),
+  citations: text("citations"), // JSON array
+  hasConfidentAnswer: integer("has_confident_answer"),
+  createdAt: text("created_at").notNull(),
 });
 
 // ─── Integration Config ──────────────────────────────────────────────────────

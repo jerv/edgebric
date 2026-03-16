@@ -18,6 +18,7 @@ function rowToUser(row: typeof users.$inferSelect): User {
   if (row.lastLoginAt != null) user.lastLoginAt = new Date(row.lastLoginAt);
   if (row.invitedBy != null) user.invitedBy = row.invitedBy;
   if (row.canCreateKBs) user.canCreateKBs = true;
+  if (row.canCreateGroupChats) user.canCreateGroupChats = true;
   return user;
 }
 
@@ -85,6 +86,7 @@ export function upsertUser(data: {
     orgId: data.orgId,
     invitedBy: null,
     canCreateKBs: 0,
+    canCreateGroupChats: 0,
     lastLoginAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
@@ -117,6 +119,7 @@ export function inviteUser(data: {
     orgId: data.orgId,
     invitedBy: data.invitedBy,
     canCreateKBs: 0,
+    canCreateGroupChats: 0,
     lastLoginAt: null,
     createdAt: new Date().toISOString(),
   };
@@ -159,10 +162,10 @@ export function updateUserName(email: string, orgId: string, name: string): User
   return getUser(existing.id);
 }
 
-/** Update a user's permissions (e.g. canCreateKBs). */
+/** Update a user's permissions (e.g. canCreateKBs, canCreateGroupChats). */
 export function updateUserPermissions(
   userId: string,
-  permissions: { canCreateKBs?: boolean | undefined },
+  permissions: { canCreateKBs?: boolean | undefined; canCreateGroupChats?: boolean | undefined },
 ): User | undefined {
   const db = getDb();
   const existing = db.select().from(users).where(eq(users.id, userId)).get();
@@ -171,6 +174,9 @@ export function updateUserPermissions(
   const updates: Record<string, unknown> = {};
   if (permissions.canCreateKBs !== undefined) {
     updates.canCreateKBs = permissions.canCreateKBs ? 1 : 0;
+  }
+  if (permissions.canCreateGroupChats !== undefined) {
+    updates.canCreateGroupChats = permissions.canCreateGroupChats ? 1 : 0;
   }
 
   if (Object.keys(updates).length > 0) {
