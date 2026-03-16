@@ -76,6 +76,7 @@ export function GroupChatView() {
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [kbSelectorOpen, setKbSelectorOpen] = useState(false);
   const [selectedKBIds, setSelectedKBIds] = useState<string[]>([]); // empty = all shared KBs
+  const [kbTooltipOpen, setKbTooltipOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -156,13 +157,18 @@ export function GroupChatView() {
     ...orgWideKBs.map((kb) => kb.id),
   ]).size;
 
-  // Build a list of all queryable KBs for the selector
-  const queryableKBs: { id: string; name: string; source: "shared" | "org" }[] = [];
+  // Build a list of all queryable KBs for the selector and tooltip
+  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string }[] = [];
   const seenIds = new Set<string>();
   for (const s of chat?.sharedKBs ?? []) {
     if (!seenIds.has(s.knowledgeBaseId)) {
       seenIds.add(s.knowledgeBaseId);
-      queryableKBs.push({ id: s.knowledgeBaseId, name: s.knowledgeBaseName, source: "shared" });
+      queryableKBs.push({
+        id: s.knowledgeBaseId,
+        name: s.knowledgeBaseName,
+        source: "shared",
+        sharedBy: s.sharedByName ?? s.sharedByEmail,
+      });
     }
   }
   for (const kb of orgWideKBs) {
@@ -339,9 +345,28 @@ export function GroupChatView() {
                 <Users className="w-3 h-3" />
                 {chat.members.length} member{chat.members.length !== 1 ? "s" : ""}
               </span>
-              <span className="flex items-center gap-1">
+              <span
+                className="flex items-center gap-1 relative cursor-default"
+                onMouseEnter={() => setKbTooltipOpen(true)}
+                onMouseLeave={() => setKbTooltipOpen(false)}
+              >
                 <Database className="w-3 h-3" />
                 {effectiveKBCount} KB{effectiveKBCount !== 1 ? "s" : ""}
+                {kbTooltipOpen && queryableKBs.length > 0 && (
+                  <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30">
+                    {queryableKBs.map((kb) => (
+                      <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2">
+                        <Database className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-700 truncate">{kb.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </span>
               {chat.expiresAt && (
                 <span className="flex items-center gap-1">
@@ -372,29 +397,6 @@ export function GroupChatView() {
             </button>
           )}
         </div>
-
-        {/* Shared KBs bar */}
-        {queryableKBs.length > 0 && (
-          <div className="border-b border-slate-100 px-6 py-2 flex items-center gap-2 overflow-x-auto">
-            <span className="text-[10px] text-slate-400 flex-shrink-0">KBs:</span>
-            {queryableKBs.map((kb) => (
-              <span
-                key={kb.id}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] flex-shrink-0",
-                  kb.source === "org"
-                    ? "bg-slate-50 border border-slate-150 text-slate-400"
-                    : "bg-slate-50 border border-slate-200 text-slate-600",
-                )}
-                title={kb.source === "org" ? "Organization-wide KB" : "Shared in this chat"}
-              >
-                <Database className="w-3 h-3 text-slate-400" />
-                {kb.name}
-                {kb.source === "org" && <span className="text-[9px] text-slate-300 ml-0.5">org</span>}
-              </span>
-            ))}
-          </div>
-        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-1 min-h-0">
