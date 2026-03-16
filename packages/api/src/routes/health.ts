@@ -1,13 +1,32 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
-import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
+import { execSync } from "child_process";
+import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
 
 export const healthRouter: IRouter = Router();
 
 const startTime = Date.now();
 
+/** Get disk usage for the data directory. Returns available bytes and usage percentage. */
+function getDiskUsage(): { availableBytes: number; usedPercent: number } | null {
+  try {
+    // df -k outputs 1K blocks — works on macOS and Linux
+    const output = execSync(`df -k "${config.dataDir}" 2>/dev/null`, { encoding: "utf8" });
+    const lines = output.trim().split("\n");
+    if (lines.length < 2) return null;
+    const parts = lines[1]!.split(/\s+/);
+    // df columns: Filesystem, 1K-blocks, Used, Available, Capacity/Use%, Mounted
+    const available = parseInt(parts[3]!, 10) * 1024; // convert 1K-blocks to bytes
+    const capacityStr = parts[4]!.replace("%", "");
+    const usedPercent = parseInt(capacityStr, 10);
+    return { availableBytes: available, usedPercent };
+  } catch {
+    return null;
+  }
+}
+
 healthRouter.get("/", async (req, res) => {
-  const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
+  const checks: Record<string, { status: string; latencyMs?: number; error?: string; detail?: string }> = {};
 
   // Database check — if we got here, express is running and DB was initialized
   checks.database = { status: "ok" };
@@ -47,8 +66,21 @@ healthRouter.get("/", async (req, res) => {
     };
   }
 
+  // Disk space check
+  const disk = getDiskUsage();
+  if (disk) {
+    const GB = (disk.availableBytes / (1024 ** 3)).toFixed(1);
+    if (disk.usedPercent >= 95) {
+      checks.disk = { status: "critical", detail: `${GB} GB free (${disk.usedPercent}% used)` };
+    } else if (disk.usedPercent >= 85) {
+      checks.disk = { status: "warning", detail: `${GB} GB free (${disk.usedPercent}% used)` };
+    } else {
+      checks.disk = { status: "ok", detail: `${GB} GB free` };
+    }
+  }
+
   const allOk = Object.values(checks).every((c) => c.status === "ok");
-  const anyDown = Object.values(checks).some((c) => c.status === "unavailable");
+  const anyDown = Object.values(checks).some((c) => c.status === "unavailable" || c.status === "critical");
   const overallStatus = allOk ? "healthy" : anyDown ? "unhealthy" : "degraded";
 
   // Only expose detailed checks (latency, errors, uptime) to authenticated admins.
