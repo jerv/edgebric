@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
+import { randomBytes } from "crypto";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
 import pinoHttpModule from "pino-http";
@@ -26,7 +29,7 @@ import { analyticsRouter } from "./routes/analytics.js";
 import { healthRouter } from "./routes/health.js";
 import { knowledgeBasesRouter } from "./routes/knowledgeBases.js";
 import { orgRouter } from "./routes/org.js";
-import { initDatabase } from "./db/index.js";
+import { initDatabase, closeDatabase } from "./db/index.js";
 import { backfillChunkContent } from "./jobs/backfillChunkContent.js";
 import { migrateOrphanedDocumentsToDefaultKB } from "./jobs/migrateDefaultKB.js";
 import { ensureDefaultOrg } from "./services/orgStore.js";
@@ -58,6 +61,27 @@ const sessionsDir = path.join(config.dataDir, "sessions");
 const app = express();
 
 const isDev = process.env["NODE_ENV"] !== "production";
+
+// ─── Security Headers (helmet) ──────────────────────────────────────────────
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],  // shadcn/ui uses inline styles
+      imgSrc: ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com"],  // Google profile pics
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      baseUri: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,  // breaks loading Google profile images
+  hsts: !isDev ? { maxAge: 31536000, includeSubDomains: true } : false,
+}));
 
 // ─── HTTP Request Logging ────────────────────────────────────────────────────
 
@@ -118,6 +142,10 @@ app.use(globalLimiter);
 
 app.use(express.json({ limit: "1mb" }));
 
+// ─── Cookie parsing ─────────────────────────────────────────────────────────
+
+app.use(cookieParser());
+
 // ─── Sessions ────────────────────────────────────────────────────────────────
 
 app.use(
@@ -140,6 +168,45 @@ app.use(
     },
   }),
 );
+
+// ─── CSRF Protection (double-submit cookie) ────────────────────────────────
+
+const CSRF_COOKIE = "edgebric.csrf";
+const CSRF_HEADER = "x-csrf-token";
+const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+// Set CSRF token cookie on every response if not already present
+app.use((req, res, next) => {
+  if (!req.cookies?.[CSRF_COOKIE]) {
+    const token = randomBytes(32).toString("hex");
+    res.cookie(CSRF_COOKIE, token, {
+      httpOnly: false,       // JS must read this cookie
+      sameSite: "lax",
+      secure: !isDev,
+      path: "/",
+    });
+  }
+  next();
+});
+
+// Verify CSRF token on state-changing requests
+app.use((req, res, next) => {
+  if (CSRF_SAFE_METHODS.has(req.method)) return next();
+
+  // Skip CSRF for auth callback (OIDC redirect, no JS involved)
+  if (req.path === "/api/auth/callback") return next();
+  // Skip CSRF for health check
+  if (req.path === "/api/health") return next();
+
+  const cookieToken = req.cookies?.[CSRF_COOKIE];
+  const headerToken = req.headers[CSRF_HEADER];
+
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    res.status(403).json({ error: "CSRF token missing or invalid" });
+    return;
+  }
+  next();
+});
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -220,7 +287,7 @@ async function start() {
     logger.warn({ err }, "Chunk content backfill failed"),
   );
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     logger.info({
       port: config.port,
       corsOrigin: config.frontendUrl,
@@ -228,6 +295,42 @@ async function start() {
       adminEmails: config.adminEmails,
     }, `Edgebric API running on http://localhost:${config.port}`);
   });
+
+  // ─── Graceful Shutdown ──────────────────────────────────────────────────────
+
+  let shuttingDown = false;
+
+  function shutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info({ signal }, "Shutting down gracefully...");
+
+    // Stop accepting new connections, drain existing ones
+    server.close(() => {
+      logger.info("HTTP server closed");
+
+      // Close SQLite database
+      try {
+        closeDatabase();
+        logger.info("Database closed");
+      } catch {
+        // safe to ignore
+      }
+
+      // Flush pino logs
+      logger.flush();
+      process.exit(0);
+    });
+
+    // Force exit if drain takes too long (10s)
+    setTimeout(() => {
+      logger.warn("Graceful shutdown timed out, forcing exit");
+      process.exit(1);
+    }, 10_000).unref();
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 start().catch((err) => {

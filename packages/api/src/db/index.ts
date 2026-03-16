@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let _sqlite: InstanceType<typeof Database> | null = null;
 
 /**
  * Initialize the SQLite database.
@@ -21,13 +22,14 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   fs.mkdirSync(config.dataDir, { recursive: true });
 
   const dbPath = path.join(config.dataDir, "edgebric.db");
-  const sqlite = new Database(dbPath);
+  _sqlite = new Database(dbPath);
 
   // WAL mode for better concurrent read performance
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+  _sqlite.pragma("journal_mode = WAL");
+  _sqlite.pragma("foreign_keys = ON");
 
-  _db = drizzle(sqlite, { schema });
+  _db = drizzle(_sqlite, { schema });
+  const sqlite = _sqlite;
 
   // Create tables if they don't exist (push-style — no migration files needed)
   sqlite.exec(`
@@ -277,4 +279,13 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
 export function getDb(): ReturnType<typeof drizzle<typeof schema>> {
   if (!_db) throw new Error("Database not initialized — call initDatabase() first");
   return _db;
+}
+
+/** Close the database connection (for graceful shutdown). */
+export function closeDatabase(): void {
+  if (_sqlite) {
+    _sqlite.close();
+    _sqlite = null;
+    _db = null;
+  }
 }
