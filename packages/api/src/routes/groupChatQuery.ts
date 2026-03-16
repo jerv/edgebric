@@ -2,9 +2,9 @@ import { Router } from "express";
 import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { answerStream } from "@edgebric/core/rag";
+import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
-import type { SearchResult } from "@edgebric/core/rag";
+import type { SearchResult, ChatMessage } from "@edgebric/core/rag";
 import type { Session, SessionMessage, Citation } from "@edgebric/types";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -21,6 +21,8 @@ import {
   getRecentMainMessages,
   getThreadMessages,
   getSharedDatasetNames,
+  getContextSummary,
+  setContextSummary,
 } from "../services/groupChatStore.js";
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
@@ -199,25 +201,50 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       return;
     }
 
-    // Build context from recent messages
+    // Build context from recent messages, with summarization for long conversations
     let contextMessages: ReturnType<typeof getRecentMainMessages>;
     if (threadParentId) {
-      // Thread context: parent message + thread replies
-      const threadMsgs = getThreadMessages(threadParentId);
-      contextMessages = threadMsgs;
+      contextMessages = getThreadMessages(threadParentId);
     } else {
-      // Main chat context
-      contextMessages = getRecentMainMessages(chatId, 20);
+      contextMessages = getRecentMainMessages(chatId, 40);
     }
 
-    // Build session for RAG pipeline
-    const sessionMessages: SessionMessage[] = contextMessages
+    // Convert to ChatMessage format for summarizer
+    const chatMsgs: ChatMessage[] = contextMessages
       .filter((m) => m.role === "user" || m.role === "assistant")
-      .slice(-8)
-      .map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
+      .map((m) => {
+        const cm: ChatMessage = { role: m.role as "user" | "assistant", content: m.content };
+        if (m.authorName) cm.authorName = m.authorName;
+        return cm;
+      });
+
+    // Split into old (to summarize) and recent (keep verbatim)
+    const { old, recent } = splitForSummary(chatMsgs, 3000);
+
+    // Get or generate summary for old messages
+    let summary = "";
+    if (old.length > 0) {
+      const cached = getContextSummary(chatId);
+      if (cached) {
+        summary = cached.summary;
+      } else {
+        try {
+          summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
+          if (summary && contextMessages.length > 0) {
+            setContextSummary(chatId, summary, contextMessages[contextMessages.length - 1]!.id);
+          }
+        } catch (err) {
+          logger.warn({ err }, "Context summarization failed, using recent messages only");
+        }
+      }
+    }
+
+    // Build session messages from summarized context
+    const summarizedContext = buildSummarizedContext(summary, recent);
+    const sessionMessages: SessionMessage[] = summarizedContext
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-10)
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
     sessionMessages.push({ role: "user", content: query });
 
     const session: Session = {
