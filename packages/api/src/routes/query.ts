@@ -73,13 +73,6 @@ function enrichCitationsWithKBName(citations: Citation[]): void {
   }
 }
 
-/** Get dataset names accessible to a user. Falls back to legacy "knowledge-base" if no KBs exist. */
-function getAccessibleDatasetNames(email: string, isAdmin: boolean, orgId?: string): string[] {
-  const kbs = listAccessibleKBs(email, isAdmin, orgId);
-  if (kbs.length === 0) return ["knowledge-base"];
-  return kbs.map((kb) => kb.datasetName);
-}
-
 /**
  * Resolve target dataset names from client-provided KB IDs.
  * Always intersects with the user's accessible set (security: prevents unauthorized KB access).

@@ -29,7 +29,7 @@ function makeDeps(
 ): OrchestratorDeps {
   return {
     search: async () => results,
-    generate: async function* (messages) {
+    generate: async function* (_messages) {
       // Yield the answer in chunks to simulate streaming
       const words = generatedText.split(" ");
       for (const word of words) {

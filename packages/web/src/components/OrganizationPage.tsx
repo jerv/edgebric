@@ -1,9 +1,9 @@
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  Loader2, Pencil, Building2, Image,
+  Pencil, Building2, Image,
 } from "lucide-react";
 import type { Organization } from "@edgebric/types";
 import { cn } from "@/lib/utils";

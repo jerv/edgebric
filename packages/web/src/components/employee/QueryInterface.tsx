@@ -5,7 +5,7 @@ import Markdown from "react-markdown";
 import type { AnswerResponse, Citation, EscalateResponse, AvailableTarget, PersistedMessage, FeedbackCheck } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
-import { adminLabel, employeeLabel } from "@/lib/models";
+import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
 import { ChevronDown, Slack, Mail, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserRound, Search, Send, Square } from "lucide-react";
@@ -473,7 +473,7 @@ export function ChatPanel() {
 
     void backgroundSync();
     return () => { cancelled = true; };
-  }, [privacyLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [privacyLevel]);
 
   // Load conversation messages when conversationId changes (from URL or new creation)
   // Skip in privacy modes — messages are ephemeral

@@ -7,14 +7,16 @@
     "dev": "concurrently --names \"api,web\" --prefix-colors \"cyan,magenta\" \"pnpm --filter @edgebric/api dev\" \"pnpm --filter @edgebric/web dev\"",
     "build": "pnpm -r --filter=!@edgebric/web build && pnpm --filter @edgebric/web build",
     "test": "pnpm -r test",
-    "lint": "eslint . --ext .ts,.tsx --ignore-path .eslintignore",
+    "lint": "eslint .",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.3",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "concurrently": "^9.0.0",
     "eslint": "^9.0.0",
+    "globals": "^17.4.0",
     "prettier": "^3.0.0",
     "typescript": "^5.7.0"
   }

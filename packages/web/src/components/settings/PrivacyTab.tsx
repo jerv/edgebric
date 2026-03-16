@@ -212,7 +212,7 @@ function VaultSetupWizard() {
     if (hasChatModel && !selectedChatModel) {
       const first = chatModels[0]!.name;
       setSelectedChatModel(first);
-      try { localStorage.setItem("edgebric-vault-chat-model", first); } catch {}
+      try { localStorage.setItem("edgebric-vault-chat-model", first); } catch { /* localStorage unavailable */ }
     }
 
     setModelsStatus(hasEmbedding && hasChatModel ? "ready" : "missing");
@@ -243,7 +243,6 @@ function VaultSetupWizard() {
   // Auto-verify Ollama connection on mount
   useEffect(() => {
     void checkOllama();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startSync = useCallback(async () => {
@@ -343,7 +342,7 @@ function VaultSetupWizard() {
 
   const handleSelectChatModel = useCallback((model: string) => {
     setSelectedChatModel(model);
-    try { localStorage.setItem("edgebric-vault-chat-model", model); } catch {}
+    try { localStorage.setItem("edgebric-vault-chat-model", model); } catch { /* localStorage unavailable */ }
   }, []);
 
   const chatModels = installedModels.filter((m) => isChatModel(m.name));

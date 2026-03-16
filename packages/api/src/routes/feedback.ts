@@ -99,7 +99,7 @@ async function extractTopicAsync(
 
     const words = lastUserMsg.content
       .toLowerCase()
-      .replace(/[?!.,;:'"()\[\]{}]/g, "")
+      .replace(/[?!.,;:'"()[\]{}]/g, "")
       .split(/\s+/)
       .filter((w) => w.length > 1 && !stopWords.has(w));
 

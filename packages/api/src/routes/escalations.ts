@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import { z } from "zod";
-import type { Escalation, EscalateRequest, IntegrationConfig } from "@edgebric/types";
+import type { Escalation, IntegrationConfig } from "@edgebric/types";
 import { requireOrg, requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";

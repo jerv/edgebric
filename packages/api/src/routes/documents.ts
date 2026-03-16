@@ -238,6 +238,7 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
   }
 
   // Clear PII warnings, resume ingestion
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { piiWarnings: _cleared, ...rest } = doc;
   const updated: Document = { ...rest, status: "processing", updatedAt: new Date() };
   setDocument(updated);

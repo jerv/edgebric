@@ -1,7 +1,7 @@
 import type { EscalationTarget } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { escalationTargets } from "../db/schema.js";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 function rowToTarget(row: typeof escalationTargets.$inferSelect): EscalationTarget {

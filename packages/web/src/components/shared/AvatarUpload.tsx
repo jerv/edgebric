@@ -91,7 +91,7 @@ export function AvatarUpload({
             editable && "cursor-pointer",
           )}
           style={{ width: size, height: size }}
-          onClick={() => { editable && inputRef.current?.click(); setError(null); }}
+          onClick={() => { if (editable) { inputRef.current?.click(); } setError(null); }}
         >
           {displayUrl ? (
             <img

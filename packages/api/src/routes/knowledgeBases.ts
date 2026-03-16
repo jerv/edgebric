@@ -18,14 +18,14 @@ import {
   getKBAccessList,
   setKBAccessList,
 } from "../services/knowledgeBaseStore.js";
-import { getDocumentsByKB, setDocument, getDocument } from "../services/documentStore.js";
+import { getDocumentsByKB, setDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { config } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
-import { getOrg } from "../services/orgStore.js";
+
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 

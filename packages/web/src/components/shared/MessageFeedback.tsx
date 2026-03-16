@@ -13,7 +13,7 @@ interface FeedbackButtonsProps {
 }
 
 export function FeedbackButtons({
-  messageId,
+  messageId: _messageId,
   rating,
   isPending,
   isCommentOpen,

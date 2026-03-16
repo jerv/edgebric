@@ -146,7 +146,7 @@ modelsRouter.post("/restart", async (_req, res) => {
         logger.info({ modelId: known.id }, "Model restarted");
         return;
       }
-    } catch {}
+    } catch { /* poll retry */ }
     setTimeout(poll, 2000);
   };
   setTimeout(poll, 3000);

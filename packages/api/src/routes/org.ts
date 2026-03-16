@@ -5,7 +5,7 @@ import path from "path";
 import fs from "fs/promises";
 import multer from "multer";
 import sharp from "sharp";
-import { randomUUID } from "crypto";
+
 import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { getOrg, updateOrg } from "../services/orgStore.js";
@@ -109,7 +109,7 @@ orgRouter.post("/avatar", avatarUpload.single("avatar"), async (req, res) => {
     updateOrg(org.id, { settings: { ...org.settings, avatarUrl } });
 
     res.json({ avatarUrl });
-  } catch (err) {
+  } catch {
     await fs.unlink(req.file.path).catch(() => {});
     res.status(500).json({ error: "Failed to process image" });
   }

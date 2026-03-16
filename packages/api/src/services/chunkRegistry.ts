@@ -1,7 +1,7 @@
 import type { ChunkMetadata } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { chunks, documents, knowledgeBases } from "../db/schema.js";
-import { eq, sql, inArray, isNotNull, and } from "drizzle-orm";
+import { eq, sql, isNotNull, and } from "drizzle-orm";
 
 /** Convert a DB row to ChunkMetadata. */
 function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {

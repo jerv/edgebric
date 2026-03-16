@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  FileText,
   BarChart2,
-  Settings,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -275,7 +273,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       {/* Admin nav items */}
       {filteredAdminItems.length > 0 && (
         <div className="px-2 border-t border-slate-100 pt-2 mt-2 space-y-0.5">
-          {filteredAdminItems.map((item, idx) => {
+          {filteredAdminItems.map((item, _idx) => {
             const itemTab = item.search?.["tab"];
             const currentTab = searchParams.get("tab");
             const isActive = itemTab
