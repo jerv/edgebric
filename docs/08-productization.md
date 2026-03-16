@@ -216,19 +216,19 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 
 ## Product Quality Checklist (Pre-Launch)
 
-- [ ] Onboarding wizard completes without errors
-- [ ] First-time user can create KB + upload doc + query in under 5 minutes
-- [ ] Admin can invite users and manage roles
-- [ ] All API routes have input validation
-- [ ] No console.log in production (structured logging only)
-- [ ] Error pages for 404, 500, network errors
+- [x] Onboarding wizard completes without errors
+- [x] First-time user can create KB + upload doc + query in under 5 minutes
+- [x] Admin can invite users and manage roles
+- [x] All API routes have input validation
+- [x] No console.log in production (structured logging only)
+- [x] Error pages for 404, 500, network errors
 - [ ] Mobile-responsive design tested on iPhone Safari
-- [ ] CORS properly configured for production domain
-- [ ] Rate limiting active
-- [ ] CSRF protection on all state-changing routes
-- [ ] CSP headers set
-- [ ] Health check endpoint returns accurate status
+- [x] CORS properly configured for production domain
+- [x] Rate limiting active
+- [x] CSRF protection on all state-changing routes
+- [x] CSP headers set
+- [x] Health check endpoint returns accurate status
 - [ ] Docker deployment tested on fresh machine
-- [ ] Privacy policy and ToS pages accessible
-- [ ] Architecture one-pager available for compliance review
-- [ ] Backup/restore procedure documented for SQLite database
+- [x] Privacy policy and ToS pages accessible
+- [x] Architecture one-pager available for compliance review
+- [x] Backup/restore procedure documented for SQLite database
