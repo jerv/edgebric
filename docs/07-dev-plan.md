@@ -58,27 +58,52 @@ The primary install experience for non-technical users. A native macOS app that:
 
 **Tech approach:** Electron or Tauri wrapper around the existing web UI + a native menu bar agent. The API server runs as a child process managed by the desktop app. All dependencies bundled — user never sees a terminal.
 
-### 2.2 — CLI Install (Advanced Path)
+### 2.2 — CLI Install (Advanced Path — Ships First)
 
-For sysadmins, MSPs, and developers who prefer terminal:
+Homebrew is the first distribution channel. Even "advanced" users want a clean experience.
 
 ```bash
-# Option A: Homebrew
+# Install
 brew install edgebric
-edgebric setup        # Interactive CLI wizard
-edgebric start        # Start server
 
-# Option B: Docker
-docker compose up -d  # Uses existing docker-compose.yml
+# First-time setup — interactive wizard walks through everything
+edgebric setup
+#   → Choose data directory (default: ~/Edgebric/)
+#   → Configure OIDC provider (Google Workspace / Microsoft 365 / generic)
+#   → Set admin email(s)
+#   → Download AI model (Qwen 4B, ~2.5GB, progress bar)
+#   → Start services
+#   → Opens browser to http://localhost:3001
 
-# Option C: Manual
-git clone ...
-pnpm install && pnpm build
-cp .env.example .env  # Edit config
-pnpm start
+# Daily use
+edgebric start        # Start server (backgrounded)
+edgebric stop         # Stop server
+edgebric status       # Show running state + port + uptime
+edgebric logs         # Tail server logs
+edgebric update       # Check for + apply updates
 ```
 
-The CLI wizard (`edgebric setup`) covers the same steps as the GUI wizard but in terminal: OIDC config, admin emails, data directory, model selection.
+The `edgebric setup` wizard must be polished — clear prompts, sensible defaults, explanations for each step, and a working product at the end without the user needing to edit any config files.
+
+**Distribution:**
+
+| Channel | Priority | Cost | Notes |
+|---|---|---|---|
+| Homebrew Cask | First (V1 beta) | $0 | Formula points to GitHub Releases `.tar.gz` |
+| Landing page + direct download | After branding | $5-20/month | Cloudflare R2 for `.dmg` hosting |
+| Apple code signing | Before public beta | $99/year | Eliminates "unidentified developer" warning |
+
+Homebrew formula lives in a tap: `brew tap edgebric/tap && brew install edgebric`. The formula downloads a pre-built `.tar.gz` from GitHub Releases (free hosting, no monthly cost).
+
+**Other install options (lower priority):**
+
+```bash
+# Docker (for users who already have Docker)
+docker compose up -d
+
+# Manual (for contributors)
+git clone ... && pnpm install && pnpm build && pnpm start
+```
 
 ### 2.3 — Input Validation
 
