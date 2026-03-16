@@ -7,6 +7,7 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/api/package.json packages/api/
+COPY packages/cli/package.json packages/cli/
 COPY packages/core/package.json packages/core/
 COPY packages/edge/package.json packages/edge/
 COPY packages/web/package.json packages/web/
@@ -19,6 +20,7 @@ FROM deps AS build
 
 COPY tsconfig.json ./
 COPY shared/ shared/
+COPY packages/cli/ packages/cli/
 COPY packages/core/ packages/core/
 COPY packages/edge/ packages/edge/
 COPY packages/api/ packages/api/
