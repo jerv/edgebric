@@ -197,13 +197,13 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
             {!collapsed && <span>New Chat</span>}
           </button>
         ) : (
-          <div className="relative flex items-center">
+          <div className="relative">
             <Link
               to="/"
               onClick={onNavigate}
               title={collapsed ? "New Chat" : undefined}
               className={cn(
-                "flex items-center rounded-lg text-sm transition-colors flex-1",
+                "flex items-center rounded-lg text-sm transition-colors",
                 collapsed ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
                 isOnChat && !activeConvId
                   ? "bg-slate-900 text-white"
@@ -211,17 +211,24 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
               )}
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span>New Chat</span>}
+              {!collapsed && (
+                <>
+                  <span className="flex-1">New Chat</span>
+                  <span
+                    role="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowNewChatMenu((v) => !v);
+                    }}
+                    className="p-0.5 rounded hover:bg-white/20 transition-colors"
+                    title="More options"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </span>
+                </>
+              )}
             </Link>
-            {!collapsed && (
-              <button
-                onClick={() => setShowNewChatMenu((v) => !v)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                title="More options"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-            )}
             {showNewChatMenu && !collapsed && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNewChatMenu(false)} />
