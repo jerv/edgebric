@@ -8,11 +8,12 @@ import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, Slack, Mail, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserRound, Search, Send, Square } from "lucide-react";
+import { ChevronDown, Slack, Mail, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserRound, Search } from "lucide-react";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
 import { FeedbackButtons, FeedbackCommentForm } from "@/components/shared/MessageFeedback";
+import { ChatInput } from "@/components/shared/ChatInput";
 import { SourcePanel } from "./SourcePanel";
 import { KBMentionPicker, type KBTarget, type KBMentionPickerHandle } from "./KBMentionPicker";
 import type { KnowledgeBase } from "@edgebric/types";
@@ -1484,10 +1485,16 @@ export function ChatPanel() {
                 </div>
               )}
 
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 relative">
-                  {/* Mention picker */}
-                  {mentionPickerOpen && (
+              <ChatInput
+                ref={inputRef}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                onSubmit={() => void handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
+                onStop={handleStop}
+                isLoading={isLoading}
+                overlay={
+                  mentionPickerOpen ? (
                     <KBMentionPicker
                       ref={mentionPickerRef}
                       filter={mentionFilter}
@@ -1496,43 +1503,9 @@ export function ChatPanel() {
                       onSelect={handleMentionSelect}
                       onDismiss={() => setMentionPickerOpen(false)}
                     />
-                  )}
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Ask a question..."
-                    rows={1}
-                    className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent max-h-32 overflow-y-auto"
-                    style={{ height: "auto" }}
-                    onInput={(e) => {
-                      const target = e.currentTarget;
-                      target.style.height = "auto";
-                      target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
-                    }}
-                  />
-                </div>
-                {isLoading ? (
-                  <button
-                    type="button"
-                    onClick={handleStop}
-                    className="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
-                  >
-                    <Square className="w-3.5 h-3.5 fill-current" />
-                    Stop
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={!input.trim()}
-                    className="inline-flex items-center justify-center gap-1.5 bg-slate-900 text-white rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Send
-                  </button>
-                )}
-              </div>
+                  ) : undefined
+                }
+              />
             </form>
           </div>
         )}
