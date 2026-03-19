@@ -58,7 +58,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
           <button
             type="button"
             onClick={onStop}
-            className="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 rounded-xl px-4 py-3 text-sm font-medium hover:bg-red-50 hover:text-red-600 hover:border-red-200 border border-slate-200 transition-colors flex-shrink-0"
           >
             <Square className="w-3.5 h-3.5 fill-current" />
             Stop
@@ -68,7 +68,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
             type="submit"
             onClick={(e) => { if (!e.currentTarget.form) { e.preventDefault(); onSubmit(); } }}
             disabled={!value.trim() || disabled}
-            className="inline-flex items-center justify-center gap-1.5 bg-slate-900 text-white rounded-xl px-4 h-[42px] text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 bg-slate-900 text-white rounded-xl px-4 py-3 text-sm font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
             Send
