@@ -41,7 +41,7 @@ function TermsOfService() {
           <Section title="3. Permitted use">
             <p>You may use Edgebric to:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Build and manage internal knowledge bases for your organization</li>
+              <li>Build and manage internal sources for your organization</li>
               <li>Enable employees to query organizational knowledge through the AI-powered interface</li>
               <li>Process and embed documents for retrieval-augmented generation</li>
               <li>Manage user access and permissions through your identity provider</li>

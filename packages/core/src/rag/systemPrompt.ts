@@ -39,13 +39,3 @@ ${contextBlock}`;
 export const NO_ANSWER_RESPONSE =
   "I couldn't find a clear answer in the current documentation. Please contact your administrator or the relevant team directly.";
 
-/**
- * Build a no-answer response with dynamic escalation target suggestions.
- */
-export function buildNoAnswerResponse(escalationTargets?: string[]): string {
-  if (!escalationTargets || escalationTargets.length === 0) {
-    return NO_ANSWER_RESPONSE;
-  }
-  const names = escalationTargets.join(", ");
-  return `I couldn't find a clear answer in the current documentation. You can escalate this question to ${names} for a direct response.`;
-}

@@ -107,7 +107,7 @@ export function GroupChatList() {
                 </span>
                 {chat.sharedKBs.length > 0 && (
                   <span className="flex items-center gap-1">
-                    {chat.sharedKBs.length} KB{chat.sharedKBs.length !== 1 ? "s" : ""} shared
+                    {chat.sharedKBs.length} source{chat.sharedKBs.length !== 1 ? "s" : ""} shared
                   </span>
                 )}
               </div>

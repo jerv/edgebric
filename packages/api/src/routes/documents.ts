@@ -87,7 +87,7 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
   if (doc?.knowledgeBaseId && !req.session.isAdmin) {
     const kb = getKB(doc.knowledgeBaseId);
     if (kb && !kb.allowSourceViewing) {
-      res.status(403).json({ error: "Source document viewing is disabled for this knowledge base" });
+      res.status(403).json({ error: "Source document viewing is disabled for this source" });
       return;
     }
   }
@@ -120,7 +120,7 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
   if (doc.knowledgeBaseId && !req.session.isAdmin) {
     const kb = getKB(doc.knowledgeBaseId);
     if (kb && !kb.allowSourceViewing) {
-      res.status(403).json({ error: "Source document viewing is disabled for this knowledge base" });
+      res.status(403).json({ error: "Source document viewing is disabled for this source" });
       return;
     }
   }

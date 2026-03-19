@@ -16,13 +16,12 @@ import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import {
   MembersTab,
   IntegrationsTab,
-  EscalationsTab,
   ServiceTab,
 } from "@/components/settings/orgTabs";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type OrgTab = "general" | "privacy" | "members" | "service" | "integrations" | "escalations";
+export type OrgTab = "general" | "privacy" | "members" | "service" | "integrations";
 
 interface TabDef {
   id: OrgTab;
@@ -38,7 +37,6 @@ const TABS: TabDef[] = [
   { id: "members", label: "Permissions", adminOnly: true },
   { id: "service", label: "Service", adminOnly: true },
   { id: "integrations", label: "Integrations", adminOnly: true },
-  { id: "escalations", label: "Escalations", adminOnly: true },
 ];
 
 // ─── General tab (org info + rename) ────────────────────────────────────────
@@ -254,9 +252,9 @@ function OrgGeneralTab() {
                 className="mt-0.5"
               />
               <div>
-                <p className="text-sm font-medium text-slate-800">Knowledge Base avatars</p>
+                <p className="text-sm font-medium text-slate-800">Source avatars</p>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Chat responses show the avatar of the KB that sourced the answer. Falls back to org avatar if a KB has no photo set.
+                  Chat responses show the avatar of the source that provided the answer. Falls back to org avatar if a source has no photo set.
                 </p>
               </div>
             </label>
@@ -277,19 +275,6 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
   function setTab(id: OrgTab) {
     void navigate({ to: "/organization", search: { tab: id }, replace: true });
   }
-
-  const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ["admin", "escalations", "unread-count"],
-    queryFn: () =>
-      fetch("/api/admin/escalations/unread-count", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ count: number }>;
-      }),
-    enabled: isAdmin,
-    refetchInterval: 30_000,
-  });
-
-  const unreadCount = unreadData?.count ?? 0;
 
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
 
@@ -312,11 +297,6 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
               )}
             >
               {!isAdmin && t.memberLabel ? t.memberLabel : t.label}
-              {t.id === "escalations" && unreadCount > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold leading-none bg-blue-500 text-white rounded-full">
-                  {unreadCount}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -327,7 +307,6 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
         {tab === "members" && isAdmin && <MembersTab />}
         {tab === "service" && isAdmin && <ServiceTab />}
         {tab === "integrations" && isAdmin && <IntegrationsTab />}
-        {tab === "escalations" && isAdmin && <EscalationsTab onSwitchTab={setTab} />}
       </div>
     </div>
   );

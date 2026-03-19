@@ -24,13 +24,13 @@ describe("Auth Middleware", () => {
   });
 
   it("returns 403 for non-admin accessing admin routes", async () => {
-    const res = await memberAgent(orgId).get("/api/admin/analytics/summary");
+    const res = await memberAgent(orgId).get("/api/admin/models");
     expect(res.status).toBe(403);
     expect(res.body.error).toBe("Admin access required");
   });
 
   it("admin can access admin routes", async () => {
-    const res = await adminAgent(orgId).get("/api/admin/analytics/summary");
+    const res = await adminAgent(orgId).get("/api/admin/models");
     expect(res.status).toBe(200);
   });
 

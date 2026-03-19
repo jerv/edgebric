@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BarChart2,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -12,11 +11,10 @@ import {
   Database,
   Building2,
   User,
-  MessageSquareMore,
-  HelpCircle,
   Users,
   ChevronDown,
   LogOut,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -187,23 +185,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
     refetchInterval: 30_000,
   });
 
-  const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ["admin", "escalations", "unread-count"],
-    queryFn: () =>
-      fetch("/api/admin/escalations/unread-count", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ count: number }>;
-      }),
-    enabled: isAdmin,
-    refetchInterval: 30_000,
-  });
-
-  const unreadCount = unreadData?.count ?? 0;
-
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Library", icon: Database },
-    { href: "/analytics", label: "Analytics", icon: BarChart2, adminOnly: true, search: { tab: "overview" } },
-    { href: "/escalations", label: "Escalations", icon: MessageSquareMore, adminOnly: true, badge: unreadCount },
   ];
 
   const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);
@@ -360,6 +343,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
                           : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                       )}
                     >
+                      <MessageSquare className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400" />
                       <span
                         className="flex-1 min-w-0 cursor-pointer flex items-center gap-1.5"
                         onClick={() => {
@@ -509,22 +493,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
           {!collapsed && <span>Account</span>}
         </Link>
 
-        <Link
-          to="/admin-guide"
-          onClick={onNavigate}
-          title={collapsed ? "Help" : undefined}
-          className={cn(
-            "flex items-center rounded-lg text-sm transition-colors",
-            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
-            currentPath.startsWith("/admin-guide")
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-          )}
-        >
-          <HelpCircle className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Help</span>}
-        </Link>
-
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
@@ -597,7 +565,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
           <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
             <h3 className="text-sm font-semibold text-slate-900 mb-2">Leave group chat?</h3>
             <p className="text-xs text-slate-500 leading-relaxed mb-5">
-              You will lose access to this group chat and its shared knowledge bases.
+              You will lose access to this group chat and its shared sources.
             </p>
             <div className="flex items-center gap-2">
               <button

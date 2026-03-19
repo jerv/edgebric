@@ -223,7 +223,7 @@ export function InviteMemberDialog({ groupChatId, existingMembers, onClose }: Pr
                     Are you sure you want to add{" "}
                     <strong>{selectedUser?.name ? `${selectedUser.name} (${inviteEmail})` : inviteEmail}</strong>{" "}
                     to this group chat?
-                    They will gain access to query all shared knowledge bases. This cannot be undone
+                    They will gain access to query all shared sources. This cannot be undone
                     until the chat expires or you remove them.
                   </p>
                 </div>

@@ -18,7 +18,6 @@ import {
   updateConversationTimestamp,
 } from "../services/conversationStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { listTargets } from "../services/escalationTargetStore.js";
 import { listKBs, listAccessibleKBs } from "../services/knowledgeBaseStore.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
@@ -191,12 +190,11 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
     try {
       const orgId = req.session.orgId;
-      const targetNames = listTargets(orgId).map((t) => t.name);
       const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       const stream = answerStream(
         query,
         session,
-        { datasetName: datasetNames[0]!, datasetNames, topK: 3, similarityThreshold: 0.3, escalationTargetNames: targetNames },
+        { datasetName: datasetNames[0]!, datasetNames, topK: 3, similarityThreshold: 0.3 },
         {
           search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
           generate: (messages) => chatClient.chatStream(messages),
@@ -275,7 +273,6 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   };
 
   try {
-    const targetNames = listTargets(orgId).map((t) => t.name);
     const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
     const stream = answerStream(
       query,
@@ -285,7 +282,6 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         datasetNames,
         topK: 3,
         similarityThreshold: 0.3,
-        escalationTargetNames: targetNames,
       },
       {
         search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),

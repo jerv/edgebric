@@ -1,7 +1,7 @@
 import type { AnswerResponse, Citation, Chunk, Session } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { filterQuery } from "./queryFilter.js";
-import { buildSystemPrompt, NO_ANSWER_RESPONSE, buildNoAnswerResponse } from "./systemPrompt.js";
+import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
 
 // ─── Dependency interfaces ─────────────────────────────────────────────────────
 // The orchestrator has no knowledge of mimik, HTTP, or any specific library.
@@ -42,8 +42,6 @@ export interface RAGOptions {
   datasetNames?: string[];
   /** Minimum similarity score to consider a chunk relevant (0–1). */
   similarityThreshold?: number;
-  /** Names of escalation targets to suggest when no answer is found. */
-  escalationTargetNames?: string[];
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────────────────────
@@ -90,7 +88,7 @@ export async function* answerStream(
 
   if (relevantResults.length === 0) {
     const response: AnswerResponse = {
-      answer: buildNoAnswerResponse(options.escalationTargetNames),
+      answer: NO_ANSWER_RESPONSE,
       citations: [],
       hasConfidentAnswer: false,
       sessionId: session.id,

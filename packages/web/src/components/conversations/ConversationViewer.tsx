@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearch } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { ArrowLeft, Loader2, CheckCircle } from "lucide-react";
-import type { Conversation, PersistedMessage, Escalation } from "@edgebric/types";
+import type { Conversation, PersistedMessage } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
-import { useUser } from "@/contexts/UserContext";
 import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
 import { FeedbackButtons, FeedbackCommentForm } from "@/components/shared/MessageFeedback";
@@ -15,7 +14,6 @@ import { SourcePanel } from "../employee/SourcePanel";
 interface ConversationResponse {
   conversation: Conversation;
   messages: PersistedMessage[];
-  escalations: Escalation[];
 }
 
 export function ConversationViewer() {
@@ -23,8 +21,6 @@ export function ConversationViewer() {
   const search = useSearch({ strict: false }) as Record<string, string | undefined>;
   const highlightMessageId = search.msg;
   const highlightRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
-  const user = useUser();
 
   const [activeSource, setActiveSource] = useState<{
     documentId: string;
@@ -32,11 +28,6 @@ export function ConversationViewer() {
     sectionPath: string[];
     pageNumber: number;
   } | null>(null);
-
-  // Admin reply state
-  const [replyText, setReplyText] = useState("");
-  const [resolveNote, setResolveNote] = useState("");
-  const [showResolveInput, setShowResolveInput] = useState(false);
 
   // Feedback — shared hook
   const fb = useFeedback(id);
@@ -52,42 +43,7 @@ export function ConversationViewer() {
       }),
   });
 
-  const replyMutation = useMutation({
-    mutationFn: (args: { escalationId: string; reply: string }) =>
-      fetch(`/api/admin/escalations/${args.escalationId}/reply`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reply: args.reply }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Reply failed");
-        return r.json();
-      }),
-    onSuccess: () => {
-      setReplyText("");
-      void queryClient.invalidateQueries({ queryKey: ["conversation", id] });
-    },
-  });
-
-  const resolveMutation = useMutation({
-    mutationFn: (args: { escalationId: string; note?: string }) =>
-      fetch(`/api/admin/escalations/${args.escalationId}/resolve`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: args.note }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Resolve failed");
-        return r.json();
-      }),
-    onSuccess: () => {
-      setResolveNote("");
-      setShowResolveInput(false);
-      void queryClient.invalidateQueries({ queryKey: ["conversation", id] });
-    },
-  });
-
-  // Auto-scroll to the escalated message
+  // Auto-scroll to highlighted message
   useEffect(() => {
     if (highlightMessageId && highlightRef.current) {
       highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -130,11 +86,7 @@ export function ConversationViewer() {
     );
   }
 
-  const { conversation, messages, escalations } = data;
-  const pendingEscalation = escalations.find(
-    (e) => !e.adminReply && !e.resolvedAt,
-  );
-  const isAdmin = user?.isAdmin;
+  const { conversation, messages } = data;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -257,72 +209,6 @@ export function ConversationViewer() {
         {messages.length === 0 && (
           <div className="text-center py-8">
             <p className="text-sm text-slate-400">This conversation has no messages.</p>
-          </div>
-        )}
-
-        {/* Admin reply form — shown if admin and there's a pending escalation */}
-        {isAdmin && pendingEscalation && (
-          <div className="border border-blue-200 bg-blue-50/50 rounded-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Respond to Escalation</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                A member requested human verification on this conversation.
-              </p>
-            </div>
-
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Write your reply..."
-              rows={3}
-              className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-            />
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => replyMutation.mutate({ escalationId: pendingEscalation.id, reply: replyText })}
-                disabled={!replyText.trim() || replyMutation.isPending}
-                className="bg-slate-900 text-white rounded-lg px-4 py-2 text-xs font-medium hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {replyMutation.isPending ? "Sending..." : "Send Reply"}
-              </button>
-
-              {!showResolveInput ? (
-                <button
-                  onClick={() => setShowResolveInput(true)}
-                  className="text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg px-4 py-2 hover:border-slate-300 transition-colors"
-                >
-                  Resolve Without Reply
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 flex-1">
-                  <input
-                    type="text"
-                    value={resolveNote}
-                    onChange={(e) => setResolveNote(e.target.value)}
-                    placeholder="Resolution note (optional)"
-                    className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") resolveMutation.mutate({ escalationId: pendingEscalation.id, note: resolveNote || undefined });
-                      if (e.key === "Escape") setShowResolveInput(false);
-                    }}
-                  />
-                  <button
-                    onClick={() => resolveMutation.mutate({ escalationId: pendingEscalation.id, note: resolveNote || undefined })}
-                    disabled={resolveMutation.isPending}
-                    className="text-xs font-medium text-white bg-slate-900 rounded-lg px-3 py-2 hover:bg-slate-700 transition-colors disabled:opacity-40 flex-shrink-0"
-                  >
-                    {resolveMutation.isPending ? "Resolving..." : "Resolve"}
-                  </button>
-                  <button
-                    onClick={() => setShowResolveInput(false)}
-                    className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>

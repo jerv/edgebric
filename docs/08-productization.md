@@ -10,10 +10,10 @@ What separates the current working demo from a shippable product.
 - OIDC/SSO authentication (Google dev IdP)
 - Document upload → Docling extraction → chunking → embedding → mKB storage
 - RAG query pipeline with SSE streaming and citations
-- Admin dashboard with escalation management, reply/resolve workflow
+- Admin dashboard with source management, user management
 - Employee query interface with conversation persistence
-- Notification system for escalation replies
-- CSV export of escalation logs
+- Group chats with @bot querying, threads, source sharing
+- Email notification infrastructure
 
 ### What's Missing (by severity)
 
@@ -21,7 +21,7 @@ What separates the current working demo from a shippable product.
 
 **1. Organization Model (Multi-Tenancy Foundation)**
 - Currently: zero concept of "organization." One flat instance.
-- Needed: Organization entity (name, plan, settings, created_at). Every KB, user, and session belongs to an org.
+- Needed: Organization entity (name, plan, settings, created_at). Every source, user, and session belongs to an org.
 - Why critical: Cannot onboard multiple customers. Cannot isolate data between companies even if on different instances.
 - Effort: Medium — schema changes, org-scoped queries throughout
 
@@ -31,9 +31,9 @@ What separates the current working demo from a shippable product.
 - Why critical: Cannot control who accesses the system. No audit trail of who did what.
 - Effort: Medium — new table, role middleware, invite emails
 
-**3. KB Access Control**
-- Currently: all KBs accessible to all users
-- Needed: per-KB access rules. Org KBs: scoped by department or role. Personal KBs: private by default.
+**3. Source Access Control**
+- Currently: all sources accessible to all users
+- Needed: per-source access rules. Network sources: scoped by department or role. Vault sources: private by default.
 - Why critical: department isolation is a core security promise
 - Effort: Medium — permission model, query-time filtering
 
@@ -79,7 +79,7 @@ What separates the current working demo from a shippable product.
 
 **11. Onboarding Wizard**
 - Currently: user lands on empty dashboard
-- Needed: first-run flow: create org → configure auth → create first KB → upload first document → test query
+- Needed: first-run flow: create org → configure auth → create first source → upload first document → test query
 - Effort: Medium — new UI flow, backend state tracking
 
 **12. Testing**
@@ -117,7 +117,7 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 | GDPR DPA | Template only | Provide a DPA template for EU customers. Our architecture is the compliance proof: data never leaves their infrastructure. |
 | PCI DSS | No | We don't process payments (yet). When billing is added, use Stripe — they handle PCI. |
 | ISO 27001 | No (for early stage) | Nice to have for enterprise sales. Not needed for SMB market. |
-| EU AI Act | Partially | Employment-related AI is High Risk. Our human-in-the-loop (escalation) + disclaimers cover the key requirements. Full compliance audit needed before EU launch. |
+| EU AI Act | Partially | Employment-related AI is High Risk. Our human-in-the-loop (group chats with experts) + disclaimers cover the key requirements. Full compliance audit needed before EU launch. |
 
 ### Minimum Viable Compliance (What We Need Now)
 
@@ -162,7 +162,7 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 - Cons: customers may resist subscription for on-prem software
 
 **Option C: Tiered by Features**
-- Free: single-node, 1 org KB, 3 personal KBs
+- Free: single-node, 1 network source, 3 vault sources
 - Pro ($49/month): multi-node mesh, meeting mode, unlimited KBs
 - Enterprise ($199/month): department isolation, advanced analytics, priority support
 - Pros: freemium funnel, feature differentiation
@@ -217,7 +217,7 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 ## Product Quality Checklist (Pre-Launch)
 
 - [x] Onboarding wizard completes without errors
-- [x] First-time user can create KB + upload doc + query in under 5 minutes
+- [x] First-time user can create source + upload doc + query in under 5 minutes
 - [x] Admin can invite users and manage roles
 - [x] All API routes have input validation
 - [x] No console.log in production (structured logging only)

@@ -131,7 +131,7 @@ export function CreateGroupChatDialog({ onClose }: Props) {
               ))}
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              After expiration, shared KBs are no longer queryable and the chat becomes read-only.
+              After expiration, shared sources are no longer queryable and the chat becomes read-only.
             </p>
           </div>
 
@@ -139,7 +139,7 @@ export function CreateGroupChatDialog({ onClose }: Props) {
           {activeKBs.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Share Knowledge Bases
+                Share Sources
                 <span className="font-normal text-slate-400 ml-1">(optional)</span>
               </label>
               <div className="space-y-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-1">

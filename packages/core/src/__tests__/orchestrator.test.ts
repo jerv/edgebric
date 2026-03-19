@@ -105,15 +105,6 @@ describe("answer (non-streaming)", () => {
     expect(response.searchedDatasets).toEqual(["test-dataset"]);
   });
 
-  it("includes escalation targets in no-answer response", async () => {
-    const opts: RAGOptions = {
-      ...defaultOptions,
-      escalationTargetNames: ["HR Team", "IT Support"],
-    };
-    const response = await answer("Unknown question?", makeSession(), opts, makeDeps([]));
-    expect(response.answer).toContain("HR Team");
-    expect(response.answer).toContain("IT Support");
-  });
 });
 
 describe("answerStream", () => {

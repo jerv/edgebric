@@ -2,13 +2,13 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
-import type { AnswerResponse, Citation, EscalateResponse, AvailableTarget, PersistedMessage, FeedbackCheck } from "@edgebric/types";
+import type { AnswerResponse, Citation, PersistedMessage, FeedbackCheck } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, Slack, Mail, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserRound, Search } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2 } from "lucide-react";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
@@ -46,7 +46,7 @@ interface ModelsResponse {
 
 const THINKING_WORDS = [
   "Thinking",
-  "Searching knowledge bases",
+  "Searching sources",
   "Reading documents",
   "Analyzing",
   "Composing answer",
@@ -134,7 +134,7 @@ function BotAvatar({
       if (c.knowledgeBaseId && !kbMap.has(c.knowledgeBaseId)) {
         kbMap.set(c.knowledgeBaseId, {
           id: c.knowledgeBaseId,
-          name: c.knowledgeBaseName ?? "KB",
+          name: c.knowledgeBaseName ?? "Source",
           avatarUrl: c.knowledgeBaseAvatarUrl,
         });
       }
@@ -215,81 +215,6 @@ function BotAvatar({
   );
 }
 
-/** Escalation target picker — scrollable with search when there are many targets. */
-function EscalationPicker({
-  targets,
-  isPending,
-  onSelect,
-}: {
-  targets: AvailableTarget[];
-  isPending: boolean;
-  onSelect: (targetId: string, method: "email" | "slack") => void;
-}) {
-  const [search, setSearch] = useState("");
-  const showSearch = targets.length > 5;
-
-  const filtered = search
-    ? targets.filter(
-        (t) =>
-          t.name.toLowerCase().includes(search.toLowerCase()) ||
-          (t.role && t.role.toLowerCase().includes(search.toLowerCase())),
-      )
-    : targets;
-
-  return (
-    <div className="absolute right-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
-      {targets.length === 0 ? (
-        <div className="px-3 py-2 text-xs text-slate-400">
-          No escalation targets configured. Ask your administrator to set up targets in Settings.
-        </div>
-      ) : (
-        <>
-          {showSearch && (
-            <div className="px-2 pt-2 pb-1 border-b border-slate-100">
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
-                <Search className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search contacts..."
-                  className="flex-1 bg-transparent text-xs outline-none placeholder:text-slate-400"
-                  autoFocus
-                />
-              </div>
-            </div>
-          )}
-          <div className="max-h-52 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-slate-400">No matches</div>
-            ) : (
-              filtered.map((target) => (
-                <div key={target.id} className="px-3 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <div className="text-xs font-medium text-slate-700">{target.name}</div>
-                  {target.role && <div className="text-[11px] text-slate-400">{target.role}</div>}
-                  <div className="flex gap-1 mt-1.5">
-                    {target.methods.map((method) => (
-                      <button
-                        key={method}
-                        onClick={() => onSelect(target.id, method)}
-                        disabled={isPending}
-                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-100 hover:border-slate-300 transition-colors disabled:opacity-40"
-                      >
-                        {method === "slack" ? <Slack className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
-                        {method === "slack" ? "Slack" : "Email"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 export function ChatPanel() {
   const user = useUser();
   const privacy = usePrivacy();
@@ -335,8 +260,6 @@ export function ChatPanel() {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>(urlConvId);
   const [isLoading, setIsLoading] = useState(false);
-  const [escalatedIndices, setEscalatedIndices] = useState<Set<number>>(new Set());
-  const [escalationPickerIndex, setEscalationPickerIndex] = useState<number | null>(null);
   const fb = useFeedback(conversationId);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [privacyPopoverOpen, setPrivacyPopoverOpen] = useState(false);
@@ -584,16 +507,6 @@ export function ChatPanel() {
     },
   });
 
-  const { data: availableTargets } = useQuery<AvailableTarget[]>({
-    queryKey: ["escalation-targets"],
-    queryFn: () =>
-      fetch("/api/escalation-targets", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) return [];
-        return r.json() as Promise<AvailableTarget[]>;
-      }),
-    staleTime: 60_000,
-  });
-
   const { data: availableKBs } = useQuery<KnowledgeBase[]>({
     queryKey: ["knowledge-bases"],
     queryFn: () =>
@@ -602,27 +515,6 @@ export function ChatPanel() {
         return r.json() as Promise<KnowledgeBase[]>;
       }),
     staleTime: 60_000,
-  });
-
-  const escalateMutation = useMutation({
-    mutationFn: (payload: {
-      question: string;
-      aiAnswer: string;
-      citations: Citation[];
-      conversationId: string;
-      messageId: string;
-      targetId: string;
-      method: "slack" | "email";
-    }) =>
-      fetch("/api/escalate", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Escalation failed");
-        return r.json() as Promise<EscalateResponse>;
-      }),
   });
 
   const systemReady = status?.ready ?? true;
@@ -1203,48 +1095,6 @@ export function ChatPanel() {
                           </div>
                         )}
                       </div>
-                      {!isPrivacyMode && conversationId && message.id && (
-                        <div className="relative">
-                          {escalatedIndices.has(i) ? (
-                            <span className="text-xs text-green-600 px-2.5 py-1">Sent for review</span>
-                          ) : (
-                            <button
-                              onClick={() => setEscalationPickerIndex(escalationPickerIndex === i ? null : i)}
-                              disabled={escalateMutation.isPending}
-                              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded px-2.5 py-1 hover:border-slate-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              {escalateMutation.isPending && escalationPickerIndex === i ? "Sending..." : (<><UserRound className="w-3.5 h-3.5" /> Verify with a Human</>)}
-                            </button>
-                          )}
-                          {escalationPickerIndex === i && !escalatedIndices.has(i) && (
-                            <EscalationPicker
-                              targets={availableTargets ?? []}
-                              isPending={escalateMutation.isPending}
-                              onSelect={(targetId, method) => {
-                                const userMsg = messages[i - 1];
-                                if (!userMsg || !conversationId || !message.id) return;
-                                escalateMutation.mutate(
-                                  {
-                                    question: userMsg.content,
-                                    aiAnswer: message.content,
-                                    citations: message.citations ?? [],
-                                    conversationId,
-                                    messageId: message.id,
-                                    targetId,
-                                    method,
-                                  },
-                                  {
-                                    onSuccess: () => {
-                                      setEscalatedIndices((prev) => new Set(prev).add(i));
-                                      setEscalationPickerIndex(null);
-                                    },
-                                  },
-                                );
-                              }}
-                            />
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -1383,14 +1233,14 @@ export function ChatPanel() {
                       )}
                     >
                       <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                      <span className="truncate">All knowledge bases</span>
+                      <span className="truncate">All sources</span>
                       {targetKBs.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                     </button>
 
                     {/* Individual KBs */}
                     {(availableKBs ?? []).filter((kb) => kb.status === "active").length > 0 && (
                       <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
-                        Knowledge Bases
+                        Sources
                       </div>
                     )}
                     {(availableKBs ?? [])

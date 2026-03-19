@@ -35,7 +35,7 @@ function PrivacyPolicy() {
             <p>When deployed within your organization, Edgebric processes:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
               <li>
-                <strong>Documents</strong> you upload to knowledge bases (PDFs, Word documents, text files).
+                <strong>Documents</strong> you upload to sources (PDFs, Word documents, text files).
                 These are chunked and embedded locally for search.
               </li>
               <li>
@@ -56,7 +56,7 @@ function PrivacyPolicy() {
           <Section title="Where data is stored">
             <p>All data is stored in a single directory on your server's filesystem:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>SQLite database (users, conversations, knowledge base metadata)</li>
+              <li>SQLite database (users, conversations, source metadata)</li>
               <li>Uploaded document files</li>
               <li>Embedded vector data (via local mKB service)</li>
               <li>Session files</li>
@@ -79,7 +79,7 @@ function PrivacyPolicy() {
           <Section title="Data retention">
             <p>
               Data persists until you delete it. Administrators can remove documents, clear
-              knowledge bases, and archive or delete conversations. When you uninstall Edgebric,
+              sources, and archive or delete conversations. When you uninstall Edgebric,
               deleting the data directory removes all stored information.
             </p>
           </Section>
@@ -87,7 +87,7 @@ function PrivacyPolicy() {
           <Section title="PII protection">
             <p>Edgebric includes multiple layers of protection against personal data exposure:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Documents containing personal employee records should not be uploaded to shared knowledge bases.</li>
+              <li>Documents containing personal employee records should not be uploaded to shared sources.</li>
               <li>PII detection scans queries for names and sensitive terms before processing.</li>
               <li>System prompts instruct the AI model to never disclose personal information.</li>
               <li>Query-time filters provide an additional safety net.</li>

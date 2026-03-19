@@ -12,11 +12,6 @@ import {
   deleteConversation,
   archiveAllConversations,
 } from "../services/conversationStore.js";
-import {
-  getEscalationsByConversation,
-  conversationHasEscalations,
-  getConversationIdsWithEscalations,
-} from "../services/escalationStore.js";
 import { getUnreadConversationIds } from "../services/notificationStore.js";
 
 const deleteQuerySchema = z.object({
@@ -56,22 +51,15 @@ conversationsRouter.delete("/", validateQuery(deleteQuerySchema), (req, res) => 
     return;
   }
 
-  // mode === "delete": archive escalated conversations, hard-delete the rest
+  // mode === "delete": hard-delete all user conversations
   const userConvs = getConversationsByUser(email, orgId);
-  const escalatedIds = getConversationIdsWithEscalations(userConvs.map((c) => c.id));
   let deleted = 0;
-  let preserved = 0;
   for (const conv of userConvs) {
-    if (escalatedIds.has(conv.id)) {
-      archiveConversation(conv.id);
-      preserved++;
-    } else {
-      deleteConversation(conv.id);
-      deleted++;
-    }
+    deleteConversation(conv.id);
+    deleted++;
   }
 
-  res.json({ ok: true, mode, count: deleted, preserved });
+  res.json({ ok: true, mode, count: deleted });
 });
 
 // GET /api/conversations/:id — get conversation + messages
@@ -90,8 +78,7 @@ conversationsRouter.get("/:id", (req, res) => {
   }
 
   const msgs = getMessages(conv.id);
-  const escalationsList = getEscalationsByConversation(conv.id);
-  res.json({ conversation: conv, messages: msgs, escalations: escalationsList });
+  res.json({ conversation: conv, messages: msgs });
 });
 
 // DELETE /api/conversations/:id?mode=archive|delete
@@ -112,13 +99,6 @@ conversationsRouter.delete("/:id", validateQuery(deleteQuerySchema), (req, res) 
 
   if (!req.session.isAdmin && email !== conv.userEmail) {
     res.status(403).json({ error: "Access denied" });
-    return;
-  }
-
-  if (mode === "delete" && conversationHasEscalations(conv.id)) {
-    // Escalated conversations are preserved for admin review — force archive instead
-    archiveConversation(conv.id);
-    res.json({ ok: true, mode: "archive", escalationProtected: true });
     return;
   }
 

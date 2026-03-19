@@ -8,7 +8,7 @@ import {
   Power, RotateCcw, Activity, Search, Upload, X, AlertTriangle,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
-import type { IntegrationConfig, EscalationTarget, User } from "@edgebric/types";
+import type { IntegrationConfig, User } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { modelMeta } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
@@ -336,7 +336,7 @@ export function MembersTab() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">User</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Role</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Create KBs</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Create Sources</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -501,7 +501,7 @@ export function MembersTab() {
                 <h3 className="text-sm font-semibold text-slate-900">Remove user from organization</h3>
                 <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                   This will permanently remove <strong>{removeTarget.name ?? removeTarget.email}</strong> from the organization.
-                  They will lose access to all knowledge bases and conversations.
+                  They will lose access to all sources and conversations.
                 </p>
               </div>
             </div>
@@ -1161,7 +1161,7 @@ export function IntegrationsTab() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-slate-400">
-        Configure how escalation notifications are delivered to your team.
+        Configure notification integrations for your team.
       </p>
 
       {/* ─── Slack drawer ──────────────────────────────────────────────────── */}
@@ -1212,7 +1212,7 @@ export function IntegrationsTab() {
               />
               <p className="text-xs text-slate-400 mt-1">
                 Slack Bot Token with <code className="text-xs bg-slate-100 px-1 rounded">chat:write</code> scope.
-                Used to send DMs to escalation targets.
+                Used to send notifications to your team.
               </p>
             </div>
 
@@ -1247,8 +1247,8 @@ export function IntegrationsTab() {
                   </li>
                 </ol>
                 <p className="text-slate-400 pt-1">
-                  The bot will send DMs to the Slack User IDs configured on your escalation targets.
-                  Make sure the bot is added to your workspace (it doesn't need to be in any specific channel).
+                  The bot will send notifications to your team members.
+                  Make sure the bot is added to your workspace.
                 </p>
               </div>
             )}
@@ -1482,372 +1482,3 @@ export function IntegrationsTab() {
   );
 }
 
-// ─── Escalations tab ─────────────────────────────────────────────────────────
-
-export function EscalationsTab({ onSwitchTab }: { onSwitchTab: (tab: OrgTab) => void }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  // ─── Target management state ─────
-  const [showTargetForm, setShowTargetForm] = useState(false);
-  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
-  const [targetName, setTargetName] = useState("");
-  const [targetRole, setTargetRole] = useState("");
-  const [targetSlackId, setTargetSlackId] = useState("");
-  const [targetEmail, setTargetEmail] = useState("");
-  const [targetSlackNotify, setTargetSlackNotify] = useState(true);
-  const [targetEmailNotify, setTargetEmailNotify] = useState(true);
-
-  // ─── Queries ─────
-  const { data: integrationConfig } = useQuery<IntegrationConfig>({
-    queryKey: ["admin", "integrations"],
-    queryFn: () =>
-      fetch("/api/admin/integrations", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<IntegrationConfig>;
-      }),
-  });
-
-  const slackEnabled = !!integrationConfig?.slack?.enabled;
-  const emailEnabled = !!integrationConfig?.email?.enabled;
-  const anyIntegrationEnabled = slackEnabled || emailEnabled;
-
-  const { data: targets = [] } = useQuery<EscalationTarget[]>({
-    queryKey: ["admin", "targets"],
-    queryFn: () =>
-      fetch("/api/admin/targets", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<EscalationTarget[]>;
-      }),
-  });
-
-  // ─── Target mutations ─────
-  const createTargetMutation = useMutation({
-    mutationFn: (data: { name: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean }) =>
-      fetch("/api/admin/targets", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Create failed");
-        return r.json() as Promise<EscalationTarget>;
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "targets"] });
-      resetTargetForm();
-    },
-  });
-
-  const updateTargetMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } }) =>
-      fetch(`/api/admin/targets/${id}`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Update failed");
-        return r.json() as Promise<EscalationTarget>;
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "targets"] });
-    },
-  });
-
-  const deleteTargetMutation = useMutation({
-    mutationFn: (id: string) =>
-      fetch(`/api/admin/targets/${id}`, {
-        method: "DELETE",
-        credentials: "same-origin",
-      }).then((r) => {
-        if (!r.ok) throw new Error("Delete failed");
-      }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "targets"] }),
-  });
-
-  function resetTargetForm() {
-    setShowTargetForm(false);
-    setEditingTargetId(null);
-    setTargetName("");
-    setTargetRole("");
-    setTargetSlackId("");
-    setTargetEmail("");
-    setTargetSlackNotify(true);
-    setTargetEmailNotify(true);
-  }
-
-  function startEditTarget(target: EscalationTarget) {
-    setEditingTargetId(target.id);
-    setTargetName(target.name);
-    setTargetRole(target.role ?? "");
-    setTargetSlackId(target.slackUserId ?? "");
-    setTargetEmail(target.email ?? "");
-    setTargetSlackNotify(target.slackNotify !== false);
-    setTargetEmailNotify(target.emailNotify !== false);
-    setShowTargetForm(true);
-  }
-
-  function handleSaveTarget() {
-    const data: { name: string; role?: string; slackUserId?: string; email?: string; slackNotify?: boolean; emailNotify?: boolean } = {
-      name: targetName.trim(),
-    };
-    if (targetRole.trim()) data.role = targetRole.trim();
-    if (targetSlackId.trim()) data.slackUserId = targetSlackId.trim();
-    if (targetEmail.trim()) data.email = targetEmail.trim();
-    data.slackNotify = targetSlackNotify;
-    data.emailNotify = targetEmailNotify;
-
-    if (editingTargetId) {
-      updateTargetMutation.mutateAsync({ id: editingTargetId, data }).then(() => resetTargetForm());
-    } else {
-      createTargetMutation.mutate(data);
-    }
-  }
-
-  const hasValidContact =
-    (slackEnabled && targetSlackId.trim()) || (emailEnabled && targetEmail.trim());
-  const targetFormValid = targetName.trim() && hasValidContact;
-  const isSavingTarget = createTargetMutation.isPending || updateTargetMutation.isPending;
-
-  if (!anyIntegrationEnabled) {
-    return (
-      <div className="space-y-6">
-        <div className="border border-slate-200 rounded-2xl px-6 py-10 text-center opacity-60">
-          <div className="max-w-sm mx-auto space-y-3">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-              <Mail className="w-5 h-5 text-slate-400" />
-            </div>
-            <h3 className="text-sm font-semibold text-slate-700">No notification channels configured</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Enable at least one integration (Slack or Email) before setting up escalation targets.
-              Members won't be able to send verification requests until a notification channel is active.
-            </p>
-            <button
-              onClick={() => onSwitchTab("integrations")}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 transition-colors"
-            >
-              Go to Integrations
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* ─── Escalation Targets Section ──── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-900">Escalation Targets</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              People who can receive verification requests from members.
-            </p>
-          </div>
-          {!showTargetForm && (
-            <button
-              onClick={() => { resetTargetForm(); setShowTargetForm(true); }}
-              className="flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Target
-            </button>
-          )}
-        </div>
-
-        {/* Target form */}
-        {showTargetForm && (
-          <div className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Name *</label>
-                <input
-                  type="text"
-                  value={targetName}
-                  onChange={(e) => setTargetName(e.target.value)}
-                  placeholder="Jane Smith"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Role</label>
-                <input
-                  type="text"
-                  value={targetRole}
-                  onChange={(e) => setTargetRole(e.target.value)}
-                  placeholder="HR Manager"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white"
-                />
-              </div>
-            </div>
-            <div className={cn("grid gap-3", slackEnabled && emailEnabled ? "grid-cols-2" : "grid-cols-1")}>
-              {slackEnabled && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Slack User ID</label>
-                  <input
-                    type="text"
-                    value={targetSlackId}
-                    onChange={(e) => setTargetSlackId(e.target.value)}
-                    placeholder="U01ABC2DEF3"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Open their Slack profile &rarr; click <strong>&middot;&middot;&middot;</strong> (More) &rarr; <strong>Copy member ID</strong>
-                  </p>
-                </div>
-              )}
-              {emailEnabled && (
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={targetEmail}
-                    onChange={(e) => setTargetEmail(e.target.value)}
-                    placeholder="jane@company.com"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent bg-white"
-                  />
-                </div>
-              )}
-            </div>
-            {/* Notification method toggles — show per-method toggle for each filled contact */}
-            {((slackEnabled && targetSlackId.trim()) || (emailEnabled && targetEmail.trim())) && (
-              <div className="flex items-center gap-5">
-                <p className="text-xs font-medium text-slate-500">Notify via:</p>
-                {slackEnabled && targetSlackId.trim() && (
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={targetSlackNotify}
-                      onChange={(e) => setTargetSlackNotify(e.target.checked)}
-                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
-                    />
-                    Slack
-                  </label>
-                )}
-                {emailEnabled && targetEmail.trim() && (
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={targetEmailNotify}
-                      onChange={(e) => setTargetEmailNotify(e.target.checked)}
-                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-3.5 h-3.5"
-                    />
-                    Email
-                  </label>
-                )}
-              </div>
-            )}
-            <p className="text-xs text-slate-400">
-              {slackEnabled && emailEnabled
-                ? "At least one contact method (Slack ID or email) is required."
-                : slackEnabled
-                  ? "Slack User ID is required."
-                  : "Email is required."}
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSaveTarget}
-                disabled={!targetFormValid || isSavingTarget}
-                className="bg-slate-900 text-white rounded-lg px-3.5 py-1.5 text-xs font-medium hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSavingTarget ? "Saving..." : editingTargetId ? "Update" : "Add"}
-              </button>
-              <button
-                onClick={resetTargetForm}
-                className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Target list */}
-        {targets.length === 0 && !showTargetForm ? (
-          <div className="border border-slate-100 rounded-xl px-4 py-6 text-center">
-            <p className="text-sm text-slate-400">No escalation targets configured.</p>
-            <p className="text-xs text-slate-300 mt-1">Add targets so members can request verification.</p>
-          </div>
-        ) : targets.length > 0 ? (
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Name</th>
-                  <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Role</th>
-                  {slackEnabled && <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Slack ID</th>}
-                  {emailEnabled && <th className="text-left text-xs font-medium text-slate-500 px-4 py-2">Email</th>}
-                  <th className="text-center text-xs font-medium text-slate-500 px-4 py-2">Notify</th>
-                  <th className="text-right text-xs font-medium text-slate-500 px-4 py-2 w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {targets.map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 last:border-b-0">
-                    <td className="px-4 py-2.5 text-xs font-medium text-slate-900">{t.name}</td>
-                    <td className="px-4 py-2.5 text-xs text-slate-500">{t.role ?? "—"}</td>
-                    {slackEnabled && <td className="px-4 py-2.5 text-xs text-slate-500 font-mono">{t.slackUserId ?? "—"}</td>}
-                    {emailEnabled && <td className="px-4 py-2.5 text-xs text-slate-500">{t.email ?? "—"}</td>}
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center justify-center gap-2">
-                        {slackEnabled && t.slackUserId && (
-                          <span className={cn("inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium", t.slackNotify !== false ? "bg-slate-100 text-slate-600" : "bg-slate-50 text-slate-300 line-through")} title={t.slackNotify !== false ? "Slack notifications on" : "Slack notifications off"}>
-                            <Slack className="w-2.5 h-2.5" />
-                          </span>
-                        )}
-                        {emailEnabled && t.email && (
-                          <span className={cn("inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium", t.emailNotify !== false ? "bg-slate-100 text-slate-600" : "bg-slate-50 text-slate-300 line-through")} title={t.emailNotify !== false ? "Email notifications on" : "Email notifications off"}>
-                            <Mail className="w-2.5 h-2.5" />
-                          </span>
-                        )}
-                        {!(slackEnabled && t.slackUserId) && !(emailEnabled && t.email) && (
-                          <span className="text-xs text-slate-300">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => startEditTarget(t)}
-                          className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => { if (confirm(`Delete target "${t.name}"?`)) deleteTargetMutation.mutate(t.id); }}
-                          className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </div>
-
-      {/* ─── Escalation Log Link ──── */}
-      <div className="border border-slate-100 rounded-xl px-4 py-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">Escalation Log</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            View all verification requests from members.
-          </p>
-        </div>
-        <button
-          onClick={() => void navigate({ to: "/escalations" })}
-          className="flex items-center gap-1.5 text-xs font-medium text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg px-4 py-2 transition-colors flex-shrink-0"
-        >
-          View Log
-        </button>
-      </div>
-    </div>
-  );
-}

@@ -19,7 +19,7 @@ export interface KBMentionPickerHandle {
 /** Built-in shortcuts that appear at the top of the picker. */
 const SHORTCUTS: KBTarget[] = [
   { id: "__org__", name: "Organization", datasetName: "", type: "shortcut" },
-  { id: "__all__", name: "All knowledge bases", datasetName: "", type: "shortcut" },
+  { id: "__all__", name: "All sources", datasetName: "", type: "shortcut" },
 ];
 
 interface KBMentionPickerProps {
@@ -101,7 +101,7 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
     if (allItems.length === 0) {
       return (
         <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-3 px-3 z-20">
-          <p className="text-xs text-slate-400">No matching knowledge bases</p>
+          <p className="text-xs text-slate-400">No matching sources</p>
         </div>
       );
     }
@@ -136,7 +136,7 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
 
           {filteredKBs.length > 0 && (
             <div className={cn("px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider", shortcutCount > 0 && "border-t border-slate-100 mt-1")}>
-              Knowledge Bases
+              Sources
             </div>
           )}
           {filteredKBs.map((item, rawIndex) => {

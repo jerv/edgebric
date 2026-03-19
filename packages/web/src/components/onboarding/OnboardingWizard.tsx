@@ -7,7 +7,7 @@ import { AvatarUpload } from "@/components/shared/AvatarUpload";
 
 const STEPS = [
   { label: "Organization" },
-  { label: "Knowledge Base" },
+  { label: "Source" },
   { label: "Upload Document" },
 ] as const;
 
@@ -79,7 +79,7 @@ export function OnboardingWizard() {
         });
         if (!res.ok) {
           const err = await res.json() as { error?: string };
-          throw new Error(err.error ?? "Failed to update knowledge base");
+          throw new Error(err.error ?? "Failed to update source");
         }
         return { id: existingKB.id };
       }
@@ -92,7 +92,7 @@ export function OnboardingWizard() {
       });
       if (!res.ok) {
         const err = await res.json() as { error?: string };
-        throw new Error(err.error ?? "Failed to create knowledge base");
+        throw new Error(err.error ?? "Failed to create source");
       }
       return res.json() as Promise<{ id: string }>;
     },
@@ -219,11 +219,11 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {/* Step 2: Knowledge Base */}
+        {/* Step 2: Source */}
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Knowledge Base Name</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Source Name</label>
               <input
                 type="text"
                 value={kbName}
@@ -250,7 +250,7 @@ export function OnboardingWizard() {
               disabled={!kbName.trim() || createKBMutation.isPending}
               className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
             >
-              {createKBMutation.isPending ? "Creating..." : "Create Knowledge Base"}
+              {createKBMutation.isPending ? "Creating..." : "Create Source"}
             </button>
           </div>
         )}
@@ -259,7 +259,7 @@ export function OnboardingWizard() {
         {step === 2 && (
           <div className="space-y-4">
             <p className="text-sm text-slate-600">
-              Upload your first document to start building your knowledge base. Supported formats: PDF, DOCX, TXT, MD.
+              Upload your first document to start building your source. Supported formats: PDF, DOCX, TXT, MD.
             </p>
 
             <input

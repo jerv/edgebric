@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface Props {
   conversationId: string;
@@ -8,22 +8,7 @@ interface Props {
 
 export function DeleteConversationDialog({ conversationId, onClose, onDone }: Props) {
   const [pending, setPending] = useState<"archive" | "delete" | null>(null);
-  const [hasEscalations, setHasEscalations] = useState<boolean | null>(null);
   const [confirmStep, setConfirmStep] = useState<"archive" | "delete" | null>(null);
-
-  // Check if this conversation has escalations
-  useEffect(() => {
-    fetch(`/api/conversations/${conversationId}`, { credentials: "same-origin" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.escalations?.length > 0) {
-          setHasEscalations(true);
-        } else {
-          setHasEscalations(false);
-        }
-      })
-      .catch(() => setHasEscalations(false));
-  }, [conversationId]);
 
   async function handleAction(mode: "archive" | "delete") {
     setPending(mode);
@@ -96,55 +81,42 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
           </div>
 
           {/* Delete permanently */}
-          {hasEscalations ? (
-            <div className="border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50">
-              <span className="text-sm font-medium text-slate-400 block">
-                Delete permanently
-              </span>
-              <span className="text-xs text-slate-400 block mt-0.5">
-                This conversation includes a request for human verification and is
-                preserved for admin review. It can only be archived.
-              </span>
-            </div>
-          ) : (
-            <div className="border border-red-200 rounded-lg px-3 py-2.5 space-y-2">
-              <span className="text-sm font-medium text-red-600 block">
-                Delete permanently
-              </span>
-              <span className="text-xs text-slate-400 block">
-                Removes this conversation and all messages entirely.
-              </span>
-              <div className="flex items-center gap-2 pt-1">
-                {confirmStep === "delete" ? (
-                  <>
-                    <span className="text-xs text-slate-500">Are you sure?</span>
-                    <button
-                      onClick={() => void handleAction("delete")}
-                      disabled={!!pending || hasEscalations === null}
-                      className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30"
-                    >
-                      {pending === "delete" ? "Deleting..." : "Yes, delete"}
-                    </button>
-                    <button
-                      onClick={() => setConfirmStep(null)}
-                      disabled={!!pending}
-                      className="text-xs text-slate-400 hover:text-slate-600"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
+          <div className="border border-red-200 rounded-lg px-3 py-2.5 space-y-2">
+            <span className="text-sm font-medium text-red-600 block">
+              Delete permanently
+            </span>
+            <span className="text-xs text-slate-400 block">
+              Removes this conversation and all messages entirely.
+            </span>
+            <div className="flex items-center gap-2 pt-1">
+              {confirmStep === "delete" ? (
+                <>
+                  <span className="text-xs text-slate-500">Are you sure?</span>
                   <button
-                    onClick={() => setConfirmStep("delete")}
-                    disabled={hasEscalations === null}
-                    className="bg-red-50 text-red-600 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-30"
+                    onClick={() => void handleAction("delete")}
+                    disabled={!!pending}
+                    className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30"
                   >
-                    Delete
+                    {pending === "delete" ? "Deleting..." : "Yes, delete"}
                   </button>
-                )}
-              </div>
+                  <button
+                    onClick={() => setConfirmStep(null)}
+                    disabled={!!pending}
+                    className="text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmStep("delete")}
+                  className="bg-red-50 text-red-600 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-100 transition-colors disabled:opacity-30"
+                >
+                  Delete
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         <button

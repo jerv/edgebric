@@ -278,7 +278,7 @@ export function shareKB(data: {
 
   // Get KB name for system message
   const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, data.knowledgeBaseId)).get();
-  const kbName = kb?.name ?? "a knowledge base";
+  const kbName = kb?.name ?? "a source";
   addSystemMessage(data.groupChatId, `${data.sharedByName ?? data.sharedByEmail} shared "${kbName}" with the group.`);
 
   db.update(groupChats)
@@ -306,7 +306,7 @@ export function unshareKB(shareId: string, groupChatId: string): void {
   db.delete(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, shareId)).run();
 
   const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, share.knowledgeBaseId)).get();
-  addSystemMessage(groupChatId, `"${kb?.name ?? "A knowledge base"}" was removed from the group.`);
+  addSystemMessage(groupChatId, `"${kb?.name ?? "A source"}" was removed from the group.`);
 }
 
 export function getSharedKBs(groupChatId: string): GroupChatSharedKB[] {
@@ -468,7 +468,7 @@ export function expireStaleChats(): number {
       .set({ status: "expired", updatedAt: now })
       .where(eq(groupChats.id, chat.id))
       .run();
-    addSystemMessage(chat.id, "This group chat has expired. Shared knowledge bases are no longer queryable.");
+    addSystemMessage(chat.id, "This group chat has expired. Shared sources are no longer queryable.");
   }
 
   return stale.length;

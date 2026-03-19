@@ -12,18 +12,10 @@ import { authRouter } from "./routes/auth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { queryRouter } from "./routes/query.js";
 import { modelsRouter } from "./routes/models.js";
-import {
-  escalateRouter,
-  targetsRouter,
-  adminEscalationsRouter,
-  adminTargetsRouter,
-  adminIntegrationsRouter,
-} from "./routes/escalations.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { syncRouter } from "./routes/sync.js";
 import { feedbackRouter } from "./routes/feedback.js";
-import { analyticsRouter } from "./routes/analytics.js";
 import { healthRouter } from "./routes/health.js";
 import { knowledgeBasesRouter } from "./routes/knowledgeBases.js";
 import { orgRouter } from "./routes/org.js";
@@ -217,16 +209,10 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/documents", documentsRouter);
   app.use("/api/query", ...queryLimiter, queryRouter);
   app.use("/api/admin/models", modelsRouter);
-  app.use("/api/escalate", escalateRouter);
-  app.use("/api/escalation-targets", targetsRouter);
   app.use("/api/conversations", conversationsRouter);
-  app.use("/api/admin/escalations", adminEscalationsRouter);
-  app.use("/api/admin/targets", adminTargetsRouter);
-  app.use("/api/admin/integrations", adminIntegrationsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/sync", syncRouter);
   app.use("/api/feedback", feedbackRouter);
-  app.use("/api/admin/analytics", analyticsRouter);
   app.use("/api/knowledge-bases", knowledgeBasesRouter);
   app.use("/api/admin/org", orgRouter);
   app.use("/api/group-chats", groupChatsRouter);

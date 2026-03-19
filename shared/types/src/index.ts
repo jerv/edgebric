@@ -209,81 +209,13 @@ export interface PersistedMessage {
   createdAt: Date;
 }
 
-// ─── Escalation Targets ──────────────────────────────────────────────────────
-
-export interface EscalationTarget {
-  id: string;
-  name: string;
-  role?: string;
-  slackUserId?: string;
-  email?: string;
-  /** Whether this target can receive Slack DM notifications. Defaults to true if slackUserId is set. */
-  slackNotify?: boolean;
-  /** Whether this target can receive email notifications. Defaults to true if email is set. */
-  emailNotify?: boolean;
-  createdAt: Date;
-}
-
-/** What employees see when picking an escalation target. */
-export interface AvailableTarget {
-  id: string;
-  name: string;
-  role?: string;
-  methods: ("slack" | "email")[];
-}
-
-// ─── Escalations ──────────────────────────────────────────────────────────────
-
-/** "sent" = delivered to integration, "failed" = delivery error, "logged" = no integration configured, "replied" = admin replied, "resolved" = resolved without reply */
-export type EscalationStatus = "sent" | "failed" | "logged" | "replied" | "resolved";
-
-export interface Escalation {
-  id: string;
-  createdAt: Date;
-  question: string;
-  aiAnswer: string;
-  sourceCitations: Citation[];
-  status: EscalationStatus;
-  notifiedVia?: "slack" | "email";
-  conversationId: string;
-  messageId: string;
-  targetId: string;
-  targetName?: string;
-  method: "slack" | "email";
-  readAt?: Date | null;
-  readBy?: string;
-  adminReply?: string | undefined;
-  repliedAt?: Date | undefined;
-  repliedBy?: string | undefined;
-  resolvedAt?: Date | undefined;
-  resolvedBy?: string | undefined;
-  replyMessageId?: string | undefined;
-}
-
-export interface EscalateRequest {
-  question: string;
-  aiAnswer: string;
-  citations: Citation[];
-  conversationId: string;
-  messageId: string;
-  targetId: string;
-  method: "slack" | "email";
-}
-
-export interface EscalateResponse {
-  id: string;
-  status: EscalationStatus;
-  message: string;
-}
-
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 export interface Notification {
   id: string;
   userEmail: string;
-  type: "admin_reply" | "escalation_resolved";
+  type: "group_chat_invite" | "source_shared" | "chat_expiring";
   conversationId: string;
-  escalationId?: string | undefined;
   messageId?: string | undefined;
   title: string;
   body?: string | undefined;
@@ -356,51 +288,6 @@ export interface Feedback {
 export interface FeedbackCheck {
   rated: boolean;
   rating?: "up" | "down" | undefined;
-}
-
-// ─── Analytics ───────────────────────────────────────────────────────────────
-
-export interface AnalyticsSummary {
-  overview: {
-    totalConversations: number;
-    totalMessages: number;
-    uniqueUsers: number;
-  };
-  feedback: {
-    up: number;
-    down: number;
-    total: number;
-  };
-  escalations: {
-    total: number;
-    sent: number;
-    failed: number;
-    unread: number;
-  };
-  /** Percentage of thumbs-up out of total feedback, or null if no feedback yet. */
-  satisfactionRate: number | null;
-}
-
-export interface QueryVolumeEntry {
-  date: string;
-  count: number;
-}
-
-export interface TopicCluster {
-  topic: string;
-  count: number;
-  /** Fraction of "up" ratings for this topic (0-1). */
-  upRate: number;
-}
-
-export interface UnansweredQuestion {
-  question: string;
-  aiAnswer: string;
-  createdAt: string;
-  conversationId: string;
-  messageId: string;
-  feedback?: { rating: "up" | "down"; comment?: string | undefined } | undefined;
-  resolvedAt?: string | undefined;
 }
 
 // ─── Group Chats ─────────────────────────────────────────────────────────────

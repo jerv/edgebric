@@ -80,7 +80,7 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
   if (!isAdmin) {
     const userRecord = orgId ? getUserInOrg(email, orgId) : undefined;
     if (!userRecord?.canCreateKBs) {
-      res.status(403).json({ error: "You do not have permission to create knowledge bases" });
+      res.status(403).json({ error: "You do not have permission to create sources" });
       return;
     }
   }
@@ -111,12 +111,12 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
 knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const docs = getDocumentsByKB(kb.id);
@@ -145,7 +145,7 @@ knowledgeBasesRouter.use(requireAdmin);
 knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const { name, description, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
@@ -158,7 +158,7 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
     ...(allowExternalAccess !== undefined && { allowExternalAccess }),
   });
   if (!updated) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
 
@@ -173,12 +173,12 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
 knowledgeBasesRouter.delete("/:id", (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   archiveKB(kb.id);
@@ -207,12 +207,12 @@ const upload = multer({
 knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   if (!req.file) {
@@ -287,12 +287,12 @@ const avatarUpload = multer({
 knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   if (!req.file) {
@@ -327,12 +327,12 @@ knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (r
 knowledgeBasesRouter.delete("/:id/avatar", async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
 

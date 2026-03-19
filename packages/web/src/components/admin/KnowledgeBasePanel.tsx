@@ -239,7 +239,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         credentials: "same-origin",
         body: JSON.stringify(body),
       }).then((r) => {
-        if (!r.ok) throw new Error("Failed to create KB");
+        if (!r.ok) throw new Error("Failed to create source");
         return r.json() as Promise<KnowledgeBase>;
       }),
     onSuccess: async (kb) => {
@@ -295,7 +295,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Library</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {kbs.length} knowledge base{kbs.length !== 1 ? "s" : ""} in your organization
+              {kbs.length} source{kbs.length !== 1 ? "s" : ""} in your organization
             </p>
           </div>
           {canCreate && (
@@ -303,7 +303,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               onClick={() => setShowCreate(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
             >
-              <Plus className="w-4 h-4" /> New KB
+              <Plus className="w-4 h-4" /> New Source
             </button>
           )}
         </div>
@@ -327,9 +327,9 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   setAvatarPreview(undefined);
                 }}
                 size={48}
-                fallbackText={name || "KB"}
+                fallbackText={name || "S"}
               />
-              <h2 className="text-sm font-semibold text-slate-900">Create Knowledge Base</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Create Source</h2>
             </div>
             <input
               value={name}
@@ -366,7 +366,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               {createAccessMode === "restricted" && (
                 <div className="space-y-2">
                   <p className="text-xs text-slate-500">
-                    Only these users can search this knowledge base. Admins always have access.
+                    Only these users can search this source. Admins always have access.
                   </p>
                   <div className="relative">
                     <div className="flex gap-2">
@@ -422,7 +422,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     </div>
                   )}
                   {createAccessList.length === 0 && (
-                    <p className="text-xs text-slate-400">No users added yet. Only admins can access this KB.</p>
+                    <p className="text-xs text-slate-400">No users added yet. Only admins can access this source.</p>
                   )}
                 </div>
               )}
@@ -449,7 +449,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               </button>
             </div>
             {createMutation.isError && (
-              <p className="text-xs text-red-600">You do not have permission to create knowledge bases. Ask an admin to grant access.</p>
+              <p className="text-xs text-red-600">You do not have permission to create sources. Ask an admin to grant access.</p>
             )}
           </div>
         )}
@@ -463,7 +463,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search knowledge bases..."
+                placeholder="Search sources..."
                 className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
               />
               {search && (
@@ -512,13 +512,13 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         ) : kbs.length === 0 ? (
           <div className="text-center py-16">
             <Database className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No knowledge bases yet.</p>
+            <p className="text-sm text-slate-500">No sources yet.</p>
             <p className="text-xs text-slate-400 mt-1">Create one to start uploading files.</p>
           </div>
         ) : filteredKBs.length === 0 ? (
           <div className="text-center py-12">
             <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No matching knowledge bases.</p>
+            <p className="text-sm text-slate-500">No matching sources.</p>
             <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
               Clear filters
             </button>
@@ -782,7 +782,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
           {editing ? (
             <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50">
-              <h2 className="text-sm font-semibold text-slate-900">Edit Knowledge Base</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Edit Source</h2>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -820,7 +820,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 {currentAccessMode === "restricted" && (
                   <div className="space-y-2">
                     <p className="text-xs text-slate-500">
-                      Only these users can search this knowledge base. Admins always have access.
+                      Only these users can search this source. Admins always have access.
                     </p>
                     <div className="relative">
                       <div className="flex gap-2">
@@ -876,7 +876,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       </div>
                     )}
                     {currentAccessList.length === 0 && (
-                      <p className="text-xs text-slate-400">No users added yet. Only admins can access this KB.</p>
+                      <p className="text-xs text-slate-400">No users added yet. Only admins can access this source.</p>
                     )}
                   </div>
                 )}
@@ -895,14 +895,14 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   />
                   <SecurityToggle
                     label="Allow device sync (Vault Mode)"
-                    description="This KB's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
+                    description="This source's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
                     checked={data?.allowVaultSync ?? kb.allowVaultSync ?? true}
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
                   <SecurityToggle
                     label="Allow external network access"
-                    description="Members can access this KB from outside the local network. Turn off for on-premises-only data."
+                    description="Members can access this source from outside the local network. Turn off for on-premises-only data."
                     checked={data?.allowExternalAccess ?? kb.allowExternalAccess ?? true}
                     onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
                     disabled={updateMutation.isPending}
@@ -983,7 +983,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   <button
                     onClick={() => setDeleteKBConfirm(true)}
                     className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete knowledge base"
+                    title="Delete source"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -998,7 +998,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-red-800">Delete "{data?.name ?? kb.name}"?</p>
-                <p className="text-xs text-red-600 mt-0.5">This will permanently delete this knowledge base and all its files.</p>
+                <p className="text-xs text-red-600 mt-0.5">This will permanently delete this source and all its files.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1077,7 +1077,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
         ) : docs.length === 0 && uploading.length === 0 ? (
           <div className="text-center py-16">
             <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No files in this knowledge base.</p>
+            <p className="text-sm text-slate-500">No files in this source.</p>
             <p className="text-xs text-slate-400 mt-1">Drop files above to get started.</p>
           </div>
         ) : (

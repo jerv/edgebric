@@ -8,14 +8,14 @@
 
 **The Employee (End User)**
 - Any staff member with access to the company's Edgebric deployment
-- Uses Edgebric in two contexts: individual knowledge queries (HR, policy, etc.) and collaborative meeting sessions
-- Needs: fast, private, accurate answers to policy questions; ability to bring personal knowledge into meetings without exposing everything
+- Uses Edgebric in three contexts: individual queries (HR, policy, etc.), group chats (collaborative KB-sharing with threads), and meeting sessions (ephemeral cross-device)
+- Needs: fast, private, accurate answers to policy questions; ability to collaborate with colleagues and share sources selectively
 - Pain: slow HR response times, embarrassment asking sensitive questions, meetings that stall because nobody has the right information
-- Success: gets an accurate answer with a cited source in under 10 seconds; meetings run faster because cross-department questions get answered instantly
+- Success: gets an accurate answer with a cited source in under 10 seconds; group chats enable async collaboration across teams
 
 **The Administrator (Power User / Deployer)**
 - Department lead, operations manager, or People Ops manager
-- Manages organization knowledge bases, configures escalation targets, monitors usage
+- Manages network sources, configures integrations, monitors usage
 - Needs: a tool that reduces inbound routine queries, surfaces policy gaps, and provides visibility into what employees are asking (aggregate only)
 - Pain: spending 25-35% of time answering repetitive policy questions; no visibility into what employees struggle to find
 - Success: routine query volume drops, policy gaps become visible, team can spend time on strategic work
@@ -24,14 +24,14 @@
 
 **The IT / Security Administrator**
 - Responsible for deploying and maintaining Edgebric nodes on company infrastructure
-- In a distributed deployment: manages which devices run which department knowledge bases
+- In a distributed deployment: manages which devices run which department sources
 - Needs: simple setup, automatic device discovery, no cloud dependencies, clear data flow documentation for security review
 - Pain: new software requests from business teams that trigger lengthy security review cycles
 - Success: deploys in hours, not weeks; can demonstrate compliance posture in a single conversation; zero external dependencies to audit
 
 **The Meeting Organizer**
 - Any employee who creates meeting sessions (often a project lead, manager, or cross-functional coordinator)
-- Needs: quick session creation, easy room code sharing, ability to see which knowledge bases are available in the session
+- Needs: quick session creation, easy room code sharing, ability to see which sources are available in the session
 - Pain: meetings that waste time because participants need information from departments not represented in the room
 - Success: creates a session in seconds, participants join with a code, cross-department questions get instant AI-powered answers
 
@@ -57,23 +57,38 @@
 
 - I open Edgebric in my browser or on mobile
 - I type my question in plain language
-- My query routes to the relevant knowledge base node(s) via the mesh
-- I receive a clear answer with the exact policy source cited (document name, section, page number)
+- My query routes to the relevant source node(s) via the mesh
+- I receive a clear answer with the exact source cited (document name, section, page number)
 - I can click the source to view the original document at the relevant section
-- Every response shows a prominent, non-dismissible disclaimer and an option to escalate to a real person if I'm unsure
+- Every response shows a prominent, non-dismissible disclaimer
+- If I need human help, I can start a group chat and invite the relevant person directly
 
 ---
 
-### Employee — Personal Knowledge Base
+### Employee — Vault Sources (Personal)
 
-> As an employee, I want to manage my own knowledge base so I can upload documents relevant to my work and query them privately, or share them selectively in meetings.
+> As an employee, I want to manage my own private sources so I can upload documents relevant to my work and query them privately, or share them selectively in group chats and meetings.
 
-- I navigate to "My Knowledge Base" in Edgebric
+- I navigate to my vault sources in the Library
 - I upload documents (PDFs, docs, text files) that are relevant to my work
-- These documents are indexed locally — they live on the device I uploaded from
-- I can query my own knowledge base privately at any time
-- When I join a meeting session, I choose which of my knowledge bases (or subsets) to share with that session
-- My personal KB is never searchable by anyone else unless I explicitly opt it in to a session
+- These documents are indexed locally — they live encrypted on my device
+- I can query my own vault sources privately at any time
+- When I join a group chat or meeting session, I choose which sources to share
+- My vault sources are never searchable by anyone else unless I explicitly share them
+
+---
+
+### Employee — Group Chat (Collaborative Queries)
+
+> As an employee, I want to collaborate with colleagues by sharing sources into a group chat and querying the AI together, with threaded discussions for async exploration.
+
+- I create a group chat and invite colleagues
+- Each member can share their accessible sources into the chat (with confirmation warnings)
+- Anyone can @tag the bot to query all shared sources
+- The bot reads conversation context before responding — it understands the discussion
+- Threads branch off any message for focused async exploration without cluttering the main chat
+- Human-to-human conversation flows freely — the bot only responds when @tagged
+- Group chats can expire (24h, 1w, 1m, never) — expired chats revoke all shared source access
 
 ---
 
@@ -83,12 +98,12 @@
 
 - Someone creates a meeting session and shares the room code
 - I join the session by entering the room code in Edgebric
-- I see which knowledge bases are available in this session (opted in by all participants)
-- I opt in my own relevant knowledge bases for this session
+- I see which sources are available in this session (opted in by all participants)
+- I opt in my own relevant sources for this session
 - I (or anyone in the session) asks a question: "Are there any compliance issues with the marketing claims in our new campaign?"
-- The AI queries opted-in KBs from legal, marketing, and compliance simultaneously
+- The AI queries opted-in sources from legal, marketing, and compliance simultaneously
 - I get a synthesized answer with citations from each department's documents
-- The query never moved any department's data — it traveled to each KB node and brought back only the answer
+- The query never moved any department's data — it traveled to each source node and brought back only the answer
 - When the meeting ends, the session dissolves — the ephemeral sharing is gone
 
 ---
@@ -102,7 +117,7 @@
 - I unlock the incognito vault with Face ID / fingerprint (biometric gate)
 - I download the required data once: company policy embeddings + local AI model
 - I ask questions; a visible network-blocked indicator confirms zero outgoing traffic
-- The "Ask HR to verify" button is absent — escalation is incompatible with incognito
+- Group chats and collaboration features are absent — incompatible with incognito
 
 ---
 
@@ -118,54 +133,42 @@
 
 ---
 
-### Administrator — Organization Knowledge Base Management
+### Administrator — Network Source Management
 
-> As an administrator, I want to upload and manage organization-wide knowledge bases so that Edgebric always reflects current company policy.
+> As an administrator, I want to upload and manage network sources so that Edgebric always reflects current company policy.
 
-- I navigate to "Organization Knowledge Bases" in the admin dashboard
-- I create knowledge bases by department or topic (e.g., "HR Policies," "Benefits," "Employee Handbook")
-- I upload PDF, Word, or plain text documents via drag-and-drop into the appropriate KB
+- I navigate to the Library in the admin dashboard
+- I create sources by department or topic (e.g., "HR Policies," "Benefits," "Employee Handbook")
+- I upload PDF, Word, or plain text documents via drag-and-drop into the appropriate source
 - If the system detects potential PII in a document, I see a warning before it's added
 - I receive alerts when documents haven't been updated in a configurable period (default: 6 months)
-- I can archive or delete documents without deleting the entire KB
+- I can archive or delete documents without deleting the entire source
 
 ---
 
 ### Administrator — Distributed Node Management
 
-> As an administrator, I want to manage which knowledge bases run on which devices, so I can enforce department-level data isolation.
+> As an administrator, I want to manage which sources run on which devices, so I can enforce department-level data isolation.
 
 - I see all Edgebric nodes discovered on the network via the mimik mesh
-- Each node shows its device info, status, and which knowledge bases it hosts
-- I assign knowledge bases to nodes: "Legal KB runs on the legal department's Mac Mini"
+- Each node shows its device info, status, and which sources it hosts
+- I assign sources to nodes: "Legal source runs on the legal department's Mac Mini"
 - The mesh handles discovery and routing — I don't configure IP addresses or network routes
-- If a node goes offline, I see its status change; queries to its knowledge bases return a graceful "unavailable" message
+- If a node goes offline, I see its status change; queries to its sources return a graceful "unavailable" message
 - When the node comes back, it auto-rediscovers and resumes serving queries
 
 ---
 
-### Administrator — Escalation Handling
+### Administrator — Integration Management
 
-> As an administrator, I want to receive questions that employees have flagged for human review so I can respond directly.
+> As an administrator, I want to configure external integrations (e.g., Slack bot) so employees can query Edgebric from the tools they already use.
 
-- Employee clicks "Request verification" (only available in standard mode)
-- I receive the question and Edgebric's draft answer via Slack DM or email
-- I can reply directly from the conversation viewer in the admin dashboard
-- I can resolve escalations with or without a reply
-- The employee receives a notification when I respond
-- The interaction is logged with timestamp for compliance records
-
----
-
-### Administrator — Analytics Dashboard
-
-> As an administrator, I want to see what employees are asking so I can identify policy gaps and prioritize documentation work.
-
-- I see aggregate analytics: most common question topics, unanswered questions, peak usage times
-- No individual employee questions are ever visible (aggregate only; minimum 5 queries per topic)
-- I see a list of questions Edgebric could not answer — these represent missing or unclear documentation
-- I can export a policy gap report
-- Meeting mode analytics: which cross-department question patterns are most common (helps identify where documentation is needed)
+- I navigate to Integrations in the admin settings
+- I see available integrations (Slack, email notifications, future: Teams, etc.)
+- For Slack: I install the Edgebric bot into our workspace via OAuth ("Add to Slack" button)
+- A clear privacy notice explains: "Queries and responses sent through Slack are subject to Slack's data policies. Source documents remain on your network."
+- I can enable/disable integrations and configure notification preferences
+- Email notifications can be sent for group chat invites, source share events, and chat expiration warnings
 
 ---
 
@@ -173,7 +176,7 @@
 
 > As an IT administrator, I want to deploy Edgebric nodes on our infrastructure with minimal configuration and no external dependencies.
 
-- I install the mimik mim OE runtime on each device that will host knowledge
+- I install the mimik mim OE runtime on each device that will host sources
 - Employee devices on the network discover Edgebric nodes automatically via the mimik edge service mesh — no IP configuration required
 - For a single-node deployment: one command, one device, done
 - For a multi-node deployment: install on additional devices, they auto-discover via mesh
@@ -189,7 +192,7 @@
 - I click "Create Session" in Edgebric
 - I get a room code (e.g., "LAUNCH-2024" or a random 6-character code)
 - I share the code with meeting participants via Slack, email, or verbally
-- As participants join, I see their names and which knowledge bases they've opted in
-- I can ask questions that query all opted-in knowledge bases simultaneously
+- As participants join, I see their names and which sources they've opted in
+- I can ask questions that query all opted-in sources simultaneously
 - When the meeting ends, I close the session — all ephemeral sharing dissolves
 - Session transcript (questions and answers only, not source documents) is optionally saved for meeting notes

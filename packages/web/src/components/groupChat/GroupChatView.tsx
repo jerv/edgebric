@@ -178,10 +178,10 @@ export function GroupChatView() {
   }
 
   const kbSelectorLabel = selectedKBIds.length === 0
-    ? "All KBs"
+    ? "All Sources"
     : selectedKBIds.length === 1
-      ? queryableKBs.find((kb) => kb.id === selectedKBIds[0])?.name ?? "1 KB"
-      : `${selectedKBIds.length} KBs`;
+      ? queryableKBs.find((kb) => kb.id === selectedKBIds[0])?.name ?? "1 source"
+      : `${selectedKBIds.length} sources`;
 
   // Merge server + local messages
   const messages = (() => {
@@ -350,7 +350,7 @@ export function GroupChatView() {
                 onMouseLeave={() => setKbTooltipOpen(false)}
               >
                 <Database className="w-3 h-3" />
-                {effectiveKBCount} KB{effectiveKBCount !== 1 ? "s" : ""}
+                {effectiveKBCount} source{effectiveKBCount !== 1 ? "s" : ""}
                 {kbTooltipOpen && queryableKBs.length > 0 && (
                   <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30">
                     {queryableKBs.map((kb) => (
@@ -389,10 +389,10 @@ export function GroupChatView() {
             <button
               onClick={() => setShowShareKB(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              title="Share a Knowledge Base"
+              title="Share a Source"
             >
               <Database className="w-3.5 h-3.5" />
-              Share KB
+              Share Source
             </button>
           )}
         </div>
@@ -404,7 +404,7 @@ export function GroupChatView() {
               <Users className="w-8 h-8 text-slate-300 mb-3" />
               <p className="text-slate-900 text-xl font-medium mb-2">{chat.name}</p>
               <p className="text-slate-400 text-sm max-w-sm">
-                Tag <span className="font-medium">@bot</span> to query shared knowledge bases.
+                Tag <span className="font-medium">@bot</span> to query shared sources.
                 Messages without @bot are human-to-human conversation.
               </p>
             </div>
@@ -475,13 +475,13 @@ export function GroupChatView() {
                           )}
                         >
                           <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span className="truncate">All shared KBs</span>
+                          <span className="truncate">All shared sources</span>
                           {selectedKBIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                         </button>
 
                         {queryableKBs.length > 0 && (
                           <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
-                            Knowledge Bases
+                            Sources
                           </div>
                         )}
                         {queryableKBs.map((kb) => {
@@ -585,7 +585,7 @@ export function GroupChatView() {
                 isLoading={sending}
                 isStreaming={streaming}
                 disabled={sending}
-                placeholder="Type a message... Use @bot to query knowledge bases"
+                placeholder="Type a message... Use @bot to query sources"
               />
             </div>
           </div>

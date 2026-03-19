@@ -13,7 +13,6 @@ function rowToNotification(row: typeof notifications.$inferSelect): Notification
     title: row.title,
     createdAt: new Date(row.createdAt),
   };
-  if (row.escalationId != null) n.escalationId = row.escalationId;
   if (row.messageId != null) n.messageId = row.messageId;
   if (row.body != null) n.body = row.body;
   if (row.readAt != null) n.readAt = new Date(row.readAt);
@@ -29,7 +28,6 @@ export function createNotification(opts: {
   userEmail: string;
   type: Notification["type"];
   conversationId: string;
-  escalationId?: string;
   messageId?: string;
   title: string;
   body?: string;
@@ -43,7 +41,6 @@ export function createNotification(opts: {
       userEmail: opts.userEmail,
       type: opts.type,
       conversationId: opts.conversationId,
-      escalationId: opts.escalationId ?? null,
       messageId: opts.messageId ?? null,
       title: opts.title,
       body: opts.body ?? null,

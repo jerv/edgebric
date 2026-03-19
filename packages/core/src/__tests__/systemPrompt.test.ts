@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, NO_ANSWER_RESPONSE, buildNoAnswerResponse } from "../rag/systemPrompt.js";
+import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "../rag/systemPrompt.js";
 import type { Chunk } from "@edgebric/types";
 
 function makeChunk(content: string, opts?: Partial<Chunk["metadata"]>): Chunk {
@@ -77,21 +77,3 @@ describe("NO_ANSWER_RESPONSE", () => {
   });
 });
 
-describe("buildNoAnswerResponse", () => {
-  it("returns default response when no targets provided", () => {
-    expect(buildNoAnswerResponse()).toBe(NO_ANSWER_RESPONSE);
-    expect(buildNoAnswerResponse([])).toBe(NO_ANSWER_RESPONSE);
-  });
-
-  it("includes escalation target names when provided", () => {
-    const response = buildNoAnswerResponse(["HR Manager", "IT Support"]);
-    expect(response).toContain("HR Manager");
-    expect(response).toContain("IT Support");
-    expect(response).toContain("escalate");
-  });
-
-  it("handles single target", () => {
-    const response = buildNoAnswerResponse(["Jane Doe"]);
-    expect(response).toContain("Jane Doe");
-  });
-});

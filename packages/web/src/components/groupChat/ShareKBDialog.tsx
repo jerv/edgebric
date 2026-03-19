@@ -55,7 +55,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({ error: "Failed to share" }));
-        setError(body.error ?? "Failed to share knowledge base");
+        setError(body.error ?? "Failed to share source");
         setStep("select");
         return;
       }
@@ -79,7 +79,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-slate-500" />
-            <h2 className="text-sm font-semibold text-slate-900">Share KB</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Share Source</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="w-4 h-4" />
@@ -90,7 +90,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
           <>
             {allActiveKBs.length === 0 ? (
               <p className="text-xs text-slate-500 py-4 text-center">
-                No knowledge bases available.
+                No sources available.
               </p>
             ) : (
               <div className="space-y-1 max-h-60 overflow-y-auto">
@@ -168,11 +168,11 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-amber-800 mb-1">Confirm KB sharing</p>
+                  <p className="text-xs font-medium text-amber-800 mb-1">Confirm source sharing</p>
                   <p className="text-xs text-amber-700 leading-relaxed">
                     You are about to share <strong>"{selectedKB.name}"</strong> with all members
                     of this group chat. The bot will be able to search and answer questions from
-                    this knowledge base on behalf of all members.
+                    this source on behalf of all members.
                   </p>
                   {allowSourceViewing && (
                     <p className="text-xs text-amber-700 leading-relaxed mt-1">

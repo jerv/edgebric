@@ -216,7 +216,7 @@ export function ensureDefaultKB(ownerId: string, orgId?: string): KnowledgeBase 
 
   return createKB({
     name: "Policy Documents",
-    description: "Default knowledge base for organization policy documents.",
+    description: "Default source for organization policy documents.",
     type: "organization",
     ownerId,
     ...(orgId && { orgId }),

@@ -6,31 +6,32 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.1 Knowledge Base Management
+## 3.1 Source Management
 
-### Personal Knowledge Bases (All Users)
+### Vault Sources (Personal, Device-Local)
 
 **Demo**
-- [ ] Create personal knowledge base (name, optional description)
-- [ ] Upload PDF, Word (.docx), plain text (.txt, .md) to personal KB
-- [ ] View list of personal KBs with document count and last updated
-- [ ] Query personal KB in private chat
+- [ ] Create vault source (name, optional description)
+- [ ] Upload PDF, Word (.docx), plain text (.txt, .md) to vault source
+- [ ] View list of vault sources with document count and last updated
+- [ ] Query vault source in private chat
 
 **MVP**
-- [ ] Multiple personal KBs per user (e.g., "Project Alpha Notes," "My Research")
-- [ ] Delete documents from personal KB
+- [ ] Multiple vault sources per user (e.g., "Project Alpha Notes," "My Research")
+- [ ] Delete documents from vault source
 - [ ] Re-upload / update documents (triggers re-ingestion)
-- [ ] KB storage usage indicator (helps users manage device storage)
+- [ ] Storage usage indicator (helps users manage device storage)
+- [ ] Share vault sources selectively into group chats
 
 **V2**
 - [ ] Import from Google Drive (OAuth, per-user)
 - [ ] Import from Notion (per-user workspace)
-- [ ] KB templates (pre-configured structure for common use cases)
+- [ ] Source templates (pre-configured structure for common use cases)
 
-### Organization Knowledge Bases (Admin-Managed)
+### Network Sources (Admin-Managed, Org Network)
 
 **Demo**
-- [ ] Admin creates organization KBs (e.g., "HR Policies," "Employee Handbook")
+- [ ] Admin creates network sources (e.g., "HR Policies," "Employee Handbook")
 - [ ] Upload PDF, Word (.docx), plain text (.txt, .md) via drag-and-drop
 - [ ] Document type detection (magic bytes, not extension)
 - [ ] Ingestion status display (processing / ready / failed)
@@ -48,6 +49,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Admin can archive or delete documents
 - [ ] Re-ingestion triggered on document update
 - [ ] Document staleness alerts (configurable threshold, default 6 months)
+- [ ] Library list/table view with sorting and filters (alongside card view)
 
 **V2**
 - [ ] Google Drive folder sync (OAuth, polling for changes)
@@ -71,11 +73,10 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **MVP**
 - [ ] Clickable source link opens original document at the relevant section
 - [ ] Prominent, non-dismissible disclaimer on every response
-- [x] "Request verification" escalation button on every standard-mode response
 - [ ] Graceful no-answer: if no relevant chunks retrieved, respond with redirect to administrator — no hallucinated answer
 - [ ] Query-time semantic filter: queries containing person's name + sensitive terms intercepted before retrieval
 - [x] Conversations linked to users via session email; accessible in conversation viewer
-- [ ] Feedback (thumbs up/down) on AI responses and admin replies
+- [ ] Feedback (thumbs up/down) on AI responses
 
 **V2**
 - [ ] Highlighted source passage in original document view
@@ -86,57 +87,79 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.3 Distributed Knowledge Mesh
+## 3.3 Distributed Source Mesh
 
 ### Device Discovery & Mesh
 
 **Demo**
 - [ ] mimik mDNS-based auto-discovery of Edgebric nodes on local network
-- [ ] Node registry: each node advertises its available knowledge bases
+- [ ] Node registry: each node advertises its available sources
 - [ ] Health status per node (online / offline / degraded)
 - [ ] Graceful degradation: queries to offline nodes return "unavailable" with explanation
 
 **MVP**
 - [ ] Supernode election (mimik handles this) — coordinator node for query routing
-- [ ] Cross-device query routing: query travels to relevant KB node(s), results return to requester
-- [ ] Multi-node response synthesis: answers drawn from multiple KBs are merged with per-source citations
+- [ ] Cross-device query routing: query travels to relevant source node(s), results return to requester
+- [ ] Multi-node response synthesis: answers drawn from multiple sources are merged with per-source citations
 - [ ] Node auto-reconnection: returning device re-joins mesh automatically
-- [ ] Admin node management dashboard: view all nodes, their KBs, and status
+- [ ] Admin node management dashboard: view all nodes, their sources, and status
 
 **V2**
 - [ ] Multi-office federation via mimik account-based clustering (same account, different networks)
-- [ ] KB replication for high-availability (same KB on multiple nodes)
-- [ ] Load balancing across nodes with same KB
+- [ ] Source replication for high-availability (same source on multiple nodes)
+- [ ] Load balancing across nodes with same source
 - [ ] Cross-network mesh via mimik proximity clustering
 
 ### Department / Security Isolation
 
 **Demo**
-- [ ] Assign organization KBs to specific nodes (KB-to-device binding)
-- [ ] Query routing respects KB-to-node assignments
+- [ ] Assign network sources to specific nodes (source-to-device binding)
+- [ ] Query routing respects source-to-node assignments
 
 **MVP**
-- [ ] Department-level access control: which users can query which KBs
-- [ ] Admin assigns KB access by role/department
-- [ ] Audit log: which KBs were queried (not what was asked) per session
+- [ ] Department-level access control: which users can query which sources
+- [ ] Admin assigns source access by role/department
+- [ ] Audit log: which sources were queried (not what was asked) per session
 - [ ] Cross-department query requires explicit admin-configured permission
 
 **V2**
 - [ ] Sensitivity tiers: public → internal → confidential → restricted
-- [ ] Automatic tier enforcement: restricted KBs only queryable by named users
-- [ ] Compliance reporting: data residency proof per KB per device
+- [ ] Automatic tier enforcement: restricted sources only queryable by named users
+- [ ] Compliance reporting: data residency proof per source per device
 
 ---
 
-## 3.4 Meeting Mode
+## 3.4 Group Chats
+
+**MVP**
+- [x] Create group chat (name, expiration: 24h / 1w / 1m / never)
+- [x] Invite members (creator only, with confirmation warnings)
+- [x] Share sources into group chat (any member, with confirmation dialog)
+- [x] @bot / @edgebric to query shared sources — bot only responds when tagged
+- [x] Human-to-human conversation flows freely without bot intervention
+- [x] Threaded replies (flat threads, like Discord) — branch off any message
+- [x] Bot reads conversation/thread context before responding
+- [x] Real-time updates via SSE (new messages, member joins/leaves, source shares)
+- [x] Creator can remove members; members can leave
+- [ ] Context summarization for long conversations (auto-compress older messages)
+
+**V2**
+- [ ] Read receipts
+- [ ] Typing indicators
+- [ ] File attachments in chat
+- [ ] Group chat templates (pre-configured source sets)
+
+---
+
+## 3.5 Meeting Mode (Distributed)
 
 **Demo**
 - [ ] Create meeting session (generates room code)
 - [ ] Join session via room code
-- [ ] See participant list and their opted-in KBs
-- [ ] Opt in/out personal KBs for the session (granular per-KB control)
-- [ ] Ask questions that query all opted-in KBs across all participants' devices
-- [ ] Synthesized answers with citations from each contributing KB
+- [ ] See participant list and their opted-in sources
+- [ ] Opt in/out sources for the session (granular per-source control)
+- [ ] Ask questions that query all opted-in sources across all participants' devices
+- [ ] Synthesized answers with citations from each contributing source
 - [ ] End session (dissolves all ephemeral sharing)
 
 **MVP**
@@ -144,60 +167,63 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Session transcript export (questions and answers only, not source documents)
 - [ ] Participant can leave session without ending it for others
 - [ ] Session creator can remove participants
-- [ ] Organization KBs can be pre-attached to sessions by admin
-- [ ] Visual indicator showing which KBs contributed to each answer
+- [ ] Network sources can be pre-attached to sessions by admin
+- [ ] Visual indicator showing which sources contributed to each answer
 
 **V2**
 - [ ] Recurring session codes (same code for weekly standup)
-- [ ] Session templates (pre-configured KB sets for common meeting types)
+- [ ] Session templates (pre-configured source sets for common meeting types)
 - [ ] Meeting notes generation (AI-summarized key Q&A from session)
 - [ ] Calendar integration (auto-create session for scheduled meetings)
 
 ---
 
-## 3.5 Escalation & Human-in-the-Loop
+## 3.6 Integrations
 
-**Demo**
-- [x] "Request verification" button on every standard-mode response (absent in incognito / meeting mode)
-- [x] Employee selects escalation target and delivery method (Slack DM or email)
-- [x] Escalation dispatched via Slack Bot Token or SMTP email
-- [x] Admin escalation log: timestamped audit view with target, method, delivery status
+### Slack Bot
 
-**MVP**
-- [x] Employee optionally includes the AI's answer for context when escalating
-- [x] Admin can reply to escalation — reply appended to conversation as admin message
-- [x] Admin can resolve escalation without reply (system note in conversation)
-- [x] Employee notification when escalation is replied to or resolved
-- [x] Read/unread tracking with badge counts
-- [x] Conversation viewer: read-only view of full message thread
-- [x] CSV export includes target, method, and read status columns
+**MVP (deferred — post group chats)**
+- [ ] "Add to Slack" OAuth install flow in admin settings
+- [ ] Socket Mode connection (outbound WebSocket — works behind firewalls)
+- [ ] @Edgebric mention in any channel triggers RAG query against accessible sources
+- [ ] Bot responds in threaded replies to keep channels clean
+- [ ] Privacy notice on integration setup page
+- [ ] Bot posts brief privacy disclaimer on first interaction in each channel
+- [ ] Per-channel source configuration (which sources the bot can query)
 
 **V2**
-- [ ] Microsoft Teams integration for escalations
-- [ ] SLA tracking: flag escalations unanswered beyond configurable threshold
-- [ ] Escalation resolution feeds back into gap detection analytics
+- [ ] Microsoft Teams bot integration
+- [ ] Direct message queries to bot (not just channel @mentions)
+- [ ] Multi-turn conversation context within Slack threads
+
+### Email Notifications (General-Purpose)
+
+**MVP**
+- [ ] Group chat invite notifications
+- [ ] Source share notifications
+- [ ] Chat expiration warnings
+- [ ] Configurable notification preferences per user
 
 ---
 
-## 3.6 Admin Dashboard
+## 3.7 Admin Dashboard
 
 **Demo**
 - [ ] Secure admin login (OIDC/SSO — Google dev IdP for development, generic OIDC for production)
-- [ ] Organization KB management (create, upload, view, delete)
-- [ ] Node status view (discovered devices and their KBs)
+- [ ] Network source management (create, upload, view, delete)
+- [ ] Node status view (discovered devices and their sources)
 
 **MVP**
-- [ ] Document library: all uploaded documents, type, status, last updated date
+- [ ] Library: all sources with list/table and card views, sorting, filters
 - [ ] PII warning display during ingestion
 - [ ] Document staleness alerts
-- [ ] Aggregate query analytics: topic clusters (min 5 queries to surface a topic)
-- [ ] Unanswered questions list
-- [x] Escalation integration settings: configure Slack Bot Token or SMTP email
-- [x] Escalation targets management: add/edit/delete people who receive escalations
-- [x] Escalation log with reply/resolve workflow
-- [ ] Node management: assign KBs to devices, view health
+- [ ] User management: invite, roles, permissions
+- [ ] Integration settings: Slack bot, email notifications
+- [ ] Node management: assign sources to devices, view health
 
 **V2**
+- [ ] Aggregate query analytics: topic clusters (min 5 queries to surface a topic)
+- [ ] Unanswered questions list
 - [ ] Query volume trends (weekly/monthly graphs)
 - [ ] Policy gap report: exportable unanswered questions by topic
 - [ ] SSO integration (Okta, Azure AD) for admin login
@@ -206,7 +232,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.7 Authentication & Security
+## 3.8 Authentication & Security
 
 **MVP**
 - [x] Admin + employee login via OIDC/SSO (Google dev IdP for development)
@@ -225,29 +251,29 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.8 iOS Companion App
+## 3.9 iOS Companion App
 
 **Demo**
 - [ ] iOS app with mimik mim OE runtime embedded (CocoaPods: EdgeCore + mim-OE-ai-SE-iOS-developer)
-- [ ] App hosts mKB locally — functions as a knowledge node in the mesh
-- [ ] Upload documents to on-device KB from iOS Files / Photos
-- [ ] Auto-discovery: app joins the mesh and advertises its KBs
+- [ ] App hosts mKB locally — functions as a source node in the mesh
+- [ ] Upload documents to on-device source from iOS Files / Photos
+- [ ] Auto-discovery: app joins the mesh and advertises its sources
 - [ ] Join meeting sessions via room code
-- [ ] Opt in device-local KBs to meeting session
+- [ ] Opt in device-local sources to meeting session
 
 **MVP**
-- [ ] Personal KB management on iOS (create, upload, delete)
-- [ ] Private query interface (query own KBs locally on phone)
-- [ ] Push notifications for escalation replies and meeting invites
+- [ ] Vault source management on iOS (create, upload, delete)
+- [ ] Private query interface (query own sources locally on phone)
+- [ ] Push notifications for group chat invites and meeting invites
 
 **V2**
 - [ ] Incognito mode on iOS (biometric vault, zero-network query)
-- [ ] Background mesh participation (app contributes KBs even when in background)
-- [ ] Offline personal KB queries (no mesh needed for own data)
+- [ ] Background mesh participation (app contributes sources even when in background)
+- [ ] Offline vault source queries (no mesh needed for own data)
 
 ---
 
-## 3.9 Deployment & Infrastructure
+## 3.10 Deployment & Infrastructure
 
 **Demo**
 - [ ] Runs on mimik mim OE runtime on macOS
@@ -270,7 +296,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.10 Incognito Mode (V2)
+## 3.11 Incognito Mode (V2)
 
 **V2**
 - [ ] Lock icon in UI to enter Incognito Mode
@@ -279,6 +305,6 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] One-time download: company policy embeddings + local LLM
 - [ ] All query processing on-device: embedding → vector search → generation
 - [ ] Zero network requests during active query
-- [ ] No escalation button in incognito (incompatible by design)
+- [ ] No group chat or collaboration features in incognito (incompatible by design)
 - [ ] Clear exit path with explicit confirmation
 - [ ] Personal records sub-feature: download own records for local-only querying

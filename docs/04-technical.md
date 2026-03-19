@@ -21,7 +21,7 @@
 │  │  └──────────┘  └──────────┘  └───────────┘            │  │
 │  │                                                        │  │
 │  │  ┌────────────────────┐  ┌────────────────────────┐   │  │
-│  │  │  Organization KBs  │  │    Admin Dashboard     │   │  │
+│  │  │  Network Sources  │  │    Admin Dashboard     │   │  │
 │  │  │  (HR, Benefits,    │  │    (React web app)     │   │  │
 │  │  │   Handbook, etc.)  │  │                        │   │  │
 │  │  └────────────────────┘  └────────────────────────┘   │  │
@@ -68,7 +68,7 @@
 │  ┌────────────────────────────┴──────────────────────────────┐     │
 │  │              Coordinator Node (elected supernode)          │     │
 │  │                                                           │     │
-│  │  mAIChain: receives query → fans out to relevant KBs     │     │
+│  │  mAIChain: receives query → fans out to relevant sources  │     │
 │  │           → collects responses → synthesizes answer       │     │
 │  │                                                           │     │
 │  │  API Server + Admin Dashboard + Web App                   │     │
@@ -97,12 +97,12 @@
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │  Alice (iPhone)  │  │  Bob (MacBook)   │  │  Carol (iPhone)  │  │
 │  │                  │  │                  │  │                  │  │
-│  │  Personal KB:    │  │  Personal KB:    │  │  Personal KB:    │  │
+│  │  Vault Source:    │  │  Vault Source:    │  │  Vault Source:    │  │
 │  │  "Marketing      │  │  "Eng Release    │  │  "Legal          │  │
 │  │   Campaign"      │  │   Notes"         │  │   Compliance"    │  │
 │  │  [SHARED ✓]      │  │  [SHARED ✓]      │  │  [SHARED ✓]      │  │
 │  │                  │  │                  │  │                  │  │
-│  │  Personal KB:    │  │  Org KB:         │  │  Personal KB:    │  │
+│  │  Vault Source:    │  │  Network Source:         │  │  Vault Source:    │  │
 │  │  "My Research"   │  │  "Product Docs"  │  │  "Case Files"    │  │
 │  │  [NOT SHARED ✗]  │  │  [SHARED ✓]      │  │  [NOT SHARED ✗]  │  │
 │  │                  │  │                  │  │                  │  │
@@ -128,7 +128,7 @@
 │                    │    └── Carol: Legal     │                     │
 │                    │         │               │                     │
 │                    │    Synthesize answer    │                     │
-│                    │    with per-KB citations│                     │
+│                    │    with per-source citations│                     │
 │                    └─────────────────────────┘                     │
 │                                                                    │
 │  Session ends → ephemeral sharing dissolves                       │
@@ -152,8 +152,8 @@ Employee asks: "What's our parental leave policy and does it comply with state l
   ▼
 2. QUERY CLASSIFICATION
    ├── Query-time filter: person name + sensitive term? → intercept
-   ├── KB routing: which KBs are relevant? → HR KB + Legal KB
-   └── Node lookup: where do those KBs live? → HR node + Legal node
+   ├── Source routing: which sources are relevant? → HR source + Legal source
+   └── Node lookup: where do those sources live? → HR node + Legal node
 
   │
   ▼
@@ -169,16 +169,15 @@ Employee asks: "What's our parental leave policy and does it comply with state l
    ├── Merge retrieved chunks from all nodes
    ├── Assemble system prompt with combined context
    ├── Generate answer via mILM (on coordinator)
-   └── Tag citations with source KB and node
+   └── Tag citations with source name and node
 
   │
   ▼
 5. RESPONSE DELIVERY
    ├── Answer text (streamed via SSE)
-   ├── Source citations: {KB name, document name, section, page}
-   ├── Which KBs contributed (visual indicator)
-   ├── Disclaimer: ⚠️ Verify important decisions with the appropriate team.
-   └── Escalation button (if not in meeting mode)
+   ├── Source citations: {source name, document name, section, page}
+   ├── Which sources contributed (visual indicator)
+   └── Disclaimer: Verify important decisions with the appropriate team.
 ```
 
 ---
@@ -195,22 +194,22 @@ Employee asks: "What's our parental leave policy and does it comply with state l
 2. JOIN SESSION
    ├── Participant enters room code in Edgebric
    ├── Device joins session-scoped mesh group
-   ├── Participant sees their KBs with opt-in toggles
-   ├── Participant opts in specific KBs (granular, per-KB)
-   └── All participants see updated KB availability
+   ├── Participant sees their sources with opt-in toggles
+   ├── Participant opts in specific sources (granular, per-source)
+   └── All participants see updated source availability
 
 3. QUERY IN SESSION
    ├── Any participant types a question
-   ├── Coordinator identifies all opted-in KBs across all devices
-   ├── Fan-out query to each device hosting an opted-in KB
+   ├── Coordinator identifies all opted-in sources across all devices
+   ├── Fan-out query to each device hosting an opted-in source
    ├── Each device runs local mKB search, returns chunk results
-   ├── Coordinator synthesizes answer with per-KB citations
+   ├── Coordinator synthesizes answer with per-source citations
    └── Answer delivered to session chat (all participants see it)
 
 4. END SESSION
    ├── Creator clicks "End Session" (or session expires)
-   ├── All ephemeral KB sharing permissions revoked
-   ├── Devices stop advertising KBs to this session
+   ├── All ephemeral source sharing permissions revoked
+   ├── Devices stop advertising sources to this session
    ├── Session transcript optionally exported
    └── No data was ever copied between devices
 ```
@@ -288,7 +287,7 @@ INPUT (PDF, .docx, .txt, .md)
 | Frontend | React (Vite + TanStack Router + shadcn/ui) | Web app, responsive; mobile browser supported |
 | iOS app | Swift + mimik iOS SDK (CocoaPods) | Knowledge node in mesh |
 | Backend | Node.js + Express | REST API, SSE streaming |
-| Database | SQLite + Drizzle ORM | Conversations, escalations, user sessions |
+| Database | SQLite + Drizzle ORM | Conversations, group chats, user sessions |
 | Auth | OIDC/SSO | Google dev IdP (dev), generic OIDC (prod) |
 
 ### Recommended LLM Defaults (Model-Agnostic)
@@ -305,7 +304,7 @@ Edgebric's inference layer targets the **OpenAI-compatible API spec**. Any model
 
 | Hardware | Cost | Model Capacity | Daily Users | Best For |
 |---|---|---|---|---|
-| Mac Mini M2 (8GB) | $499 | Qwen3.5-4B @ ~35-45 tok/s | 50-100 | Single small office, KB-only node |
+| Mac Mini M2 (8GB) | $499 | Qwen3.5-4B @ ~35-45 tok/s | 50-100 | Single small office, source-only node |
 | Mac Mini M4 (16GB) | $599 | Qwen3.5-4B @ ~35-50 tok/s | 100-200 | Primary node for 50-200 person company |
 | Mac Mini M2 Pro (16GB) | ~$800 used | Qwen3.5-9B @ ~37 tok/s | 150-300 | Multi-department coordinator |
 | iPhone (iOS 16+) | existing | Qwen3.5-2B | Personal use | Meeting mode knowledge node |
@@ -371,17 +370,17 @@ All communication with mimik services is raw HTTP to `localhost:8083`. No Node.j
 │  │  └──────────┘  └──────────┘                  │   │
 │  │                                              │   │
 │  │  Auto-discovery via mDNS                     │   │
-│  │  Advertises KBs to mesh                      │   │
+│  │  Advertises sources to mesh                   │   │
 │  │  Responds to cross-device queries            │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                     │
 │  ┌──────────────────────────────────────────────┐   │
 │  │         App UI (SwiftUI)                      │   │
-│  │  ├── Personal KB management                  │   │
+│  │  ├── Vault source management                  │   │
 │  │  ├── Document upload from Files              │   │
 │  │  ├── Private query interface                 │   │
 │  │  ├── Meeting session (join via code)          │   │
-│  │  └── KB sharing controls                     │   │
+│  │  └── Source sharing controls                  │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                     │
 │  Requirements:                                     │
@@ -406,7 +405,7 @@ All communication with mimik services is raw HTTP to `localhost:8083`. No Node.j
 ### Security
 - All data at rest: AES-256 encrypted
 - All data in transit: TLS 1.3 (mesh uses mimik's built-in TLS)
-- Physical data isolation: each node holds only its assigned KBs
+- Physical data isolation: each node holds only its assigned sources
 - Admin panel: authenticated access only (OIDC/SSO)
 - No telemetry or analytics transmitted to any external server
 - No training data leaves company infrastructure
@@ -415,12 +414,12 @@ All communication with mimik services is raw HTTP to `localhost:8083`. No Node.j
 - Standard mode: individual queries not stored beyond session; only aggregate analytics
 - Analytics: topics suppressed until minimum 5 distinct queries
 - Meeting mode: session transcript stored only if opted in; source documents never copied
-- Personal KBs: never searchable by others unless explicitly opted in to a session
-- Escalation records: retained for compliance with configurable retention
+- Vault sources: never searchable by others unless explicitly shared in a group chat or session
+- Group chat records: retained for compliance with configurable retention/expiration
 
 ### Compliance Posture
 - **On-prem software model = selling software, not a service.** SOC 2, HIPAA certifications barely apply to the vendor when data never touches vendor infrastructure.
 - **GDPR**: data residency by design — data never crosses device boundaries unless the user explicitly shares in a session
 - **CCPA**: data stays on company/personal devices, fully auditable
 - **HIPAA**: health data processed locally, no ePHI transmitted
-- **EU AI Act**: human-in-the-loop (escalation) built in; disclaimer on every response
+- **EU AI Act**: human-in-the-loop (group chats with experts) built in; disclaimer on every response

@@ -12,7 +12,6 @@ import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { lookupChunk } from "../services/chunkRegistry.js";
 import { getAllDocuments, getDocument } from "../services/documentStore.js";
-import { listTargets } from "../services/escalationTargetStore.js";
 import { listKBs } from "../services/knowledgeBaseStore.js";
 import {
   getGroupChat,
@@ -193,7 +192,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       const botMsg = addMessage({
         groupChatId: chatId,
         role: "assistant",
-        content: "No knowledge bases have been shared in this group chat yet. Share a KB so I can help answer questions.",
+        content: "No sources have been shared in this group chat yet. Share a source so I can help answer questions.",
       });
       sendEvent("done", botMsg);
       broadcastToChat(chatId, "message", botMsg);
@@ -253,9 +252,6 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       messages: sessionMessages,
     };
 
-    const orgId = req.session.orgId;
-    const targetNames = listTargets(orgId).map((t) => t.name);
-
     const stream = answerStream(
       query,
       session,
@@ -264,7 +260,6 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         datasetNames,
         topK: 3,
         similarityThreshold: 0.3,
-        escalationTargetNames: targetNames,
       },
       {
         search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),

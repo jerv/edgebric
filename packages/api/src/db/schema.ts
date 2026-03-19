@@ -117,54 +117,13 @@ export const messages = sqliteTable("messages", {
   createdAt: text("created_at").notNull(),
 });
 
-// ─── Escalation Targets ─────────────────────────────────────────────────────
-
-export const escalationTargets = sqliteTable("escalation_targets", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  role: text("role"),
-  slackUserId: text("slack_user_id"),
-  email: text("email"),
-  slackNotify: integer("slack_notify"),
-  emailNotify: integer("email_notify"),
-  orgId: text("org_id"),
-  createdAt: text("created_at").notNull(),
-});
-
-// ─── Escalations ─────────────────────────────────────────────────────────────
-
-export const escalations = sqliteTable("escalations", {
-  id: text("id").primaryKey(),
-  createdAt: text("created_at").notNull(),
-  question: text("question").notNull(),
-  aiAnswer: text("ai_answer").notNull(),
-  sourceCitations: text("source_citations").notNull().default("[]"),
-  status: text("status").notNull(),
-  notifiedVia: text("notified_via"),
-  conversationId: text("conversation_id"),
-  messageId: text("message_id"),
-  targetId: text("target_id"),
-  targetName: text("target_name"),
-  method: text("method"),
-  orgId: text("org_id"),
-  readAt: text("read_at"),
-  readBy: text("read_by"),
-  adminReply: text("admin_reply"),
-  repliedAt: text("replied_at"),
-  repliedBy: text("replied_by"),
-  resolvedAt: text("resolved_at"),
-  resolvedBy: text("resolved_by"),
-  replyMessageId: text("reply_message_id"),
-});
-
 // ─── Notifications ──────────────────────────────────────────────────────────
 
 export const notifications = sqliteTable("notifications", {
   id: text("id").primaryKey(),
   userEmail: text("user_email").notNull(),
-  type: text("type").notNull(), // "admin_reply" | "escalation_resolved"
+  type: text("type").notNull(), // "group_chat_invite" | "source_shared" | "chat_expiring"
   conversationId: text("conversation_id").notNull(),
-  escalationId: text("escalation_id"),
   messageId: text("message_id"),
   title: text("title").notNull(),
   body: text("body"),

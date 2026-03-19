@@ -17,10 +17,10 @@ Edgebric is not a chatbot. It is a **distributed knowledge intelligence platform
 Without mimik's edge mesh, building this product requires a central server that aggregates all knowledge — defeating the entire privacy architecture. mimik provides:
 
 - **mDNS-based device discovery** — devices on the same network find each other automatically, no IP configuration
-- **Cross-device HTTP routing** — queries travel to data sources without moving data to a central point
-- **Service mesh coordination** — mAIChain fans out queries to multiple knowledge nodes and synthesizes responses
+- **Cross-device HTTP routing** — queries travel to sources without moving data to a central point
+- **Service mesh coordination** — mAIChain fans out queries to multiple source nodes and synthesizes responses
 - **Local AI inference** — mILM runs LLMs and embedding models on each device, mKB stores vectors locally
-- **iOS/Android SDKs** — the same architecture runs on phones, turning every device into a knowledge node
+- **iOS/Android SDKs** — the same architecture runs on phones, turning every device into a source node
 
 This product literally cannot exist without mimik's platform. A central server alternative would require copying all data to one location — which is exactly the privacy problem Edgebric exists to solve.
 
@@ -29,17 +29,17 @@ This product literally cannot exist without mimik's platform. A central server a
 ## Three Operational Modes
 
 ### 1. Org Mode (Single Node)
-The simplest deployment. One device (Mac Mini, laptop, or server) holds the organization's policy knowledge base. Employees query it from their browsers. This is the existing product — a privacy-first on-premise AI assistant.
+The simplest deployment. One device (Mac Mini, laptop, or server) holds the organization's network sources. Employees query it from their browsers. This is the existing product — a privacy-first on-premise AI assistant.
 
 ### 2. Department / Security Mode (Multi-Node Mesh)
-Knowledge is distributed across multiple devices by department or sensitivity tier. The legal team's knowledge lives on the legal department's device. HR's knowledge lives on HR's device. Finance on finance's. mimik's mesh discovers all nodes automatically. When an employee asks a cross-domain question, the query routes to the relevant nodes — data never leaves its host device.
+Knowledge is distributed across multiple devices by department or sensitivity tier. The legal team's sources live on the legal department's device. HR's sources live on HR's device. Finance on finance's. mimik's mesh discovers all nodes automatically. When an employee asks a cross-domain question, the query routes to the relevant nodes — data never leaves its host device.
 
 **This is security architecture, not convenience.** Physical device isolation means a compromised node cannot access another department's data, because that data simply isn't there. No amount of privilege escalation, SQL injection, or access control bypass can extract data that doesn't exist on the machine.
 
 ### 3. Meeting Mode (Ephemeral Mesh)
-Users create a session with a room code. Participants join by entering the code. Each participant opts in specific personal or organization knowledge bases to share with the session. The AI can now answer cross-domain questions by querying all opted-in knowledge bases across participants' devices. When the meeting ends, the session dissolves — no data was ever copied.
+Users create a session with a room code. Participants join by entering the code. Each participant opts in specific personal or network sources to share with the session. The AI can now answer cross-domain questions by querying all opted-in sources across participants' devices. When the meeting ends, the session dissolves — no data was ever copied.
 
-**Example:** A product launch meeting. Marketing shares their campaign brief KB. Engineering shares their release notes KB. Legal shares their compliance checklist KB. Someone asks: "Are there any compliance issues with the claims in slide 12?" The query hits all three KBs simultaneously, and the AI synthesizes an answer drawing from all three — without any team's documents leaving their device.
+**Example:** A product launch meeting. Marketing shares their campaign brief source. Engineering shares their release notes source. Legal shares their compliance checklist source. Someone asks: "Are there any compliance issues with the claims in slide 12?" The query hits all three sources simultaneously, and the AI synthesizes an answer drawing from all three — without any team's documents leaving their device.
 
 ---
 
@@ -103,7 +103,7 @@ A $599 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 | Works offline | Yes | No | Yes |
 | Device discovery | Automatic (mDNS mesh) | N/A | Manual IP configuration |
 | Meeting mode | Yes — ephemeral cross-device sessions | No | No |
-| Personal knowledge bases | Yes — employee-owned, device-local | No | No |
+| Vault sources | Yes — employee-owned, device-local, encrypted | No | No |
 | Hardware cost | $599 one-time (Mac Mini) | $3,600-$20,400/yr (100 employees) | $5,000-$50,000 server |
 | GDPR/CCPA compliance | By architecture | Requires legal scaffolding | By policy (auditable) |
 | Powered by | mimik edge mesh | AWS / Azure / GCP | Bare metal / VMware |
@@ -114,7 +114,7 @@ A $599 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 - **Moveworks** (acquired by ServiceNow, $2.85B) — HR/IT AI, cloud-only, now bundled into $100k+ ServiceNow contracts
 - **Leena AI** ($40M raised) — HR-specific, cloud-only, from $3/employee/month, complaints of generic answers
 - **Guru** — general knowledge base with AI, $5-12/user, cloud-only
-- **No competitor offers:** distributed multi-device mesh + physical data isolation + meeting mode + personal knowledge bases + sub-$1K hardware deployment
+- **No competitor offers:** distributed multi-device mesh + physical data isolation + meeting mode + vault sources + group chats + sub-$1K hardware deployment
 
 ### Target Markets
 
@@ -138,8 +138,8 @@ Edgebric is that reference application. It demonstrates:
 
 1. **Why mesh discovery matters** — devices find each other automatically, no IT configuration
 2. **Why data should stay on-device** — physical isolation is stronger than any access control
-3. **Why cross-device queries matter** — meeting mode creates value that literally requires the mesh
+3. **Why cross-device queries matter** — meeting mode and group chats create value that literally requires the mesh
 4. **Why edge AI matters** — local inference means no cloud costs, no data leakage, no vendor lock-in
-5. **Why iOS/Android SDKs matter** — phones become knowledge nodes in meeting mode
+5. **Why iOS/Android SDKs matter** — phones become source nodes in meeting mode
 
 This is not a generic chatbot with mimik bolted on. This is a product that cannot exist without mimik's platform — and that makes mimik's platform make sense.

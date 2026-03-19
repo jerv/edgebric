@@ -253,14 +253,14 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
   // Verify KB exists and belongs to org
   const kb = getKB(req.body.knowledgeBaseId);
   if (!kb || !kbBelongsToOrg(req.body.knowledgeBaseId, orgId)) {
-    res.status(404).json({ error: "Knowledge base not found" });
+    res.status(404).json({ error: "Source not found" });
     return;
   }
 
   // Check if already shared
   const existing = chat.sharedKBs.find((s) => s.knowledgeBaseId === req.body.knowledgeBaseId);
   if (existing) {
-    res.status(409).json({ error: "This knowledge base is already shared in this group chat" });
+    res.status(409).json({ error: "This source is already shared in this group chat" });
     return;
   }
 
@@ -288,13 +288,13 @@ groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
 
   const share = chat.sharedKBs.find((s) => s.id === shareId);
   if (!share) {
-    res.status(404).json({ error: "Shared KB not found" });
+    res.status(404).json({ error: "Shared source not found" });
     return;
   }
 
   // Only sharer or creator can unshare
   if (share.sharedByEmail !== email.toLowerCase() && !isCreator(chatId, email)) {
-    res.status(403).json({ error: "Only the sharer or creator can remove a shared KB" });
+    res.status(403).json({ error: "Only the sharer or creator can remove a shared source" });
     return;
   }
 

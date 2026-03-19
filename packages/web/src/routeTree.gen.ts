@@ -20,10 +20,7 @@ import { Route as ShellOrganizationRouteImport } from './routes/_shell/organizat
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
 import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
 import { Route as ShellGroupChatsRouteImport } from './routes/_shell/group-chats'
-import { Route as ShellEscalationsRouteImport } from './routes/_shell/escalations'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
-import { Route as ShellAnalyticsRouteImport } from './routes/_shell/analytics'
-import { Route as ShellAdminGuideRouteImport } from './routes/_shell/admin-guide'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
 import { Route as ShellGroupChatsIdRouteImport } from './routes/_shell/group-chats.$id'
 import { Route as ShellConversationsIdRouteImport } from './routes/_shell/conversations.$id'
@@ -82,24 +79,9 @@ const ShellGroupChatsRoute = ShellGroupChatsRouteImport.update({
   path: '/group-chats',
   getParentRoute: () => ShellRoute,
 } as any)
-const ShellEscalationsRoute = ShellEscalationsRouteImport.update({
-  id: '/escalations',
-  path: '/escalations',
-  getParentRoute: () => ShellRoute,
-} as any)
 const ShellDocumentsRoute = ShellDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
-  getParentRoute: () => ShellRoute,
-} as any)
-const ShellAnalyticsRoute = ShellAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => ShellRoute,
-} as any)
-const ShellAdminGuideRoute = ShellAdminGuideRouteImport.update({
-  id: '/admin-guide',
-  path: '/admin-guide',
   getParentRoute: () => ShellRoute,
 } as any)
 const ShellAccountRoute = ShellAccountRouteImport.update({
@@ -124,10 +106,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
-  '/admin-guide': typeof ShellAdminGuideRoute
-  '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
-  '/escalations': typeof ShellEscalationsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
@@ -142,10 +121,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
-  '/admin-guide': typeof ShellAdminGuideRoute
-  '/analytics': typeof ShellAnalyticsRoute
   '/documents': typeof ShellDocumentsRoute
-  '/escalations': typeof ShellEscalationsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
@@ -163,10 +139,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/_shell/account': typeof ShellAccountRoute
-  '/_shell/admin-guide': typeof ShellAdminGuideRoute
-  '/_shell/analytics': typeof ShellAnalyticsRoute
   '/_shell/documents': typeof ShellDocumentsRoute
-  '/_shell/escalations': typeof ShellEscalationsRoute
   '/_shell/group-chats': typeof ShellGroupChatsRouteWithChildren
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
@@ -185,10 +158,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/account'
-    | '/admin-guide'
-    | '/analytics'
     | '/documents'
-    | '/escalations'
     | '/group-chats'
     | '/library'
     | '/models'
@@ -203,10 +173,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/account'
-    | '/admin-guide'
-    | '/analytics'
     | '/documents'
-    | '/escalations'
     | '/group-chats'
     | '/library'
     | '/models'
@@ -223,10 +190,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/_shell/account'
-    | '/_shell/admin-guide'
-    | '/_shell/analytics'
     | '/_shell/documents'
-    | '/_shell/escalations'
     | '/_shell/group-chats'
     | '/_shell/library'
     | '/_shell/models'
@@ -325,32 +289,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellGroupChatsRouteImport
       parentRoute: typeof ShellRoute
     }
-    '/_shell/escalations': {
-      id: '/_shell/escalations'
-      path: '/escalations'
-      fullPath: '/escalations'
-      preLoaderRoute: typeof ShellEscalationsRouteImport
-      parentRoute: typeof ShellRoute
-    }
     '/_shell/documents': {
       id: '/_shell/documents'
       path: '/documents'
       fullPath: '/documents'
       preLoaderRoute: typeof ShellDocumentsRouteImport
-      parentRoute: typeof ShellRoute
-    }
-    '/_shell/analytics': {
-      id: '/_shell/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof ShellAnalyticsRouteImport
-      parentRoute: typeof ShellRoute
-    }
-    '/_shell/admin-guide': {
-      id: '/_shell/admin-guide'
-      path: '/admin-guide'
-      fullPath: '/admin-guide'
-      preLoaderRoute: typeof ShellAdminGuideRouteImport
       parentRoute: typeof ShellRoute
     }
     '/_shell/account': {
@@ -391,10 +334,7 @@ const ShellGroupChatsRouteWithChildren = ShellGroupChatsRoute._addFileChildren(
 
 interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
-  ShellAdminGuideRoute: typeof ShellAdminGuideRoute
-  ShellAnalyticsRoute: typeof ShellAnalyticsRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
-  ShellEscalationsRoute: typeof ShellEscalationsRoute
   ShellGroupChatsRoute: typeof ShellGroupChatsRouteWithChildren
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
@@ -406,10 +346,7 @@ interface ShellRouteChildren {
 
 const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
-  ShellAdminGuideRoute: ShellAdminGuideRoute,
-  ShellAnalyticsRoute: ShellAnalyticsRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
-  ShellEscalationsRoute: ShellEscalationsRoute,
   ShellGroupChatsRoute: ShellGroupChatsRouteWithChildren,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,

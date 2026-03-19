@@ -52,41 +52,42 @@
 
 ---
 
-### KB-01 — Personal vs. Organization Knowledge Bases
+### KB-01 — Source Types: Vault vs. Network
 
-**Decision:** Every user can create personal knowledge bases. Organization KBs are admin-managed. Both are first-class citizens.
+**Decision:** Sources come in two types. Network sources are admin-managed and stored on the org's network. Vault sources are personal, device-local, and encrypted.
 
-**Personal KBs:**
+**Vault Sources:**
 - Created by any authenticated user
-- Stored on the user's device (or on the server node, associated with their account)
+- Stored encrypted on the user's device
 - Private by default — never searchable by anyone else
-- Can be selectively shared in meeting sessions (granular, per-KB opt-in)
+- Can be selectively shared in group chats or meeting sessions (granular, per-source opt-in)
 - Use cases: project notes, research, personal reference documents
 
-**Organization KBs:**
+**Network Sources:**
 - Created and managed by administrators
 - Stored on designated devices (in distributed mode) or the primary node (in org mode)
 - Accessible to all employees (or scoped by department in distributed mode)
 - Use cases: HR policies, employee handbook, benefits guides, compliance documents
 
 **Why both matter:**
-- Org KBs provide the institutional knowledge layer (the original product)
-- Personal KBs give every employee a daily reason to use Edgebric (not just occasional HR queries)
-- Meeting mode creates emergent value by combining both — cross-pollination of personal and institutional knowledge
+- Network sources provide the institutional knowledge layer (the original product)
+- Vault sources give every employee a daily reason to use Edgebric (not just occasional HR queries)
+- Group chats and meeting mode create emergent value by combining both — cross-pollination of personal and institutional knowledge
 
 ---
 
 ### KB-02 — Granular Sharing Controls
 
-**Decision:** When sharing KBs in a meeting session, users have per-KB granular control.
+**Decision:** When sharing sources in group chats or meeting sessions, users have per-source granular control with explicit confirmation.
 
 **What this means:**
-- A user might have 5 personal KBs but only share 2 in a given meeting
-- Each KB shows a toggle: shared / not shared for this session
-- Sharing is session-scoped: it dissolves when the session ends
+- A user might have 5 vault sources but only share 2 in a given group chat
+- Each source requires explicit confirmation with a warning dialog explaining what data becomes accessible
+- In group chats: sharing persists until the chat expires or the sharer removes it
+- In meeting sessions: sharing dissolves when the session ends
 - No "share everything" default — explicit opt-in only
 
-**Why not just share everything?** A marketing lead might have a KB with competitive intelligence they'd share in a strategy meeting but not in an all-hands. A lawyer might share compliance checklists but not client case files. Granularity is essential for trust.
+**Why not just share everything?** A marketing lead might have a source with competitive intelligence they'd share in a strategy discussion but not in an all-hands. A lawyer might share compliance checklists but not client case files. Granularity is essential for trust.
 
 ---
 
@@ -166,15 +167,64 @@ Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible AP
 
 ---
 
-### ANALYTICS-01 — Aggregate Analytics Anonymization
+### COLLAB-01 — Group Chats Replace Escalations
 
-Topic clusters do not surface until minimum **5 distinct queries** contribute. Below threshold, grouped into "Other." For very small teams, analytics can be disabled entirely.
+**Decision:** The escalation system (escalation targets, Slack DM/email dispatch, admin reply workflow) is removed entirely. Group chats replace this functionality with a more natural, collaborative approach.
+
+**Why:**
+- Escalations were a workaround for "I need help from a person." Group chats solve this natively — invite the expert, share the source, discuss in context.
+- Group chats support threaded async discussion, which is more useful than a one-shot escalation/reply cycle.
+- The bot participates in group chats only when @tagged, so humans can discuss freely.
+- Expiration controls (24h, 1w, 1m, never) provide appropriate data lifecycle management.
+
+**What's kept:** General-purpose email notifications (for group chat invites, source shares, expiration warnings).
 
 ---
 
-### UX-01 — Escalation in Incognito Mode
+### INTEGRATION-01 — Slack Bot Architecture
 
-The "Request verification" button is absent in Incognito Mode. Escalation requires identifying yourself — fundamentally incompatible with incognito. Employee must exit incognito first with explicit confirmation.
+**Decision:** Slack bot integration uses Socket Mode (outbound WebSocket) for on-prem compatibility. Planned for post-group-chat stabilization.
+
+**Key design choices:**
+- **Socket Mode, not HTTP webhooks** — works behind corporate firewalls without opening inbound ports
+- **Privacy notice required** — displayed during integration setup AND as a brief disclaimer on first bot interaction in each channel
+- **Query/response text transits Slack's cloud** — this is inherent to using Slack and is the same trust model as any Slack bot. Source documents never leave the network.
+- **No cost from Slack** — Slack doesn't charge for app development or distribution
+- **Threaded replies** — bot responds in threads to keep channels clean
+
+---
+
+### UX-01 — Incognito Mode Restrictions
+
+Group chats and collaboration features are absent in Incognito Mode. Collaboration requires identifying yourself — fundamentally incompatible with incognito. Employee must exit incognito first with explicit confirmation.
+
+---
+
+### UX-02 — Terminology: "Sources" Not "Knowledge Bases"
+
+**Decision:** User-facing terminology uses "Sources" (not "Knowledge Bases" or "KBs").
+
+**Source types:**
+- **Network Sources** — stored on the org's network servers, admin-managed
+- **Vault Sources** — stored encrypted on an individual member's device, personal
+
+**Top-level page:** "Library" (the page where you browse all sources)
+
+**Why "Sources":** It's what non-technical users intuitively understand — these are the sources the AI draws answers from. "Add a source" is clearer than "Create a knowledge base." Industry precedent: Glean, Perplexity both use "Sources."
+
+**Why not other terms:**
+- "Workspace" — conflicts with org concept
+- "Collection" — too technical (vector DB term)
+- "Vault" — already used for the encryption feature specifically
+- "Repository" — developer connotation
+
+---
+
+### UX-03 — Analytics Deferred to V2
+
+**Decision:** The analytics dashboard page is removed from the current release. Analytics will be rebuilt from scratch after core features (group chats, integrations, source management) are stable and real usage patterns inform what metrics actually matter.
+
+**V2 analytics** will include: aggregate topic clusters (min 5 queries), unanswered questions, query volume trends.
 
 ---
 

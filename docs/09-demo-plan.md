@@ -18,8 +18,8 @@
 
 ### Hardware
 - **MacBook** — Coordinator node. Runs: mim OE Runtime, mILM (Qwen3.5-4B), mKB, API server, web app
-- **iPhone A** — Knowledge node. Runs: iOS app with mim OE Runtime, mKB with "Marketing Campaign" KB
-- **iPhone B** — Knowledge node. Runs: iOS app with mim OE Runtime, mKB with "Legal Compliance" KB
+- **iPhone A** — Source node. Runs: iOS app with mim OE Runtime, mKB with "Marketing Campaign" source
+- **iPhone B** — Source node. Runs: iOS app with mim OE Runtime, mKB with "Legal Compliance" source
 
 ### Network
 - WiFi hotspot from one device (MacBook or iPhone)
@@ -28,20 +28,20 @@
 
 ### Pre-Loaded Data
 
-**MacBook KB: "Engineering — Release Notes"**
+**MacBook Source: "Engineering — Release Notes"**
 - Product release notes for a fictional Q3 launch
 - Feature descriptions, timelines, known issues
 - Technical specifications and API changes
 - ~15-20 chunks, realistic content
 
-**iPhone A KB: "Marketing — Campaign Brief"**
+**iPhone A Source: "Marketing — Campaign Brief"**
 - Campaign messaging and positioning for the Q3 launch
 - Target audience descriptions
 - Marketing claims and value propositions
 - Social media copy drafts
 - ~10-15 chunks
 
-**iPhone B KB: "Legal — Compliance Checklist"**
+**iPhone B Source: "Legal — Compliance Checklist"**
 - Regulatory requirements for product claims
 - Advertising compliance rules
 - Data privacy requirements for marketing materials
@@ -64,12 +64,12 @@ Current solutions force a choice: centralize everything in one place (security r
 
 **Show:** MacBook running Edgebric in Org Mode.
 
-1. Open admin dashboard, show the "Engineering — Release Notes" knowledge base
+1. Open admin dashboard, show the "Engineering — Release Notes" source
 2. Switch to employee view, ask: "What features are shipping in Q3?"
 3. Show the answer streaming in with citations (document name, section, page)
 4. Point out: "Everything here — the AI model, the vector database, the documents — is running on this MacBook. No cloud. No API calls to OpenAI. Fully local."
 
-"This is the foundation. A single device running local AI over local knowledge. Privacy by architecture — the data literally can't leave because there's nowhere for it to go. But this is just one device with one team's knowledge."
+"This is the foundation. A single device running local AI over local sources. Privacy by architecture — the data literally can't leave because there's nowhere for it to go. But this is just one device with one team's source."
 
 ### Act 3: The Mesh — Devices Discover Each Other (2 minutes)
 
@@ -78,14 +78,14 @@ Current solutions force a choice: centralize everything in one place (security r
 1. iPhone A starts mimik runtime, joins the mesh
 2. On MacBook admin dashboard: show the new node appearing automatically
 3. "No IP addresses configured. No setup wizard. The phone found the MacBook through mimik's mDNS mesh — the same kind of zero-config discovery that makes AirDrop work."
-4. Show iPhone A's "Marketing Campaign" KB in the node dashboard
+4. Show iPhone A's "Marketing Campaign" source in the node dashboard
 
 **Show:** Turn on iPhone B, launch the app.
 
 5. Second phone appears in the mesh
-6. "Now we have three autonomous knowledge nodes, each with their own data, each discovered automatically."
+6. "Now we have three autonomous source nodes, each with their own data, each discovered automatically."
 
-"This is mimik's edge mesh in action. Each device is an autonomous node running its own AI services. They found each other without any configuration. The Marketing KB lives on Alice's phone. The Legal KB lives on Carol's phone. The Engineering KB lives on this MacBook. Nothing has been copied anywhere."
+"This is mimik's edge mesh in action. Each device is an autonomous node running its own AI services. They found each other without any configuration. The Marketing source lives on Alice's phone. The Legal source lives on Carol's phone. The Engineering source lives on this MacBook. Nothing has been copied anywhere."
 
 ### Act 4: Meeting Mode — The Magic Moment (3-4 minutes)
 
@@ -101,15 +101,15 @@ Current solutions force a choice: centralize everything in one place (security r
 
 6. Type: "Are there any compliance issues with the marketing claims in our Q3 campaign?"
 7. Show the query fanning out — the loading state shows which nodes are being queried
-8. Answer streams in, drawing from ALL THREE knowledge bases:
-   - Marketing KB: "The campaign claims X, Y, Z about the product..."
-   - Legal KB: "Regulation ABC requires that claims about X must include disclaimer..."
-   - Engineering KB: "Feature Y is actually launching in Q4, not Q3..."
-9. Citations show which KB each piece of information came from
+8. Answer streams in, drawing from ALL THREE sources:
+   - Marketing source: "The campaign claims X, Y, Z about the product..."
+   - Legal source: "Regulation ABC requires that claims about X must include disclaimer..."
+   - Engineering source: "Feature Y is actually launching in Q4, not Q3..."
+9. Citations show which source each piece of information came from
 
-"One question. Three devices. Three different departments' knowledge. The answer synthesizes information that no single team had alone. And here's the key: **no data moved**. The marketing documents are still only on Alice's phone. The legal documents are still only on Carol's phone. The question traveled to each device, each device searched its own knowledge locally, and only the relevant answer fragments came back to be synthesized.
+"One question. Three devices. Three different departments' sources. The answer synthesizes information that no single team had alone. And here's the key: **no data moved**. The marketing documents are still only on Alice's phone. The legal documents are still only on Carol's phone. The question traveled to each device, each device searched its own source locally, and only the relevant answer fragments came back to be synthesized.
 
-This is what mimik's mesh makes possible. Without the mesh, you'd need a central server holding all three teams' documents. Which means one compromised server exposes everything. With the mesh, a compromised phone only exposes that one team's knowledge — because the other teams' data was never there."
+This is what mimik's mesh makes possible. Without the mesh, you'd need a central server holding all three teams' documents. Which means one compromised server exposes everything. With the mesh, a compromised phone only exposes that one team's source — because the other teams' data was never there."
 
 ### Act 5: Resilience (1-2 minutes)
 
@@ -117,7 +117,7 @@ This is what mimik's mesh makes possible. Without the mesh, you'd need a central
 
 1. Ask another question: "What are the key dates for the Q3 launch?"
 2. Answer comes back from MacBook + iPhone A only
-3. Show the graceful message: "Legal Compliance KB is currently unavailable"
+3. Show the graceful message: "Legal Compliance source is currently unavailable"
 4. "The system didn't crash. It didn't hang. It told you exactly what's missing and gave you the best answer it could from the available nodes."
 
 **Show:** Bring iPhone B back online.
@@ -148,18 +148,18 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 ## Backup Demos (If Time / Interest)
 
 ### Department Security Demo
-- Show department mode: assign HR KB to one node, Legal KB to another
+- Show department mode: assign HR source to one node, Legal source to another
 - Demonstrate that a query to the HR node literally cannot return Legal results (data isn't there)
 - "This isn't access control. This is physics."
 
-### Personal KB Demo
-- Show an employee creating a personal KB, uploading docs
+### Vault Source Demo
+- Show an employee creating a vault source, uploading docs
 - Query it privately
-- Share one KB in a meeting, keep another private
-- "Every employee becomes a knowledge node."
+- Share one source in a group chat, keep another private
+- "Every employee becomes a source node."
 
 ### Hardware Cost Pitch
-- "This MacBook is serving as the coordinator for 3 knowledge nodes. A $599 Mac Mini can do the same thing for 100-200 daily users. That's a one-time cost vs. $150/month for cloud AI subscriptions. The Mac Mini uses 4 watts idle — about $10/year in electricity."
+- "This MacBook is serving as the coordinator for 3 source nodes. A $599 Mac Mini can do the same thing for 100-200 daily users. That's a one-time cost vs. $150/month for cloud AI subscriptions. The Mac Mini uses 4 watts idle — about $10/year in electricity."
 
 ---
 
@@ -167,12 +167,12 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 
 - [ ] All 3 devices charged and on same WiFi network
 - [ ] MacBook: mim OE runtime running, API server started, web app accessible
-- [ ] MacBook: "Engineering — Release Notes" KB uploaded and indexed
+- [ ] MacBook: "Engineering — Release Notes" source uploaded and indexed
 - [ ] iPhone A: iOS app installed, mim OE runtime starts cleanly
-- [ ] iPhone A: "Marketing Campaign" KB pre-loaded and indexed
+- [ ] iPhone A: "Marketing Campaign" source pre-loaded and indexed
 - [ ] iPhone B: iOS app installed, mim OE runtime starts cleanly
-- [ ] iPhone B: "Legal Compliance" KB pre-loaded and indexed
-- [ ] Test all 5 demo questions — verify they produce good cross-KB answers
+- [ ] iPhone B: "Legal Compliance" source pre-loaded and indexed
+- [ ] Test all 5 demo questions — verify they produce good cross-source answers
 - [ ] Test graceful degradation (pull one phone, query, reconnect)
 - [ ] Test session create/join/end flow end-to-end
 - [ ] Browser DevTools network tab ready (to show zero external calls)
@@ -196,8 +196,8 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 ## What to Bring to the Meeting
 
 1. MacBook (fully charged, demo ready)
-2. iPhone A (fully charged, app installed, KB loaded)
-3. iPhone B (fully charged, app installed, KB loaded)
+2. iPhone A (fully charged, app installed, source loaded)
+3. iPhone B (fully charged, app installed, source loaded)
 4. Charger for MacBook
 5. One-page product overview (printed or PDF) — not a slide deck
 6. Business card
@@ -212,5 +212,5 @@ If mimik leadership is interested, be ready to discuss:
 1. **What mimik APIs were used:** mILM, mKB, MCM, mDNS discovery, iOS SDK (CocoaPods)
 2. **What worked well:** device discovery, mKB vector search, mILM OpenAI compatibility
 3. **What could be improved:** mAIChain documentation, mKB chunk deletion API, developer onboarding
-4. **Product vision:** distributed knowledge platform for any industry — HR is the flagship, but the architecture serves any sensitive knowledge domain
+4. **Product vision:** distributed source platform for any industry — HR is the flagship, but the architecture serves any sensitive knowledge domain
 5. **Market opportunity:** zero competitors offer distributed mesh + physical data isolation + meeting mode. mimik's "so what" problem is a product problem, not a technology problem. This product answers "so what."
