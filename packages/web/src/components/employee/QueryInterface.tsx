@@ -662,6 +662,11 @@ export function ChatPanel() {
       const decoder = new TextDecoder();
       if (!reader) throw new Error("No response body");
 
+      // Refresh sidebar immediately so the new conversation appears while streaming
+      if (!isPrivacyMode) {
+        void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      }
+
       let buffer = "";
       while (true) {
         const { done, value } = await reader.read();
