@@ -50,7 +50,7 @@ export function GroupChatList() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-lg font-semibold text-slate-900 dark:text-gray-100">Group Chats</h1>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">Collaborative knowledge sessions with shared KBs</p>
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">Collaborative knowledge sessions with shared data sources</p>
         </div>
         {canCreate && (
           <button

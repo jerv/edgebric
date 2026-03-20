@@ -507,12 +507,12 @@ export function ChatPanel() {
     });
   }
 
-  /** Label shown on the KB selector button. */
+  /** Label shown on the source selector button. */
   const kbSelectorLabel = targetKBs.length === 0
-    ? "All KBs"
+    ? "All Sources"
     : targetKBs.length === 1
       ? targetKBs[0]!.name
-      : `${targetKBs.length} KBs`;
+      : `${targetKBs.length} sources`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
