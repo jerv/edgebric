@@ -184,7 +184,7 @@ export function Avatar({
         <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
       ) : (
         <span
-          className="text-slate-400 font-semibold select-none"
+          className="text-slate-400 dark:text-gray-500 font-semibold select-none"
           style={{ fontSize: size * 0.35 }}
         >
           {fallbackText.slice(0, 2).toUpperCase()}

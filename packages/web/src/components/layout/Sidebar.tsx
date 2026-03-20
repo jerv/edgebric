@@ -578,7 +578,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
               </button>
               <button
                 onClick={() => setNewChatConfirmOpen(false)}
-                className="text-xs text-slate-500 hover:text-slate-700 px-4 py-2 transition-colors"
+                className="text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-4 py-2 transition-colors"
               >
                 Cancel
               </button>
@@ -592,9 +592,9 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
           className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center"
           onClick={(e) => { if (e.target === e.currentTarget) setLeavingGroupChatId(null); }}
         >
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">Leave group chat?</h3>
-            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+          <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100 mb-2">Leave group chat?</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-5">
               You will lose access to this group chat and its shared data sources.
             </p>
             <div className="flex items-center gap-2">
@@ -606,7 +606,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
               </button>
               <button
                 onClick={() => setLeavingGroupChatId(null)}
-                className="text-xs text-slate-500 hover:text-slate-700 px-4 py-2 transition-colors"
+                className="text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 px-4 py-2 transition-colors"
               >
                 Cancel
               </button>

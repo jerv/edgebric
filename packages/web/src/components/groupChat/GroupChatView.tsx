@@ -56,10 +56,10 @@ function formatTime(date: Date | string): string {
 function ThinkingDots() {
   return (
     <div className="flex items-center gap-1 py-1 px-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
-      <span className="text-xs text-slate-400 ml-1">Thinking...</span>
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+      <span className="text-xs text-slate-400 dark:text-gray-500 ml-1">Thinking...</span>
     </div>
   );
 }
@@ -409,13 +409,13 @@ export function GroupChatView() {
   // ─── Loading / error ──────────────────────────────────────────────────────
 
   if (chatLoading) {
-    return <div className="flex items-center justify-center h-full text-sm text-slate-400">Loading...</div>;
+    return <div className="flex items-center justify-center h-full text-sm text-slate-400 dark:text-gray-500">Loading...</div>;
   }
 
   if (!chat) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <p className="text-sm text-slate-500">Group chat not found</p>
+        <p className="text-sm text-slate-500 dark:text-gray-400">Group chat not found</p>
       </div>
     );
   }
@@ -427,10 +427,10 @@ export function GroupChatView() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-slate-200 px-6 py-3 flex items-center gap-3">
+        <div className="border-b border-slate-200 dark:border-gray-800 px-6 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold text-slate-900 truncate">{chat.name}</h1>
-            <div className="flex items-center gap-3 text-[11px] text-slate-400">
+            <h1 className="text-sm font-semibold text-slate-900 dark:text-gray-100 truncate">{chat.name}</h1>
+            <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
                 {chat.members.length} member{chat.members.length !== 1 ? "s" : ""}
@@ -444,15 +444,15 @@ export function GroupChatView() {
                 {effectiveKBCount} data source{effectiveKBCount !== 1 ? "s" : ""}
                 {kbTooltipOpen && queryableKBs.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
-                    <div className="w-72 bg-white border border-slate-200 rounded-xl shadow-lg py-2">
+                    <div className="w-72 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
                       {queryableKBs.map((kb) => {
                         const canRevoke = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
                         return (
                           <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2 group/kb">
-                            <Database className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
+                            <Database className="w-3 h-3 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium text-slate-700 truncate">{kb.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">
+                              <p className="text-xs font-medium text-slate-700 dark:text-gray-300 truncate">{kb.name}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-gray-500 truncate">
                                 {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
                               </p>
                             </div>
@@ -491,7 +491,7 @@ export function GroupChatView() {
 
           <button
             onClick={() => setShowInvite(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
             title={isCreator && isActive ? "Manage members" : "View members"}
           >
             {isCreator && isActive ? <UserPlus className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
@@ -500,7 +500,7 @@ export function GroupChatView() {
           {isActive && (
             <button
               onClick={() => setShowShareKB(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               title="Share a Data Source"
             >
               <Database className="w-3.5 h-3.5" />
@@ -515,8 +515,8 @@ export function GroupChatView() {
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
                 notifLevel === "none"
-                  ? "text-slate-300 hover:text-slate-500 hover:bg-slate-100"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
+                  ? "text-slate-300 dark:text-gray-600 hover:text-slate-500 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+                  : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800",
               )}
               title={`Notifications: ${notifLevel}`}
             >
@@ -525,8 +525,8 @@ export function GroupChatView() {
             {notifMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setNotifMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-48">
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 w-48">
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider">
                     Notify me
                   </div>
                   {(["all", "mentions", "none"] as GroupChatNotifLevel[]).map((level) => (
@@ -536,8 +536,8 @@ export function GroupChatView() {
                       className={cn(
                         "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
                         notifLevel === level
-                          ? "text-slate-900 bg-slate-50 font-medium"
-                          : "text-slate-600 hover:bg-slate-50",
+                          ? "text-slate-900 dark:text-gray-100 bg-slate-50 dark:bg-gray-900 font-medium"
+                          : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
                       {level === "all" && <Bell className="w-3.5 h-3.5" />}
@@ -561,9 +561,9 @@ export function GroupChatView() {
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-1 min-h-0">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <Users className="w-8 h-8 text-slate-300 mb-3" />
-              <p className="text-slate-900 text-xl font-medium mb-2">{chat.name}</p>
-              <p className="text-slate-400 text-sm max-w-sm">
+              <Users className="w-8 h-8 text-slate-300 dark:text-gray-600 mb-3" />
+              <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">{chat.name}</p>
+              <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                 Use the <span className="font-medium">Ask</span> button to query data sources.
                 Press Enter or Send for human-to-human conversation.
               </p>
@@ -596,11 +596,11 @@ export function GroupChatView() {
 
           {streaming && (
             <div className="flex gap-3 py-2">
-              <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={user?.orgName}>
+              <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden" title={user?.orgName}>
                 {user?.orgAvatarUrl ? (
                   <img src={user.orgAvatarUrl} alt={user.orgName ?? "Organization"} className="w-full h-full object-cover" />
                 ) : (
-                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                  <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -611,7 +611,7 @@ export function GroupChatView() {
                     ? displayContent.slice(settledContent.length)
                     : undefined;
                   return (
-                    <div className={cn("text-sm text-slate-800", ...PROSE_CLASSES)}>
+                    <div className={cn("text-sm text-slate-800 dark:text-gray-200", ...PROSE_CLASSES)}>
                       {newContent ? (
                         <>
                           <Markdown>{settledContent}</Markdown>
@@ -622,7 +622,7 @@ export function GroupChatView() {
                       ) : (
                         <Markdown>{displayContent}</Markdown>
                       )}
-                      <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 animate-pulse" />
+                      <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 dark:bg-gray-500 animate-pulse" />
                     </div>
                   );
                 })() : (
@@ -637,7 +637,7 @@ export function GroupChatView() {
 
         {/* Input area — matches QueryInterface style */}
         {isActive ? (
-          <div className="border-t border-slate-200 px-6 py-4">
+          <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-4">
             <div className="space-y-2">
               {/* Controls row: KB selector (left) + model selector (right) */}
               <div className="flex items-center justify-between">
@@ -650,7 +650,7 @@ export function GroupChatView() {
                         "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
                         selectedKBIds.length > 0
                           ? "text-blue-600 hover:bg-blue-50"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                          : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
                       <Database className="w-3.5 h-3.5" />
@@ -659,7 +659,7 @@ export function GroupChatView() {
                     </button>
 
                     {kbSelectorOpen && (
-                      <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+                      <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
                         {/* All KBs option */}
                         <button
                           onMouseDown={(e) => {
@@ -669,16 +669,16 @@ export function GroupChatView() {
                           }}
                           className={cn(
                             "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                            selectedKBIds.length === 0 ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                            selectedKBIds.length === 0 ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                           )}
                         >
-                          <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                           <span className="truncate">All shared data sources</span>
                           {selectedKBIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                         </button>
 
                         {queryableKBs.length > 0 && (
-                          <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
+                          <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider border-t border-slate-100 dark:border-gray-800 mt-1">
                             Data Sources
                           </div>
                         )}
@@ -695,13 +695,13 @@ export function GroupChatView() {
                               }}
                               className={cn(
                                 "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                                isSelected ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                                isSelected ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                               )}
                             >
-                              <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                               <span className="truncate">{kb.name}</span>
                               {kb.source === "org" && (
-                                <span className="text-[10px] text-slate-300 ml-0.5">org</span>
+                                <span className="text-[10px] text-slate-300 dark:text-gray-600 ml-0.5">org</span>
                               )}
                               {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                             </button>
@@ -718,7 +718,7 @@ export function GroupChatView() {
                     <button
                       onClick={() => setModelPickerOpen((o) => !o)}
                       disabled={switchModelMutation.isPending}
-                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50"
+                      className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-900"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
                       {adminLabel(activeModel)}
@@ -726,7 +726,7 @@ export function GroupChatView() {
                     </button>
 
                     {modelPickerOpen && (
-                      <div className="absolute right-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10">
+                      <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                         {readyModels.map((m) => (
                           <button
                             key={m.id}
@@ -735,13 +735,13 @@ export function GroupChatView() {
                             className={cn(
                               "w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2",
                               m.id === activeModel
-                                ? "text-slate-900 font-medium bg-slate-50"
-                                : "text-slate-600 hover:bg-slate-50",
+                                ? "text-slate-900 dark:text-gray-100 font-medium bg-slate-50 dark:bg-gray-900"
+                                : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                             )}
                           >
-                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200")} />
+                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
                             {adminLabel(m.id)}
-                            {m.id === activeModel && <span className="ml-auto text-slate-400">active</span>}
+                            {m.id === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
                           </button>
                         ))}
                       </div>
@@ -758,13 +758,13 @@ export function GroupChatView() {
                     return (
                       <span
                         key={kbId}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700"
+                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:text-gray-300"
                       >
                         @{kb?.name ?? kbId}
                         <button
                           type="button"
                           onClick={() => setSelectedKBIds((prev) => prev.filter((x) => x !== kbId))}
-                          className="text-slate-400 hover:text-slate-600"
+                          className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
                         >
                           <span className="text-xs">&times;</span>
                         </button>
@@ -791,7 +791,7 @@ export function GroupChatView() {
             </div>
           </div>
         ) : (
-          <div className="border-t border-slate-200 px-6 py-3 text-center text-xs text-slate-400">
+          <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-3 text-center text-xs text-slate-400 dark:text-gray-500">
             This group chat is {chat.status}. Messages are read-only.
           </div>
         )}
@@ -870,7 +870,7 @@ function MessageBubble({
   if (message.role === "system") {
     return (
       <div className="text-center py-1">
-        <span className="text-[11px] text-slate-400 bg-slate-50 rounded-full px-3 py-1">
+        <span className="text-[11px] text-slate-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-900 rounded-full px-3 py-1">
           {message.content}
         </span>
       </div>
@@ -887,18 +887,18 @@ function MessageBubble({
     <div className={cn("flex gap-3 py-2 group", isCurrentUser && "flex-row-reverse")}>
       {/* Avatar */}
       {isBot ? (
-        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
+        <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
           {orgAvatarUrl ? (
             <img src={orgAvatarUrl} alt={orgName ?? "Organization"} className="w-full h-full object-cover" />
           ) : (
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+            <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
           )}
         </div>
       ) : (
         <div
           className={cn(
-            "w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden",
-            canShowMenu && "cursor-pointer hover:ring-2 hover:ring-slate-300 transition-shadow",
+            "w-7 h-7 rounded-full bg-slate-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden",
+            canShowMenu && "cursor-pointer hover:ring-2 hover:ring-slate-300 dark:hover:ring-gray-600 transition-shadow",
           )}
           title={message.authorName ?? message.authorEmail}
           onClick={canShowMenu ? () => setShowMenu((v) => !v) : undefined}
@@ -906,7 +906,7 @@ function MessageBubble({
           {memberPicture ? (
             <img src={memberPicture} alt={message.authorName ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
-            <span className="text-[10px] font-bold text-slate-600">{initial}</span>
+            <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400">{initial}</span>
           )}
         </div>
       )}
@@ -920,24 +920,24 @@ function MessageBubble({
                 type="button"
                 onClick={canShowMenu ? () => setShowMenu((v) => !v) : undefined}
                 className={cn(
-                  "text-xs font-medium text-slate-700",
-                  canShowMenu && "hover:text-slate-900 hover:underline cursor-pointer",
+                  "text-xs font-medium text-slate-700 dark:text-gray-300",
+                  canShowMenu && "hover:text-slate-900 dark:hover:text-gray-100 hover:underline cursor-pointer",
                 )}
               >
                 {isBot ? "Edgebric" : authorDisplayName}
               </button>
 
               {showMenu && canShowMenu && (
-                <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-40">
+                <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg shadow-lg py-1 w-40">
                   <button
                     type="button"
                     onClick={() => {
                       onMention?.(authorDisplayName.split(" ")[0] ?? authorDisplayName);
                       setShowMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
                   >
-                    <AtSign className="w-3 h-3 text-slate-400" />
+                    <AtSign className="w-3 h-3 text-slate-400 dark:text-gray-500" />
                     Mention
                   </button>
                   {canKick && (
@@ -957,9 +957,9 @@ function MessageBubble({
               )}
             </span>
           )}
-          <span className="text-[10px] text-slate-400">{formatTime(message.createdAt)}</span>
+          <span className="text-[10px] text-slate-400 dark:text-gray-500">{formatTime(message.createdAt)}</span>
           {isAIQuery && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400">
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-gray-500">
               <Sparkles className="w-2.5 h-2.5" />
               Asked AI
             </span>
@@ -970,14 +970,14 @@ function MessageBubble({
           className={cn(
             "inline-block text-left rounded-2xl px-4 py-2 text-sm max-w-[80%]",
             isBot
-              ? "bg-slate-50 text-slate-800"
+              ? "bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200"
               : isAIQuery && isCurrentUser
-                ? "bg-slate-800 text-white border border-slate-600"
+                ? "bg-slate-800 dark:bg-gray-200 text-white dark:text-gray-900 border border-slate-600 dark:border-gray-400"
                 : isCurrentUser
-                  ? "bg-slate-900 text-white"
+                  ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
                   : isAIQuery
-                    ? "bg-slate-100 text-slate-800 border border-slate-300"
-                    : "bg-slate-100 text-slate-800",
+                    ? "bg-slate-100 dark:bg-gray-800 text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-gray-600"
+                    : "bg-slate-100 dark:bg-gray-800 text-slate-800 dark:text-gray-200",
           )}
         >
           {isBot ? (
@@ -1002,17 +1002,17 @@ function MessageBubble({
             {message.threadReplyCount && message.threadReplyCount > 0 ? (
               <button
                 onClick={onOpenThread}
-                className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1.5"
+                className="text-[11px] text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 transition-colors flex items-center gap-1.5"
               >
                 {/* Participant avatars */}
                 {message.threadParticipants && message.threadParticipants.length > 0 && (
                   <span className="flex -space-x-1.5">
                     {message.threadParticipants.slice(0, 4).map((p) => (
-                      <span key={p.email} className="w-4 h-4 rounded-full border border-white overflow-hidden flex-shrink-0 inline-flex items-center justify-center bg-slate-200">
+                      <span key={p.email} className="w-4 h-4 rounded-full border border-white dark:border-gray-950 overflow-hidden flex-shrink-0 inline-flex items-center justify-center bg-slate-200 dark:bg-gray-700">
                         {p.picture ? (
                           <img src={p.picture} alt={p.name ?? p.email} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
-                          <span className="text-[7px] font-bold text-slate-500">{(p.name ?? p.email).charAt(0).toUpperCase()}</span>
+                          <span className="text-[7px] font-bold text-slate-500 dark:text-gray-400">{(p.name ?? p.email).charAt(0).toUpperCase()}</span>
                         )}
                       </span>
                     ))}
@@ -1024,7 +1024,7 @@ function MessageBubble({
             ) : (
               <button
                 onClick={onOpenThread}
-                className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-slate-600 transition-opacity flex items-center gap-1"
+                className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 transition-opacity flex items-center gap-1"
               >
                 <MessageSquare className="w-3 h-3" />
                 Reply in thread
