@@ -61,6 +61,9 @@ export function useNotificationStream() {
           thinkingChats.add(data.chatId);
         } else {
           thinkingChats.delete(data.chatId);
+          // Bot finished — refresh conversation so the answer appears if user is viewing it
+          void queryClient.invalidateQueries({ queryKey: ["conversation", data.chatId] });
+          void queryClient.invalidateQueries({ queryKey: ["conversations"] });
         }
         // Update the React Query cache directly so the sidebar re-renders
         queryClient.setQueryData<Set<string>>(["bot-thinking"], new Set(thinkingChats));

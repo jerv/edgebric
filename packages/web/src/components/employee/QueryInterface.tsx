@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
@@ -366,6 +366,61 @@ export function ChatPanel() {
     void loadConversation();
     return () => { cancelled = true; };
   }, [conversationId, hydrated]);
+
+  // Watch bot-thinking state: show thinking placeholder when returning to a thinking conversation,
+  // and auto-reload messages when bot finishes so the answer appears without refresh.
+  const { data: thinkingChatIds } = useQuery<Set<string>>({
+    queryKey: ["bot-thinking"],
+    queryFn: () => Promise.resolve(new Set<string>()),
+    staleTime: Infinity,
+  });
+  const isBotThinking = useMemo(
+    () => !!conversationId && !!thinkingChatIds?.has(conversationId),
+    [conversationId, thinkingChatIds],
+  );
+  const prevThinkingRef = useRef(isBotThinking);
+
+  useEffect(() => {
+    const wasThinking = prevThinkingRef.current;
+    prevThinkingRef.current = isBotThinking;
+
+    if (!conversationId || isPrivacyMode) return;
+
+    // Bot just started thinking (e.g. returning to a conversation mid-stream)
+    // Append a streaming placeholder if not already loading/streaming
+    if (isBotThinking && !isLoading) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.isStreaming) return prev; // already showing
+        return [...prev, { role: "assistant", content: "", isStreaming: true }];
+      });
+    }
+
+    // Bot just finished thinking — reload messages to get the completed answer
+    if (wasThinking && !isBotThinking && !isLoading) {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/conversations/${conversationId}`, {
+            credentials: "same-origin",
+          });
+          if (!res.ok) return;
+          const data = (await res.json()) as {
+            conversation: { id: string };
+            messages: PersistedMessage[];
+          };
+          const loaded: Message[] = data.messages.map((m) => ({
+            role: m.role,
+            id: m.id,
+            content: m.content,
+            citations: m.citations,
+            hasConfidentAnswer: m.hasConfidentAnswer,
+            ...(m.source && { source: m.source }),
+          }));
+          setMessages(loaded);
+        } catch { /* ignore */ }
+      })();
+    }
+  }, [isBotThinking, conversationId, isPrivacyMode, isLoading]);
 
   // Update URL when conversationId changes (after first query response)
   const updateUrlConvId = useCallback((newConvId: string) => {
