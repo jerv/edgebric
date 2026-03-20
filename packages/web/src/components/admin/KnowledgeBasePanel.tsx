@@ -627,7 +627,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
                       kb.accessMode === "restricted"
                         ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
-                        : "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400",
+                        : "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400",
                     )}
                   >
                     {kb.accessMode === "restricted" ? (

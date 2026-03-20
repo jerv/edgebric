@@ -50,35 +50,27 @@ function GoogleIcon() {
   );
 }
 
-// ─── Animated Dot Grid ──────────────────────────────────────────────────────
+// ─── Animated Dot Grid with Ripple Physics ──────────────────────────────────
 
 interface Dot {
-  x: number;
-  y: number;
   originX: number;
   originY: number;
-  vx: number;
-  vy: number;
   baseRadius: number;
-  radius: number;
-  pulsePhase: number;
-  pulseSpeed: number;
-  isPulsing: boolean;
-  pulseTimer: number;
 }
 
 function DotGrid() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: -1000, y: -1000 });
   const dotsRef = useRef<Dot[]>([]);
+  const ripplesRef = useRef<Ripple[]>([]);
   const animRef = useRef<number>(0);
+  const frameRef = useRef<number>(0);
+  const rippleTimerRef = useRef<number>(0);
 
   const SPACING = 32;
   const DOT_RADIUS = 1.4;
-  const REPEL_RADIUS = 100;
-  const REPEL_FORCE = 6;
-  const SPRING = 0.08;
-  const DAMPING = 0.75;
+  const RIPPLE_INTERVAL_MIN = 90; // frames (~1.5s at 60fps)
+  const RIPPLE_INTERVAL_MAX = 180; // frames (~3s)
+  const MAX_RIPPLES = 8;
 
   const initDots = useCallback((width: number, height: number) => {
     const dots: Dot[] = [];
@@ -86,25 +78,33 @@ function DotGrid() {
     const rows = Math.ceil(height / SPACING) + 1;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const x = c * SPACING;
-        const y = r * SPACING;
         dots.push({
-          x,
-          y,
-          originX: x,
-          originY: y,
-          vx: 0,
-          vy: 0,
+          originX: c * SPACING,
+          originY: r * SPACING,
           baseRadius: DOT_RADIUS,
-          radius: DOT_RADIUS,
-          pulsePhase: Math.random() * Math.PI * 2,
-          pulseSpeed: 0.01 + Math.random() * 0.015,
-          isPulsing: Math.random() < 0.08,
-          pulseTimer: Math.random() * 600,
         });
       }
     }
     dotsRef.current = dots;
+  }, []);
+
+  const spawnRipple = useCallback(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const ripple: Ripple = {
+      originX: Math.random() * w,
+      originY: Math.random() * h,
+      startTime: frameRef.current,
+      speed: 2.5 + Math.random() * 1.5, // px per frame
+      amplitude: 4 + Math.random() * 3,
+      wavelength: 60 + Math.random() * 40,
+      decay: 0.003 + Math.random() * 0.001,
+      maxRadius: Math.max(w, h) * 1.2,
+    };
+    ripplesRef.current.push(ripple);
+    if (ripplesRef.current.length > MAX_RIPPLES) {
+      ripplesRef.current.shift();
+    }
   }, []);
 
   useEffect(() => {
@@ -125,95 +125,98 @@ function DotGrid() {
     resize();
     window.addEventListener("resize", resize);
 
-    function onMouseMove(e: MouseEvent) {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-    }
-    function onMouseLeave() {
-      mouseRef.current = { x: -1000, y: -1000 };
-    }
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseleave", onMouseLeave);
+    // Schedule first ripple quickly
+    rippleTimerRef.current = 30;
 
     function draw() {
       const w = window.innerWidth;
       const h = window.innerHeight;
+      const frame = frameRef.current;
       ctx!.clearRect(0, 0, w, h);
-      const { x: mx, y: my } = mouseRef.current;
+
+      // Spawn ripples on timer
+      rippleTimerRef.current--;
+      if (rippleTimerRef.current <= 0) {
+        spawnRipple();
+        rippleTimerRef.current =
+          RIPPLE_INTERVAL_MIN +
+          Math.random() * (RIPPLE_INTERVAL_MAX - RIPPLE_INTERVAL_MIN);
+      }
+
+      // Prune dead ripples (wavefront past maxRadius and fully decayed)
+      ripplesRef.current = ripplesRef.current.filter((r) => {
+        const age = frame - r.startTime;
+        const wavefrontRadius = age * r.speed;
+        return wavefrontRadius < r.maxRadius + r.wavelength * 2;
+      });
+
       const dots = dotsRef.current;
+      const ripples = ripplesRef.current;
       const isDark = document.documentElement.classList.contains("dark");
       const dotColor = isDark ? "200, 200, 210" : "15, 23, 42";
 
       for (const dot of dots) {
-        // Mouse repulsion — push dots away from cursor
-        const dx = dot.x - mx;
-        const dy = dot.y - my;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Superposition: sum displacement from all active ripples
+        let totalDisplacementX = 0;
+        let totalDisplacementY = 0;
+        let totalBrightness = 0;
 
-        if (dist < REPEL_RADIUS && dist > 0) {
-          const force = (1 - dist / REPEL_RADIUS) * REPEL_FORCE;
-          dot.vx += (dx / dist) * force;
-          dot.vy += (dy / dist) * force;
+        for (const ripple of ripples) {
+          const dx = dot.originX - ripple.originX;
+          const dy = dot.originY - ripple.originY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 0.01) continue; // skip origin dot
+
+          const age = frame - ripple.startTime;
+          const wavefrontRadius = age * ripple.speed;
+
+          // Only affect dots near the wavefront (within ~1 wavelength behind it)
+          const distFromFront = wavefrontRadius - dist;
+          if (distFromFront < -ripple.wavelength * 0.5 || distFromFront > ripple.wavelength * 2) continue;
+
+          // Wave equation: sinusoidal displacement
+          const phase = ((dist - wavefrontRadius) / ripple.wavelength) * Math.PI * 2;
+          const wave = Math.sin(phase);
+
+          // Envelope: amplitude decays with distance from origin and fades in at wavefront
+          const distDecay = Math.exp(-dist * ripple.decay);
+          // Smooth fade-in as wavefront arrives
+          const frontFade = distFromFront > 0
+            ? Math.min(1, distFromFront / (ripple.wavelength * 0.5))
+            : Math.max(0, 1 + distFromFront / (ripple.wavelength * 0.5));
+
+          const envelope = ripple.amplitude * distDecay * frontFade;
+          const displacement = wave * envelope;
+
+          // Radial displacement: push dots outward from ripple origin
+          const nx = dx / dist;
+          const ny = dy / dist;
+          totalDisplacementX += nx * displacement;
+          totalDisplacementY += ny * displacement;
+          totalBrightness += Math.abs(displacement) * 0.03;
         }
 
-        // Spring back to origin
-        dot.vx += (dot.originX - dot.x) * SPRING;
-        dot.vy += (dot.originY - dot.y) * SPRING;
+        const drawX = dot.originX + totalDisplacementX;
+        const drawY = dot.originY + totalDisplacementY;
 
-        // Damping
-        dot.vx *= DAMPING;
-        dot.vy *= DAMPING;
+        // Scale radius based on displacement magnitude
+        const dispMag = Math.sqrt(
+          totalDisplacementX * totalDisplacementX +
+          totalDisplacementY * totalDisplacementY
+        );
+        const radiusScale = 1 + Math.min(dispMag * 0.08, 0.8);
+        const radius = dot.baseRadius * radiusScale;
 
-        // Apply velocity
-        dot.x += dot.vx;
-        dot.y += dot.vy;
-
-        // Pulsing nodes
-        dot.pulseTimer += 1;
-        if (dot.pulseTimer > 600 + Math.random() * 400) {
-          dot.isPulsing = Math.random() < 0.08;
-          dot.pulseTimer = 0;
-        }
-
-        let pulseScale = 1;
-        if (dot.isPulsing) {
-          dot.pulsePhase += dot.pulseSpeed;
-          pulseScale = 1 + Math.sin(dot.pulsePhase) * 0.6;
-        }
-
-        dot.radius = dot.baseRadius * pulseScale;
-
-        // Dot opacity
         const baseAlpha = 0.17;
-        const pulseAlpha = dot.isPulsing ? Math.sin(dot.pulsePhase) * 0.15 : 0;
-        const alpha = Math.min(1, baseAlpha + pulseAlpha);
+        const alpha = Math.min(0.6, baseAlpha + totalBrightness);
 
         ctx!.beginPath();
-        ctx!.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
+        ctx!.arc(drawX, drawY, radius, 0, Math.PI * 2);
         ctx!.fillStyle = `rgba(${dotColor}, ${alpha})`;
         ctx!.fill();
       }
 
-      // Draw subtle connections between pulsing nodes
-      const pulsingDots = dots.filter((d) => d.isPulsing);
-      for (let i = 0; i < pulsingDots.length; i++) {
-        for (let j = i + 1; j < pulsingDots.length; j++) {
-          const a = pulsingDots[i]!;
-          const b = pulsingDots[j]!;
-          const ddx = a.x - b.x;
-          const ddy = a.y - b.y;
-          const d = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (d < SPACING * 3) {
-            const lineAlpha = 0.05 * (1 - d / (SPACING * 3));
-            ctx!.beginPath();
-            ctx!.moveTo(a.x, a.y);
-            ctx!.lineTo(b.x, b.y);
-            ctx!.strokeStyle = `rgba(${dotColor}, ${lineAlpha})`;
-            ctx!.lineWidth = 0.5;
-            ctx!.stroke();
-          }
-        }
-      }
-
+      frameRef.current++;
       animRef.current = requestAnimationFrame(draw);
     }
 
@@ -222,10 +225,8 @@ function DotGrid() {
     return () => {
       cancelAnimationFrame(animRef.current);
       window.removeEventListener("resize", resize);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseleave", onMouseLeave);
     };
-  }, [initDots]);
+  }, [initDots, spawnRipple]);
 
   return (
     <canvas

@@ -37,11 +37,8 @@ function GeneralTab() {
   const [nameError, setNameError] = useState("");
 
   function signOut() {
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/auth/logout-redirect";
-    document.body.appendChild(form);
-    form.submit();
+    void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" })
+      .then(() => { window.location.href = "/"; });
   }
 
   const displayName = user?.name

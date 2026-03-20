@@ -190,8 +190,10 @@ authRouter.get("/callback", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err }, "OIDC callback error");
-    // Restart flow on any error — gives the user a clean retry path
-    res.redirect("/api/auth/login");
+    // Redirect to frontend (not /api/auth/login) to avoid infinite loop when
+    // Google auto-selects the account on retry. The frontend will detect the
+    // missing session and show the login page.
+    res.redirect(config.frontendUrl);
   }
 });
 
