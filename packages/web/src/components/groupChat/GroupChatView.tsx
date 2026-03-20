@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
@@ -10,6 +10,12 @@ import {
   Clock,
   ChevronDown,
   Check,
+  Building2,
+  Sparkles,
+  AtSign,
+  UserMinus,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cleanContent, PROSE_CLASSES } from "@/lib/content";
@@ -23,6 +29,7 @@ import { ShareKBDialog } from "./ShareKBDialog";
 import type {
   GroupChat,
   GroupChatMessage,
+  GroupChatNotifLevel,
   KnowledgeBase,
 } from "@edgebric/types";
 
@@ -68,6 +75,8 @@ export function GroupChatView() {
   const [sending, setSending] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
+  const [streamRevealed, setStreamRevealed] = useState("");
+  const [streamPrevRevealed, setStreamPrevRevealed] = useState("");
   const [localMessages, setLocalMessages] = useState<GroupChatMessage[]>([]);
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
@@ -76,6 +85,8 @@ export function GroupChatView() {
   const [kbSelectorOpen, setKbSelectorOpen] = useState(false);
   const [selectedKBIds, setSelectedKBIds] = useState<string[]>([]); // empty = all shared KBs
   const [kbTooltipOpen, setKbTooltipOpen] = useState(false);
+  const [sendMode, setSendMode] = useState<"chat" | "ai">("chat");
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -111,6 +122,30 @@ export function GroupChatView() {
       }),
     staleTime: 30_000,
   });
+
+  // Notification preference for this chat
+  const { data: notifPrefData } = useQuery<{ level: GroupChatNotifLevel }>({
+    queryKey: ["group-chat-notif-pref", id],
+    queryFn: () =>
+      fetch(`/api/notifications/group-chat-pref/${id}`, { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return { level: "all" as GroupChatNotifLevel };
+        return r.json() as Promise<{ level: GroupChatNotifLevel }>;
+      }),
+    staleTime: 60_000,
+  });
+
+  const notifLevel = notifPrefData?.level ?? "all";
+
+  const setNotifLevel = useCallback(async (level: GroupChatNotifLevel) => {
+    await fetch("/api/notifications/group-chat-pref", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupChatId: id, level }),
+    });
+    void queryClient.invalidateQueries({ queryKey: ["group-chat-notif-pref", id] });
+    setNotifMenuOpen(false);
+  }, [id, queryClient]);
 
   const { data: modelsData, refetch: refetchModels } = useQuery<ModelsResponse>({
     queryKey: ["admin", "models"],
@@ -157,7 +192,7 @@ export function GroupChatView() {
   ]).size;
 
   // Build a list of all queryable KBs for the selector and tooltip
-  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string }[] = [];
+  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string; shareId?: string; sharedByEmail?: string }[] = [];
   const seenIds = new Set<string>();
   for (const s of chat?.sharedKBs ?? []) {
     if (!seenIds.has(s.knowledgeBaseId)) {
@@ -167,6 +202,8 @@ export function GroupChatView() {
         name: s.knowledgeBaseName,
         source: "shared",
         sharedBy: s.sharedByName ?? s.sharedByEmail,
+        shareId: s.id,
+        sharedByEmail: s.sharedByEmail,
       });
     }
   }
@@ -178,10 +215,10 @@ export function GroupChatView() {
   }
 
   const kbSelectorLabel = selectedKBIds.length === 0
-    ? "All Sources"
+    ? "All Data Sources"
     : selectedKBIds.length === 1
-      ? queryableKBs.find((kb) => kb.id === selectedKBIds[0])?.name ?? "1 source"
-      : `${selectedKBIds.length} sources`;
+      ? queryableKBs.find((kb) => kb.id === selectedKBIds[0])?.name ?? "1 data source"
+      : `${selectedKBIds.length} data sources`;
 
   // Merge server + local messages
   const messages = (() => {
@@ -193,6 +230,18 @@ export function GroupChatView() {
 
   // ─── Effects ───────────────────────────────────────────────────────────────
 
+  // Mark group chat as read when viewing it
+  useEffect(() => {
+    fetch("/api/notifications/mark-read-group-chat", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupChatId: id }),
+    }).catch(() => {});
+    // Also clear the unread badge in the sidebar cache
+    void queryClient.invalidateQueries({ queryKey: ["unread-group-chats"] });
+  }, [id, queryClient]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, streamContent]);
@@ -202,10 +251,19 @@ export function GroupChatView() {
     es.addEventListener("message", (event) => {
       try {
         const msg = JSON.parse(event.data) as GroupChatMessage;
+        // Skip thread replies — they only show in the thread panel
+        if (msg.threadParentId) return;
         setLocalMessages((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
+        // Re-mark as read since we're actively viewing this chat
+        fetch("/api/notifications/mark-read-group-chat", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ groupChatId: id }),
+        }).catch(() => {});
       } catch { /* ignore */ }
     });
     es.onerror = () => {};
@@ -228,28 +286,37 @@ export function GroupChatView() {
     setInput("");
     setSending(true);
 
-    const hasBotTag = /@(?:bot|edgebric)\b/i.test(content);
-
-    if (!hasBotTag) {
-      try {
-        const res = await fetch(`/api/group-chats/${id}/send`, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content }),
+    try {
+      const res = await fetch(`/api/group-chats/${id}/send`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (res.ok) {
+        const msg = (await res.json()) as GroupChatMessage;
+        setLocalMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
         });
-        if (res.ok) {
-          const msg = (await res.json()) as GroupChatMessage;
-          setLocalMessages((prev) => [...prev, msg]);
-        }
-      } catch { /* ignore */ }
-      setSending(false);
-      return;
-    }
+      }
+    } catch { /* ignore */ }
+    setSending(false);
+  }, [input, sending, id]);
 
-    // Bot-tagged message — SSE streaming
+  const askBot = useCallback(async () => {
+    const content = input.trim();
+    if (!content || sending) return;
+
+    setInput("");
+    setSending(true);
     setStreaming(true);
     setStreamContent("");
+    setStreamRevealed("");
+    setStreamPrevRevealed("");
+
+    // Prepend @bot so the server triggers the RAG pipeline
+    const botContent = `@bot ${content}`;
 
     try {
       const res = await fetch(`/api/group-chats/${id}/send`, {
@@ -257,7 +324,7 @@ export function GroupChatView() {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content,
+          content: botContent,
           knowledgeBaseIds: selectedKBIds.length > 0 ? selectedKBIds : undefined,
         }),
       });
@@ -294,10 +361,25 @@ export function GroupChatView() {
                   return [...prev, parsed as GroupChatMessage];
                 });
               } else if (eventType === "delta") {
-                setStreamContent((prev) => prev + (parsed.delta ?? ""));
+                setStreamContent((prev) => {
+                  const newContent = prev + (parsed.delta ?? "");
+                  const cleaned = cleanContent(newContent);
+                  const parts = cleaned.split(/\n\n/);
+                  const revealed = parts.length > 1 ? parts.slice(0, -1).join("\n\n") : "";
+                  setStreamRevealed((prevRevealed) => {
+                    if (revealed !== prevRevealed) {
+                      setStreamPrevRevealed(prevRevealed);
+                    }
+                    return revealed;
+                  });
+                  return newContent;
+                });
               } else if (eventType === "done") {
                 setStreamContent("");
-                setLocalMessages((prev) => [...prev, parsed as GroupChatMessage]);
+                setLocalMessages((prev) => {
+                  if (prev.some((m) => m.id === (parsed as GroupChatMessage).id)) return prev;
+                  return [...prev, parsed as GroupChatMessage];
+                });
               } else if (eventType === "error") {
                 setStreamContent("");
               }
@@ -314,6 +396,15 @@ export function GroupChatView() {
 
   const isCreator = chat?.creatorEmail === user?.email;
   const isActive = chat?.status === "active";
+
+  // Build member picture lookup
+  const memberPictures = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of chat?.members ?? []) {
+      if (m.picture) map.set(m.userEmail, m.picture);
+    }
+    return map;
+  }, [chat?.members]);
 
   // ─── Loading / error ──────────────────────────────────────────────────────
 
@@ -350,20 +441,42 @@ export function GroupChatView() {
                 onMouseLeave={() => setKbTooltipOpen(false)}
               >
                 <Database className="w-3 h-3" />
-                {effectiveKBCount} source{effectiveKBCount !== 1 ? "s" : ""}
+                {effectiveKBCount} data source{effectiveKBCount !== 1 ? "s" : ""}
                 {kbTooltipOpen && queryableKBs.length > 0 && (
-                  <div className="absolute left-0 top-full mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-30">
-                    {queryableKBs.map((kb) => (
-                      <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2">
-                        <Database className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-slate-700 truncate">{kb.name}</p>
-                          <p className="text-[10px] text-slate-400 truncate">
-                            {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="absolute left-0 top-full pt-1 z-30">
+                    <div className="w-72 bg-white border border-slate-200 rounded-xl shadow-lg py-2">
+                      {queryableKBs.map((kb) => {
+                        const canRevoke = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
+                        return (
+                          <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2 group/kb">
+                            <Database className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-slate-700 truncate">{kb.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
+                              </p>
+                            </div>
+                            {canRevoke && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!kb.shareId || !chat) return;
+                                  await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
+                                    method: "DELETE",
+                                    credentials: "same-origin",
+                                  });
+                                  void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
+                                }}
+                                className="text-[10px] text-red-500 hover:text-red-700 flex-shrink-0"
+                                title="Revoke sharing"
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </span>
@@ -376,25 +489,72 @@ export function GroupChatView() {
             </div>
           </div>
 
-          {isCreator && isActive && (
-            <button
-              onClick={() => setShowInvite(true)}
-              className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              title="Invite member"
-            >
-              <UserPlus className="w-4 h-4" />
-            </button>
-          )}
+          <button
+            onClick={() => setShowInvite(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title={isCreator && isActive ? "Manage members" : "View members"}
+          >
+            {isCreator && isActive ? <UserPlus className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
+            Members
+          </button>
           {isActive && (
             <button
               onClick={() => setShowShareKB(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              title="Share a Source"
+              title="Share a Data Source"
             >
               <Database className="w-3.5 h-3.5" />
-              Share Source
+              Share Data Source
             </button>
           )}
+
+          {/* Notification settings */}
+          <div className="relative">
+            <button
+              onClick={() => setNotifMenuOpen((v) => !v)}
+              className={cn(
+                "p-1.5 rounded-lg transition-colors",
+                notifLevel === "none"
+                  ? "text-slate-300 hover:text-slate-500 hover:bg-slate-100"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
+              )}
+              title={`Notifications: ${notifLevel}`}
+            >
+              {notifLevel === "none" ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+            </button>
+            {notifMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNotifMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-48">
+                  <div className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+                    Notify me
+                  </div>
+                  {(["all", "mentions", "none"] as GroupChatNotifLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => void setNotifLevel(level)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
+                        notifLevel === level
+                          ? "text-slate-900 bg-slate-50 font-medium"
+                          : "text-slate-600 hover:bg-slate-50",
+                      )}
+                    >
+                      {level === "all" && <Bell className="w-3.5 h-3.5" />}
+                      {level === "mentions" && <AtSign className="w-3.5 h-3.5" />}
+                      {level === "none" && <BellOff className="w-3.5 h-3.5" />}
+                      <span className="flex-1 text-left">
+                        {level === "all" && "All messages"}
+                        {level === "mentions" && "Mentions only"}
+                        {level === "none" && "Nothing"}
+                      </span>
+                      {notifLevel === level && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Messages */}
@@ -404,8 +564,8 @@ export function GroupChatView() {
               <Users className="w-8 h-8 text-slate-300 mb-3" />
               <p className="text-slate-900 text-xl font-medium mb-2">{chat.name}</p>
               <p className="text-slate-400 text-sm max-w-sm">
-                Tag <span className="font-medium">@bot</span> to query shared sources.
-                Messages without @bot are human-to-human conversation.
+                Use the <span className="font-medium">Ask</span> button to query data sources.
+                Press Enter or Send for human-to-human conversation.
               </p>
             </div>
           )}
@@ -416,23 +576,61 @@ export function GroupChatView() {
               message={msg}
               isCurrentUser={msg.authorEmail === user?.email}
               onOpenThread={() => setThreadParentId(msg.id)}
+              orgAvatarUrl={user?.orgAvatarUrl}
+              orgName={user?.orgName}
+              memberPicture={msg.authorEmail ? memberPictures.get(msg.authorEmail) : undefined}
+              canKick={isCreator && isActive}
+              onMention={(name) => {
+                setInput((prev) => `${prev}@${name} `);
+                inputRef.current?.focus();
+              }}
+              onKick={async (email) => {
+                await fetch(`/api/group-chats/${id}/members/${encodeURIComponent(email)}`, {
+                  method: "DELETE",
+                  credentials: "same-origin",
+                });
+                void queryClient.invalidateQueries({ queryKey: ["group-chat", id] });
+              }}
             />
           ))}
 
-          {streaming && streamContent && (
+          {streaming && (
             <div className="flex gap-3 py-2">
-              <div className="w-7 h-7 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
-                <span className="text-[10px] font-bold text-white">AI</span>
+              <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={user?.orgName}>
+                {user?.orgAvatarUrl ? (
+                  <img src={user.orgAvatarUrl} alt={user.orgName ?? "Organization"} className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className={cn("text-sm text-slate-800", ...PROSE_CLASSES)}>
-                  <Markdown>{cleanContent(streamContent)}</Markdown>
-                </div>
+                {streamRevealed ? (() => {
+                  const displayContent = cleanContent(streamRevealed);
+                  const settledContent = cleanContent(streamPrevRevealed);
+                  const newContent = displayContent.length > settledContent.length
+                    ? displayContent.slice(settledContent.length)
+                    : undefined;
+                  return (
+                    <div className={cn("text-sm text-slate-800", ...PROSE_CLASSES)}>
+                      {newContent ? (
+                        <>
+                          <Markdown>{settledContent}</Markdown>
+                          <div key={displayContent.length} className="animate-fade-in">
+                            <Markdown>{newContent}</Markdown>
+                          </div>
+                        </>
+                      ) : (
+                        <Markdown>{displayContent}</Markdown>
+                      )}
+                      <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 animate-pulse" />
+                    </div>
+                  );
+                })() : (
+                  <ThinkingDots />
+                )}
               </div>
             </div>
           )}
-
-          {streaming && !streamContent && <ThinkingDots />}
 
           <div ref={messagesEndRef} />
         </div>
@@ -475,13 +673,13 @@ export function GroupChatView() {
                           )}
                         >
                           <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span className="truncate">All shared sources</span>
+                          <span className="truncate">All shared data sources</span>
                           {selectedKBIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                         </button>
 
                         {queryableKBs.length > 0 && (
                           <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
-                            Sources
+                            Data Sources
                           </div>
                         )}
                         {queryableKBs.map((kb) => {
@@ -582,10 +780,13 @@ export function GroupChatView() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onSubmit={() => void sendMessage()}
+                onAsk={() => void askBot()}
+                sendMode={sendMode}
+                onSendModeChange={setSendMode}
                 isLoading={sending}
                 isStreaming={streaming}
                 disabled={sending}
-                placeholder="Type a message... Use @bot to query sources"
+                placeholder="Type a message..."
               />
             </div>
           </div>
@@ -604,6 +805,7 @@ export function GroupChatView() {
           parentMessage={messages.find((m) => m.id === threadParentId)}
           onClose={() => setThreadParentId(null)}
           isActive={isActive}
+          memberPictures={memberPictures}
         />
       )}
 
@@ -612,6 +814,8 @@ export function GroupChatView() {
         <InviteMemberDialog
           groupChatId={chat.id}
           existingMembers={chat.members}
+          creatorEmail={chat.creatorEmail}
+          isActive={isActive}
           onClose={() => setShowInvite(false)}
         />
       )}
@@ -632,11 +836,37 @@ function MessageBubble({
   message,
   isCurrentUser,
   onOpenThread,
+  orgAvatarUrl,
+  orgName,
+  memberPicture,
+  canKick,
+  onMention,
+  onKick,
 }: {
   message: GroupChatMessage;
   isCurrentUser: boolean;
   onOpenThread: () => void;
+  orgAvatarUrl?: string;
+  orgName?: string;
+  memberPicture?: string;
+  canKick?: boolean;
+  onMention?: (name: string) => void;
+  onKick?: (email: string) => Promise<void>;
 }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showMenu]);
+
   if (message.role === "system") {
     return (
       <div className="text-center py-1">
@@ -648,28 +878,92 @@ function MessageBubble({
   }
 
   const isBot = message.role === "assistant";
+  const isAIQuery = !isBot && /^@(?:bot|edgebric)\b/i.test(message.content);
+  const initial = (message.authorName ?? message.authorEmail ?? "?").charAt(0).toUpperCase();
+  const authorDisplayName = message.authorName ?? message.authorEmail ?? "Unknown";
+  const canShowMenu = !isBot && !isCurrentUser && !!message.authorEmail;
 
   return (
     <div className={cn("flex gap-3 py-2 group", isCurrentUser && "flex-row-reverse")}>
       {/* Avatar */}
-      <div
-        className={cn(
-          "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold",
-          isBot ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-600",
-        )}
-      >
-        {isBot ? "AI" : (message.authorName ?? message.authorEmail ?? "?").charAt(0).toUpperCase()}
-      </div>
+      {isBot ? (
+        <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
+          {orgAvatarUrl ? (
+            <img src={orgAvatarUrl} alt={orgName ?? "Organization"} className="w-full h-full object-cover" />
+          ) : (
+            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+          )}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden",
+            canShowMenu && "cursor-pointer hover:ring-2 hover:ring-slate-300 transition-shadow",
+          )}
+          title={message.authorName ?? message.authorEmail}
+          onClick={canShowMenu ? () => setShowMenu((v) => !v) : undefined}
+        >
+          {memberPicture ? (
+            <img src={memberPicture} alt={message.authorName ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <span className="text-[10px] font-bold text-slate-600">{initial}</span>
+          )}
+        </div>
+      )}
 
       {/* Content */}
       <div className={cn("flex-1 min-w-0", isCurrentUser && "text-right")}>
-        <div className="flex items-baseline gap-2 mb-0.5">
+        <div className={cn("flex items-baseline gap-2 mb-0.5", isCurrentUser && "justify-end")}>
           {!isCurrentUser && (
-            <span className="text-xs font-medium text-slate-700">
-              {isBot ? "Edgebric" : (message.authorName ?? message.authorEmail)}
+            <span className="relative inline-block" ref={menuRef}>
+              <button
+                type="button"
+                onClick={canShowMenu ? () => setShowMenu((v) => !v) : undefined}
+                className={cn(
+                  "text-xs font-medium text-slate-700",
+                  canShowMenu && "hover:text-slate-900 hover:underline cursor-pointer",
+                )}
+              >
+                {isBot ? "Edgebric" : authorDisplayName}
+              </button>
+
+              {showMenu && canShowMenu && (
+                <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-lg shadow-lg py-1 w-40">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMention?.(authorDisplayName.split(" ")[0] ?? authorDisplayName);
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    <AtSign className="w-3 h-3 text-slate-400" />
+                    Mention
+                  </button>
+                  {canKick && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setShowMenu(false);
+                        await onKick?.(message.authorEmail!);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <UserMinus className="w-3 h-3" />
+                      Remove from chat
+                    </button>
+                  )}
+                </div>
+              )}
             </span>
           )}
           <span className="text-[10px] text-slate-400">{formatTime(message.createdAt)}</span>
+          {isAIQuery && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400">
+              <Sparkles className="w-2.5 h-2.5" />
+              Asked AI
+            </span>
+          )}
         </div>
 
         <div
@@ -677,9 +971,13 @@ function MessageBubble({
             "inline-block text-left rounded-2xl px-4 py-2 text-sm max-w-[80%]",
             isBot
               ? "bg-slate-50 text-slate-800"
-              : isCurrentUser
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-800",
+              : isAIQuery && isCurrentUser
+                ? "bg-slate-800 text-white border border-slate-600"
+                : isCurrentUser
+                  ? "bg-slate-900 text-white"
+                  : isAIQuery
+                    ? "bg-slate-100 text-slate-800 border border-slate-300"
+                    : "bg-slate-100 text-slate-800",
           )}
         >
           {isBot ? (
@@ -687,7 +985,7 @@ function MessageBubble({
               <Markdown>{cleanContent(message.content)}</Markdown>
             </div>
           ) : (
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="whitespace-pre-wrap">{message.content.replace(/^@(?:bot|edgebric)\s+/i, "")}</p>
           )}
         </div>
 
@@ -701,15 +999,37 @@ function MessageBubble({
         {/* Thread button */}
         {!message.threadParentId && (
           <div className="mt-0.5">
-            <button
-              onClick={onOpenThread}
-              className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-slate-600 transition-opacity flex items-center gap-1"
-            >
-              <MessageSquare className="w-3 h-3" />
-              {message.threadReplyCount && message.threadReplyCount > 0
-                ? `${message.threadReplyCount} ${message.threadReplyCount === 1 ? "reply" : "replies"}`
-                : "Reply in thread"}
-            </button>
+            {message.threadReplyCount && message.threadReplyCount > 0 ? (
+              <button
+                onClick={onOpenThread}
+                className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1.5"
+              >
+                {/* Participant avatars */}
+                {message.threadParticipants && message.threadParticipants.length > 0 && (
+                  <span className="flex -space-x-1.5">
+                    {message.threadParticipants.slice(0, 4).map((p) => (
+                      <span key={p.email} className="w-4 h-4 rounded-full border border-white overflow-hidden flex-shrink-0 inline-flex items-center justify-center bg-slate-200">
+                        {p.picture ? (
+                          <img src={p.picture} alt={p.name ?? p.email} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="text-[7px] font-bold text-slate-500">{(p.name ?? p.email).charAt(0).toUpperCase()}</span>
+                        )}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <MessageSquare className="w-3 h-3" />
+                {message.threadReplyCount} {message.threadReplyCount === 1 ? "reply" : "replies"}
+              </button>
+            ) : (
+              <button
+                onClick={onOpenThread}
+                className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 hover:text-slate-600 transition-opacity flex items-center gap-1"
+              >
+                <MessageSquare className="w-3 h-3" />
+                Reply in thread
+              </button>
+            )}
           </div>
         )}
       </div>
