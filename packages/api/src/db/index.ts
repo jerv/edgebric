@@ -245,12 +245,26 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS group_chat_last_read (
+      group_chat_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      last_read_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS group_chat_notif_prefs (
+      group_chat_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'all'
+    );
+
     CREATE INDEX IF NOT EXISTS idx_group_chat_members_email ON group_chat_members(user_email);
     CREATE INDEX IF NOT EXISTS idx_group_chat_messages_chat_id ON group_chat_messages(group_chat_id);
     CREATE INDEX IF NOT EXISTS idx_group_chat_messages_thread ON group_chat_messages(thread_parent_id);
     CREATE INDEX IF NOT EXISTS idx_group_chat_shared_kbs_chat_id ON group_chat_shared_kbs(group_chat_id);
     CREATE INDEX IF NOT EXISTS idx_group_chats_org_id ON group_chats(org_id);
     CREATE INDEX IF NOT EXISTS idx_group_chats_status ON group_chats(status);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_last_read_pk ON group_chat_last_read(group_chat_id, user_email);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_notif_prefs_pk ON group_chat_notif_prefs(group_chat_id, user_email);
   `);
 
   // Multi-org: create indexes on new org_id columns
