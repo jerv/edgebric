@@ -258,7 +258,7 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
   if (!chat) return;
   if (!requireMembership(chatId, email, res)) return;
   if (chat.status !== "active") {
-    res.status(409).json({ error: "Cannot share KBs in an inactive group chat" });
+    res.status(409).json({ error: "Cannot share data sources in an inactive group chat" });
     return;
   }
 

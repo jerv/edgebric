@@ -51,7 +51,7 @@ function rowToSharedKB(
   const kb: GroupChatSharedKB = {
     id: row.id,
     knowledgeBaseId: row.knowledgeBaseId,
-    knowledgeBaseName: kbName ?? "Unknown KB",
+    knowledgeBaseName: kbName ?? "Unknown data source",
     sharedByEmail: row.sharedByEmail,
     allowSourceViewing: !!row.allowSourceViewing,
     sharedAt: new Date(row.sharedAt),
