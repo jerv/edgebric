@@ -9,6 +9,7 @@ import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
 import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus } from "lucide-react";
+import { getThinkingChats } from "@/hooks/useNotifications";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
@@ -346,6 +347,10 @@ export function ChatPanel() {
           hasConfidentAnswer: m.hasConfidentAnswer,
           ...(m.source && { source: m.source }),
         }));
+        // If bot is still thinking for this conversation, append a streaming placeholder
+        if (conversationId && getThinkingChats().has(conversationId)) {
+          loaded.push({ role: "assistant", content: "", isStreaming: true });
+        }
         setMessages(loaded);
 
         // Auto-dismiss notifications for this conversation
@@ -385,16 +390,6 @@ export function ChatPanel() {
     prevThinkingRef.current = isBotThinking;
 
     if (!conversationId || isPrivacyMode) return;
-
-    // Bot just started thinking (e.g. returning to a conversation mid-stream)
-    // Append a streaming placeholder if not already loading/streaming
-    if (isBotThinking && !isLoading) {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last.isStreaming) return prev; // already showing
-        return [...prev, { role: "assistant", content: "", isStreaming: true }];
-      });
-    }
 
     // Bot just finished thinking — reload messages to get the completed answer
     if (wasThinking && !isBotThinking && !isLoading) {
