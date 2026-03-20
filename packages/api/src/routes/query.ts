@@ -123,16 +123,12 @@ async function multiDatasetSearch(
     }),
   );
 
-  // Flatten and enrich
-  const allResults = resultSets.flat().map((r) => {
+  // Flatten, enrich, and filter out orphaned chunks (deleted documents)
+  const allResults = resultSets.flat().flatMap((r) => {
     const stored = lookupChunk(r.chunkId);
-    if (stored) return { ...r, metadata: stored };
-    const meta = r.metadata;
-    if (!meta.documentName && !meta.sourceDocument) {
-      const firstDoc = getAllDocuments().find((d) => d.status === "ready");
-      if (firstDoc) meta.documentName = firstDoc.name;
-    }
-    return r;
+    if (stored) return [{ ...r, metadata: stored }];
+    // No registry entry → chunk belongs to a deleted document; skip it
+    return [];
   });
 
   // Sort by similarity (descending) and take top-K

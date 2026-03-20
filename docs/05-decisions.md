@@ -52,42 +52,42 @@
 
 ---
 
-### KB-01 — Source Types: Vault vs. Network
+### KB-01 — Data Source Types: Vault vs. Network
 
-**Decision:** Sources come in two types. Network sources are admin-managed and stored on the org's network. Vault sources are personal, device-local, and encrypted.
+**Decision:** Data sources come in two types. Network data sources are admin-managed and stored on the org's network. Vault data sources are personal, device-local, and encrypted.
 
-**Vault Sources:**
+**Vault Data Sources:**
 - Created by any authenticated user
 - Stored encrypted on the user's device
 - Private by default — never searchable by anyone else
-- Can be selectively shared in group chats or meeting sessions (granular, per-source opt-in)
+- Can be selectively shared in group chats or meeting sessions (granular, per-data-source opt-in)
 - Use cases: project notes, research, personal reference documents
 
-**Network Sources:**
+**Network Data Sources:**
 - Created and managed by administrators
 - Stored on designated devices (in distributed mode) or the primary node (in org mode)
 - Accessible to all employees (or scoped by department in distributed mode)
 - Use cases: HR policies, employee handbook, benefits guides, compliance documents
 
 **Why both matter:**
-- Network sources provide the institutional knowledge layer (the original product)
-- Vault sources give every employee a daily reason to use Edgebric (not just occasional HR queries)
+- Network data sources provide the institutional knowledge layer (the original product)
+- Vault data sources give every employee a daily reason to use Edgebric (not just occasional HR queries)
 - Group chats and meeting mode create emergent value by combining both — cross-pollination of personal and institutional knowledge
 
 ---
 
 ### KB-02 — Granular Sharing Controls
 
-**Decision:** When sharing sources in group chats or meeting sessions, users have per-source granular control with explicit confirmation.
+**Decision:** When sharing data sources in group chats or meeting sessions, users have per-data-source granular control with explicit confirmation.
 
 **What this means:**
-- A user might have 5 vault sources but only share 2 in a given group chat
-- Each source requires explicit confirmation with a warning dialog explaining what data becomes accessible
+- A user might have 5 vault data sources but only share 2 in a given group chat
+- Each data source requires explicit confirmation with a warning dialog explaining what data becomes accessible
 - In group chats: sharing persists until the chat expires or the sharer removes it
 - In meeting sessions: sharing dissolves when the session ends
 - No "share everything" default — explicit opt-in only
 
-**Why not just share everything?** A marketing lead might have a source with competitive intelligence they'd share in a strategy discussion but not in an all-hands. A lawyer might share compliance checklists but not client case files. Granularity is essential for trust.
+**Why not just share everything?** A marketing lead might have a data source with competitive intelligence they'd share in a strategy discussion but not in an all-hands. A lawyer might share compliance checklists but not client case files. Granularity is essential for trust.
 
 ---
 
@@ -172,12 +172,12 @@ Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible AP
 **Decision:** The escalation system (escalation targets, Slack DM/email dispatch, admin reply workflow) is removed entirely. Group chats replace this functionality with a more natural, collaborative approach.
 
 **Why:**
-- Escalations were a workaround for "I need help from a person." Group chats solve this natively — invite the expert, share the source, discuss in context.
+- Escalations were a workaround for "I need help from a person." Group chats solve this natively — invite the expert, share the data source, discuss in context.
 - Group chats support threaded async discussion, which is more useful than a one-shot escalation/reply cycle.
 - The bot participates in group chats only when @tagged, so humans can discuss freely.
 - Expiration controls (24h, 1w, 1m, never) provide appropriate data lifecycle management.
 
-**What's kept:** General-purpose email notifications (for group chat invites, source shares, expiration warnings).
+**What's kept:** General-purpose email notifications (for group chat invites, data source shares, expiration warnings).
 
 ---
 
@@ -200,17 +200,17 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ---
 
-### UX-02 — Terminology: "Sources" Not "Knowledge Bases"
+### UX-02 — Terminology: "Data Sources" Not "Knowledge Bases"
 
-**Decision:** User-facing terminology uses "Sources" (not "Knowledge Bases" or "KBs").
+**Decision:** User-facing terminology uses "Data Sources" (not "Knowledge Bases" or "KBs").
 
-**Source types:**
-- **Network Sources** — stored on the org's network servers, admin-managed
-- **Vault Sources** — stored encrypted on an individual member's device, personal
+**Data source types:**
+- **Network Data Sources** — stored on the org's network servers, admin-managed
+- **Vault Data Sources** — stored encrypted on an individual member's device, personal
 
-**Top-level page:** "Library" (the page where you browse all sources)
+**Top-level page:** "Data Sources" (the page where you browse all data sources)
 
-**Why "Sources":** It's what non-technical users intuitively understand — these are the sources the AI draws answers from. "Add a source" is clearer than "Create a knowledge base." Industry precedent: Glean, Perplexity both use "Sources."
+**Why "Data Sources":** It's what non-technical users intuitively understand — these are the data sources the AI draws answers from. "Add a data source" is clearer than "Create a knowledge base." Industry precedent: Glean, Perplexity both use "Sources."
 
 **Why not other terms:**
 - "Workspace" — conflicts with org concept
@@ -222,7 +222,7 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ### UX-03 — Analytics Deferred to V2
 
-**Decision:** The analytics dashboard page is removed from the current release. Analytics will be rebuilt from scratch after core features (group chats, integrations, source management) are stable and real usage patterns inform what metrics actually matter.
+**Decision:** The analytics dashboard page is removed from the current release. Analytics will be rebuilt from scratch after core features (group chats, integrations, data source management) are stable and real usage patterns inform what metrics actually matter.
 
 **V2 analytics** will include: aggregate topic clusters (min 5 queries), unanswered questions, query volume trends.
 

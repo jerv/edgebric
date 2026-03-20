@@ -122,8 +122,9 @@ export const messages = sqliteTable("messages", {
 export const notifications = sqliteTable("notifications", {
   id: text("id").primaryKey(),
   userEmail: text("user_email").notNull(),
-  type: text("type").notNull(), // "group_chat_invite" | "source_shared" | "chat_expiring"
+  type: text("type").notNull(), // "group_chat_invite" | "group_chat_message" | "group_chat_mention" | "source_shared" | "chat_expiring"
   conversationId: text("conversation_id").notNull(),
+  groupChatId: text("group_chat_id"), // set for group chat notifications
   messageId: text("message_id"),
   title: text("title").notNull(),
   body: text("body"),
@@ -196,6 +197,22 @@ export const groupChatMessages = sqliteTable("group_chat_messages", {
   citations: text("citations"), // JSON array
   hasConfidentAnswer: integer("has_confident_answer"),
   createdAt: text("created_at").notNull(),
+});
+
+// ─── Group Chat Last Read (unread tracking) ─────────────────────────────────
+
+export const groupChatLastRead = sqliteTable("group_chat_last_read", {
+  groupChatId: text("group_chat_id").notNull(),
+  userEmail: text("user_email").notNull(),
+  lastReadAt: text("last_read_at").notNull(), // ISO timestamp of last read
+});
+
+// ─── Group Chat Notification Preferences ────────────────────────────────────
+
+export const groupChatNotifPrefs = sqliteTable("group_chat_notif_prefs", {
+  groupChatId: text("group_chat_id").notNull(),
+  userEmail: text("user_email").notNull(),
+  level: text("level").notNull().default("all"), // "all" | "mentions" | "none"
 });
 
 // ─── Integration Config ──────────────────────────────────────────────────────

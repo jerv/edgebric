@@ -11,7 +11,7 @@ import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { lookupChunk } from "../services/chunkRegistry.js";
-import { getAllDocuments, getDocument } from "../services/documentStore.js";
+import { getDocument } from "../services/documentStore.js";
 import { listKBs } from "../services/knowledgeBaseStore.js";
 import {
   getGroupChat,
@@ -22,7 +22,12 @@ import {
   getSharedDatasetNames,
   getContextSummary,
   setContextSummary,
+  getMembers,
 } from "../services/groupChatStore.js";
+import {
+  broadcastToUser,
+  getGroupChatNotifLevel,
+} from "../services/notificationStore.js";
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +52,7 @@ const sendMessageSchema = z.object({
 /** Map of groupChatId → Set of connected SSE responses */
 const sseClients = new Map<string, Set<Response>>();
 
-function broadcastToChat(groupChatId: string, event: string, data: unknown): void {
+export function broadcastToChat(groupChatId: string, event: string, data: unknown): void {
   const clients = sseClients.get(groupChatId);
   if (!clients) return;
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -73,6 +78,26 @@ function extractQuery(content: string): string {
   return content.replace(BOT_TAG_REGEX, "").trim();
 }
 
+/** Parse @mentions from message content. Returns set of mentioned member emails. */
+function parseMentions(content: string, members: { userEmail: string; userName?: string }[]): Set<string> {
+  const mentioned = new Set<string>();
+  // Match @FirstName or @"First Last" or @First Last (greedy first+last)
+  const mentionRegex = /@"([^"]+)"|@(\S+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = mentionRegex.exec(content)) !== null) {
+    const name = (match[1] ?? match[2] ?? "").toLowerCase();
+    if (name === "bot" || name === "edgebric") continue;
+    for (const m of members) {
+      const memberName = (m.userName ?? "").toLowerCase();
+      const firstName = memberName.split(/\s+/)[0] ?? "";
+      if (memberName === name || firstName === name || m.userEmail.toLowerCase().startsWith(name + "@")) {
+        mentioned.add(m.userEmail);
+      }
+    }
+  }
+  return mentioned;
+}
+
 /** Search across multiple mKB datasets, merge by similarity. */
 async function multiDatasetSearch(
   datasetNames: string[],
@@ -89,15 +114,11 @@ async function multiDatasetSearch(
     }),
   );
 
-  const allResults = resultSets.flat().map((r) => {
+  // Filter out orphaned chunks (deleted documents)
+  const allResults = resultSets.flat().flatMap((r) => {
     const stored = lookupChunk(r.chunkId);
-    if (stored) return { ...r, metadata: stored };
-    const meta = r.metadata;
-    if (!meta.documentName && !meta.sourceDocument) {
-      const firstDoc = getAllDocuments().find((d) => d.status === "ready");
-      if (firstDoc) meta.documentName = firstDoc.name;
-    }
-    return r;
+    if (stored) return [{ ...r, metadata: stored }];
+    return [];
   });
 
   allResults.sort((a, b) => b.similarity - a.similarity);
@@ -162,10 +183,42 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
   // Broadcast to connected clients
   broadcastToChat(chatId, "message", userMsg);
 
+  // Notify other members via global SSE (for sidebar badges, sounds, etc.)
+  const members = getMembers(chatId);
+  const mentionedEmails = parseMentions(content, members);
+  for (const member of members) {
+    if (member.userEmail === email) continue; // don't notify sender
+    const level = getGroupChatNotifLevel(chatId, member.userEmail);
+    const isMentioned = mentionedEmails.has(member.userEmail);
+
+    if (level === "none" && !isMentioned) continue;
+    if (level === "mentions" && !isMentioned) {
+      // Still send unread badge update but no notification
+      broadcastToUser(member.userEmail, "unread", { groupChatId: chatId });
+      continue;
+    }
+
+    broadcastToUser(member.userEmail, "unread", { groupChatId: chatId });
+    if (isMentioned) {
+      broadcastToUser(member.userEmail, "mention", {
+        groupChatId: chatId,
+        chatName: chat.name,
+        authorName: req.session.name ?? email,
+        preview: content.slice(0, 100),
+      });
+    }
+  }
+
   // If no @bot tag, just return the persisted message
   if (!containsBotTag(content)) {
     res.json(userMsg);
     return;
+  }
+
+  // Broadcast bot-thinking status to all members (both per-chat and global SSE)
+  broadcastToChat(chatId, "bot_thinking", { chatId, thinking: true });
+  for (const member of members) {
+    broadcastToUser(member.userEmail, "bot_thinking", { chatId, thinking: true });
   }
 
   // ─── Bot response via SSE ───────────────────────────────────────────────────
@@ -192,7 +245,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       const botMsg = addMessage({
         groupChatId: chatId,
         role: "assistant",
-        content: "No sources have been shared in this group chat yet. Share a source so I can help answer questions.",
+        content: "No data sources have been shared in this group chat yet. Share a data source so I can help answer questions.",
       });
       sendEvent("done", botMsg);
       broadcastToChat(chatId, "message", botMsg);
@@ -293,6 +346,13 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     sendEvent("error", { message: "An error occurred. Please try again." });
     logger.error({ err }, "Group chat query error");
   } finally {
+    broadcastToChat(chatId, "bot_thinking", { chatId, thinking: false });
+    // Notify all members via global SSE (thinking off + unread badges)
+    for (const member of members) {
+      broadcastToUser(member.userEmail, "bot_thinking", { chatId, thinking: false });
+      if (member.userEmail === email) continue;
+      broadcastToUser(member.userEmail, "unread", { groupChatId: chatId });
+    }
     res.end();
   }
 });

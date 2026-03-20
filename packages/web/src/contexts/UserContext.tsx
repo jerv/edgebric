@@ -16,7 +16,6 @@ export interface User {
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
   orgAvatarUrl?: string;
-  avatarMode?: "org" | "kb";
 }
 
 export const UserContext = createContext<User | null | undefined>(undefined);

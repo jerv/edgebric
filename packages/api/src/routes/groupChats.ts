@@ -20,17 +20,21 @@ import {
 } from "../services/groupChatStore.js";
 import { getUserInOrg, listUsers } from "../services/userStore.js";
 import { getKB, kbBelongsToOrg } from "../services/knowledgeBaseStore.js";
+import { broadcastToChat } from "./groupChatQuery.js";
+import { broadcastToUser } from "../services/notificationStore.js";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
-  expiration: z.enum(["24h", "1w", "1m", "never"]),
+  expiration: z.enum(["24h", "1w", "1m", "never", "custom"]),
+  expiresInMs: z.number().int().positive().optional(),
 });
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  expiration: z.enum(["24h", "1w", "1m", "never"]).optional(),
+  expiration: z.enum(["24h", "1w", "1m", "never", "custom"]).optional(),
+  expiresInMs: z.number().int().positive().optional(),
 });
 
 const addMemberSchema = z.object({
@@ -89,6 +93,7 @@ groupChatsRouter.post("/", validateBody(createSchema), (req, res) => {
     expiration: req.body.expiration,
   };
   if (req.session.name) opts.creatorName = req.session.name;
+  if (req.body.expiresInMs) opts.expiresInMs = req.body.expiresInMs;
   const chat = createGroupChat(opts);
 
   res.status(201).json(chat);
@@ -200,6 +205,13 @@ groupChatsRouter.post("/:id/members", validateBody(addMemberSchema), (req, res) 
   const invitee = getUserInOrg(inviteeEmail, orgId);
   const member = addMember(chatId, inviteeEmail, invitee?.name ?? undefined);
 
+  // Notify the invited user — their sidebar should update instantly
+  broadcastToUser(inviteeEmail, "group_chat_invite", {
+    groupChatId: chatId,
+    chatName: chat.name,
+    invitedBy: req.session.name ?? email,
+  });
+
   res.status(201).json(member);
 });
 
@@ -253,14 +265,14 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
   // Verify KB exists and belongs to org
   const kb = getKB(req.body.knowledgeBaseId);
   if (!kb || !kbBelongsToOrg(req.body.knowledgeBaseId, orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
 
   // Check if already shared
   const existing = chat.sharedKBs.find((s) => s.knowledgeBaseId === req.body.knowledgeBaseId);
   if (existing) {
-    res.status(409).json({ error: "This source is already shared in this group chat" });
+    res.status(409).json({ error: "This data source is already shared in this group chat" });
     return;
   }
 
@@ -288,17 +300,19 @@ groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
 
   const share = chat.sharedKBs.find((s) => s.id === shareId);
   if (!share) {
-    res.status(404).json({ error: "Shared source not found" });
+    res.status(404).json({ error: "Shared data source not found" });
     return;
   }
 
   // Only sharer or creator can unshare
   if (share.sharedByEmail !== email.toLowerCase() && !isCreator(chatId, email)) {
-    res.status(403).json({ error: "Only the sharer or creator can remove a shared source" });
+    res.status(403).json({ error: "Only the sharer or creator can remove a shared data source" });
     return;
   }
 
-  unshareKB(shareId, chatId);
+  const revokerName = req.session.name ?? email;
+  const sysMsg = unshareKB(shareId, chatId, revokerName);
+  if (sysMsg) broadcastToChat(chatId, "message", sysMsg);
   res.json({ ok: true });
 });
 

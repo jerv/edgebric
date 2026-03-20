@@ -1,5 +1,16 @@
 import { useEffect, useRef, useCallback } from "react";
 
+interface Ripple {
+  originX: number;
+  originY: number;
+  startTime: number;
+  speed: number; // px per frame
+  amplitude: number;
+  wavelength: number;
+  decay: number; // amplitude decay per px of radius
+  maxRadius: number;
+}
+
 export function LoginPage() {
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-white dark:bg-gray-950">

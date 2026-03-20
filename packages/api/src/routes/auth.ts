@@ -84,7 +84,6 @@ authRouter.get("/me", (req, res) => {
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
     orgAvatarUrl: org?.settings.avatarUrl,
-    avatarMode: org?.settings.avatarMode ?? "org",
   });
 });
 

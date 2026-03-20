@@ -58,6 +58,13 @@ async function start() {
     }
   }
 
+  // Purge orphaned chunk registry entries (documents deleted while mKB retains chunks)
+  {
+    const { purgeOrphanedChunks } = await import("./services/chunkRegistry.js");
+    const purged = purgeOrphanedChunks();
+    if (purged > 0) logger.info({ purged }, "Purged orphaned chunk registry entries");
+  }
+
   // Backfill chunk content for Vault Mode sync (no-op if already done)
   backfillChunkContent().catch((err) =>
     logger.warn({ err }, "Chunk content backfill failed"),

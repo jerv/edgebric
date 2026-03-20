@@ -6,32 +6,32 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.1 Source Management
+## 3.1 Data Source Management
 
-### Vault Sources (Personal, Device-Local)
+### Vault Data Sources (Personal, Device-Local)
 
 **Demo**
-- [ ] Create vault source (name, optional description)
-- [ ] Upload PDF, Word (.docx), plain text (.txt, .md) to vault source
-- [ ] View list of vault sources with document count and last updated
-- [ ] Query vault source in private chat
+- [ ] Create vault data source (name, optional description)
+- [ ] Upload PDF, Word (.docx), plain text (.txt, .md) to vault data source
+- [ ] View list of vault data sources with document count and last updated
+- [ ] Query vault data source in private chat
 
 **MVP**
-- [ ] Multiple vault sources per user (e.g., "Project Alpha Notes," "My Research")
-- [ ] Delete documents from vault source
+- [ ] Multiple vault data sources per user (e.g., "Project Alpha Notes," "My Research")
+- [ ] Delete documents from vault data source
 - [ ] Re-upload / update documents (triggers re-ingestion)
 - [ ] Storage usage indicator (helps users manage device storage)
-- [ ] Share vault sources selectively into group chats
+- [ ] Share vault data sources selectively into group chats
 
 **V2**
 - [ ] Import from Google Drive (OAuth, per-user)
 - [ ] Import from Notion (per-user workspace)
-- [ ] Source templates (pre-configured structure for common use cases)
+- [ ] Data source templates (pre-configured structure for common use cases)
 
-### Network Sources (Admin-Managed, Org Network)
+### Network Data Sources (Admin-Managed, Org Network)
 
 **Demo**
-- [ ] Admin creates network sources (e.g., "HR Policies," "Employee Handbook")
+- [ ] Admin creates network data sources (e.g., "HR Policies," "Employee Handbook")
 - [ ] Upload PDF, Word (.docx), plain text (.txt, .md) via drag-and-drop
 - [ ] Document type detection (magic bytes, not extension)
 - [ ] Ingestion status display (processing / ready / failed)
@@ -49,7 +49,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Admin can archive or delete documents
 - [ ] Re-ingestion triggered on document update
 - [ ] Document staleness alerts (configurable threshold, default 6 months)
-- [ ] Library list/table view with sorting and filters (alongside card view)
+- [ ] Data sources list/table view with sorting and filters (alongside card view)
 
 **V2**
 - [ ] Google Drive folder sync (OAuth, polling for changes)
@@ -87,45 +87,45 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ---
 
-## 3.3 Distributed Source Mesh
+## 3.3 Distributed Data Source Mesh
 
 ### Device Discovery & Mesh
 
 **Demo**
 - [ ] mimik mDNS-based auto-discovery of Edgebric nodes on local network
-- [ ] Node registry: each node advertises its available sources
+- [ ] Node registry: each node advertises its available data sources
 - [ ] Health status per node (online / offline / degraded)
 - [ ] Graceful degradation: queries to offline nodes return "unavailable" with explanation
 
 **MVP**
 - [ ] Supernode election (mimik handles this) — coordinator node for query routing
-- [ ] Cross-device query routing: query travels to relevant source node(s), results return to requester
-- [ ] Multi-node response synthesis: answers drawn from multiple sources are merged with per-source citations
+- [ ] Cross-device query routing: query travels to relevant data source node(s), results return to requester
+- [ ] Multi-node response synthesis: answers drawn from multiple data sources are merged with per-data-source citations
 - [ ] Node auto-reconnection: returning device re-joins mesh automatically
-- [ ] Admin node management dashboard: view all nodes, their sources, and status
+- [ ] Admin node management dashboard: view all nodes, their data sources, and status
 
 **V2**
 - [ ] Multi-office federation via mimik account-based clustering (same account, different networks)
-- [ ] Source replication for high-availability (same source on multiple nodes)
-- [ ] Load balancing across nodes with same source
+- [ ] Data source replication for high-availability (same data source on multiple nodes)
+- [ ] Load balancing across nodes with same data source
 - [ ] Cross-network mesh via mimik proximity clustering
 
 ### Department / Security Isolation
 
 **Demo**
-- [ ] Assign network sources to specific nodes (source-to-device binding)
-- [ ] Query routing respects source-to-node assignments
+- [ ] Assign network data sources to specific nodes (data-source-to-device binding)
+- [ ] Query routing respects data-source-to-node assignments
 
 **MVP**
-- [ ] Department-level access control: which users can query which sources
-- [ ] Admin assigns source access by role/department
-- [ ] Audit log: which sources were queried (not what was asked) per session
+- [ ] Department-level access control: which users can query which data sources
+- [ ] Admin assigns data source access by role/department
+- [ ] Audit log: which data sources were queried (not what was asked) per session
 - [ ] Cross-department query requires explicit admin-configured permission
 
 **V2**
 - [ ] Sensitivity tiers: public → internal → confidential → restricted
-- [ ] Automatic tier enforcement: restricted sources only queryable by named users
-- [ ] Compliance reporting: data residency proof per source per device
+- [ ] Automatic tier enforcement: restricted data sources only queryable by named users
+- [ ] Compliance reporting: data residency proof per data source per device
 
 ---
 
@@ -134,12 +134,12 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **MVP**
 - [x] Create group chat (name, expiration: 24h / 1w / 1m / never)
 - [x] Invite members (creator only, with confirmation warnings)
-- [x] Share sources into group chat (any member, with confirmation dialog)
-- [x] @bot / @edgebric to query shared sources — bot only responds when tagged
+- [x] Share data sources into group chat (any member, with confirmation dialog)
+- [x] @bot / @edgebric to query shared data sources — bot only responds when tagged
 - [x] Human-to-human conversation flows freely without bot intervention
 - [x] Threaded replies (flat threads, like Discord) — branch off any message
 - [x] Bot reads conversation/thread context before responding
-- [x] Real-time updates via SSE (new messages, member joins/leaves, source shares)
+- [x] Real-time updates via SSE (new messages, member joins/leaves, data source shares)
 - [x] Creator can remove members; members can leave
 - [ ] Context summarization for long conversations (auto-compress older messages)
 
@@ -147,7 +147,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Read receipts
 - [ ] Typing indicators
 - [ ] File attachments in chat
-- [ ] Group chat templates (pre-configured source sets)
+- [ ] Group chat templates (pre-configured data source sets)
 
 ---
 
@@ -156,10 +156,10 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **Demo**
 - [ ] Create meeting session (generates room code)
 - [ ] Join session via room code
-- [ ] See participant list and their opted-in sources
-- [ ] Opt in/out sources for the session (granular per-source control)
-- [ ] Ask questions that query all opted-in sources across all participants' devices
-- [ ] Synthesized answers with citations from each contributing source
+- [ ] See participant list and their opted-in data sources
+- [ ] Opt in/out data sources for the session (granular per-data-source control)
+- [ ] Ask questions that query all opted-in data sources across all participants' devices
+- [ ] Synthesized answers with citations from each contributing data source
 - [ ] End session (dissolves all ephemeral sharing)
 
 **MVP**
@@ -167,12 +167,12 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Session transcript export (questions and answers only, not source documents)
 - [ ] Participant can leave session without ending it for others
 - [ ] Session creator can remove participants
-- [ ] Network sources can be pre-attached to sessions by admin
-- [ ] Visual indicator showing which sources contributed to each answer
+- [ ] Network data sources can be pre-attached to sessions by admin
+- [ ] Visual indicator showing which data sources contributed to each answer
 
 **V2**
 - [ ] Recurring session codes (same code for weekly standup)
-- [ ] Session templates (pre-configured source sets for common meeting types)
+- [ ] Session templates (pre-configured data source sets for common meeting types)
 - [ ] Meeting notes generation (AI-summarized key Q&A from session)
 - [ ] Calendar integration (auto-create session for scheduled meetings)
 
@@ -185,11 +185,11 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **MVP (deferred — post group chats)**
 - [ ] "Add to Slack" OAuth install flow in admin settings
 - [ ] Socket Mode connection (outbound WebSocket — works behind firewalls)
-- [ ] @Edgebric mention in any channel triggers RAG query against accessible sources
+- [ ] @Edgebric mention in any channel triggers RAG query against accessible data sources
 - [ ] Bot responds in threaded replies to keep channels clean
 - [ ] Privacy notice on integration setup page
 - [ ] Bot posts brief privacy disclaimer on first interaction in each channel
-- [ ] Per-channel source configuration (which sources the bot can query)
+- [ ] Per-channel data source configuration (which data sources the bot can query)
 
 **V2**
 - [ ] Microsoft Teams bot integration
@@ -200,7 +200,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 **MVP**
 - [ ] Group chat invite notifications
-- [ ] Source share notifications
+- [ ] Data source share notifications
 - [ ] Chat expiration warnings
 - [ ] Configurable notification preferences per user
 
@@ -210,16 +210,16 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 **Demo**
 - [ ] Secure admin login (OIDC/SSO — Google dev IdP for development, generic OIDC for production)
-- [ ] Network source management (create, upload, view, delete)
-- [ ] Node status view (discovered devices and their sources)
+- [ ] Network data source management (create, upload, view, delete)
+- [ ] Node status view (discovered devices and their data sources)
 
 **MVP**
-- [ ] Library: all sources with list/table and card views, sorting, filters
+- [ ] Data Sources page: all data sources with list/table and card views, sorting, filters
 - [ ] PII warning display during ingestion
 - [ ] Document staleness alerts
 - [ ] User management: invite, roles, permissions
 - [ ] Integration settings: Slack bot, email notifications
-- [ ] Node management: assign sources to devices, view health
+- [ ] Node management: assign data sources to devices, view health
 
 **V2**
 - [ ] Aggregate query analytics: topic clusters (min 5 queries to surface a topic)
@@ -255,21 +255,21 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 **Demo**
 - [ ] iOS app with mimik mim OE runtime embedded (CocoaPods: EdgeCore + mim-OE-ai-SE-iOS-developer)
-- [ ] App hosts mKB locally — functions as a source node in the mesh
-- [ ] Upload documents to on-device source from iOS Files / Photos
-- [ ] Auto-discovery: app joins the mesh and advertises its sources
+- [ ] App hosts mKB locally — functions as a data source node in the mesh
+- [ ] Upload documents to on-device data source from iOS Files / Photos
+- [ ] Auto-discovery: app joins the mesh and advertises its data sources
 - [ ] Join meeting sessions via room code
-- [ ] Opt in device-local sources to meeting session
+- [ ] Opt in device-local data sources to meeting session
 
 **MVP**
-- [ ] Vault source management on iOS (create, upload, delete)
-- [ ] Private query interface (query own sources locally on phone)
+- [ ] Vault data source management on iOS (create, upload, delete)
+- [ ] Private query interface (query own data sources locally on phone)
 - [ ] Push notifications for group chat invites and meeting invites
 
 **V2**
 - [ ] Incognito mode on iOS (biometric vault, zero-network query)
-- [ ] Background mesh participation (app contributes sources even when in background)
-- [ ] Offline vault source queries (no mesh needed for own data)
+- [ ] Background mesh participation (app contributes data sources even when in background)
+- [ ] Offline vault data source queries (no mesh needed for own data)
 
 ---
 
@@ -282,7 +282,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Configuration via environment file
 
 **MVP**
-- [ ] Admin setup wizard: organization name, admin credentials, first KB creation
+- [ ] Admin setup wizard: organization name, admin credentials, first data source creation
 - [ ] Automatic device discovery via mimik edge service mesh
 - [ ] Works fully offline after initial setup
 - [ ] macOS, Linux support

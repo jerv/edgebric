@@ -5,16 +5,16 @@
 ## Current State
 
 Phase 1 and Phase 2 (productization) are complete. The single-node product is fully working:
-- **packages/api/** — Express backend with OIDC auth, SQLite + Drizzle, multi-source management, group chat routes, SSE streaming, document upload + Docling extraction + ingestion
-- **packages/web/** — Vite + React + TanStack Router, admin dashboard (Library, user management), employee query interface, group chats with threads, conversation management, onboarding wizard, privacy modes
+- **packages/api/** — Express backend with OIDC auth, SQLite + Drizzle, multi-data-source management, group chat routes, SSE streaming, document upload + Docling extraction + ingestion
+- **packages/web/** — Vite + React + TanStack Router, admin dashboard (Data Sources, user management), employee query interface, group chats with threads, conversation management, onboarding wizard, privacy modes
 - **packages/core/** — Chunker, PII detector, query filter, system prompt, RAG orchestrator
 - **packages/edge/** — mimik API wrappers (mILM, mKB)
 - **shared/types/** — TypeScript interfaces
-- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via mILM → store in mKB → multi-source query → SSE stream → citations with source attribution
+- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via mILM → store in mKB → multi-data-source query → SSE stream → citations with data source attribution
 - **Security:** 4 passes of hardening, rate limiting, structured logging (pino), org-scoping, input validation (Zod), CSRF, CSP, helmet
 - **Privacy:** Private mode (anonymous queries) + Vault mode (fully on-device with AES-256-GCM, Ollama)
 - **Org model:** Multi-org scoping, user/admin roles, OIDC/SSO, invite flow, onboarding wizard
-- **Collaboration:** Group chats with @bot querying, threaded replies, source sharing with confirmation
+- **Collaboration:** Group chats with @bot querying, threaded replies, data source sharing with confirmation
 
 **What needs to happen:** Stabilize group chats, add integrations (Slack bot), then add distributed features.
 
@@ -23,9 +23,9 @@ Phase 1 and Phase 2 (productization) are complete. The single-node product is fu
 ## Phase Sequencing
 
 ```
-Phase 1: Foundation — Multi-source, auth, org model, security, privacy  ✅ COMPLETE
-Phase 2: Productization — Hardening, testing, validation, deployment    ✅ COMPLETE
-Phase 3: Group Chats — Collaborative source sharing + threads            IN PROGRESS
+Phase 1: Foundation — Multi-data-source, auth, org model, security, privacy  ✅ COMPLETE
+Phase 2: Productization — Hardening, testing, validation, deployment         ✅ COMPLETE
+Phase 3: Group Chats — Collaborative data source sharing + threads           IN PROGRESS
 Phase 4: Integrations — Slack bot, email notifications                   NEXT
 Phase 5: Distributed — Mesh discovery + cross-device queries             (multi-Mac mesh)
 Phase 6: Meeting Mode — Ephemeral sessions + room codes                  (the daily-use hook)
@@ -50,22 +50,22 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 
 ---
 
-## Phase 3 — Group Chats: Collaborative Source Sharing (IN PROGRESS)
+## Phase 3 — Group Chats: Collaborative Data Source Sharing (IN PROGRESS)
 
-**Goal:** Enable collaborative knowledge work where multiple people share sources, discuss, and query the bot together. Replaces the old escalation system with a natural collaboration model.
+**Goal:** Enable collaborative knowledge work where multiple people share data sources, discuss, and query the bot together. Replaces the old escalation system with a natural collaboration model.
 
 ### 3.1 — Core Group Chat Backend
 - [x] Group chat CRUD (create, list, get, update, archive)
 - [x] Member management (invite with confirmation, remove, leave)
-- [x] Source sharing with confirmation dialogs
+- [x] Data source sharing with confirmation dialogs
 - [x] Message persistence with thread support
-- [x] SSE real-time updates (messages, member joins/leaves, source shares)
+- [x] SSE real-time updates (messages, member joins/leaves, data source shares)
 - [x] Expiration system (24h, 1w, 1m, never)
 
 ### 3.2 — Group Chat Query Pipeline
 - [x] @bot / @edgebric detection in messages
 - [x] Context building from conversation history (main chat vs. thread)
-- [x] RAG pipeline against all shared sources
+- [x] RAG pipeline against all shared data sources
 - [x] Bot response with citations
 
 ### 3.3 — Group Chat UI
@@ -73,7 +73,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 - [x] Main chat view with message list
 - [x] Thread side panel
 - [x] Member list + invite dialog with autocomplete search
-- [x] Source sharing dialog with warnings
+- [x] Data source sharing dialog with warnings
 - [x] Create group chat dialog
 - [ ] Context summarization for long conversations
 
@@ -81,9 +81,9 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 - [x] Remove escalation routes, components, types, DB tables
 - [x] Remove analytics page (routes, components, sidebar link)
 - [x] Remove help section
-- [ ] Rename "Knowledge Base" / "KB" → "Source" throughout codebase
+- [ ] Rename "Knowledge Base" / "KB" → "Data Source" throughout codebase
 - [ ] Add solo chat icon in sidebar
-- [ ] Library list/table view with sorting and filters
+- [ ] Data sources list/table view with sorting and filters
 
 ---
 
@@ -97,12 +97,12 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 - [ ] @Edgebric mention handler → RAG query → threaded reply
 - [ ] Admin settings page: "Add to Slack" button, privacy notice
 - [ ] Bot intro message with privacy disclaimer on first channel interaction
-- [ ] Per-channel source configuration
+- [ ] Per-channel data source configuration
 
 ### 4.2 — General-Purpose Email Notifications
 - [ ] Notification service (extracted from old escalation email code)
 - [ ] Group chat invite notifications
-- [ ] Source share notifications
+- [ ] Data source share notifications
 - [ ] Chat expiration warnings
 - [ ] User notification preferences
 
@@ -116,7 +116,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 
 ## Phase 5 — Distributed: Mesh Discovery + Cross-Device Queries
 
-**Goal:** Enable automatic device discovery and cross-device query routing so a query on one node can search sources on other nodes in the same network.
+**Goal:** Enable automatic device discovery and cross-device query routing so a query on one node can search data sources on other nodes in the same network.
 
 ### 5.1 — Node Registry Service
 
@@ -128,14 +128,14 @@ interface MeshNode {
   name: string;                  // human-readable label
   type: "coordinator" | "kb-node";
   status: "online" | "offline";
-  sources: Source[];
+  dataSources: DataSource[];
   lastSeen: string;
   endpoint: string;              // mesh-routable URL
 }
 ```
 
 - Uses mimik mDNS for automatic device discovery on local network
-- Tracks which sources are on which nodes
+- Tracks which data sources are on which nodes
 - Updates status on heartbeat/timeout
 - Exposes `GET /api/nodes` for admin dashboard
 
@@ -143,11 +143,11 @@ interface MeshNode {
 
 **`packages/api/src/services/queryRouter.ts`:**
 
-- Looks up which nodes host the target sources
-- For local sources: direct mKB search
-- For remote sources: HTTP request through mimik mesh to the remote node's search endpoint
+- Looks up which nodes host the target data sources
+- For local data sources: direct mKB search
+- For remote data sources: HTTP request through mimik mesh to the remote node's search endpoint
 - Parallel fan-out to all relevant nodes
-- Collects results, tags with source node + source name
+- Collects results, tags with source node + data source name
 - Passes merged results to mILM on coordinator for synthesis
 - Graceful degradation: if a node is unreachable, query proceeds with available nodes
 
@@ -158,40 +158,40 @@ Each node exposes a standardized search endpoint that mesh peers can call:
 ```
 POST /api/mesh/search
 Body: { query: string, datasetName: string, topN: number }
-Response: { chunks: ChunkResult[], nodeId: string, sourceName: string }
+Response: { chunks: ChunkResult[], nodeId: string, dataSourceName: string }
 ```
 
 ### 5.4 — Admin Node Dashboard
 
 - List all discovered mesh nodes with status indicators
-- Show which sources are on each node
+- Show which data sources are on each node
 - Health indicators (online/offline/last seen)
-- Assign network sources to specific nodes
+- Assign network data sources to specific nodes
 
 ### 5.5 — Testable Security & Correctness Assertions
 
 These claims MUST be verified before Phase 5 ships. Each is a pass/fail test.
 
 **Data isolation:**
-- [ ] A query on Node A that searches a source on Node B never copies chunk data to Node A's disk or database
+- [ ] A query on Node A that searches a data source on Node B never copies chunk data to Node A's disk or database
 - [ ] After a cross-device query, Node A holds only the synthesized answer and citation metadata — not the raw chunks
-- [ ] Disconnecting Node B from the network makes its sources immediately unsearchable from Node A (no cached data served)
+- [ ] Disconnecting Node B from the network makes its data sources immediately unsearchable from Node A (no cached data served)
 - [ ] Node B's mKB search endpoint is only reachable through the mimik mesh — not exposed on a public port
 
 **Discovery & availability:**
 - [ ] Two Macs on the same LAN running mim OE discover each other within 30 seconds without manual configuration
 - [ ] A node going offline is detected (heartbeat timeout) and marked offline in the registry within 60 seconds
-- [ ] A query targeting an offline node returns results from available nodes with a clear indication that some sources were unavailable
+- [ ] A query targeting an offline node returns results from available nodes with a clear indication that some data sources were unavailable
 
 **Query correctness:**
 - [ ] A cross-device query returns the same chunks as querying each node's mKB directly (no results lost in fan-out/merge)
-- [ ] Citations from cross-device queries include the source node and source name
+- [ ] Citations from cross-device queries include the source node and data source name
 - [ ] Parallel fan-out does not duplicate results when the same document exists on multiple nodes
 
 **Auth & access control:**
-- [ ] Mesh search requests are authenticated — a rogue device on the LAN cannot query sources without a valid mesh token
-- [ ] Source access controls (org-scoping, permissions) are enforced on the remote node, not just the coordinator
-- [ ] A user without access to a source on Node B gets no results from it, even when querying from Node A
+- [ ] Mesh search requests are authenticated — a rogue device on the LAN cannot query data sources without a valid mesh token
+- [ ] Data source access controls (org-scoping, permissions) are enforced on the remote node, not just the coordinator
+- [ ] A user without access to a data source on Node B gets no results from it, even when querying from Node A
 
 ---
 
@@ -215,7 +215,7 @@ interface MeetingSession {
 interface SessionParticipant {
   userId: string;
   nodeId: string;
-  sharedSources: string[];       // Source IDs they've opted in
+  sharedDataSources: string[];   // Data Source IDs they've opted in
   joinedAt: string;
 }
 ```
@@ -225,8 +225,8 @@ interface SessionParticipant {
 POST   /api/sessions              # Create session (returns room code)
 POST   /api/sessions/join         # Join by room code
 GET    /api/sessions/:id          # Session details + participants + shared KBs
-POST   /api/sessions/:id/share    # Opt in/out sources for this session
-POST   /api/sessions/:id/query    # Query all shared sources in session
+POST   /api/sessions/:id/share    # Opt in/out data sources for this session
+POST   /api/sessions/:id/query    # Query all shared data sources in session
 POST   /api/sessions/:id/leave    # Leave session
 POST   /api/sessions/:id/end      # End session (creator only)
 ```
@@ -234,9 +234,9 @@ POST   /api/sessions/:id/end      # End session (creator only)
 ### 6.2 — Session Query Flow
 
 1. User submits query to session endpoint
-2. Server identifies all shared sources across all participants
-3. Router fans out query to each node hosting a shared source
-4. Results collected and merged with per-source citations
+2. Server identifies all shared data sources across all participants
+3. Router fans out query to each node hosting a shared data source
+4. Results collected and merged with per-data-source citations
 5. mILM generates synthesized answer on coordinator
 6. Answer streamed to all session participants via SSE
 7. Session transcript optionally saved
@@ -245,50 +245,50 @@ POST   /api/sessions/:id/end      # End session (creator only)
 
 - `CreateSession` — form to create session, displays room code
 - `JoinSession` — room code input
-- `SessionView` — participant list, shared sources, chat interface
-- `SourceSharePanel` — toggle which of your sources to share in this session
-- `SessionChat` — question/answer thread, per-source citation indicators
+- `SessionView` — participant list, shared data sources, chat interface
+- `DataSourceSharePanel` — toggle which of your data sources to share in this session
+- `SessionChat` — question/answer thread, per-data-source citation indicators
 
 ### 6.4 — Real-Time Session Updates
 
-- SSE for session state updates (participant joins/leaves, source sharing changes)
+- SSE for session state updates (participant joins/leaves, data source sharing changes)
 - All participants see the same chat thread
 - Coordinator node manages session state
 
 ### 6.5 — Testable Security & Correctness Assertions
 
 **Ephemeral access:**
-- [ ] After a session ends, no participant can query another participant's sources through any endpoint
+- [ ] After a session ends, no participant can query another participant's data sources through any endpoint
 - [ ] Session data (transcript, participant list) is fully purged after expiry — no residual data on any node
-- [ ] A participant who leaves a session loses access to shared sources immediately — next query attempt fails
-- [ ] Shared source access is read-only — session participants cannot upload, modify, or delete documents on another node's sources
+- [ ] A participant who leaves a session loses access to shared data sources immediately — next query attempt fails
+- [ ] Shared data source access is read-only — session participants cannot upload, modify, or delete documents on another node's data sources
 
 **Session isolation:**
 - [ ] Room codes are cryptographically random — not sequential or guessable
-- [ ] A valid room code from Session A cannot be used to access Session B's shared sources
+- [ ] A valid room code from Session A cannot be used to access Session B's shared data sources
 - [ ] Only the session creator can end a session — participants can only leave
 
 **Data movement:**
-- [ ] During a session query, raw chunks from remote sources are not persisted on the coordinator or any other participant's node
+- [ ] During a session query, raw chunks from remote data sources are not persisted on the coordinator or any other participant's node
 - [ ] Session transcripts (if saved) are stored only on the coordinator node, not replicated to participants
-- [ ] A participant toggling a source off mid-session removes it from subsequent queries immediately — no stale cache
+- [ ] A participant toggling a data source off mid-session removes it from subsequent queries immediately — no stale cache
 
 ---
 
 ## Phase 7 — Mobile: iOS & Android Companion Apps
 
-**Goal:** Native mobile apps that run mimik mim OE Runtime, host local sources, and function as source nodes in the mesh.
+**Goal:** Native mobile apps that run mimik mim OE Runtime, host local data sources, and function as data source nodes in the mesh.
 
 ### 7.1 — iOS App
 
 - Swift/SwiftUI, iOS 16.0+
 - CocoaPods: `EdgeCore` + `mim-OE-ai-SE-iOS-developer`
 - Start/stop mimik runtime on app launch
-- Create vault source, upload documents from Files app
+- Create vault data source, upload documents from Files app
 - mKB search endpoint accessible to mesh peers
 - Join meeting session via room code
-- Source sharing toggle per session
-- No local inference — phone is a source node, not an inference node
+- Data source sharing toggle per session
+- No local inference — phone is a data source node, not an inference node
 
 ### 7.2 — Android App (V2)
 
@@ -335,16 +335,16 @@ edgebric/
 ## Order of Work
 
 ```
-Phase 1:  Multi-source, auth, org model, security, privacy, UI        ✅ COMPLETE
+Phase 1:  Multi-data-source, auth, org model, security, privacy, UI    ✅ COMPLETE
 Phase 2:  Productization — validation, testing, hardening              ✅ COMPLETE
-Phase 3:  Group chats — collaborative source sharing + threads         IN PROGRESS
+Phase 3:  Group chats — collaborative data source sharing + threads     IN PROGRESS
 Phase 4:  Integrations — Slack bot, email notifications                NEXT
 Phase 5:  Mesh discovery, cross-device query routing                   AFTER INTEGRATIONS
 Phase 6:  Meeting mode, session management, session UI                 AFTER MESH
 Phase 7:  iOS app, Android app                                         POST-LAUNCH
 ```
 
-Phase 3 (group chats) is the current focus. Group chats replace the old escalation system with natural collaboration — invite experts, share sources, discuss with @bot assistance.
+Phase 3 (group chats) is the current focus. Group chats replace the old escalation system with natural collaboration — invite experts, share data sources, discuss with @bot assistance.
 
 Phase 4 (integrations) follows immediately — Slack bot lets customers query Edgebric from tools they already use. Socket Mode makes it firewall-friendly for on-prem.
 

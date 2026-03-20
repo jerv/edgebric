@@ -135,22 +135,6 @@ orgRouter.delete("/avatar", (req, res) => {
   res.json({ ok: true });
 });
 
-// PUT /api/admin/org/avatar-settings — update avatar mode
-const avatarSettingsSchema = z.object({
-  avatarMode: z.enum(["org", "kb"]),
-});
-
-orgRouter.put("/avatar-settings", validateBody(avatarSettingsSchema), (req, res) => {
-  const org = getOrg(req.session.orgId!);
-  if (!org) {
-    res.status(404).json({ error: "No organization found" });
-    return;
-  }
-  const { avatarMode } = req.body as z.infer<typeof avatarSettingsSchema>;
-  const updated = updateOrg(org.id, { settings: { ...org.settings, avatarMode } });
-  res.json(updated);
-});
-
 // ─── User Management ──────────────────────────────────────────────────────
 
 // GET /api/admin/org/members — list all users in the org

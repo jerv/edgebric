@@ -50,6 +50,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
         onKeyDown(e);
         if (e.defaultPrevented) return;
       }
+      if (e.key === "Tab" && hasAsk && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        onSendModeChange?.(mode === "chat" ? "ai" : "chat");
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handlePrimaryClick();
@@ -89,6 +94,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
               <Sparkles className="w-2.5 h-2.5" />
               AI
             </button>
+            <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-1">Tab to switch</span>
           </div>
         )}
 

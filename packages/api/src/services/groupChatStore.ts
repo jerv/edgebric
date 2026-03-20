@@ -8,6 +8,8 @@ import {
   groupChatMessages,
   knowledgeBases,
   users,
+  conversations,
+  messages,
 } from "../db/schema.js";
 import type {
   GroupChat,
@@ -20,12 +22,13 @@ import type {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function expirationToDate(expiration: GroupChatExpiration): string | null {
+function expirationToDate(expiration: GroupChatExpiration, customMs?: number): string | null {
   const now = Date.now();
   switch (expiration) {
     case "24h": return new Date(now + 24 * 60 * 60 * 1000).toISOString();
     case "1w": return new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString();
     case "1m": return new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
+    case "custom": return customMs ? new Date(now + customMs).toISOString() : null;
     case "never": return null;
   }
 }
@@ -81,11 +84,12 @@ export function createGroupChat(data: {
   creatorName?: string;
   orgId: string;
   expiration: GroupChatExpiration;
+  expiresInMs?: number;
 }): GroupChat {
   const db = getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
-  const expiresAt = expirationToDate(data.expiration);
+  const expiresAt = expirationToDate(data.expiration, data.expiresInMs);
 
   db.insert(groupChats).values({
     id,
@@ -278,7 +282,7 @@ export function shareKB(data: {
 
   // Get KB name for system message
   const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, data.knowledgeBaseId)).get();
-  const kbName = kb?.name ?? "a source";
+  const kbName = kb?.name ?? "a data source";
   addSystemMessage(data.groupChatId, `${data.sharedByName ?? data.sharedByEmail} shared "${kbName}" with the group.`);
 
   db.update(groupChats)
@@ -298,15 +302,16 @@ export function shareKB(data: {
   return result;
 }
 
-export function unshareKB(shareId: string, groupChatId: string): void {
+export function unshareKB(shareId: string, groupChatId: string, revokedByName?: string): GroupChatMessage | undefined {
   const db = getDb();
   const share = db.select().from(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, shareId)).get();
-  if (!share) return;
+  if (!share) return undefined;
 
   db.delete(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, shareId)).run();
 
   const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, share.knowledgeBaseId)).get();
-  addSystemMessage(groupChatId, `"${kb?.name ?? "A source"}" was removed from the group.`);
+  const who = revokedByName ?? "Someone";
+  return addSystemMessage(groupChatId, `${who} removed "${kb?.name ?? "a data source"}" from the group.`);
 }
 
 export function getSharedKBs(groupChatId: string): GroupChatSharedKB[] {
@@ -322,18 +327,44 @@ export function getSharedKBs(groupChatId: string): GroupChatSharedKB[] {
   });
 }
 
-/** Get dataset names for all shared KBs in a group chat. */
+/** Get dataset names for all KBs queryable in a group chat (shared + org-wide). */
 export function getSharedDatasetNames(groupChatId: string): string[] {
   const db = getDb();
+
+  // Get the org for this group chat
+  const chat = db.select().from(groupChats).where(eq(groupChats.id, groupChatId)).get();
+  if (!chat) return [];
+
+  const seen = new Set<string>();
+  const datasetNames: string[] = [];
+
+  // 1. Explicitly shared KBs
   const shares = db.select().from(groupChatSharedKBs)
     .where(eq(groupChatSharedKBs.groupChatId, groupChatId))
     .all();
-
-  const datasetNames: string[] = [];
   for (const share of shares) {
     const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, share.knowledgeBaseId)).get();
-    if (kb?.datasetName) datasetNames.push(kb.datasetName);
+    if (kb?.datasetName && !seen.has(kb.datasetName)) {
+      seen.add(kb.datasetName);
+      datasetNames.push(kb.datasetName);
+    }
   }
+
+  // 2. Org-wide KBs (accessMode: "all") — always queryable
+  const orgKBs = db.select().from(knowledgeBases)
+    .where(and(
+      eq(knowledgeBases.orgId, chat.orgId),
+      eq(knowledgeBases.type, "organization"),
+      eq(knowledgeBases.accessMode, "all"),
+    ))
+    .all();
+  for (const kb of orgKBs) {
+    if (kb.datasetName && !seen.has(kb.datasetName)) {
+      seen.add(kb.datasetName);
+      datasetNames.push(kb.datasetName);
+    }
+  }
+
   return datasetNames;
 }
 
@@ -413,7 +444,7 @@ export function getMainMessages(
     ? rows.filter((r) => r.createdAt < before)
     : rows;
 
-  // Enrich with thread reply counts
+  // Enrich with thread reply counts and participants
   return filtered.reverse().map((row) => {
     const msg = rowToMessage(row);
     const countResult = db.select({ count: sql<number>`count(*)` })
@@ -421,6 +452,33 @@ export function getMainMessages(
       .where(eq(groupChatMessages.threadParentId, row.id))
       .get();
     msg.threadReplyCount = countResult?.count ?? 0;
+
+    if (msg.threadReplyCount > 0) {
+      const replies = db.select({
+        authorEmail: groupChatMessages.authorEmail,
+        authorName: groupChatMessages.authorName,
+      })
+        .from(groupChatMessages)
+        .where(and(
+          eq(groupChatMessages.threadParentId, row.id),
+          sql`${groupChatMessages.authorEmail} IS NOT NULL`,
+        ))
+        .all();
+
+      const seen = new Set<string>();
+      const participants: { email: string; name?: string; picture?: string }[] = [];
+      for (const r of replies) {
+        if (!r.authorEmail || seen.has(r.authorEmail)) continue;
+        seen.add(r.authorEmail);
+        const userRow = db.select().from(users).where(eq(users.email, r.authorEmail)).get();
+        const p: { email: string; name?: string; picture?: string } = { email: r.authorEmail };
+        if (r.authorName) p.name = r.authorName;
+        if (userRow?.picture) p.picture = userRow.picture;
+        participants.push(p);
+      }
+      msg.threadParticipants = participants;
+    }
+
     return msg;
   });
 }
@@ -468,7 +526,7 @@ export function expireStaleChats(): number {
       .set({ status: "expired", updatedAt: now })
       .where(eq(groupChats.id, chat.id))
       .run();
-    addSystemMessage(chat.id, "This group chat has expired. Shared sources are no longer queryable.");
+    addSystemMessage(chat.id, "This group chat has expired. Shared data sources are no longer queryable.");
   }
 
   return stale.length;
@@ -489,6 +547,92 @@ export function setContextSummary(groupChatId: string, summary: string, upToMess
     .set({ contextSummary: summary, contextSummaryUpTo: upToMessageId })
     .where(eq(groupChats.id, groupChatId))
     .run();
+}
+
+// ─── Solo → Group Conversion ─────────────────────────────────────────────────
+
+export function convertSoloToGroup(data: {
+  conversationId: string;
+  name: string;
+  creatorEmail: string;
+  creatorName?: string;
+  orgId: string;
+  expiration: GroupChatExpiration;
+  expiresInMs?: number;
+  inviteEmails: string[];
+}): GroupChat {
+  const db = getDb();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const expiresAt = expirationToDate(data.expiration, data.expiresInMs);
+
+  // 1. Create group chat
+  db.insert(groupChats).values({
+    id,
+    name: data.name,
+    creatorEmail: data.creatorEmail,
+    orgId: data.orgId,
+    expiresAt,
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+  }).run();
+
+  // 2. Add creator as member
+  db.insert(groupChatMembers).values({
+    groupChatId: id,
+    userEmail: data.creatorEmail,
+    userName: data.creatorName ?? null,
+    role: "creator",
+    joinedAt: now,
+  }).run();
+
+  // 3. Migrate solo conversation messages → group chat messages
+  const soloMsgs = db.select().from(messages)
+    .where(eq(messages.conversationId, data.conversationId))
+    .orderBy(asc(messages.createdAt))
+    .all();
+
+  for (const msg of soloMsgs) {
+    db.insert(groupChatMessages).values({
+      id: randomUUID(),
+      groupChatId: id,
+      threadParentId: null,
+      authorEmail: msg.role === "user" ? data.creatorEmail : null,
+      authorName: msg.role === "user" ? (data.creatorName ?? null) : null,
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+      citations: msg.citations,
+      hasConfidentAnswer: msg.hasConfidentAnswer,
+      createdAt: msg.createdAt,
+    }).run();
+  }
+
+  // 4. Archive the solo conversation
+  db.update(conversations)
+    .set({ archivedAt: now })
+    .where(eq(conversations.id, data.conversationId))
+    .run();
+
+  // 5. Add invited members
+  const memberNames: string[] = [];
+  for (const email of data.inviteEmails) {
+    const user = db.select().from(users).where(eq(users.email, email.toLowerCase())).get();
+    db.insert(groupChatMembers).values({
+      groupChatId: id,
+      userEmail: email.toLowerCase(),
+      userName: user?.name ?? null,
+      role: "member",
+      joinedAt: now,
+    }).run();
+    memberNames.push(user?.name ?? email);
+  }
+
+  // 6. System message
+  const memberList = memberNames.join(", ");
+  addSystemMessage(id, `${data.creatorName ?? data.creatorEmail} converted a solo chat to a group and invited ${memberList}.`);
+
+  return getGroupChat(id)!;
 }
 
 // ─── Internal enrichment ─────────────────────────────────────────────────────
@@ -523,7 +667,12 @@ function enrichGroupChat(row: typeof groupChats.$inferSelect): GroupChat {
     creatorEmail: row.creatorEmail,
     orgId: row.orgId,
     status: row.status as GroupChat["status"],
-    members: memberRows.map(rowToMember),
+    members: memberRows.map((mr) => {
+      const member = rowToMember(mr);
+      const userRow = db.select().from(users).where(eq(users.email, mr.userEmail)).get();
+      if (userRow?.picture) member.picture = userRow.picture;
+      return member;
+    }),
     sharedKBs: sharedKBsEnriched,
     messageCount: msgCount?.count ?? 0,
     createdAt: new Date(row.createdAt),
