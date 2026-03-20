@@ -17,6 +17,8 @@ import {
   X,
   ChevronDown,
   Search,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -47,6 +49,8 @@ function ownerDisplayName(kb: KnowledgeBase): string {
 }
 
 type KBFilter = "all" | "mine";
+type KBSort = "name" | "updated" | "files" | "access" | "owner";
+type SortDir = "asc" | "desc";
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 
@@ -179,6 +183,25 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<KBFilter>("all");
+  const [sortBy, setSortBy] = useState<KBSort>(() =>
+    (localStorage.getItem("sources-sort") as KBSort) || "name",
+  );
+  const [sortDir, setSortDir] = useState<SortDir>(() =>
+    (localStorage.getItem("sources-sort-dir") as SortDir) || "asc",
+  );
+
+  function toggleSort(col: KBSort) {
+    if (sortBy === col) {
+      const next: SortDir = sortDir === "asc" ? "desc" : "asc";
+      setSortDir(next);
+      localStorage.setItem("sources-sort-dir", next);
+    } else {
+      setSortBy(col);
+      setSortDir("asc");
+      localStorage.setItem("sources-sort", col);
+      localStorage.setItem("sources-sort-dir", "asc");
+    }
+  }
 
   const { data: kbs = [], isLoading } = useQuery<KnowledgeBase[]>({
     queryKey: ["knowledge-bases"],
@@ -239,7 +262,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         credentials: "same-origin",
         body: JSON.stringify(body),
       }).then((r) => {
-        if (!r.ok) throw new Error("Failed to create source");
+        if (!r.ok) throw new Error("Failed to create data source");
         return r.json() as Promise<KnowledgeBase>;
       }),
     onSuccess: async (kb) => {
@@ -278,14 +301,26 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           ownerDisplayName(kb).toLowerCase().includes(q),
       );
     }
-    // Sort: user's KBs first, then by name
+    // Sort: user's KBs first, then by selected sort
+    const dir = sortDir === "asc" ? 1 : -1;
     return list.sort((a, b) => {
       const aIsMine = a.ownerId.toLowerCase() === myEmail ? 0 : 1;
       const bIsMine = b.ownerId.toLowerCase() === myEmail ? 0 : 1;
       if (aIsMine !== bIsMine) return aIsMine - bIsMine;
-      return a.name.localeCompare(b.name);
+      switch (sortBy) {
+        case "updated":
+          return dir * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+        case "files":
+          return dir * ((a.documentCount ?? 0) - (b.documentCount ?? 0));
+        case "access":
+          return dir * (a.accessMode ?? "all").localeCompare(b.accessMode ?? "all");
+        case "owner":
+          return dir * ownerDisplayName(a).localeCompare(ownerDisplayName(b));
+        default:
+          return dir * a.name.localeCompare(b.name);
+      }
     });
-  }, [kbs, filter, search, myEmail]);
+  }, [kbs, filter, search, myEmail, sortBy, sortDir]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -293,9 +328,9 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Library</h1>
+            <h1 className="text-xl font-semibold text-slate-900">Data Sources</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {kbs.length} source{kbs.length !== 1 ? "s" : ""} in your organization
+              {kbs.length} data source{kbs.length !== 1 ? "s" : ""} in your organization
             </p>
           </div>
           {canCreate && (
@@ -303,7 +338,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               onClick={() => setShowCreate(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
             >
-              <Plus className="w-4 h-4" /> New Source
+              <Plus className="w-4 h-4" /> New Data Source
             </button>
           )}
         </div>
@@ -329,7 +364,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 size={48}
                 fallbackText={name || "S"}
               />
-              <h2 className="text-sm font-semibold text-slate-900">Create Source</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Create Data Source</h2>
             </div>
             <input
               value={name}
@@ -422,7 +457,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     </div>
                   )}
                   {createAccessList.length === 0 && (
-                    <p className="text-xs text-slate-400">No users added yet. Only admins can access this source.</p>
+                    <p className="text-xs text-slate-400">No users added yet. Only admins can access this data source.</p>
                   )}
                 </div>
               )}
@@ -463,7 +498,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search sources..."
+                placeholder="Search data sources..."
                 className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
               />
               {search && (
@@ -512,69 +547,92 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         ) : kbs.length === 0 ? (
           <div className="text-center py-16">
             <Database className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No sources yet.</p>
+            <p className="text-sm text-slate-500">No data sources yet.</p>
             <p className="text-xs text-slate-400 mt-1">Create one to start uploading files.</p>
           </div>
         ) : filteredKBs.length === 0 ? (
           <div className="text-center py-12">
             <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No matching sources.</p>
+            <p className="text-sm text-slate-500">No matching data sources.</p>
             <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
               Clear filters
             </button>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredKBs.map((kb) => {
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            {/* Table header — clickable columns for sorting */}
+            <div className="grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+              {([
+                ["name", "Name"],
+                ["files", "Files"],
+                ["access", "Access"],
+                ["owner", "Owner"],
+              ] as const).map(([col, label]) => (
+                <button
+                  key={col}
+                  onClick={() => toggleSort(col)}
+                  className="flex items-center gap-1 hover:text-slate-700 transition-colors text-left"
+                >
+                  {label}
+                  {sortBy === col && (
+                    sortDir === "asc"
+                      ? <ArrowUp className="w-3 h-3" />
+                      : <ArrowDown className="w-3 h-3" />
+                  )}
+                </button>
+              ))}
+            </div>
+            {filteredKBs.map((kb, i) => {
               const isMine = kb.ownerId.toLowerCase() === myEmail;
               return (
                 <button
                   key={kb.id}
                   onClick={() => onSelect(kb)}
-                  className="text-left border border-slate-200 rounded-2xl p-5 hover:border-slate-300 hover:bg-slate-50 transition-colors group"
+                  className={cn(
+                    "w-full grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 transition-colors items-center",
+                    i < filteredKBs.length - 1 && "border-b border-slate-100",
+                  )}
                 >
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 min-w-0">
                     {kb.avatarUrl ? (
-                      <div className="w-9 h-9 rounded-xl flex-shrink-0 overflow-hidden">
+                      <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
                         <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className={cn(
-                        "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0",
+                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                         isMine ? "bg-blue-50" : "bg-slate-100",
                       )}>
-                        <Database className={cn("w-4 h-4", isMine ? "text-blue-500" : "text-slate-500")} />
+                        <Database className={cn("w-3.5 h-3.5", isMine ? "text-blue-500" : "text-slate-500")} />
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-slate-900 truncate">{kb.name}</h3>
-                      <p className="text-xs text-slate-400">
-                        {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
-                      </p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{kb.name}</p>
+                      {kb.description && (
+                        <p className="text-xs text-slate-400 truncate">{kb.description}</p>
+                      )}
                     </div>
                   </div>
-                  {kb.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2 mb-3">{kb.description}</p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full",
-                        kb.accessMode === "restricted"
-                          ? "bg-green-50 text-green-600"
-                          : "bg-amber-50 text-amber-600",
-                      )}
-                    >
-                      {kb.accessMode === "restricted" ? (
-                        <><Lock className="w-3 h-3" /> Restricted</>
-                      ) : (
-                        <><Globe className="w-3 h-3" /> Whole org</>
-                      )}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {isMine ? "You" : ownerDisplayName(kb)}
-                    </span>
-                  </div>
+                  <span className="text-xs text-slate-500">
+                    {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
+                  </span>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
+                      kb.accessMode === "restricted"
+                        ? "bg-green-50 text-green-600"
+                        : "bg-amber-50 text-amber-600",
+                    )}
+                  >
+                    {kb.accessMode === "restricted" ? (
+                      <><Lock className="w-3 h-3" /> Restricted</>
+                    ) : (
+                      <><Globe className="w-3 h-3" /> Whole org</>
+                    )}
+                  </span>
+                  <span className="text-xs text-slate-500 truncate">
+                    {isMine ? "You" : ownerDisplayName(kb)}
+                  </span>
                 </button>
               );
             })}
@@ -777,12 +835,12 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
             onClick={onBack}
             className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Library
+            <ArrowLeft className="w-3.5 h-3.5" /> Data Sources
           </button>
 
           {editing ? (
             <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50">
-              <h2 className="text-sm font-semibold text-slate-900">Edit Source</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Edit Data Source</h2>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -876,7 +934,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       </div>
                     )}
                     {currentAccessList.length === 0 && (
-                      <p className="text-xs text-slate-400">No users added yet. Only admins can access this source.</p>
+                      <p className="text-xs text-slate-400">No users added yet. Only admins can access this data source.</p>
                     )}
                   </div>
                 )}
@@ -895,14 +953,14 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   />
                   <SecurityToggle
                     label="Allow device sync (Vault Mode)"
-                    description="This source's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
+                    description="This data source's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
                     checked={data?.allowVaultSync ?? kb.allowVaultSync ?? true}
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
                   <SecurityToggle
                     label="Allow external network access"
-                    description="Members can access this source from outside the local network. Turn off for on-premises-only data."
+                    description="Members can access this data source from outside the local network. Turn off for on-premises-only data."
                     checked={data?.allowExternalAccess ?? kb.allowExternalAccess ?? true}
                     onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
                     disabled={updateMutation.isPending}
@@ -983,7 +1041,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   <button
                     onClick={() => setDeleteKBConfirm(true)}
                     className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete source"
+                    title="Delete data source"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
