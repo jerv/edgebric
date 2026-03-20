@@ -180,9 +180,16 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
+    let clientDisconnected = false;
     const sendEvent = (event: string, data: unknown) => {
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (clientDisconnected) return;
+      try {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      } catch {
+        clientDisconnected = true;
+      }
     };
+    req.on("close", () => { clientDisconnected = true; });
 
     try {
       const orgId = req.session.orgId;
@@ -210,7 +217,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       // Intentionally suppress error details — private mode must leave no trace in logs
       logger.error("Private query error");
     } finally {
-      res.end();
+      try { res.end(); } catch { /* already closed */ }
     }
     return;
   }
@@ -264,9 +271,16 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  let clientDisconnected = false;
   const sendEvent = (event: string, data: unknown) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (clientDisconnected) return;
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {
+      clientDisconnected = true;
+    }
   };
+  req.on("close", () => { clientDisconnected = true; });
 
   try {
     const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);

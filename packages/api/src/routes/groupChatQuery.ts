@@ -228,9 +228,16 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  let clientDisconnected = false;
   const sendEvent = (event: string, data: unknown) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (clientDisconnected) return;
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {
+      clientDisconnected = true;
+    }
   };
+  req.on("close", () => { clientDisconnected = true; });
 
   // Emit the user message first so the client can render it immediately
   sendEvent("user_message", userMsg);
@@ -353,7 +360,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       if (member.userEmail === email) continue;
       broadcastToUser(member.userEmail, "unread", { groupChatId: chatId });
     }
-    res.end();
+    try { res.end(); } catch { /* already closed */ }
   }
 });
 
