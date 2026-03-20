@@ -8,7 +8,6 @@ import { useUser } from "@/contexts/UserContext";
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { level, privacyMessages } = usePrivacy();
   const user = useUser();
   const navigate = useNavigate();
@@ -33,16 +32,8 @@ export function AppShell() {
   return (
     <div className="flex h-screen bg-white dark:bg-gray-950 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          "hidden md:flex flex-col border-r border-slate-200 dark:border-gray-800 flex-shrink-0 transition-all duration-200",
-          sidebarCollapsed ? "w-14" : "w-60",
-        )}
-      >
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-        />
+      <aside className="hidden md:flex flex-col w-60 border-r border-slate-200 dark:border-gray-800 flex-shrink-0">
+        <Sidebar />
       </aside>
 
       {/* Mobile drawer backdrop */}

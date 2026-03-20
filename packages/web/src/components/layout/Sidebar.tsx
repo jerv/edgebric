@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Trash2,
   EyeOff,
@@ -116,12 +114,10 @@ function groupByDate(items: SidebarItem[]): DateGroup[] {
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
   onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate }: SidebarProps) {
   const user = useUser();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -224,15 +220,11 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       <Link
         to="/"
         onClick={onNavigate}
-        className={cn("mb-1 overflow-hidden block", collapsed ? "px-0 text-center" : "px-4")}
+        className="mb-1 overflow-hidden block px-4"
       >
-        {collapsed ? (
-          <span className="font-bold text-slate-900 dark:text-gray-100 text-base">E</span>
-        ) : (
-          <span className="font-semibold text-slate-900 dark:text-gray-100 text-base">Edgebric</span>
-        )}
+        <span className="font-semibold text-slate-900 dark:text-gray-100 text-base">Edgebric</span>
       </Link>
-      {!collapsed && user?.orgName && (
+      {user?.orgName && (
         <div className="px-4 mb-3 text-[11px] text-slate-400 dark:text-gray-500 truncate">{user.orgName}</div>
       )}
 
@@ -250,32 +242,27 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
                 onNavigate?.();
               }
             }}
-            title={collapsed ? "New Chat" : undefined}
             className={cn(
-              "flex items-center w-full rounded-lg text-sm transition-colors",
-              collapsed ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
+              "flex items-center w-full rounded-lg text-sm transition-colors gap-2 px-3 py-2",
               "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
             )}
           >
             <Plus className="w-4 h-4 flex-shrink-0" />
-            {!collapsed && <span>New Chat</span>}
+            <span>New Chat</span>
           </button>
         ) : (
           <div className="relative">
             <Link
               to="/"
               onClick={onNavigate}
-              title={collapsed ? "New Chat" : undefined}
               className={cn(
-                "flex items-center rounded-lg text-sm transition-colors",
-                collapsed ? "justify-center px-0 py-2" : "gap-2 px-3 py-2",
+                "flex items-center rounded-lg text-sm transition-colors gap-2 px-3 py-2",
                 isOnChat && !activeConvId
                   ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
                   : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
               )}
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && (
                 <>
                   <span className="flex-1">New Chat</span>
                   <span
@@ -291,9 +278,8 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
                     <ChevronDown className="w-3.5 h-3.5" />
                   </span>
                 </>
-              )}
             </Link>
-            {showNewChatMenu && !collapsed && (
+            {showNewChatMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNewChatMenu(false)} />
                 <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 w-full min-w-[180px]">
@@ -327,7 +313,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       </div>
 
       {/* Privacy mode label */}
-      {isPrivacyActive && !collapsed && (
+      {isPrivacyActive && (
         <div className="px-5 mb-1">
           <div className={cn(
             "flex items-center gap-2 text-xs font-medium py-2",
@@ -344,7 +330,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       )}
 
       {/* Unified conversation + group chat list */}
-      {!isPrivacyActive && !collapsed && hasItems && (
+      {!isPrivacyActive && hasItems && (
         <div className="flex-1 overflow-y-auto px-2 min-h-0 scrollbar-thin">
           {dateGroups.map((group) => (
             <div key={group.label}>
@@ -437,7 +423,7 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
       )}
 
       {/* When collapsed, no items, or privacy mode, fill remaining space */}
-      {(isPrivacyActive || collapsed || !hasItems) && (
+      {(isPrivacyActive || !hasItems) && (
         <div className="flex-1" />
       )}
 
@@ -458,90 +444,60 @@ export function Sidebar({ collapsed = false, onToggleCollapse, onNavigate }: Sid
                 to={item.href}
                 search={item.search ?? {}}
                 onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center rounded-lg text-sm transition-colors",
-                  collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+                  "flex items-center rounded-lg text-sm transition-colors gap-3 px-3 py-2",
                   isActive
                     ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
                     : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1">{item.label}</span>
-                    {item.badge && item.badge > 0 ? (
-                      <span className={cn(
-                        "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold leading-none rounded-full",
-                        isActive ? "bg-white/20 text-white dark:bg-black/20 dark:text-gray-900" : "bg-blue-500 text-white",
-                      )}>
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </>
-                )}
+                <span className="flex-1">{item.label}</span>
+                {item.badge && item.badge > 0 ? (
+                  <span className={cn(
+                    "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold leading-none rounded-full",
+                    isActive ? "bg-white/20 text-white dark:bg-black/20 dark:text-gray-900" : "bg-blue-500 text-white",
+                  )}>
+                    {item.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
         </div>
       )}
 
-      {/* Bottom: Organization + Account + collapse toggle */}
+      {/* Bottom: Organization + Account */}
       <div className="px-2 border-t border-slate-100 dark:border-gray-800 pt-2 mt-2 space-y-0.5">
         <Link
           to="/organization"
           search={{ tab: "general" }}
           onClick={onNavigate}
-          title={collapsed ? "Organization" : undefined}
           className={cn(
-            "flex items-center rounded-lg text-sm transition-colors",
-            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+            "flex items-center rounded-lg text-sm transition-colors gap-3 px-3 py-2",
             currentPath.startsWith("/organization")
               ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
               : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
           )}
         >
           <Building2 className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Organization</span>}
+          <span>Organization</span>
         </Link>
 
         <Link
           to="/account"
           search={{ tab: "general" }}
           onClick={onNavigate}
-          title={collapsed ? "Account" : undefined}
           className={cn(
-            "flex items-center rounded-lg text-sm transition-colors",
-            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+            "flex items-center rounded-lg text-sm transition-colors gap-3 px-3 py-2",
             currentPath.startsWith("/account")
               ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
               : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
           )}
         >
           <User className="w-4 h-4 flex-shrink-0" />
-          {!collapsed && <span>Account</span>}
+          <span>Account</span>
         </Link>
-
-        {onToggleCollapse && (
-          <button
-            onClick={onToggleCollapse}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cn(
-              "flex items-center w-full rounded-lg text-sm text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors py-2",
-              collapsed ? "justify-center px-0" : "gap-3 px-3",
-            )}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4 flex-shrink-0" />
-            ) : (
-              <>
-                <ChevronLeft className="w-4 h-4 flex-shrink-0" />
-                <span>Collapse</span>
-              </>
-            )}
-          </button>
-        )}
       </div>
 
       {deletingConvId && (
