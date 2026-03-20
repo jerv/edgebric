@@ -344,5 +344,10 @@ groupChatsRouter.get("/:id/threads/:parentId", (req, res) => {
   if (!requireMembership(chatId, email, res)) return;
 
   const messages = getThreadMessages(req.params["parentId"] as string);
+  // Verify parent message belongs to this group chat (prevent IDOR)
+  if (messages.length > 0 && messages[0]!.groupChatId !== chatId) {
+    res.status(404).json({ error: "Thread not found in this group chat" });
+    return;
+  }
   res.json(messages);
 });

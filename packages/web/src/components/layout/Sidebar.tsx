@@ -364,7 +364,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                         }}
                       >
                         {item.hasUnread && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
                         )}
                         <span className="block truncate text-xs">{item.label}</span>
                       </span>
@@ -404,7 +404,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     )}
                     <span className="flex-1 min-w-0 flex items-center gap-1.5">
                       {hasUnread && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
                       )}
                       <span className={cn("block truncate text-xs", hasUnread && "font-medium")}>{item.label}</span>
                     </span>

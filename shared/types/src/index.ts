@@ -37,6 +37,8 @@ export interface User {
   canCreateKBs?: boolean;
   /** Whether this member can create group chats. Admins always can. */
   canCreateGroupChats?: boolean;
+  /** Default notification level for new group chats. */
+  defaultGroupChatNotifLevel?: "all" | "mentions" | "none";
   createdAt: Date;
 }
 

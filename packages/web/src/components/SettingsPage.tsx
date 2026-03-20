@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  LogOut, Trash2, Pencil, ShieldCheck, Sun, Moon, Monitor,
+  LogOut, Trash2, Pencil, ShieldCheck, Sun, Moon, Monitor, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -11,10 +11,11 @@ import { useTheme, type Theme } from "@/contexts/ThemeContext";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type AccountTab = "general" | "conversations";
+export type AccountTab = "general" | "notifications" | "conversations";
 
 const TABS: { id: AccountTab; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "notifications", label: "Notifications" },
   { id: "conversations", label: "Conversations" },
 ];
 
@@ -200,6 +201,94 @@ function GeneralTab() {
   );
 }
 
+// ─── Notifications tab ──────────────────────────────────────────────────────
+
+type NotifLevel = "all" | "mentions" | "none";
+
+const NOTIF_OPTIONS: { id: NotifLevel; label: string; description: string }[] = [
+  { id: "all", label: "All messages", description: "Get notified for every new message in group chats" },
+  { id: "mentions", label: "Mentions only", description: "Only get notified when someone @mentions you" },
+  { id: "none", label: "Nothing", description: "No notifications from group chats" },
+];
+
+function NotificationsTab() {
+  const user = useUser();
+  const queryClient = useQueryClient();
+  const [level, setLevel] = useState<NotifLevel>(user?.defaultGroupChatNotifLevel ?? "all");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save(newLevel: NotifLevel) {
+    setLevel(newLevel);
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/auth/notification-prefs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ defaultGroupChatNotifLevel: newLevel }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        void queryClient.invalidateQueries({ queryKey: ["me"] });
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch {
+      // revert on failure
+      setLevel(user?.defaultGroupChatNotifLevel ?? "all");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Default group chat notifications</h3>
+        </div>
+        <p className="text-xs text-slate-400 dark:text-gray-500">
+          Default notification preference for group chats you are added to. You can override this per chat.
+        </p>
+
+        <div className="space-y-2">
+          {NOTIF_OPTIONS.map((opt) => (
+            <label
+              key={opt.id}
+              className={cn(
+                "flex items-start gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors",
+                level === opt.id
+                  ? "border-slate-900 dark:border-gray-100 bg-slate-50 dark:bg-gray-900"
+                  : "border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700",
+              )}
+            >
+              <input
+                type="radio"
+                name="notifLevel"
+                value={opt.id}
+                checked={level === opt.id}
+                onChange={() => void save(opt.id)}
+                disabled={saving}
+                className="mt-0.5 accent-slate-900 dark:accent-gray-100"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900 dark:text-gray-100">{opt.label}</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500">{opt.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {saved && (
+          <p className="text-xs text-green-600 dark:text-green-400">Preference saved.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Conversations tab ──────────────────────────────────────────────────────
 
 function ConversationsTab() {
@@ -373,6 +462,7 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
 
         {/* Tab content */}
         {tab === "general" && <GeneralTab />}
+        {tab === "notifications" && <NotificationsTab />}
         {tab === "conversations" && <ConversationsTab />}
       </div>
     </div>

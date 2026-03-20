@@ -65,6 +65,42 @@ export function broadcastToChat(groupChatId: string, event: string, data: unknow
   }
 }
 
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+
+/** Sliding-window rate limiter for bot queries: 10 per user per group chat per minute. */
+const BOT_RATE_LIMIT = 10;
+const BOT_RATE_WINDOW_MS = 60_000;
+
+/** Map<"email:chatId" → timestamp[]> */
+const botQueryTimestamps = new Map<string, number[]>();
+
+/** Prune stale entries every 5 minutes to prevent memory leak. */
+setInterval(() => {
+  const cutoff = Date.now() - BOT_RATE_WINDOW_MS;
+  for (const [key, timestamps] of botQueryTimestamps) {
+    const fresh = timestamps.filter((t) => t > cutoff);
+    if (fresh.length === 0) botQueryTimestamps.delete(key);
+    else botQueryTimestamps.set(key, fresh);
+  }
+}, 5 * 60_000).unref();
+
+function checkBotRateLimit(email: string, chatId: string): { allowed: boolean; retryAfterMs?: number } {
+  const key = `${email}:${chatId}`;
+  const now = Date.now();
+  const cutoff = now - BOT_RATE_WINDOW_MS;
+
+  const timestamps = (botQueryTimestamps.get(key) ?? []).filter((t) => t > cutoff);
+
+  if (timestamps.length >= BOT_RATE_LIMIT) {
+    const oldestInWindow = timestamps[0]!;
+    return { allowed: false, retryAfterMs: oldestInWindow + BOT_RATE_WINDOW_MS - now };
+  }
+
+  timestamps.push(now);
+  botQueryTimestamps.set(key, timestamps);
+  return { allowed: true };
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const BOT_TAG_REGEX = /@(?:bot|edgebric)\b/i;
@@ -167,6 +203,18 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
   if (chat.status !== "active") {
     res.status(409).json({ error: "This group chat is no longer active" });
     return;
+  }
+
+  // Rate-limit bot queries (non-bot messages pass through freely)
+  if (containsBotTag(content)) {
+    const rateCheck = checkBotRateLimit(email, chatId);
+    if (!rateCheck.allowed) {
+      const retrySec = Math.ceil((rateCheck.retryAfterMs ?? BOT_RATE_WINDOW_MS) / 1000);
+      res.status(429).json({
+        error: `Rate limit exceeded. You can send ${BOT_RATE_LIMIT} @bot queries per minute in this chat. Try again in ${retrySec}s.`,
+      });
+      return;
+    }
   }
 
   // Persist user message

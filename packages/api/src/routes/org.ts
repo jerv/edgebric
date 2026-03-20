@@ -235,6 +235,7 @@ orgRouter.delete("/members/:id", (req, res) => {
 
 const updatePermissionsSchema = z.object({
   canCreateKBs: z.boolean().optional(),
+  canCreateGroupChats: z.boolean().optional(),
 });
 
 // PATCH /api/admin/org/members/:id/permissions — update a user's permissions

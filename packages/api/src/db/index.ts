@@ -182,6 +182,10 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE knowledge_bases ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
     // Group chat permission
     "ALTER TABLE users ADD COLUMN can_create_group_chats INTEGER DEFAULT 0",
+    // Default group chat notification level
+    "ALTER TABLE users ADD COLUMN default_group_chat_notif_level TEXT DEFAULT 'all'",
+    // Group chat ID on notifications (for org-scoped filtering)
+    "ALTER TABLE notifications ADD COLUMN group_chat_id TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

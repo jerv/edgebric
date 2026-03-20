@@ -19,6 +19,7 @@ function rowToUser(row: typeof users.$inferSelect): User {
   if (row.invitedBy != null) user.invitedBy = row.invitedBy;
   if (row.canCreateKBs) user.canCreateKBs = true;
   if (row.canCreateGroupChats) user.canCreateGroupChats = true;
+  if (row.defaultGroupChatNotifLevel != null) user.defaultGroupChatNotifLevel = row.defaultGroupChatNotifLevel as "all" | "mentions" | "none";
   return user;
 }
 
@@ -87,6 +88,7 @@ export function upsertUser(data: {
     invitedBy: null,
     canCreateKBs: 0,
     canCreateGroupChats: 0,
+    defaultGroupChatNotifLevel: "all",
     lastLoginAt: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
@@ -120,6 +122,7 @@ export function inviteUser(data: {
     invitedBy: data.invitedBy,
     canCreateKBs: 0,
     canCreateGroupChats: 0,
+    defaultGroupChatNotifLevel: "all",
     lastLoginAt: null,
     createdAt: new Date().toISOString(),
   };
@@ -183,6 +186,25 @@ export function updateUserPermissions(
     db.update(users).set(updates).where(eq(users.id, userId)).run();
   }
   return getUser(userId);
+}
+
+/** Update a user's default group chat notification level. */
+export function updateUserNotifPrefs(
+  email: string,
+  orgId: string,
+  defaultGroupChatNotifLevel: "all" | "mentions" | "none",
+): User | undefined {
+  const db = getDb();
+  const existing = db.select().from(users)
+    .where(and(eq(users.email, email.toLowerCase()), eq(users.orgId, orgId)))
+    .get();
+  if (!existing) return undefined;
+
+  db.update(users)
+    .set({ defaultGroupChatNotifLevel })
+    .where(eq(users.id, existing.id))
+    .run();
+  return getUser(existing.id);
 }
 
 export function listUsers(orgId: string): User[] {

@@ -139,12 +139,15 @@ export function MembersTab() {
   });
 
   const permsMutation = useMutation({
-    mutationFn: async ({ userId, canCreateKBs }: { userId: string; canCreateKBs: boolean }) => {
+    mutationFn: async ({ userId, canCreateKBs, canCreateGroupChats }: { userId: string; canCreateKBs?: boolean; canCreateGroupChats?: boolean }) => {
+      const body: Record<string, boolean> = {};
+      if (canCreateKBs !== undefined) body.canCreateKBs = canCreateKBs;
+      if (canCreateGroupChats !== undefined) body.canCreateGroupChats = canCreateGroupChats;
       const res = await fetch(`/api/admin/org/members/${userId}/permissions`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ canCreateKBs }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error("Failed to update permissions");
       return res.json() as Promise<User>;
@@ -337,13 +340,14 @@ export function MembersTab() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Role</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Create Data Sources</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Create Group Chats</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                 {pagedMembers.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 dark:text-gray-500 text-xs">
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-gray-500 text-xs">
                       {searchQuery ? "No members match your search." : "No members yet."}
                     </td>
                   </tr>
@@ -428,6 +432,27 @@ export function MembersTab() {
                               className={cn(
                                 "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
                                 m.canCreateKBs ? "translate-x-4" : "translate-x-1",
+                              )}
+                            />
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.role === "admin" || m.role === "owner" ? (
+                          <span className="text-xs text-slate-400 dark:text-gray-500">Always</span>
+                        ) : (
+                          <button
+                            onClick={() => permsMutation.mutate({ userId: m.id, canCreateGroupChats: !m.canCreateGroupChats })}
+                            disabled={permsMutation.isPending}
+                            className={cn(
+                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                              m.canCreateGroupChats ? "bg-blue-500" : "bg-slate-200 dark:bg-gray-700",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                                m.canCreateGroupChats ? "translate-x-4" : "translate-x-1",
                               )}
                             />
                           </button>

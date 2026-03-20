@@ -1,6 +1,6 @@
 import type { Notification, GroupChatNotifLevel } from "@edgebric/types";
 import { getDb } from "../db/index.js";
-import { notifications, groupChatLastRead, groupChatNotifPrefs } from "../db/schema.js";
+import { notifications, groupChatLastRead, groupChatNotifPrefs, users } from "../db/schema.js";
 import { eq, and, desc, isNull, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import type { Response } from "express";
@@ -56,9 +56,12 @@ export function broadcastToUser(email: string, event: string, data: unknown): vo
   }
 }
 
-/** Build org filter condition: notification's conversation must belong to the given org. */
+/** Build org filter condition: notification's conversation or group chat must belong to the given org. */
 function orgCondition(orgId: string) {
-  return sql`${notifications.conversationId} IN (SELECT id FROM conversations WHERE org_id = ${orgId})`;
+  return sql`(
+    ${notifications.conversationId} IN (SELECT id FROM conversations WHERE org_id = ${orgId})
+    OR ${notifications.groupChatId} IN (SELECT id FROM group_chats WHERE org_id = ${orgId})
+  )`;
 }
 
 export function createNotification(opts: {
@@ -207,10 +210,18 @@ export function getUnreadGroupChatIds(email: string): Set<string> {
 
 export function getGroupChatNotifLevel(groupChatId: string, email: string): GroupChatNotifLevel {
   const db = getDb();
+  // Check per-chat preference first
   const row = db.select().from(groupChatNotifPrefs)
     .where(and(eq(groupChatNotifPrefs.groupChatId, groupChatId), eq(groupChatNotifPrefs.userEmail, email)))
     .get();
-  return (row?.level as GroupChatNotifLevel) ?? "all";
+  if (row?.level) return row.level as GroupChatNotifLevel;
+
+  // Fall back to user's default preference
+  const userRow = db.select({ defaultLevel: users.defaultGroupChatNotifLevel })
+    .from(users)
+    .where(eq(users.email, email))
+    .get();
+  return (userRow?.defaultLevel as GroupChatNotifLevel) ?? "all";
 }
 
 export function setGroupChatNotifLevel(groupChatId: string, email: string, level: GroupChatNotifLevel): void {

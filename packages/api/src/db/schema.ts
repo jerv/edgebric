@@ -26,6 +26,7 @@ export const users = sqliteTable("users", {
   lastLoginAt: text("last_login_at"),
   canCreateKBs: integer("can_create_kbs").default(0), // 0 = no, 1 = yes
   canCreateGroupChats: integer("can_create_group_chats").default(0), // 0 = no, 1 = yes
+  defaultGroupChatNotifLevel: text("default_group_chat_notif_level").default("all"), // "all" | "mentions" | "none"
   createdAt: text("created_at").notNull(),
 });
 

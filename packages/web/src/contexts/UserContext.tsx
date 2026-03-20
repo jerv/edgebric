@@ -13,6 +13,7 @@ export interface User {
   vaultModeEnabled?: boolean;
   canCreateKBs?: boolean;
   canCreateGroupChats?: boolean;
+  defaultGroupChatNotifLevel?: "all" | "mentions" | "none";
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
   orgAvatarUrl?: string;

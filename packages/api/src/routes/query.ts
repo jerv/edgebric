@@ -35,6 +35,39 @@ const queryBodySchema = z.object({
   knowledgeBaseIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+
+const QUERY_RATE_LIMIT = 10;
+const QUERY_RATE_WINDOW_MS = 60_000;
+
+/** Map<email → timestamp[]> */
+const queryTimestamps = new Map<string, number[]>();
+
+/** Prune stale entries every 5 minutes. */
+setInterval(() => {
+  const cutoff = Date.now() - QUERY_RATE_WINDOW_MS;
+  for (const [key, timestamps] of queryTimestamps) {
+    const fresh = timestamps.filter((t) => t > cutoff);
+    if (fresh.length === 0) queryTimestamps.delete(key);
+    else queryTimestamps.set(key, fresh);
+  }
+}, 5 * 60_000).unref();
+
+function checkQueryRateLimit(email: string): { allowed: boolean; retryAfterMs?: number } {
+  const now = Date.now();
+  const cutoff = now - QUERY_RATE_WINDOW_MS;
+  const timestamps = (queryTimestamps.get(email) ?? []).filter((t) => t > cutoff);
+
+  if (timestamps.length >= QUERY_RATE_LIMIT) {
+    const oldestInWindow = timestamps[0]!;
+    return { allowed: false, retryAfterMs: oldestInWindow + QUERY_RATE_WINDOW_MS - now };
+  }
+
+  timestamps.push(now);
+  queryTimestamps.set(email, timestamps);
+  return { allowed: true };
+}
+
 export const queryRouter: IRouter = Router();
 
 // mkb + embeddings always use mILM
@@ -146,6 +179,19 @@ queryRouter.get("/status", (req, res) => {
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, knowledgeBaseIds } = req.body as z.infer<typeof queryBodySchema>;
+
+  // Rate limit: 10 queries per minute per user
+  const rateLimitEmail = req.session.email;
+  if (rateLimitEmail) {
+    const rateCheck = checkQueryRateLimit(rateLimitEmail);
+    if (!rateCheck.allowed) {
+      const retrySec = Math.ceil((rateCheck.retryAfterMs ?? QUERY_RATE_WINDOW_MS) / 1000);
+      res.status(429).json({
+        error: `Rate limit exceeded. You can send ${QUERY_RATE_LIMIT} queries per minute. Try again in ${retrySec}s.`,
+      });
+      return;
+    }
+  }
 
   const filterResult = filterQuery(query);
   if (!filterResult.allowed) {

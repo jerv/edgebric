@@ -9,7 +9,7 @@ import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { ensureDefaultOrg, getDefaultOrg, getOrg, getOrgsForUser } from "../services/orgStore.js";
-import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName } from "../services/userStore.js";
+import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName, updateUserNotifPrefs } from "../services/userStore.js";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100).transform((s) => s.trim()),
@@ -18,6 +18,10 @@ const profileSchema = z.object({
 
 const selectOrgSchema = z.object({
   orgId: z.string().min(1, "orgId is required"),
+});
+
+const notifPrefsSchema = z.object({
+  defaultGroupChatNotifLevel: z.enum(["all", "mentions", "none"]),
 });
 
 export const authRouter: IRouter = Router();
@@ -81,6 +85,7 @@ authRouter.get("/me", (req, res) => {
     privateModeEnabled: orgConfig.privateModeEnabled ?? false,
     vaultModeEnabled: orgConfig.vaultModeEnabled ?? false,
     canCreateKBs,
+    defaultGroupChatNotifLevel: userRecord?.defaultGroupChatNotifLevel ?? "all",
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
     orgAvatarUrl: org?.settings.avatarUrl,
@@ -256,6 +261,31 @@ authRouter.put("/profile", requireAuth, validateBody(profileSchema), (req, res) 
     }
     res.json({ ok: true, name: fullName });
   });
+});
+
+// ─── PUT /api/auth/notification-prefs — update notification preferences ──────
+
+authRouter.put("/notification-prefs", requireAuth, validateBody(notifPrefsSchema), (req, res) => {
+  const { defaultGroupChatNotifLevel } = req.body as z.infer<typeof notifPrefsSchema>;
+  const email = req.session.email;
+  const orgId = req.session.orgId;
+
+  if (!email) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  // Update in all orgs this user belongs to if no org selected, otherwise just current org
+  if (orgId) {
+    updateUserNotifPrefs(email, orgId, defaultGroupChatNotifLevel);
+  } else {
+    const userRecords = getUsersByEmail(email);
+    for (const u of userRecords) {
+      updateUserNotifPrefs(email, u.orgId, defaultGroupChatNotifLevel);
+    }
+  }
+
+  res.json({ ok: true, defaultGroupChatNotifLevel });
 });
 
 // ─── GET /api/auth/orgs — list orgs the current user belongs to ──────────────
