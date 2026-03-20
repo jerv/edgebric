@@ -314,6 +314,51 @@ export function unshareKB(shareId: string, groupChatId: string, revokedByName?: 
   return addSystemMessage(groupChatId, `${who} removed "${kb?.name ?? "a data source"}" from the group.`);
 }
 
+/**
+ * Revoke all shares of a specific KB across all group chats.
+ * Called when a KB is deleted or switched to restricted access.
+ * Posts a system message in each affected group chat.
+ */
+export function revokeSharesForKB(kbId: string, reason: string): void {
+  const db = getDb();
+  const shares = db.select().from(groupChatSharedKBs)
+    .where(eq(groupChatSharedKBs.knowledgeBaseId, kbId))
+    .all();
+
+  if (shares.length === 0) return;
+
+  const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, kbId)).get();
+  const kbName = kb?.name ?? "a data source";
+
+  for (const share of shares) {
+    db.delete(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, share.id)).run();
+    addSystemMessage(share.groupChatId, `"${kbName}" was removed from this group — ${reason}.`);
+  }
+}
+
+/**
+ * Revoke shares of a KB in group chats where the sharer no longer has access.
+ * Called when a KB's access list changes (restricted mode).
+ */
+export function revokeSharesForRemovedUsers(kbId: string, allowedEmails: Set<string>): void {
+  const db = getDb();
+  const shares = db.select().from(groupChatSharedKBs)
+    .where(eq(groupChatSharedKBs.knowledgeBaseId, kbId))
+    .all();
+
+  if (shares.length === 0) return;
+
+  const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, kbId)).get();
+  const kbName = kb?.name ?? "a data source";
+
+  for (const share of shares) {
+    if (!allowedEmails.has(share.sharedByEmail.toLowerCase())) {
+      db.delete(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, share.id)).run();
+      addSystemMessage(share.groupChatId, `"${kbName}" was removed from this group — the sharer no longer has access.`);
+    }
+  }
+}
+
 export function getSharedKBs(groupChatId: string): GroupChatSharedKB[] {
   const db = getDb();
   const rows = db.select().from(groupChatSharedKBs)
@@ -338,24 +383,27 @@ export function getSharedDatasetNames(groupChatId: string): string[] {
   const seen = new Set<string>();
   const datasetNames: string[] = [];
 
-  // 1. Explicitly shared KBs
+  // 1. Explicitly shared KBs (skip archived/deleted)
   const shares = db.select().from(groupChatSharedKBs)
     .where(eq(groupChatSharedKBs.groupChatId, groupChatId))
     .all();
   for (const share of shares) {
-    const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, share.knowledgeBaseId)).get();
+    const kb = db.select().from(knowledgeBases)
+      .where(and(eq(knowledgeBases.id, share.knowledgeBaseId), eq(knowledgeBases.status, "active")))
+      .get();
     if (kb?.datasetName && !seen.has(kb.datasetName)) {
       seen.add(kb.datasetName);
       datasetNames.push(kb.datasetName);
     }
   }
 
-  // 2. Org-wide KBs (accessMode: "all") — always queryable
+  // 2. Org-wide KBs (accessMode: "all", active) — always queryable
   const orgKBs = db.select().from(knowledgeBases)
     .where(and(
       eq(knowledgeBases.orgId, chat.orgId),
       eq(knowledgeBases.type, "organization"),
       eq(knowledgeBases.accessMode, "all"),
+      eq(knowledgeBases.status, "active"),
     ))
     .all();
   for (const kb of orgKBs) {

@@ -23,6 +23,7 @@ import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { clearChunksForDataset } from "../services/chunkRegistry.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
+import { revokeSharesForKB, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
 import { config, runtimeEdgeConfig } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { createMKBClient } from "@edgebric/edge";
@@ -176,6 +177,14 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
     setKBAccessList(updated.id, accessList);
   }
 
+  // Revoke group chat shares when access changes
+  if (accessMode === "restricted") {
+    // Only sharers on the access list can keep their shares
+    const currentList = getKBAccessList(updated.id);
+    const allowedEmails = new Set(currentList.map((e) => e.toLowerCase()));
+    revokeSharesForRemovedUsers(updated.id, allowedEmails);
+  }
+
   res.json({ ...updated, accessList: getKBAccessList(updated.id) });
 });
 
@@ -192,6 +201,9 @@ knowledgeBasesRouter.delete("/:id", async (req, res) => {
   }
 
   archiveKB(kb.id);
+
+  // Revoke all group chat shares for this KB
+  revokeSharesForKB(kb.id, "the data source was deleted");
 
   // Nuke the mKB dataset and all registry entries — no stale data survives
   clearChunksForDataset(kb.datasetName);
