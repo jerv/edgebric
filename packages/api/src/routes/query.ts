@@ -19,6 +19,7 @@ import {
 } from "../services/conversationStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { listKBs, listAccessibleKBs } from "../services/knowledgeBaseStore.js";
+import { broadcastToUser } from "../services/notificationStore.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
 
@@ -265,6 +266,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     }),
   };
 
+  // Broadcast thinking state to sidebar
+  broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: true });
+
   // Set up SSE streaming
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -332,6 +336,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     sendEvent("error", { message: "An error occurred. Please try again." });
     logger.error({ err }, "Query error");
   } finally {
-    res.end();
+    broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: false });
+    try { res.end(); } catch { /* already closed */ }
   }
 });

@@ -350,7 +350,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                           : "text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:text-slate-700 dark:hover:text-gray-200",
                       )}
                     >
-                      <MessageSquare className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400 dark:text-gray-500" />
+                      {thinkingChatIds?.has(item.id) ? (
+                        <Loader2 className="w-3 h-3 flex-shrink-0 mr-1.5 text-blue-500 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400 dark:text-gray-500" />
+                      )}
                       <span
                         className="flex-1 min-w-0 cursor-pointer flex items-center gap-1.5"
                         onClick={() => {
