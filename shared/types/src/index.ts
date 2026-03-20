@@ -164,7 +164,7 @@ export interface AnswerResponse {
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────
 
 export interface SessionMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
   citations?: Citation[];
 }

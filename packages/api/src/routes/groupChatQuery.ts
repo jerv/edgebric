@@ -262,8 +262,39 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
 
     // Build context from recent messages, with summarization for long conversations
     let contextMessages: ReturnType<typeof getRecentMainMessages>;
+    let mainChatSummary = "";
+
     if (threadParentId) {
+      // Thread context: parent message + all replies (with summarization if long)
       contextMessages = getThreadMessages(threadParentId);
+
+      // Also inject a summary of recent main chat so the bot has broader awareness
+      // (e.g., if someone says "which ones?" in a thread, the bot needs main chat context)
+      const mainChatMessages = getRecentMainMessages(chatId, 20);
+      if (mainChatMessages.length > 0) {
+        const mainChatMsgs: ChatMessage[] = mainChatMessages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => {
+            const cm: ChatMessage = { role: m.role as "user" | "assistant", content: m.content };
+            if (m.authorName) cm.authorName = m.authorName;
+            return cm;
+          });
+
+        // Use cached main chat summary if available, otherwise generate one
+        const cached = getContextSummary(chatId);
+        if (cached) {
+          mainChatSummary = cached.summary;
+        } else if (mainChatMsgs.length > 3) {
+          try {
+            mainChatSummary = await summarizeMessages(mainChatMsgs, (msgs) => chatClient.chatStream(msgs));
+            if (mainChatSummary) {
+              setContextSummary(chatId, mainChatSummary, mainChatMessages[mainChatMessages.length - 1]!.id);
+            }
+          } catch (err) {
+            logger.warn({ err }, "Main chat summarization for thread context failed");
+          }
+        }
+      }
     } else {
       contextMessages = getRecentMainMessages(chatId, 40);
     }
@@ -283,13 +314,13 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     // Get or generate summary for old messages
     let summary = "";
     if (old.length > 0) {
-      const cached = getContextSummary(chatId);
+      const cached = threadParentId ? null : getContextSummary(chatId); // Don't reuse main chat cache for threads
       if (cached) {
         summary = cached.summary;
       } else {
         try {
           summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
-          if (summary && contextMessages.length > 0) {
+          if (summary && contextMessages.length > 0 && !threadParentId) {
             setContextSummary(chatId, summary, contextMessages[contextMessages.length - 1]!.id);
           }
         } catch (err) {
@@ -298,12 +329,16 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       }
     }
 
+    // For threads, prepend main chat awareness as additional summary context
+    const combinedSummary = threadParentId && mainChatSummary
+      ? `Recent main chat context:\n${mainChatSummary}\n\n${summary ? `Thread conversation summary:\n${summary}` : ""}`
+      : summary;
+
     // Build session messages from summarized context
-    const summarizedContext = buildSummarizedContext(summary, recent);
+    const summarizedContext = buildSummarizedContext(combinedSummary, recent);
     const sessionMessages: SessionMessage[] = summarizedContext
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .slice(-10)
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      .slice(-12)
+      .map((m) => ({ role: m.role as SessionMessage["role"], content: m.content }));
     sessionMessages.push({ role: "user", content: query });
 
     const session: Session = {

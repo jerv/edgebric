@@ -534,11 +534,21 @@ export function getMainMessages(
 /** Get thread messages for a parent message. */
 export function getThreadMessages(parentId: string): GroupChatMessage[] {
   const db = getDb();
+
+  // Include the parent message first so the bot has full thread context
+  const parentRow = db.select().from(groupChatMessages)
+    .where(eq(groupChatMessages.id, parentId))
+    .get();
+
   const rows = db.select().from(groupChatMessages)
     .where(eq(groupChatMessages.threadParentId, parentId))
     .orderBy(asc(groupChatMessages.createdAt))
     .all();
-  return rows.map(rowToMessage);
+
+  const result: GroupChatMessage[] = [];
+  if (parentRow) result.push(rowToMessage(parentRow));
+  result.push(...rows.map(rowToMessage));
+  return result;
 }
 
 /** Get recent messages for context building (main chat only, no thread replies). */

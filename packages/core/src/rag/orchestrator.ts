@@ -111,12 +111,11 @@ export async function* answerStream(
   const systemPrompt = buildSystemPrompt(contextChunks);
   const messages: Message[] = [
     { role: "system", content: systemPrompt },
-    // Include prior session context (last 4 turns to keep prompt size reasonable)
-    ...session.messages.slice(-4).map((m) => ({
-      role: m.role as "user" | "assistant",
+    // Callers manage context window (solo chat: last 4, group chat: summarized + last 10)
+    ...session.messages.map((m) => ({
+      role: m.role as "user" | "assistant" | "system",
       content: m.content,
     })),
-    { role: "user", content: query },
   ];
 
   // Stream the answer
