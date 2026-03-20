@@ -16,8 +16,6 @@ export interface OrgSettings {
   onboardingComplete?: boolean;
   /** URL path to the org avatar image (e.g. /api/avatars/org-xxx.png). */
   avatarUrl?: string;
-  /** Whether bots use org avatar or KB-specific avatars. Default: "org". */
-  avatarMode?: "org" | "kb";
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -63,7 +61,7 @@ export interface KnowledgeBase {
   documentCount: number;
   status: KnowledgeBaseStatus;
   accessMode: KBAccessMode;
-  /** URL path to the KB avatar image (used when org avatarMode is "kb"). */
+  /** URL path to the KB avatar image (shown as mini icon in citations). */
   avatarUrl?: string;
 
   // ─── Per-KB security toggles ──────────────────────────────────────────────
@@ -139,7 +137,7 @@ export interface Citation {
   knowledgeBaseName?: string;
   /** KB ID for avatar lookup (populated by query route). */
   knowledgeBaseId?: string;
-  /** KB avatar URL (populated by query route when avatarMode is "kb"). */
+  /** KB avatar URL (populated by query route, shown as mini icon in citations). */
   knowledgeBaseAvatarUrl?: string;
 }
 
@@ -214,8 +212,10 @@ export interface PersistedMessage {
 export interface Notification {
   id: string;
   userEmail: string;
-  type: "group_chat_invite" | "source_shared" | "chat_expiring";
+  type: "group_chat_invite" | "group_chat_message" | "group_chat_mention" | "source_shared" | "chat_expiring";
   conversationId: string;
+  /** For group chat notifications, this is the groupChatId. */
+  groupChatId?: string | undefined;
   messageId?: string | undefined;
   title: string;
   body?: string | undefined;
@@ -223,26 +223,11 @@ export interface Notification {
   createdAt: Date;
 }
 
-// ─── Integrations ─────────────────────────────────────────────────────────────
+export type GroupChatNotifLevel = "all" | "mentions" | "none";
 
-export interface SlackIntegration {
-  botToken: string;
-  enabled: boolean;
-}
-
-export interface EmailIntegration {
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPass: string;
-  fromAddress: string;
-  useTls: boolean;
-  enabled: boolean;
-}
+// ─── Org Config ───────────────────────────────────────────────────────────────
 
 export interface IntegrationConfig {
-  slack?: SlackIntegration;
-  email?: EmailIntegration;
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
   /** Documents older than this are flagged as stale. Default: 180 days. */
@@ -294,7 +279,7 @@ export interface FeedbackCheck {
 
 export type GroupChatStatus = "active" | "expired" | "archived";
 export type GroupChatMemberRole = "creator" | "member";
-export type GroupChatExpiration = "24h" | "1w" | "1m" | "never";
+export type GroupChatExpiration = "24h" | "1w" | "1m" | "never" | "custom";
 
 export interface GroupChat {
   id: string;
@@ -314,6 +299,7 @@ export interface GroupChat {
 export interface GroupChatMember {
   userEmail: string;
   userName?: string;
+  picture?: string;
   role: GroupChatMemberRole;
   joinedAt: Date;
 }
@@ -340,6 +326,8 @@ export interface GroupChatMessage {
   hasConfidentAnswer?: boolean;
   /** Number of replies in thread (populated on main chat messages only). */
   threadReplyCount?: number;
+  /** Unique participants in this thread (populated on main chat messages only). */
+  threadParticipants?: { email: string; name?: string; picture?: string }[];
   createdAt: Date;
 }
 
