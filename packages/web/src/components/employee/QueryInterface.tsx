@@ -218,6 +218,9 @@ export function ChatPanel() {
       setConversationId(urlConvId);
       setMessages([]);
       setHydrated(false);
+      setIsLoading(false);
+      abortRef.current?.abort();
+      abortRef.current = null;
     }
   }, [urlConvId]);
 
@@ -390,6 +393,16 @@ export function ChatPanel() {
     prevThinkingRef.current = isBotThinking;
 
     if (!conversationId || isPrivacyMode) return;
+
+    // Bot is thinking and we're not already streaming — append placeholder
+    // (handles returning to a conversation mid-stream)
+    if (isBotThinking && !isLoading) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.isStreaming) return prev;
+        return [...prev, { role: "assistant", content: "", isStreaming: true }];
+      });
+    }
 
     // Bot just finished thinking — reload messages to get the completed answer
     if (wasThinking && !isBotThinking && !isLoading) {
