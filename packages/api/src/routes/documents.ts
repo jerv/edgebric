@@ -11,6 +11,7 @@ import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocuments
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { ensureDefaultKB, refreshDocumentCount, getKB } from "../services/knowledgeBaseStore.js";
+import { rebuildDataset } from "../jobs/rebuildDataset.js";
 import type { Document } from "@edgebric/types";
 
 /** Map file-type detected extensions to our canonical type names */
@@ -87,7 +88,7 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
   if (doc?.knowledgeBaseId && !req.session.isAdmin) {
     const kb = getKB(doc.knowledgeBaseId);
     if (kb && !kb.allowSourceViewing) {
-      res.status(403).json({ error: "Source document viewing is disabled for this source" });
+      res.status(403).json({ error: "Source document viewing is disabled for this data source" });
       return;
     }
   }
@@ -120,7 +121,7 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
   if (doc.knowledgeBaseId && !req.session.isAdmin) {
     const kb = getKB(doc.knowledgeBaseId);
     if (kb && !kb.allowSourceViewing) {
-      res.status(403).json({ error: "Source document viewing is disabled for this source" });
+      res.status(403).json({ error: "Source document viewing is disabled for this data source" });
       return;
     }
   }
@@ -317,6 +318,8 @@ documentsRouter.delete("/:id", async (req, res) => {
   }
 
   const kbId = doc.knowledgeBaseId;
+  // Resolve dataset name: doc may have it if ingested, otherwise fall back to KB
+  const datasetName = doc.datasetName ?? (kbId ? getKB(kbId)?.datasetName : undefined);
   deleteDocument(doc.id);
   clearChunksForDocument(doc.id);
 
@@ -326,6 +329,11 @@ documentsRouter.delete("/:id", async (req, res) => {
     await fs.unlink(doc.storageKey);
   } catch {
     // File may already be gone
+  }
+
+  // Rebuild the mKB dataset to purge stale vectors (fire-and-forget)
+  if (datasetName) {
+    void rebuildDataset(datasetName);
   }
 
   res.status(204).send();

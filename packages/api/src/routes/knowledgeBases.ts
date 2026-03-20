@@ -21,8 +21,10 @@ import {
 import { getDocumentsByKB, setDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
-import { config } from "../config.js";
+import { clearChunksForDataset } from "../services/chunkRegistry.js";
+import { config, runtimeEdgeConfig } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
+import { createMKBClient } from "@edgebric/edge";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 
@@ -111,12 +113,12 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
 knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const docs = getDocumentsByKB(kb.id);
@@ -145,7 +147,7 @@ knowledgeBasesRouter.use(requireAdmin);
 knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const { name, description, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
@@ -158,7 +160,7 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
     ...(allowExternalAccess !== undefined && { allowExternalAccess }),
   });
   if (!updated) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
 
@@ -170,18 +172,27 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
   res.json({ ...updated, accessList: getKBAccessList(updated.id) });
 });
 
-knowledgeBasesRouter.delete("/:id", (req, res) => {
+knowledgeBasesRouter.delete("/:id", async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
+
   archiveKB(kb.id);
+
+  // Nuke the mKB dataset and all registry entries — no stale data survives
+  clearChunksForDataset(kb.datasetName);
+  const mkb = createMKBClient(runtimeEdgeConfig);
+  void mkb.deleteDataset(kb.datasetName).catch(() => {
+    // Dataset may not exist if no documents were ever ingested
+  });
+
   res.json({ ok: true });
 });
 
@@ -207,12 +218,12 @@ const upload = multer({
 knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   if (!req.file) {
@@ -287,12 +298,12 @@ const avatarUpload = multer({
 knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   if (!req.file) {
@@ -327,12 +338,12 @@ knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (r
 knowledgeBasesRouter.delete("/:id/avatar", async (req, res) => {
   const kbId = req.params["id"] as string;
   if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
   const kb = getKB(kbId);
   if (!kb) {
-    res.status(404).json({ error: "Source not found" });
+    res.status(404).json({ error: "Data source not found" });
     return;
   }
 

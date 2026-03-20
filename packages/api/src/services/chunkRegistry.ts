@@ -138,3 +138,52 @@ export function clearChunksForDocument(documentId: string): void {
   const db = getDb();
   db.delete(chunks).where(eq(chunks.sourceDocument, documentId)).run();
 }
+
+/**
+ * Get all chunks belonging to a specific mKB dataset, with content.
+ * Used by rebuildDataset to re-upload remaining chunks after deletion.
+ */
+export function getChunksForDataset(datasetName: string): Array<{
+  chunkId: string;
+  content: string;
+  metadata: ChunkMetadata;
+}> {
+  const db = getDb();
+  const rows = db.select().from(chunks)
+    .where(sql`${chunks.chunkId} LIKE ${datasetName + "-%"}`)
+    .all();
+
+  return rows
+    .filter((row) => row.content != null)
+    .map((row) => ({
+      chunkId: row.chunkId,
+      content: row.content!,
+      metadata: rowToMeta(row),
+    }))
+    .sort((a, b) => {
+      // Sort by chunk index to maintain order
+      const idxA = parseInt(a.chunkId.split("-").pop() ?? "0", 10);
+      const idxB = parseInt(b.chunkId.split("-").pop() ?? "0", 10);
+      return idxA - idxB;
+    });
+}
+
+/** Clear all chunk registry entries for a dataset. */
+export function clearChunksForDataset(datasetName: string): void {
+  const db = getDb();
+  db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${datasetName + "-%"}`);
+}
+
+/**
+ * Remove orphaned chunk registry entries whose source document no longer exists.
+ * Called at startup to keep the registry in sync with the documents table.
+ * Note: mKB datasets are now rebuilt on document deletion, so orphaned mKB chunks
+ * should not accumulate. This is a safety net for edge cases.
+ */
+export function purgeOrphanedChunks(): number {
+  const db = getDb();
+  const result = db.run(
+    sql`DELETE FROM ${chunks} WHERE ${chunks.sourceDocument} NOT IN (SELECT ${documents.id} FROM ${documents})`,
+  );
+  return result.changes;
+}
