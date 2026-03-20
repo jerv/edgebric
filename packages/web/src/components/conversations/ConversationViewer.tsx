@@ -64,7 +64,7 @@ export function ConversationViewer() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+        <Loader2 className="w-5 h-5 animate-spin text-slate-400 dark:text-gray-500" />
       </div>
     );
   }
@@ -72,12 +72,12 @@ export function ConversationViewer() {
   if (error || !data) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-gray-400">
           {error instanceof Error ? error.message : "Failed to load conversation"}
         </p>
         <button
           onClick={() => window.history.back()}
-          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Go back
@@ -95,14 +95,14 @@ export function ConversationViewer() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors rounded-lg hover:bg-slate-100"
+            className="p-1.5 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800"
             title="Back"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-slate-900">Conversation</h1>
-            <p className="text-xs text-slate-400">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-gray-100">Conversation</h1>
+            <p className="text-xs text-slate-400 dark:text-gray-500">
               {conversation.userName ?? conversation.userEmail}
               {" · "}
               {new Date(conversation.createdAt).toLocaleDateString(undefined, {
@@ -129,7 +129,7 @@ export function ConversationViewer() {
             if (isSystemNote) {
               return (
                 <div key={msg.id} className="flex justify-center">
-                  <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-4 py-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-900 border border-slate-100 dark:border-gray-800 rounded-full px-4 py-2">
                     <CheckCircle className="w-3.5 h-3.5" />
                     {msg.content}
                   </div>
@@ -144,7 +144,7 @@ export function ConversationViewer() {
                 className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
               >
                 {msg.role === "user" ? (
-                  <div className="bg-slate-900 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm">
+                  <div className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm">
                     {msg.content}
                   </div>
                 ) : (
@@ -155,13 +155,13 @@ export function ConversationViewer() {
                       className={cn(
                         "rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed",
                         isAdminReply
-                          ? "bg-blue-50 border border-blue-200 text-slate-800"
-                          : "bg-slate-50 border border-slate-200 text-slate-800",
-                        isHighlighted && "ring-2 ring-slate-300 ring-offset-2",
+                          ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-slate-800 dark:text-gray-200"
+                          : "bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 text-slate-800 dark:text-gray-200",
+                        isHighlighted && "ring-2 ring-slate-300 dark:ring-gray-600 ring-offset-2 dark:ring-offset-gray-950",
                       )}
                     >
                       {isAdminReply && (
-                        <div className="text-xs font-medium text-blue-600 mb-2">Admin Reply</div>
+                        <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2">Admin Reply</div>
                       )}
                       <div className={cn(...PROSE_CLASSES)}>
                         <Markdown>{cleanContent(msg.content)}</Markdown>
@@ -171,7 +171,7 @@ export function ConversationViewer() {
                     <CitationList citations={dedupedCitations} onSourceClick={setActiveSource} />
 
                     {msg.hasConfidentAnswer === false && (
-                      <p className="text-xs text-amber-600 px-1">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
                         The AI was not confident in this answer. Please contact your administrator directly.
                       </p>
                     )}
@@ -208,7 +208,7 @@ export function ConversationViewer() {
 
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-sm text-slate-400">This conversation has no messages.</p>
+            <p className="text-sm text-slate-400 dark:text-gray-500">This conversation has no messages.</p>
           </div>
         )}
       </div>

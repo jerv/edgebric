@@ -146,10 +146,10 @@ export function InviteMemberDialog({ groupChatId, existingMembers, creatorEmail,
         {/* Current members list */}
         {existingMembers.length > 0 && (
           <div className="mb-4">
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 dark:text-gray-300 mb-1">
               Current Members ({existingMembers.length})
             </label>
-            <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
+            <div className="border border-slate-200 dark:border-gray-800 rounded-lg divide-y divide-slate-100 dark:divide-gray-800 max-h-48 overflow-y-auto">
               {existingMembers.map((member) => {
                 const isMemberCreator = member.role === "creator";
                 const canRemove = isCreator && !isMemberCreator && isActive;
@@ -159,23 +159,23 @@ export function InviteMemberDialog({ groupChatId, existingMembers, creatorEmail,
                     {member.picture ? (
                       <img src={member.picture} alt="" className="w-6 h-6 rounded-full flex-shrink-0" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                        <span className="text-[10px] font-bold text-slate-500">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400">
                           {(member.userName ?? member.userEmail)[0]?.toUpperCase()}
                         </span>
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-slate-900 truncate">
+                      <p className="text-xs font-medium text-slate-900 dark:text-gray-100 truncate">
                         {member.userName ?? member.userEmail}
-                        {isSelf && <span className="text-slate-400 font-normal ml-1">(you)</span>}
+                        {isSelf && <span className="text-slate-400 dark:text-gray-500 font-normal ml-1">(you)</span>}
                       </p>
                       {member.userName && (
-                        <p className="text-[10px] text-slate-400 truncate">{member.userEmail}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-gray-500 truncate">{member.userEmail}</p>
                       )}
                     </div>
                     {isMemberCreator ? (
-                      <span className="flex items-center gap-0.5 text-[10px] text-slate-400 flex-shrink-0">
+                      <span className="flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-gray-500 flex-shrink-0">
                         <Crown className="w-3 h-3" />
                         Owner
                       </span>
@@ -183,7 +183,7 @@ export function InviteMemberDialog({ groupChatId, existingMembers, creatorEmail,
                       <button
                         onClick={() => void handleRemoveMember(member.userEmail)}
                         disabled={removingEmail === member.userEmail}
-                        className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-700 transition-colors flex-shrink-0 disabled:opacity-50"
+                        className="flex items-center gap-1 text-[10px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors flex-shrink-0 disabled:opacity-50"
                         title={`Remove ${member.userName ?? member.userEmail}`}
                       >
                         <UserMinus className="w-3 h-3" />

@@ -6,11 +6,11 @@ export const Route = createFileRoute("/privacy")({
 
 function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-gray-950">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-8"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 mb-8"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -18,10 +18,10 @@ function PrivacyPolicy() {
           Back
         </Link>
 
-        <h1 className="text-2xl font-semibold text-slate-900">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-slate-500">Last updated: March 2026</p>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-gray-100">Privacy Policy</h1>
+        <p className="mt-2 text-sm text-slate-500 dark:text-gray-400">Last updated: March 2026</p>
 
-        <div className="mt-8 space-y-8 text-sm text-slate-700 leading-relaxed">
+        <div className="mt-8 space-y-8 text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
           <Section title="How Edgebric is different">
             <p>
               Edgebric is <strong>software you run on your own infrastructure</strong>, not a
@@ -107,7 +107,7 @@ function PrivacyPolicy() {
             <p>
               For questions about this privacy policy or Edgebric's data practices, contact
               your organization's IT administrator or the Edgebric team at{" "}
-              <a href="mailto:privacy@edgebric.com" className="text-slate-900 underline">
+              <a href="mailto:privacy@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
                 privacy@edgebric.com
               </a>.
             </p>
@@ -121,7 +121,7 @@ function PrivacyPolicy() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="text-base font-semibold text-slate-900 mb-2">{title}</h2>
+      <h2 className="text-base font-semibold text-slate-900 dark:text-gray-100 mb-2">{title}</h2>
       {children}
     </section>
   );

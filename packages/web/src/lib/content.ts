@@ -35,10 +35,10 @@ export function dedupeCitations(citations: Citation[]): Citation[] {
 
 /** Tailwind classes for rendering markdown prose content. */
 export const PROSE_CLASSES = [
-  "prose prose-sm prose-slate max-w-none",
+  "prose prose-sm prose-slate dark:prose-invert max-w-none",
   "prose-p:my-3 prose-p:leading-relaxed",
   "prose-headings:text-sm prose-headings:font-semibold prose-headings:mt-5 prose-headings:mb-2",
   "prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-li:leading-relaxed",
-  "prose-strong:text-slate-900",
+  "prose-strong:text-slate-900 dark:prose-strong:text-gray-100",
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
 ] as const;

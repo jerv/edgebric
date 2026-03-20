@@ -28,6 +28,26 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
   }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --ring: 212.7 26.8% 83.9%;
+  }
 }
 
 @layer base {
@@ -48,6 +68,9 @@
 .scrollbar-thin:hover {
   scrollbar-color: rgb(203 213 225) transparent; /* slate-300 on hover */
 }
+.dark .scrollbar-thin:hover {
+  scrollbar-color: rgb(51 65 85) transparent; /* slate-600 on hover */
+}
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
 }
@@ -60,4 +83,7 @@
 }
 .scrollbar-thin:hover::-webkit-scrollbar-thumb {
   background: rgb(203 213 225); /* slate-300 */
+}
+.dark .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: rgb(51 65 85); /* slate-600 */
 }

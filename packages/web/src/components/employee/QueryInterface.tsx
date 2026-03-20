@@ -2,20 +2,19 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
-import type { AnswerResponse, Citation, PersistedMessage, FeedbackCheck } from "@edgebric/types";
+import type { AnswerResponse, Citation, PersistedMessage } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2 } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus } from "lucide-react";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
-import { useFeedback } from "@/hooks/useFeedback";
 import { CitationList } from "@/components/shared/CitationList";
-import { FeedbackButtons, FeedbackCommentForm } from "@/components/shared/MessageFeedback";
 import { ChatInput } from "@/components/shared/ChatInput";
 import { SourcePanel } from "./SourcePanel";
 import { KBMentionPicker, type KBTarget, type KBMentionPickerHandle } from "./KBMentionPicker";
+import { GroupChatSetupDialog } from "@/components/groupChat/GroupChatSetupDialog";
 import type { KnowledgeBase } from "@edgebric/types";
 
 interface Message {
@@ -46,11 +45,11 @@ interface ModelsResponse {
 
 const THINKING_WORDS = [
   "Thinking",
-  "Searching sources",
+  "Searching data sources",
   "Reading documents",
   "Analyzing",
   "Composing answer",
-  "Reviewing sources",
+  "Reviewing data sources",
   "Cross-referencing",
   "Synthesizing",
 ];
@@ -73,13 +72,13 @@ function ThinkingIndicator() {
   return (
     <div className="flex items-center gap-2 py-1">
       <div className="flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
       </div>
       <span
         className={cn(
-          "text-xs text-slate-400 transition-opacity duration-200",
+          "text-xs text-slate-400 dark:text-gray-500 transition-opacity duration-200",
           fade ? "opacity-100" : "opacity-0",
         )}
       >
@@ -91,26 +90,15 @@ function ThinkingIndicator() {
 
 // ─── Bot Avatar ──────────────────────────────────────────────────────────────
 
-interface KBAvatar {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-}
-
 function BotAvatar({
-  citations,
   orgAvatarUrl,
-  avatarMode,
   privacyLevel,
   orgName,
 }: {
-  citations?: Citation[];
   orgAvatarUrl?: string;
-  avatarMode?: "org" | "kb";
   privacyLevel: "standard" | "private" | "vault";
   orgName?: string;
 }) {
-  // Privacy modes: show icon instead
   if (privacyLevel === "vault") {
     return (
       <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center flex-shrink-0">
@@ -120,96 +108,33 @@ function BotAvatar({
   }
   if (privacyLevel === "private") {
     return (
-      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
-        <EyeOff className="w-4 h-4 text-slate-400" />
+      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+        <EyeOff className="w-4 h-4 text-slate-400 dark:text-gray-500" />
       </div>
     );
   }
 
-  // KB-specific avatars mode
-  if (avatarMode === "kb" && citations && citations.length > 0) {
-    // Deduplicate KBs from citations
-    const kbMap = new Map<string, KBAvatar>();
-    for (const c of citations) {
-      if (c.knowledgeBaseId && !kbMap.has(c.knowledgeBaseId)) {
-        kbMap.set(c.knowledgeBaseId, {
-          id: c.knowledgeBaseId,
-          name: c.knowledgeBaseName ?? "Source",
-          avatarUrl: c.knowledgeBaseAvatarUrl,
-        });
-      }
-    }
-    const kbs = Array.from(kbMap.values());
-
-    if (kbs.length === 1) {
-      const kb = kbs[0]!;
-      return (
-        <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={kb.name}>
-          {kb.avatarUrl ? (
-            <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
-          ) : orgAvatarUrl ? (
-            <img src={orgAvatarUrl} alt={orgName ?? "Org"} className="w-full h-full object-cover" />
-          ) : (
-            <Building2 className="w-4 h-4 text-slate-400" />
-          )}
-        </div>
-      );
-    }
-
-    if (kbs.length >= 2) {
-      const showKbs = kbs.slice(0, 3);
-      const remaining = kbs.length - 3;
-      const tooltipText = kbs.map((kb) => kb.name).join(", ");
-
-      return (
-        <div className="relative w-8 h-8 flex-shrink-0" title={tooltipText}>
-          {showKbs.map((kb, idx) => {
-            const offset = idx * 5;
-            const zIndex = showKbs.length - idx;
-            return (
-              <div
-                key={kb.id}
-                className="absolute rounded-full bg-slate-100 border-2 border-white overflow-hidden"
-                style={{
-                  width: 22,
-                  height: 22,
-                  left: offset,
-                  top: idx % 2 === 0 ? 0 : 10,
-                  zIndex,
-                }}
-              >
-                {kb.avatarUrl ? (
-                  <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
-                ) : orgAvatarUrl ? (
-                  <img src={orgAvatarUrl} alt={orgName ?? "Org"} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="w-full h-full flex items-center justify-center text-[8px] font-semibold text-slate-400">
-                    {kb.name.slice(0, 1)}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-          {remaining > 0 && (
-            <div
-              className="absolute rounded-full bg-slate-200 border-2 border-white flex items-center justify-center"
-              style={{ width: 22, height: 22, left: showKbs.length * 5, top: 5, zIndex: 0 }}
-            >
-              <span className="text-[8px] font-bold text-slate-500">+{remaining}</span>
-            </div>
-          )}
-        </div>
-      );
-    }
-  }
-
-  // Default: org avatar
   return (
-    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
+    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden" title={orgName}>
       {orgAvatarUrl ? (
         <img src={orgAvatarUrl} alt={orgName ?? "Organization"} className="w-full h-full object-cover" />
       ) : (
-        <Building2 className="w-4 h-4 text-slate-400" />
+        <Building2 className="w-4 h-4 text-slate-400 dark:text-gray-500" />
+      )}
+    </div>
+  );
+}
+
+// ─── User Avatar ─────────────────────────────────────────────────────────────
+
+function UserAvatar({ picture, name, email }: { picture?: string; name?: string; email?: string }) {
+  const initial = (name ?? email ?? "?").charAt(0).toUpperCase();
+  return (
+    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 overflow-hidden" title={name ?? email}>
+      {picture ? (
+        <img src={picture} alt={name ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+      ) : (
+        <span className="text-xs font-semibold text-slate-500 dark:text-gray-400">{initial}</span>
       )}
     </div>
   );
@@ -260,8 +185,8 @@ export function ChatPanel() {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>(urlConvId);
   const [isLoading, setIsLoading] = useState(false);
-  const fb = useFeedback(conversationId);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [privacyPopoverOpen, setPrivacyPopoverOpen] = useState(false);
   const [exitDialogTarget, setExitDialogTarget] = useState<"standard" | "private" | "vault" | null>(null);
   const [activeSource, setActiveSource] = useState<{
@@ -291,9 +216,6 @@ export function ChatPanel() {
       prevUrlConvIdRef.current = urlConvId;
       setConversationId(urlConvId);
       setMessages([]);
-      setEscalatedIndices(new Set());
-      setEscalationPickerIndex(null);
-      fb.setFeedbackMap(() => new Map());
       setHydrated(false);
     }
   }, [urlConvId]);
@@ -425,21 +347,6 @@ export function ChatPanel() {
           ...(m.source && { source: m.source }),
         }));
         setMessages(loaded);
-
-        // Hydrate feedback state for assistant messages
-        const fbMap = new Map<string, "up" | "down">();
-        for (const m of data.messages) {
-          if (m.role === "assistant" && m.id && !cancelled) {
-            try {
-              const fbRes = await fetch(`/api/feedback/${m.id}`, { credentials: "same-origin" });
-              if (fbRes.ok) {
-                const fbData = (await fbRes.json()) as FeedbackCheck;
-                if (fbData.rated && fbData.rating) fbMap.set(m.id, fbData.rating);
-              }
-            } catch { /* non-critical */ }
-          }
-        }
-        if (!cancelled && fbMap.size > 0) fb.setFeedbackMap(() => fbMap);
 
         // Auto-dismiss notifications for this conversation
         if (!cancelled) {
@@ -926,10 +833,19 @@ export function ChatPanel() {
   })();
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       {/* Header bar */}
-      <div className="border-b border-slate-200 px-6 py-3 flex items-center">
-        <h1 className="text-sm font-semibold text-slate-900 truncate">{chatTitle}</h1>
+      <div className="border-b border-slate-200 dark:border-gray-800 px-6 py-3 flex items-center">
+        <h1 className="text-sm font-semibold text-slate-900 dark:text-gray-100 truncate flex-1">{chatTitle}</h1>
+        {!isPrivacyMode && conversationId && (
+          <button
+            onClick={() => setShowConvertDialog(true)}
+            className="ml-3 p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+            title="Invite people to this chat"
+          >
+            <UserPlus className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Message list */}
@@ -939,36 +855,36 @@ export function ChatPanel() {
             {privacyLevel === "vault" ? (
               <>
                 <ShieldCheck className="w-8 h-8 text-emerald-400 mb-3" />
-                <p className="text-slate-900 text-xl font-medium mb-2">Vault Mode</p>
-                <p className="text-slate-400 text-sm max-w-sm">
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Vault Mode</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                   Queries are processed entirely on your device. Nothing is sent to any server.
                 </p>
-                <p className="text-slate-300 text-xs max-w-sm mt-2">
+                <p className="text-slate-300 dark:text-gray-600 text-xs max-w-sm mt-2">
                   Encrypted on-device. Supports text-based PDFs and Word docs. Scanned PDFs are not supported locally.
                 </p>
               </>
             ) : privacyLevel === "private" ? (
               <>
-                <EyeOff className="w-8 h-8 text-slate-400 mb-3" />
-                <p className="text-slate-900 text-xl font-medium mb-2">Private Mode</p>
-                <p className="text-slate-400 text-sm max-w-sm">
+                <EyeOff className="w-8 h-8 text-slate-400 dark:text-gray-500 mb-3" />
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Private Mode</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                   Your identity is hidden from administrators and conversations are not saved.
                   Queries are still processed on the organization's servers.
                 </p>
               </>
             ) : systemReady ? (
               <>
-                <p className="text-slate-900 text-xl font-medium mb-2">Ask a question</p>
-                <p className="text-slate-400 text-sm max-w-sm">
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Ask a question</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                   Your questions are private. Only aggregate, anonymized topic trends are visible to administrators.
                 </p>
               </>
             ) : (
               <>
-                <p className="text-slate-900 text-xl font-medium mb-2">Library is empty</p>
-                <p className="text-slate-400 text-sm max-w-sm">
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">No sources yet</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                   {user?.isAdmin
-                    ? "Upload documents from the Library to get started."
+                    ? "Upload documents from Data Sources to get started."
                     : "No documents have been loaded yet. Check back soon."}
                 </p>
               </>
@@ -995,7 +911,7 @@ export function ChatPanel() {
           if (message.source === "system") {
             return (
               <div key={i} className="flex justify-center">
-                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-full px-4 py-2">
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-900 border border-slate-100 dark:border-gray-800 rounded-full px-4 py-2">
                   <CheckCircle className="w-3.5 h-3.5" />
                   {message.content}
                 </div>
@@ -1004,18 +920,21 @@ export function ChatPanel() {
           }
 
           return (
-            <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+            <div key={i} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
               {message.role === "user" ? (
-                <div className="bg-slate-900 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm">
-                  {message.content}
+                <div className="flex gap-3 items-end justify-end max-w-xl">
+                  <div className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4 py-3 text-sm">
+                    {message.content}
+                  </div>
+                  <div className="mb-1 flex-shrink-0">
+                    <UserAvatar picture={user?.picture} name={user?.name} email={user?.email} />
+                  </div>
                 </div>
               ) : (
                 <div className="flex gap-3 max-w-2xl w-full">
                   <div className="mt-1 flex-shrink-0">
                     <BotAvatar
-                      citations={message.citations}
                       orgAvatarUrl={user?.orgAvatarUrl}
-                      avatarMode={user?.avatarMode}
                       privacyLevel={privacyLevel}
                       orgName={user?.orgName}
                     />
@@ -1025,16 +944,16 @@ export function ChatPanel() {
                     <div className="text-xs font-medium text-blue-600 px-1">Admin Reply</div>
                   )}
                   <div className={cn(
-                    "rounded-2xl rounded-tl-sm px-5 py-4 text-sm text-slate-800 leading-relaxed",
+                    "rounded-2xl rounded-tl-sm px-5 py-4 text-sm text-slate-800 dark:text-gray-200 leading-relaxed",
                     message.source === "admin"
                       ? "bg-blue-50 border border-blue-200"
-                      : "bg-slate-50 border border-slate-200",
+                      : "bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800",
                   )}>
                     {message.isStreaming && !displayContent ? (
                       <ThinkingIndicator />
                     ) : (
                       <>
-                        <div className={cn(...PROSE_CLASSES)}>
+                        <div className={cn(...PROSE_CLASSES, "dark:prose-invert")}>
                           {newContent ? (
                             <>
                               <Markdown>{settledContent}</Markdown>
@@ -1047,7 +966,7 @@ export function ChatPanel() {
                           )}
                         </div>
                         {message.isStreaming && (
-                          <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 animate-pulse" />
+                          <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 dark:bg-gray-500 animate-pulse" />
                         )}
                       </>
                     )}
@@ -1066,7 +985,7 @@ export function ChatPanel() {
                             "inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",
                             privacyLevel === "vault"
                               ? "text-emerald-600 bg-emerald-50"
-                              : "text-slate-500 bg-slate-100",
+                              : "text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800",
                           )}>
                             {privacyLevel === "vault" ? (
                               <ShieldCheck className="w-3 h-3" />
@@ -1076,38 +995,12 @@ export function ChatPanel() {
                             {privacyLevel === "vault" ? "Vault — fully local" : "Private — not saved"}
                           </span>
                         ) : message.hasConfidentAnswer ? (
-                          <p className="text-xs text-amber-600">
+                          <p className="text-xs text-slate-400 dark:text-gray-500">
                             Verify all important answers with the appropriate human.
                           </p>
                         ) : null}
-
-                        {/* Feedback thumbs up/down — standard mode only */}
-                        {!isPrivacyMode && message.id && (
-                          <div className="flex items-center gap-0.5">
-                            <FeedbackButtons
-                              messageId={message.id}
-                              rating={fb.feedbackMap.get(message.id)}
-                              isPending={fb.feedbackPending === message.id}
-                              isCommentOpen={fb.feedbackCommentId === message.id}
-                              onThumbsUp={() => void fb.submitFeedback(message.id!, "up")}
-                              onThumbsDown={() => fb.toggleCommentInput(message.id!)}
-                            />
-                          </div>
-                        )}
                       </div>
                     </div>
-                  )}
-
-                  {/* Thumbs-down comment input — renders as separate row */}
-                  {!message.isStreaming && !isPrivacyMode && fb.feedbackCommentId === message.id && !fb.feedbackMap.has(message.id) && (
-                    <FeedbackCommentForm
-                      comment={fb.feedbackComment}
-                      isPending={fb.feedbackPending === message.id}
-                      onCommentChange={fb.setFeedbackComment}
-                      onSubmitWithComment={() => void fb.submitFeedback(message.id!, "down", fb.feedbackComment)}
-                      onSubmitWithoutComment={() => void fb.submitFeedback(message.id!, "down")}
-                      onCancel={() => fb.setFeedbackCommentId(null)}
-                    />
                   )}
                 </div>
                 </div>
@@ -1119,9 +1012,9 @@ export function ChatPanel() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-slate-200 px-6 py-4">
+      <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-4">
         {!systemReady ? (
-          <div className="text-center text-sm text-slate-400 py-1">
+          <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
             Chat unavailable — no documents loaded.
           </div>
         ) : (
@@ -1139,7 +1032,7 @@ export function ChatPanel() {
                       ? "text-emerald-600 hover:bg-emerald-50"
                       : privacyLevel === "private"
                         ? "text-amber-600 hover:bg-amber-50"
-                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                        : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                   )}
                 >
                   {privacyLevel === "vault" ? (
@@ -1154,18 +1047,18 @@ export function ChatPanel() {
                 </button>
 
                 {privacyPopoverOpen && (
-                  <div className="absolute left-0 bottom-full mb-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10">
+                  <div className="absolute left-0 bottom-full mb-1 w-56 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                     <button
                       onClick={() => handlePrivacySelect("standard")}
                       className={cn(
                         "w-full text-left px-3 py-2.5 text-xs transition-colors flex items-start gap-2.5",
-                        privacyLevel === "standard" ? "bg-slate-50" : "hover:bg-slate-50",
+                        privacyLevel === "standard" ? "bg-slate-50 dark:bg-gray-900" : "hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
-                      <Eye className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-slate-400" />
+                      <Eye className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-slate-400 dark:text-gray-500" />
                       <div>
-                        <span className={cn("block font-medium", privacyLevel === "standard" ? "text-slate-900" : "text-slate-700")}>Standard</span>
-                        <span className="block text-[11px] text-slate-400 mt-0.5">Conversations saved normally</span>
+                        <span className={cn("block font-medium", privacyLevel === "standard" ? "text-slate-900 dark:text-gray-100" : "text-slate-700 dark:text-gray-300")}>Standard</span>
+                        <span className="block text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">Conversations saved normally</span>
                       </div>
                     </button>
                     {privateModeAvailable && (
@@ -1173,13 +1066,13 @@ export function ChatPanel() {
                         onClick={() => handlePrivacySelect("private")}
                         className={cn(
                           "w-full text-left px-3 py-2.5 text-xs transition-colors flex items-start gap-2.5",
-                          privacyLevel === "private" ? "bg-amber-50/50" : "hover:bg-slate-50",
+                          privacyLevel === "private" ? "bg-amber-50/50" : "hover:bg-slate-50 dark:hover:bg-gray-900",
                         )}
                       >
                         <EyeOff className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-amber-500" />
                         <div>
-                          <span className={cn("block font-medium", privacyLevel === "private" ? "text-amber-700" : "text-slate-700")}>Private</span>
-                          <span className="block text-[11px] text-slate-400 mt-0.5">Messages never saved to server</span>
+                          <span className={cn("block font-medium", privacyLevel === "private" ? "text-amber-700" : "text-slate-700 dark:text-gray-300")}>Private</span>
+                          <span className="block text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">Messages never saved to server</span>
                         </div>
                       </button>
                     )}
@@ -1188,13 +1081,13 @@ export function ChatPanel() {
                         onClick={() => handlePrivacySelect("vault")}
                         className={cn(
                           "w-full text-left px-3 py-2.5 text-xs transition-colors flex items-start gap-2.5",
-                          privacyLevel === "vault" ? "bg-emerald-50/50" : "hover:bg-slate-50",
+                          privacyLevel === "vault" ? "bg-emerald-50/50" : "hover:bg-slate-50 dark:hover:bg-gray-900",
                         )}
                       >
                         <ShieldCheck className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-emerald-500" />
                         <div>
-                          <span className={cn("block font-medium", privacyLevel === "vault" ? "text-emerald-700" : "text-slate-700")}>Vault</span>
-                          <span className="block text-[11px] text-slate-400 mt-0.5">Encrypted, fully on-device</span>
+                          <span className={cn("block font-medium", privacyLevel === "vault" ? "text-emerald-700" : "text-slate-700 dark:text-gray-300")}>Vault</span>
+                          <span className="block text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">Encrypted, fully on-device</span>
                         </div>
                       </button>
                     )}
@@ -1210,7 +1103,7 @@ export function ChatPanel() {
                     "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
                     targetKBs.length > 0
                       ? "text-blue-600 hover:bg-blue-50"
-                      : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                      : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                   )}
                 >
                   <Database className="w-3.5 h-3.5" />
@@ -1219,7 +1112,7 @@ export function ChatPanel() {
                 </button>
 
                 {kbSelectorOpen && (
-                  <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+                  <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
                     {/* Default: All KBs */}
                     <button
                       onMouseDown={(e) => {
@@ -1229,18 +1122,18 @@ export function ChatPanel() {
                       }}
                       className={cn(
                         "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                        targetKBs.length === 0 ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                        targetKBs.length === 0 ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
-                      <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                       <span className="truncate">All sources</span>
                       {targetKBs.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                     </button>
 
                     {/* Individual KBs */}
                     {(availableKBs ?? []).filter((kb) => kb.status === "active").length > 0 && (
-                      <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider border-t border-slate-100 mt-1">
-                        Sources
+                      <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider border-t border-slate-100 dark:border-gray-800 mt-1">
+                        Data Sources
                       </div>
                     )}
                     {(availableKBs ?? [])
@@ -1261,10 +1154,10 @@ export function ChatPanel() {
                             }}
                             className={cn(
                               "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                              isSelected ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                              isSelected ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                             )}
                           >
-                            <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                             <span className="truncate">{kb.name}</span>
                             {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                           </button>
@@ -1281,7 +1174,7 @@ export function ChatPanel() {
                   <button
                     onClick={() => setModelPickerOpen((o) => !o)}
                     disabled={switchModelMutation.isPending}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50"
+                    className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-900"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
                     {adminLabel(activeModel)}
@@ -1289,7 +1182,7 @@ export function ChatPanel() {
                   </button>
 
                   {modelPickerOpen && (
-                    <div className="absolute right-0 bottom-full mb-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-10">
+                    <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                       {readyModels.map((m) => (
                         <button
                           key={m.id}
@@ -1298,13 +1191,13 @@ export function ChatPanel() {
                           className={cn(
                             "w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2",
                             m.id === activeModel
-                              ? "text-slate-900 font-medium bg-slate-50"
-                              : "text-slate-600 hover:bg-slate-50",
+                              ? "text-slate-900 dark:text-gray-100 font-medium bg-slate-50 dark:bg-gray-900"
+                              : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                           )}
                         >
-                          <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200")} />
+                          <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
                           {adminLabel(m.id)}
-                          {m.id === activeModel && <span className="ml-auto text-slate-400">active</span>}
+                          {m.id === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
                         </button>
                       ))}
                     </div>
@@ -1320,13 +1213,13 @@ export function ChatPanel() {
                   {targetKBs.map((kb) => (
                     <span
                       key={kb.id}
-                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700"
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:text-gray-300"
                     >
                       @{kb.name}
                       <button
                         type="button"
                         onClick={() => setTargetKBs((prev) => prev.filter((t) => t.id !== kb.id))}
-                        className="text-slate-400 hover:text-slate-600"
+                        className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1382,6 +1275,15 @@ export function ChatPanel() {
             applyPrivacyLevel(target);
           }}
           onClose={() => setExitDialogTarget(null)}
+        />
+      )}
+
+      {/* Convert to group chat dialog */}
+      {showConvertDialog && conversationId && (
+        <GroupChatSetupDialog
+          convertFromConversationId={conversationId}
+          defaultName={chatTitle}
+          onClose={() => setShowConvertDialog(false)}
         />
       )}
     </div>

@@ -105,27 +105,29 @@ export function SourcePanel({
       <div
         ref={panelRef}
         className={cn(
-          "fixed top-0 right-0 z-50 h-full w-[560px] max-w-[90vw]",
-          "bg-white border-l border-slate-200 shadow-xl",
+          "fixed top-0 right-0 z-50 h-full w-[min(900px,98vw)]",
+          "bg-white dark:bg-gray-950 border-l border-slate-200 dark:border-gray-800 shadow-xl",
           "flex flex-col",
           "animate-slide-in-right",
         )}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-            <FileText className="w-4 h-4 text-slate-500" />
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100 dark:border-gray-800 flex-shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-4 h-4 text-slate-500 dark:text-gray-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold text-slate-900 truncate">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100 truncate">
               {documentName}
             </h2>
             {sectionPath.length > 0 && (
-              <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-0.5">
+              <div className="flex items-center gap-0.5 mt-1 flex-wrap">
                 {sectionPath.map((part, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    {i > 0 && <ChevronRight className="w-2.5 h-2.5" />}
-                    <span>{part}</span>
+                  <span key={i} className="flex items-center gap-0.5">
+                    {i > 0 && <ChevronRight className="w-3 h-3 text-slate-300 dark:text-gray-600 flex-shrink-0" />}
+                    <span className="text-[11px] text-slate-500 dark:text-gray-400 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded px-1.5 py-0.5 truncate max-w-[200px]">
+                      {part}
+                    </span>
                   </span>
                 ))}
               </div>
@@ -136,7 +138,7 @@ export function SourcePanel({
               href={`/api/documents/${documentId}/file`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+              className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
               title="View original file"
             >
               <ExternalLink className="w-4 h-4" />
@@ -144,7 +146,7 @@ export function SourcePanel({
           )}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -154,7 +156,7 @@ export function SourcePanel({
         <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-slate-200 dark:border-gray-700 border-t-slate-600 dark:border-t-gray-400 rounded-full animate-spin" />
             </div>
           )}
 
@@ -163,7 +165,7 @@ export function SourcePanel({
           )}
 
           {!loading && !error && sections.length === 0 && (
-            <div className="text-sm text-slate-400 py-8 text-center">
+            <div className="text-sm text-slate-400 dark:text-gray-500 py-8 text-center">
               No content available for this document.
             </div>
           )}
@@ -183,17 +185,17 @@ export function SourcePanel({
                   >
                     {section.heading && (
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-slate-700">
+                        <span className="text-xs font-medium text-slate-700 dark:text-gray-300">
                           {section.heading}
                         </span>
                         {section.pageNumber > 0 && (
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-400 dark:text-gray-500">
                             p. {section.pageNumber}
                           </span>
                         )}
                       </div>
                     )}
-                    <div className={cn("text-xs text-slate-600 leading-relaxed", ...PROSE_CLASSES, "prose-p:my-1.5 prose-p:text-xs")}>
+                    <div className={cn("text-xs text-slate-600 dark:text-gray-400 leading-relaxed", ...PROSE_CLASSES, "dark:prose-invert", "prose-p:my-1.5 prose-p:text-xs")}>
                       <Markdown>{section.content}</Markdown>
                     </div>
                   </div>

@@ -87,7 +87,7 @@ export function AvatarUpload({
       <div className="relative inline-block group">
         <div
           className={cn(
-            "rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200",
+            "rounded-full overflow-hidden bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-gray-700",
             editable && "cursor-pointer",
           )}
           style={{ width: size, height: size }}
@@ -101,7 +101,7 @@ export function AvatarUpload({
             />
           ) : (
             <span
-              className="text-slate-400 font-semibold select-none"
+              className="text-slate-400 dark:text-gray-500 font-semibold select-none"
               style={{ fontSize: size * 0.35 }}
             >
               {fallbackText.slice(0, 2).toUpperCase()}
@@ -127,10 +127,10 @@ export function AvatarUpload({
         {editable && displayUrl && onRemove && !uploading && (
           <button
             onClick={(e) => { e.stopPropagation(); void handleRemove(); }}
-            className="absolute -top-1 -right-1 w-5 h-5 bg-white border border-slate-200 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:border-red-200"
+            className="absolute -top-1 -right-1 w-5 h-5 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 dark:hover:bg-red-950 hover:border-red-200 dark:hover:border-red-800"
             title="Remove avatar"
           >
-            <X className="w-3 h-3 text-slate-400 hover:text-red-500" />
+            <X className="w-3 h-3 text-slate-400 dark:text-gray-500 hover:text-red-500" />
           </button>
         )}
 
@@ -154,7 +154,7 @@ export function AvatarUpload({
 
       {/* Hint */}
       {editable && !error && !displayUrl && (
-        <p className="text-[10px] text-slate-400 text-center">Max {maxSizeMB}MB</p>
+        <p className="text-[10px] text-slate-400 dark:text-gray-500 text-center">Max {maxSizeMB}MB</p>
       )}
     </div>
   );
@@ -175,7 +175,7 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "rounded-full overflow-hidden bg-slate-100 flex items-center justify-center flex-shrink-0 border border-slate-200",
+        "rounded-full overflow-hidden bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-gray-700",
         className,
       )}
       style={{ width: size, height: size }}

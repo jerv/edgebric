@@ -56,11 +56,11 @@ type SortDir = "asc" | "desc";
 
 function StatusBadge({ status }: { status: Document["status"] }) {
   const config: Record<string, { bg: string; dot: string; label: string }> = {
-    ready: { bg: "bg-green-50 text-green-700", dot: "bg-green-500", label: "Ready" },
-    processing: { bg: "bg-amber-50 text-amber-700", dot: "bg-amber-500 animate-pulse", label: "Processing" },
-    failed: { bg: "bg-red-50 text-red-700", dot: "bg-red-500", label: "Failed" },
-    pii_review: { bg: "bg-orange-50 text-orange-700", dot: "bg-orange-500", label: "Needs Review" },
-    rejected: { bg: "bg-red-50 text-red-600", dot: "bg-red-400", label: "Rejected" },
+    ready: { bg: "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400", dot: "bg-green-500", label: "Ready" },
+    processing: { bg: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400", dot: "bg-amber-500 animate-pulse", label: "Processing" },
+    failed: { bg: "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-400", dot: "bg-red-500", label: "Failed" },
+    pii_review: { bg: "bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-400", dot: "bg-orange-500", label: "Needs Review" },
+    rejected: { bg: "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400", dot: "bg-red-400", label: "Rejected" },
   };
   const c = config[status] ?? config.failed!;
   return (
@@ -89,21 +89,21 @@ function SecurityToggle({ label, description, checked, onChange, disabled }: {
         onClick={() => onChange(!checked)}
         disabled={disabled}
         className={cn(
-          "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-1 mt-0.5",
-          checked ? "bg-slate-900" : "bg-slate-200",
+          "relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 focus:ring-offset-1 mt-0.5",
+          checked ? "bg-slate-900 dark:bg-gray-100" : "bg-slate-200 dark:bg-gray-700",
           disabled && "opacity-50 cursor-not-allowed",
         )}
       >
         <span
           className={cn(
-            "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition duration-200 ease-in-out",
+            "pointer-events-none inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-950 shadow transform transition duration-200 ease-in-out",
             checked ? "translate-x-4" : "translate-x-0",
           )}
         />
       </button>
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{label}</span>
-        <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+        <span className="text-sm font-medium text-slate-700 dark:text-gray-300 group-hover:text-slate-900 dark:group-hover:text-gray-100">{label}</span>
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{description}</p>
       </div>
     </label>
   );
@@ -149,15 +149,15 @@ function PIIReasonTooltip({ warnings }: { warnings: PIIWarning[] }) {
       </span>
       {show && (
         <div
-          className="fixed w-60 bg-white border border-slate-200 rounded-lg shadow-lg p-2.5 z-50 space-y-1"
+          className="fixed w-60 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg shadow-lg p-2.5 z-50 space-y-1"
           style={{ left: pos.x, top: pos.y }}
         >
           {[...reasonCounts.entries()].map(([reason, count]) => (
-            <p key={reason} className="text-[11px] text-slate-600 leading-tight">
+            <p key={reason} className="text-[11px] text-slate-600 dark:text-gray-400 leading-tight">
               {reason}{count > 1 ? ` (${count} sections)` : ""}
             </p>
           ))}
-          <p className="text-[11px] text-slate-400 leading-tight pt-0.5">
+          <p className="text-[11px] text-slate-400 dark:text-gray-500 leading-tight pt-0.5">
             Use the actions on the right to approve or reject.
           </p>
         </div>
@@ -328,15 +328,15 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Data Sources</h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Data Sources</h1>
+            <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
               {kbs.length} data source{kbs.length !== 1 ? "s" : ""} in your organization
             </p>
           </div>
           {canCreate && (
             <button
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-xl hover:bg-slate-800 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors"
             >
               <Plus className="w-4 h-4" /> New Data Source
             </button>
@@ -345,7 +345,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
 
         {/* Create KB form */}
         {showCreate && (
-          <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50">
+          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4 bg-slate-50 dark:bg-gray-900">
             <div className="flex items-center gap-3">
               <AvatarUpload
                 avatarUrl={avatarPreview}
@@ -364,13 +364,13 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 size={48}
                 fallbackText={name || "S"}
               />
-              <h2 className="text-sm font-semibold text-slate-900">Create Data Source</h2>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Create Data Source</h2>
             </div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Name (e.g., HR Policies, Engineering Docs)"
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"
+              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
               autoFocus
             />
             <textarea
@@ -378,29 +378,29 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none"
+              className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 resize-none bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
             />
 
             {/* Access */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center gap-3">
-                <label className="text-xs font-medium text-slate-500">Access</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Access</label>
                 <div className="relative inline-block">
                   <select
                     value={createAccessMode}
                     onChange={(e) => setCreateAccessMode(e.target.value as "all" | "restricted")}
-                    className="appearance-none bg-white border border-slate-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    className="appearance-none bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-1.5 pr-8 text-sm text-slate-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600"
                   >
                     <option value="all">Whole organization</option>
                     <option value="restricted">Restricted by user</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
                 </div>
               </div>
 
               {createAccessMode === "restricted" && (
                 <div className="space-y-2">
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
                     Only these users can search this source. Admins always have access.
                   </p>
                   <div className="relative">
@@ -413,26 +413,26 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                         onBlur={() => setTimeout(() => setCreateShowSuggestions(false), 200)}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCreateAccessEmail(); } }}
                         placeholder="user@example.com"
-                        className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                        className="flex-1 px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
                       />
                       <button
                         onClick={() => addCreateAccessEmail()}
                         disabled={!createAccessEmail.trim()}
-                        className="px-3 py-1.5 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Add
                       </button>
                     </div>
                     {createShowSuggestions && createEmailSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-12 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                      <div className="absolute top-full left-0 right-12 mt-1 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg shadow-lg z-10 overflow-hidden">
                         {createEmailSuggestions.map((m) => (
                           <button
                             key={m.email}
                             onMouseDown={(e) => { e.preventDefault(); addCreateAccessEmail(m.email); }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-gray-900 flex items-center gap-2"
                           >
-                            <span className="text-slate-800">{m.email}</span>
-                            {m.name && <span className="text-xs text-slate-400">{m.name}</span>}
+                            <span className="text-slate-800 dark:text-gray-200">{m.email}</span>
+                            {m.name && <span className="text-xs text-slate-400 dark:text-gray-500">{m.name}</span>}
                           </button>
                         ))}
                       </div>
@@ -443,12 +443,12 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       {createAccessList.map((email) => (
                         <span
                           key={email}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs text-slate-700"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-md text-xs text-slate-700 dark:text-gray-300"
                         >
                           {email}
                           <button
                             onClick={() => setCreateAccessList((prev) => prev.filter((e) => e !== email))}
-                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            className="text-slate-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -457,7 +457,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     </div>
                   )}
                   {createAccessList.length === 0 && (
-                    <p className="text-xs text-slate-400">No users added yet. Only admins can access this data source.</p>
+                    <p className="text-xs text-slate-400 dark:text-gray-500">No users added yet. Only admins can access this data source.</p>
                   )}
                 </div>
               )}
@@ -466,7 +466,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={resetCreateForm}
-                className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800"
+                className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
               >
                 Cancel
               </button>
@@ -478,13 +478,13 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   ...(createAccessMode === "restricted" && createAccessList.length > 0 && { accessList: createAccessList }),
                 })}
                 disabled={!name.trim() || createMutation.isPending}
-                className="px-4 py-1.5 text-sm bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createMutation.isPending ? "Creating..." : "Create"}
               </button>
             </div>
             {createMutation.isError && (
-              <p className="text-xs text-red-600">You do not have permission to create sources. Ask an admin to grant access.</p>
+              <p className="text-xs text-red-600 dark:text-red-400">You do not have permission to create sources. Ask an admin to grant access.</p>
             )}
           </div>
         )}
@@ -494,17 +494,17 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           <div className="flex items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-gray-500" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search data sources..."
-                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
               />
               {search && (
                 <button
                   onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -512,14 +512,14 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
             </div>
 
             {/* Filter tabs */}
-            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+            <div className="flex items-center bg-slate-100 dark:bg-gray-800 rounded-lg p-0.5">
               <button
                 onClick={() => setFilter("all")}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                   filter === "all"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
+                    ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
               >
                 All ({kbs.length})
@@ -529,8 +529,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                   filter === "mine"
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
+                    ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
               >
                 Created by me ({myKBCount})
@@ -541,27 +541,27 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
 
         {/* KB grid */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="flex items-center justify-center py-16 text-slate-400 dark:text-gray-500">
             <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
           </div>
         ) : kbs.length === 0 ? (
           <div className="text-center py-16">
-            <Database className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No data sources yet.</p>
-            <p className="text-xs text-slate-400 mt-1">Create one to start uploading files.</p>
+            <Database className="w-10 h-10 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 dark:text-gray-400">No data sources yet.</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Create one to start uploading files.</p>
           </div>
         ) : filteredKBs.length === 0 ? (
           <div className="text-center py-12">
-            <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No matching data sources.</p>
+            <Search className="w-8 h-8 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 dark:text-gray-400">No matching data sources.</p>
             <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
               Clear filters
             </button>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">
             {/* Table header — clickable columns for sorting */}
-            <div className="grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-[11px] font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
               {([
                 ["name", "Name"],
                 ["files", "Files"],
@@ -571,7 +571,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 <button
                   key={col}
                   onClick={() => toggleSort(col)}
-                  className="flex items-center gap-1 hover:text-slate-700 transition-colors text-left"
+                  className="flex items-center gap-1 hover:text-slate-700 dark:hover:text-gray-300 transition-colors text-left"
                 >
                   {label}
                   {sortBy === col && (
@@ -589,8 +589,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   key={kb.id}
                   onClick={() => onSelect(kb)}
                   className={cn(
-                    "w-full grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 transition-colors items-center",
-                    i < filteredKBs.length - 1 && "border-b border-slate-100",
+                    "w-full grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors items-center",
+                    i < filteredKBs.length - 1 && "border-b border-slate-100 dark:border-gray-800",
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -601,27 +601,27 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     ) : (
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                        isMine ? "bg-blue-50" : "bg-slate-100",
+                        isMine ? "bg-blue-50 dark:bg-blue-950" : "bg-slate-100 dark:bg-gray-800",
                       )}>
-                        <Database className={cn("w-3.5 h-3.5", isMine ? "text-blue-500" : "text-slate-500")} />
+                        <Database className={cn("w-3.5 h-3.5", isMine ? "text-blue-500 dark:text-blue-400" : "text-slate-500 dark:text-gray-400")} />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{kb.name}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
                       {kb.description && (
-                        <p className="text-xs text-slate-400 truncate">{kb.description}</p>
+                        <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{kb.description}</p>
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 dark:text-gray-400">
                     {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
                   </span>
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
                       kb.accessMode === "restricted"
-                        ? "bg-green-50 text-green-600"
-                        : "bg-amber-50 text-amber-600",
+                        ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
+                        : "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400",
                     )}
                   >
                     {kb.accessMode === "restricted" ? (
@@ -630,7 +630,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       <><Globe className="w-3 h-3" /> Whole org</>
                     )}
                   </span>
-                  <span className="text-xs text-slate-500 truncate">
+                  <span className="text-xs text-slate-500 dark:text-gray-400 truncate">
                     {isMine ? "You" : ownerDisplayName(kb)}
                   </span>
                 </button>
@@ -833,19 +833,19 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
         <div>
           <button
             onClick={onBack}
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-3"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 mb-3"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Data Sources
           </button>
 
           {editing ? (
-            <div className="border border-slate-200 rounded-2xl p-5 space-y-4 bg-slate-50">
-              <h2 className="text-sm font-semibold text-slate-900">Edit Data Source</h2>
+            <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4 bg-slate-50 dark:bg-gray-900">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Edit Data Source</h2>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Name (e.g., HR Policies, Engineering Docs)"
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"
+                className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
                 autoFocus
               />
               <textarea
@@ -853,31 +853,31 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 onChange={(e) => setEditDesc(e.target.value)}
                 placeholder="Description (optional)"
                 rows={2}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none"
+                className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 resize-none bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
               />
 
               {/* Access */}
               <div className="space-y-3 pt-1">
                 <div className="flex items-center gap-3">
-                  <label className="text-xs font-medium text-slate-500">Access</label>
+                  <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Access</label>
                   <div className="relative inline-block">
                     <select
                       value={currentAccessMode}
                       onChange={(e) => changeAccessMode(e.target.value)}
                       disabled={updateMutation.isPending}
-                      className="appearance-none bg-white border border-slate-200 rounded-lg px-3 py-1.5 pr-8 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      className="appearance-none bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-1.5 pr-8 text-sm text-slate-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600"
                     >
                       <option value="all">Whole organization</option>
                       <option value="restricted">Restricted by user</option>
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
                   </div>
-                  {updateMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />}
+                  {updateMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 dark:text-gray-500" />}
                 </div>
 
                 {currentAccessMode === "restricted" && (
                   <div className="space-y-2">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-gray-400">
                       Only these users can search this source. Admins always have access.
                     </p>
                     <div className="relative">
@@ -890,26 +890,26 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addAccessEmail(); } }}
                           placeholder="user@example.com"
-                          className="flex-1 px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white"
+                          className="flex-1 px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
                         />
                         <button
                           onClick={() => addAccessEmail()}
                           disabled={!accessEmail.trim() || updateMutation.isPending}
-                          className="px-3 py-1.5 text-sm bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Add
                         </button>
                       </div>
                       {showSuggestions && emailSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-12 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                        <div className="absolute top-full left-0 right-12 mt-1 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg shadow-lg z-10 overflow-hidden">
                           {emailSuggestions.map((m) => (
                             <button
                               key={m.email}
                               onMouseDown={(e) => { e.preventDefault(); addAccessEmail(m.email); }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-gray-900 flex items-center gap-2"
                             >
-                              <span className="text-slate-800">{m.email}</span>
-                              {m.name && <span className="text-xs text-slate-400">{m.name}</span>}
+                              <span className="text-slate-800 dark:text-gray-200">{m.email}</span>
+                              {m.name && <span className="text-xs text-slate-400 dark:text-gray-500">{m.name}</span>}
                             </button>
                           ))}
                         </div>
@@ -920,12 +920,12 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                         {currentAccessList.map((email) => (
                           <span
                             key={email}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-200 rounded-md text-xs text-slate-700"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-md text-xs text-slate-700 dark:text-gray-300"
                           >
                             {email}
                             <button
                               onClick={() => removeAccessEmail(email)}
-                              className="text-slate-400 hover:text-red-500 transition-colors"
+                              className="text-slate-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -934,7 +934,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       </div>
                     )}
                     {currentAccessList.length === 0 && (
-                      <p className="text-xs text-slate-400">No users added yet. Only admins can access this data source.</p>
+                      <p className="text-xs text-slate-400 dark:text-gray-500">No users added yet. Only admins can access this data source.</p>
                     )}
                   </div>
                 )}
@@ -942,8 +942,8 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
               {/* Security toggles */}
               {user?.isAdmin && (
-                <div className="space-y-3 pt-1 border-t border-slate-200">
-                  <label className="text-xs font-medium text-slate-500 pt-3 block">Security</label>
+                <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-gray-800">
+                  <label className="text-xs font-medium text-slate-500 dark:text-gray-400 pt-3 block">Security</label>
                   <SecurityToggle
                     label="Allow source document viewing"
                     description="Members can view raw document text via the source viewer. Turn off for sensitive procedural docs."
@@ -971,14 +971,14 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               <div className="flex gap-2 justify-end">
                 <button
                   onClick={() => { setEditing(false); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); }}
-                  className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800"
+                  className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => updateMutation.mutateAsync({ name: editName, description: editDesc }).then(() => setEditing(false))}
                   disabled={!editName.trim() || updateMutation.isPending}
-                  className="px-4 py-1.5 text-sm bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateMutation.isPending ? "Saving..." : "Save"}
                 </button>
@@ -1013,13 +1013,13 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 />
               )}
               <div className="flex-1">
-                <h1 className="text-xl font-semibold text-slate-900">{data?.name ?? kb.name}</h1>
+                <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? kb.name}</h1>
                 {(data?.description ?? kb.description) && (
-                  <p className="text-sm text-slate-500 mt-1">{data?.description ?? kb.description}</p>
+                  <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">{data?.description ?? kb.description}</p>
                 )}
                 {/* Read-only access indicator for non-editors */}
                 {!canEdit && (
-                  <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-400">
+                  <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-400 dark:text-gray-500">
                     {currentAccessMode === "all" ? (
                       <><Globe className="w-3.5 h-3.5" /> Shared with whole organization</>
                     ) : (
@@ -1032,7 +1032,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => { setEditing(true); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); }}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 rounded-lg px-3 py-1.5 transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 border border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-600 rounded-lg px-3 py-1.5 transition-colors"
                     title="Edit"
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -1040,7 +1040,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   </button>
                   <button
                     onClick={() => setDeleteKBConfirm(true)}
-                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-2 text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors"
                     title="Delete data source"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1052,23 +1052,23 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
           {/* Delete KB confirmation */}
           {canEdit && deleteKBConfirm && (
-            <div className="border border-red-200 bg-red-50 rounded-xl p-4 flex items-center gap-3 mt-4">
-              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 rounded-xl p-4 flex items-center gap-3 mt-4">
+              <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">Delete "{data?.name ?? kb.name}"?</p>
-                <p className="text-xs text-red-600 mt-0.5">This will permanently delete this source and all its files.</p>
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">Delete "{data?.name ?? kb.name}"?</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">This will permanently delete this source and all its files.</p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setDeleteKBConfirm(false)}
-                  className="px-3 py-1.5 text-sm text-slate-600 hover:text-slate-800"
+                  className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => deleteKBMutation.mutate()}
                   disabled={deleteKBMutation.isPending}
-                  className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
                 >
                   {deleteKBMutation.isPending ? "Deleting..." : "Delete"}
                 </button>
@@ -1081,18 +1081,18 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
         {canEdit && <div
           className={cn(
             "border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer",
-            dragging ? "border-slate-400 bg-slate-50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
+            dragging ? "border-slate-400 dark:border-gray-500 bg-slate-50 dark:bg-gray-900" : "border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-600 hover:bg-slate-50 dark:hover:bg-gray-900",
           )}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-medium text-slate-600">
-            Drop files here or <span className="text-slate-900 underline">browse</span>
+          <Upload className="w-8 h-8 text-slate-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-600 dark:text-gray-400">
+            Drop files here or <span className="text-slate-900 dark:text-gray-100 underline">browse</span>
           </p>
-          <p className="text-xs text-slate-400 mt-1">PDF, DOCX, TXT, MD -- max 50MB</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">PDF, DOCX, TXT, MD -- max 50MB</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -1107,18 +1107,18 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
         {uploading.length > 0 && (
           <div className="space-y-2">
             {uploading.map((u, i) => (
-              <div key={i} className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span className="text-sm text-slate-700 flex-1 truncate">{u.name}</span>
-                {u.status === "uploading" && <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />}
+              <div key={i} className="flex items-center gap-3 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl px-4 py-3">
+                <FileText className="w-4 h-4 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+                <span className="text-sm text-slate-700 dark:text-gray-300 flex-1 truncate">{u.name}</span>
+                {u.status === "uploading" && <Loader2 className="w-4 h-4 text-slate-400 dark:text-gray-500 animate-spin" />}
                 {u.status === "processing" && (
-                  <span className="text-xs text-amber-600 flex items-center gap-1">
+                  <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                     <Loader2 className="w-3 h-3 animate-spin" /> Extracting
                   </span>
                 )}
                 {u.status === "ready" && <CheckCircle className="w-4 h-4 text-green-500" />}
                 {u.status === "failed" && (
-                  <span className="text-xs text-red-600 flex items-center gap-1">
+                  <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                     <XCircle className="w-3 h-3" /> {u.error ?? "Failed"}
                   </span>
                 )}
@@ -1129,29 +1129,29 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
         {/* File list */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-slate-400">
+          <div className="flex items-center justify-center py-16 text-slate-400 dark:text-gray-500">
             <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading files...
           </div>
         ) : docs.length === 0 && uploading.length === 0 ? (
           <div className="text-center py-16">
-            <FileText className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-sm text-slate-500">No files in this source.</p>
-            <p className="text-xs text-slate-400 mt-1">Drop files above to get started.</p>
+            <FileText className="w-10 h-10 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 dark:text-gray-400">No files in this source.</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Drop files above to get started.</p>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide hidden sm:table-cell">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Status</th>
+                <tr className="bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Name</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">Type</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                 {docs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
@@ -1163,7 +1163,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                               window.open(`/api/documents/${doc.id}/file`, "_blank");
                             }
                           }}
-                          className="font-medium truncate block max-w-xs text-left text-slate-800 hover:text-slate-900 hover:underline cursor-pointer"
+                          className="font-medium truncate block max-w-xs text-left text-slate-800 dark:text-gray-200 hover:text-slate-900 dark:hover:text-gray-100 hover:underline cursor-pointer"
                           title={doc.status === "ready" ? "View file content" : "Download original file"}
                         >
                           {doc.name}
@@ -1176,7 +1176,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="uppercase text-xs font-medium text-slate-500">{doc.type}</span>
+                      <span className="uppercase text-xs font-medium text-slate-500 dark:text-gray-400">{doc.type}</span>
                     </td>
                     <td className="px-4 py-3">
                       {doc.status === "pii_review" && doc.piiWarnings && doc.piiWarnings.length > 0 ? (
@@ -1193,7 +1193,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                               await fetch(`/api/documents/${doc.id}/approve-pii`, { method: "POST", credentials: "same-origin" });
                               void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
                             }}
-                            className="text-slate-300 hover:text-green-600 transition-colors p-1"
+                            className="text-slate-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1"
                             title="Approve file"
                           >
                             <CheckCircle className="w-4 h-4" />
@@ -1203,7 +1203,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                               await fetch(`/api/documents/${doc.id}/reject-pii`, { method: "POST", credentials: "same-origin" });
                               void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
                             }}
-                            className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                            className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
                             title="Reject file"
                           >
                             <XCircle className="w-4 h-4" />
@@ -1211,17 +1211,17 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                         </div>
                       ) : canEdit && (deleteConfirm === doc.id ? (
                         <div className="flex items-center gap-2 justify-end">
-                          <span className="text-xs text-slate-500">Delete?</span>
+                          <span className="text-xs text-slate-500 dark:text-gray-400">Delete?</span>
                           <button
                             onClick={() => deleteMutation.mutate(doc.id)}
                             disabled={deleteMutation.isPending}
-                            className="text-xs text-red-600 hover:text-red-800 font-medium"
+                            className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
                           >
                             Yes
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(null)}
-                            className="text-xs text-slate-500 hover:text-slate-700"
+                            className="text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300"
                           >
                             No
                           </button>
@@ -1229,7 +1229,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       ) : (
                         <button
                           onClick={() => setDeleteConfirm(doc.id)}
-                          className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                          className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
                           title="Delete file"
                         >
                           <Trash2 className="w-4 h-4" />

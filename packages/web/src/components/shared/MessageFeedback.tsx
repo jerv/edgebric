@@ -37,7 +37,7 @@ export function FeedbackButtons({
       <button
         onClick={onThumbsUp}
         disabled={isPending}
-        className="text-slate-300 hover:text-green-500 transition-colors p-1 disabled:opacity-40"
+        className="text-slate-300 dark:text-gray-600 hover:text-green-500 transition-colors p-1 disabled:opacity-40"
         title="Helpful"
       >
         <ThumbsUp className="w-3.5 h-3.5" />
@@ -47,7 +47,7 @@ export function FeedbackButtons({
         disabled={isPending}
         className={cn(
           "transition-colors p-1 disabled:opacity-40",
-          isCommentOpen ? "text-red-400" : "text-slate-300 hover:text-red-400",
+          isCommentOpen ? "text-red-400" : "text-slate-300 dark:text-gray-600 hover:text-red-400",
         )}
         title="Not helpful"
       >
@@ -88,19 +88,19 @@ export function FeedbackCommentForm({
         }}
         placeholder="What went wrong? (optional)"
         autoFocus
-        className="flex-1 min-w-0 text-xs border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
+        className="flex-1 min-w-0 text-xs border border-slate-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-slate-700 dark:text-gray-300 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-900"
       />
       <button
         onClick={onSubmitWithComment}
         disabled={isPending}
-        className="text-xs font-medium text-white bg-slate-900 rounded-lg px-3 py-1.5 hover:bg-slate-700 transition-colors disabled:opacity-40 flex-shrink-0"
+        className="text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors disabled:opacity-40 flex-shrink-0"
       >
         Submit
       </button>
       <button
         onClick={onSubmitWithoutComment}
         disabled={isPending}
-        className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+        className="text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
       >
         Skip
       </button>

@@ -7,7 +7,7 @@ import { AvatarUpload } from "@/components/shared/AvatarUpload";
 
 const STEPS = [
   { label: "Organization" },
-  { label: "Source" },
+  { label: "Data Source" },
   { label: "Upload Document" },
 ] as const;
 
@@ -79,7 +79,7 @@ export function OnboardingWizard() {
         });
         if (!res.ok) {
           const err = await res.json() as { error?: string };
-          throw new Error(err.error ?? "Failed to update source");
+          throw new Error(err.error ?? "Failed to update data source");
         }
         return { id: existingKB.id };
       }
@@ -92,7 +92,7 @@ export function OnboardingWizard() {
       });
       if (!res.ok) {
         const err = await res.json() as { error?: string };
-        throw new Error(err.error ?? "Failed to create source");
+        throw new Error(err.error ?? "Failed to create data source");
       }
       return res.json() as Promise<{ id: string }>;
     },
@@ -143,11 +143,11 @@ export function OnboardingWizard() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 w-full max-w-lg p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 w-full max-w-lg p-8">
         <div className="text-center mb-8">
-          <h1 className="text-xl font-semibold text-slate-900">Welcome to Edgebric</h1>
-          <p className="text-sm text-slate-500 mt-1">Let's set up your knowledge assistant</p>
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Let's set up your knowledge assistant</p>
         </div>
 
         {/* Step indicator */}
@@ -157,15 +157,15 @@ export function OnboardingWizard() {
               <div
                 className={cn(
                   "w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium",
-                  i < step && "bg-green-100 text-green-700",
-                  i === step && "bg-slate-900 text-white",
-                  i > step && "bg-slate-100 text-slate-400",
+                  i < step && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+                  i === step && "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900",
+                  i > step && "bg-slate-100 dark:bg-gray-800 text-slate-400 dark:text-gray-500",
                 )}
               >
                 {i < step ? <CheckCircle className="w-4 h-4" /> : i + 1}
               </div>
               {i < STEPS.length - 1 && (
-                <div className={cn("w-8 h-px", i < step ? "bg-green-300" : "bg-slate-200")} />
+                <div className={cn("w-8 h-px", i < step ? "bg-green-300 dark:bg-green-700" : "bg-slate-200 dark:bg-gray-700")} />
               )}
             </div>
           ))}
@@ -197,22 +197,22 @@ export function OnboardingWizard() {
                 size={80}
                 fallbackText={orgName.slice(0, 2) || "CO"}
               />
-              <p className="text-xs text-slate-400">Organization logo (optional)</p>
+              <p className="text-xs text-slate-400 dark:text-gray-500">Organization logo (optional)</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Organization Name</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Organization Name</label>
               <input
                 type="text"
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="Your company name"
               />
             </div>
             <button
               onClick={() => saveOrgMutation.mutate()}
               disabled={!orgName.trim() || saveOrgMutation.isPending}
-              className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
               {saveOrgMutation.isPending ? "Saving..." : "Continue"}
             </button>
@@ -223,34 +223,34 @@ export function OnboardingWizard() {
         {step === 1 && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Source Name</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Data Source Name</label>
               <input
                 type="text"
                 value={kbName}
                 onChange={(e) => setKbName(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="e.g., Policy Documents"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Description (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Description (optional)</label>
               <input
                 type="text"
                 value={kbDescription}
                 onChange={(e) => setKbDescription(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="What documents will this contain?"
               />
             </div>
             {createKBMutation.error && (
-              <p className="text-sm text-red-600">{createKBMutation.error.message}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{createKBMutation.error.message}</p>
             )}
             <button
               onClick={() => createKBMutation.mutate()}
               disabled={!kbName.trim() || createKBMutation.isPending}
-              className="w-full bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
-              {createKBMutation.isPending ? "Creating..." : "Create Source"}
+              {createKBMutation.isPending ? "Creating..." : "Create Data Source"}
             </button>
           </div>
         )}
@@ -258,8 +258,8 @@ export function OnboardingWizard() {
         {/* Step 3: Upload */}
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Upload your first document to start building your source. Supported formats: PDF, DOCX, TXT, MD.
+            <p className="text-sm text-slate-600 dark:text-gray-400">
+              Upload your first document to start building your data source. Supported formats: PDF, DOCX, TXT, MD.
             </p>
 
             <input
@@ -276,22 +276,22 @@ export function OnboardingWizard() {
             {uploadStatus === "idle" && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-slate-300 rounded-lg py-8 flex flex-col items-center gap-2 hover:border-slate-400 transition-colors"
+                className="w-full border-2 border-dashed border-slate-300 dark:border-gray-600 rounded-lg py-8 flex flex-col items-center gap-2 hover:border-slate-400 dark:hover:border-gray-500 transition-colors"
               >
-                <Upload className="w-6 h-6 text-slate-400" />
-                <span className="text-sm text-slate-500">Click to select a file</span>
+                <Upload className="w-6 h-6 text-slate-400 dark:text-gray-500" />
+                <span className="text-sm text-slate-500 dark:text-gray-400">Click to select a file</span>
               </button>
             )}
 
             {uploadStatus === "uploading" && (
-              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500">
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-slate-500 dark:text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Uploading...
               </div>
             )}
 
             {uploadStatus === "done" && (
-              <div className="flex items-center justify-center gap-2 py-4 text-sm text-green-600">
+              <div className="flex items-center justify-center gap-2 py-4 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle className="w-4 h-4" />
                 Document uploaded successfully! It will be processed in the background.
               </div>
@@ -299,10 +299,10 @@ export function OnboardingWizard() {
 
             {uploadStatus === "error" && (
               <div className="space-y-2">
-                <p className="text-sm text-red-600">{uploadError}</p>
+                <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
                 <button
                   onClick={() => { setUploadStatus("idle"); fileInputRef.current?.click(); }}
-                  className="text-sm text-slate-600 underline"
+                  className="text-sm text-slate-600 dark:text-gray-400 underline"
                 >
                   Try again
                 </button>
@@ -313,7 +313,7 @@ export function OnboardingWizard() {
               {uploadStatus !== "done" && (
                 <button
                   onClick={() => completeOnboarding.mutate()}
-                  className="flex-1 border border-slate-300 text-slate-600 rounded-lg py-2 text-sm font-medium hover:bg-slate-50 transition-colors"
+                  className="flex-1 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-400 rounded-lg py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
                 >
                   Skip for now
                 </button>
@@ -322,7 +322,7 @@ export function OnboardingWizard() {
                 <button
                   onClick={() => completeOnboarding.mutate()}
                   disabled={completeOnboarding.isPending}
-                  className="flex-1 bg-slate-900 text-white rounded-lg py-2 text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
                 >
                   {completeOnboarding.isPending ? "Finishing..." : "Get Started"}
                 </button>

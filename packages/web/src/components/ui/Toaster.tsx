@@ -13,8 +13,8 @@ export function Toaster() {
           className={`
             animate-slide-in-right rounded-lg border px-4 py-3 shadow-lg
             ${toast.variant === "destructive"
-              ? "border-red-200 bg-red-50 text-red-900"
-              : "border-slate-200 bg-white text-slate-900"
+              ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-300"
+              : "border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
             }
           `}
           role="alert"
@@ -23,12 +23,12 @@ export function Toaster() {
             <div className="min-w-0">
               <p className="text-sm font-medium">{toast.title}</p>
               {toast.description && (
-                <p className="mt-1 text-xs text-slate-500">{toast.description}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">{toast.description}</p>
               )}
             </div>
             <button
               onClick={() => dismiss(toast.id)}
-              className="shrink-0 text-slate-400 hover:text-slate-600"
+              className="shrink-0 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
               aria-label="Dismiss"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

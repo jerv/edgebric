@@ -2,25 +2,25 @@ import { useEffect, useRef, useCallback } from "react";
 
 export function LoginPage() {
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-white">
+    <div className="h-screen w-screen relative overflow-hidden bg-white dark:bg-gray-950">
       <DotGrid />
       <div className="relative z-10 h-full flex items-center justify-center">
-        <div className="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-2xl shadow-lg px-10 py-12 text-center space-y-8">
+        <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border border-slate-200 dark:border-gray-800 rounded-2xl shadow-lg px-10 py-12 text-center space-y-8">
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Edgebric</h1>
-            <p className="text-sm text-slate-400 mt-2">Private knowledge. Quick access.</p>
+            <h1 className="text-3xl font-semibold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
+            <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">Private knowledge. Quick access.</p>
           </div>
           <a
             href="/api/auth/login"
-            className="inline-flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+            className="inline-flex items-center gap-3 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-3 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-300 dark:hover:border-gray-600 transition-all shadow-sm"
           >
             <GoogleIcon />
             Sign in with Google
           </a>
-          <div className="flex items-center justify-center gap-3 text-xs text-slate-400">
-            <a href="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</a>
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-gray-500">
+            <a href="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</a>
             <span>·</span>
-            <a href="/terms" className="hover:text-slate-600 transition-colors">Terms of Service</a>
+            <a href="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</a>
           </div>
         </div>
       </div>
@@ -129,6 +129,8 @@ function DotGrid() {
       ctx!.clearRect(0, 0, w, h);
       const { x: mx, y: my } = mouseRef.current;
       const dots = dotsRef.current;
+      const isDark = document.documentElement.classList.contains("dark");
+      const dotColor = isDark ? "200, 200, 210" : "15, 23, 42";
 
       for (const dot of dots) {
         // Mouse repulsion — push dots away from cursor
@@ -176,7 +178,7 @@ function DotGrid() {
 
         ctx!.beginPath();
         ctx!.arc(dot.x, dot.y, dot.radius, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(15, 23, 42, ${alpha})`;
+        ctx!.fillStyle = `rgba(${dotColor}, ${alpha})`;
         ctx!.fill();
       }
 
@@ -194,7 +196,7 @@ function DotGrid() {
             ctx!.beginPath();
             ctx!.moveTo(a.x, a.y);
             ctx!.lineTo(b.x, b.y);
-            ctx!.strokeStyle = `rgba(15, 23, 42, ${lineAlpha})`;
+            ctx!.strokeStyle = `rgba(${dotColor}, ${lineAlpha})`;
             ctx!.lineWidth = 0.5;
             ctx!.stroke();
           }

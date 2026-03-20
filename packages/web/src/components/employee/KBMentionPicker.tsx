@@ -19,7 +19,7 @@ export interface KBMentionPickerHandle {
 /** Built-in shortcuts that appear at the top of the picker. */
 const SHORTCUTS: KBTarget[] = [
   { id: "__org__", name: "Organization", datasetName: "", type: "shortcut" },
-  { id: "__all__", name: "All sources", datasetName: "", type: "shortcut" },
+  { id: "__all__", name: "All data sources", datasetName: "", type: "shortcut" },
 ];
 
 interface KBMentionPickerProps {
@@ -100,8 +100,8 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
 
     if (allItems.length === 0) {
       return (
-        <div className="absolute left-0 bottom-full mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-lg py-3 px-3 z-20">
-          <p className="text-xs text-slate-400">No matching sources</p>
+        <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-3 px-3 z-20">
+          <p className="text-xs text-slate-400 dark:text-gray-500">No matching data sources</p>
         </div>
       );
     }
@@ -109,10 +109,10 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
     const shortcutCount = filteredShortcuts.length;
 
     return (
-      <div className="absolute left-0 bottom-full mb-1 w-72 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+      <div className="absolute left-0 bottom-full mb-1 w-72 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
         <div ref={listRef}>
           {shortcutCount > 0 && (
-            <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
+            <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider">
               Quick filters
             </div>
           )}
@@ -126,17 +126,17 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
               onMouseEnter={() => setActiveIndex(i)}
               className={cn(
                 "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                activeIndex === i ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
               )}
             >
-              <Globe className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              <Globe className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
               <span className="truncate">@{item.name}</span>
             </button>
           ))}
 
           {filteredKBs.length > 0 && (
-            <div className={cn("px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 uppercase tracking-wider", shortcutCount > 0 && "border-t border-slate-100 mt-1")}>
-              Sources
+            <div className={cn("px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider", shortcutCount > 0 && "border-t border-slate-100 dark:border-gray-800 mt-1")}>
+              Data Sources
             </div>
           )}
           {filteredKBs.map((item, rawIndex) => {
@@ -151,12 +151,12 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
                 onMouseEnter={() => setActiveIndex(i)}
                 className={cn(
                   "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                  activeIndex === i ? "bg-slate-50 text-slate-900" : "text-slate-600 hover:bg-slate-50",
+                  activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                 )}
               >
-                <Database className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                 <span className="truncate">@{item.name}</span>
-                <span className="ml-auto text-[10px] text-slate-300">{item.type === "personal" ? "Personal" : "Org"}</span>
+                <span className="ml-auto text-[10px] text-slate-300 dark:text-gray-600">{item.type === "personal" ? "Personal" : "Org"}</span>
               </button>
             );
           })}

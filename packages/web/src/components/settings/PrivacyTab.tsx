@@ -43,10 +43,10 @@ function AdminToggles() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
           Privacy Features
         </h3>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
           Enable privacy modes for members in your organization.
         </p>
       </div>
@@ -71,14 +71,14 @@ function AdminToggles() {
       </div>
 
       {config?.vaultModeEnabled && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
-          <p className="text-xs text-amber-800 leading-relaxed">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-4 py-3 space-y-2">
+          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
             Vault Mode syncs company document chunks to member devices for
             local processing. This is the same content members can already
             query via the web app. Enabling this means accepting that company
             data will be cached locally.
           </p>
-          <p className="text-xs text-amber-700 leading-relaxed">
+          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
             <span className="font-medium">Limitations:</span> Vault Mode
             processes documents on-device, which supports text-based PDFs and
             Word documents. Scanned or image-only PDFs cannot be processed
@@ -107,21 +107,21 @@ function ToggleCard({
   onToggle: (enabled: boolean) => void;
 }) {
   return (
-    <div className="border border-slate-200 rounded-xl p-4 flex items-start justify-between gap-4">
+    <div className="border border-slate-200 dark:border-gray-800 rounded-xl p-4 flex items-start justify-between gap-4">
       <div className="flex items-start gap-3">
         <div
           className={cn(
             "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
             enabled
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-400",
+              ? "bg-slate-900 text-white dark:bg-gray-100 dark:text-gray-900"
+              : "bg-slate-100 text-slate-400 dark:bg-gray-800 dark:text-gray-500",
           )}
         >
           {icon}
         </div>
         <div>
-          <p className="text-sm font-medium text-slate-900">{title}</p>
-          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+          <p className="text-sm font-medium text-slate-900 dark:text-gray-100">{title}</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5 leading-relaxed">
             {description}
           </p>
         </div>
@@ -132,7 +132,7 @@ function ToggleCard({
         disabled={saving}
         className={cn(
           "relative w-10 h-6 rounded-full flex-shrink-0 transition-colors cursor-pointer",
-          "data-[state=checked]:bg-slate-900 data-[state=unchecked]:bg-slate-200",
+          "data-[state=checked]:bg-slate-900 data-[state=unchecked]:bg-slate-200 dark:data-[state=checked]:bg-gray-100 dark:data-[state=unchecked]:bg-gray-700",
           saving && "opacity-50 cursor-not-allowed",
         )}
       >
@@ -363,15 +363,15 @@ function VaultSetupWizard() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
           Vault Mode Setup
         </h3>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
           Run queries entirely on your device. Nothing is sent to any server.
         </p>
       </div>
 
-      <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100">
+      <div className="border border-slate-200 dark:border-gray-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-gray-800">
         {/* Step 1: Install Ollama */}
         <StepRow
           number={1}
@@ -385,18 +385,18 @@ function VaultSetupWizard() {
             </p>
           ) : (
             <div className="space-y-2.5">
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
                 Ollama runs AI models locally on your Mac. Install it once — it
                 runs automatically in the background.
               </p>
               <div className="flex items-center gap-2">
                 <CopyCommand command="brew install ollama" />
-                <span className="text-xs text-slate-300">or</span>
+                <span className="text-xs text-slate-300 dark:text-gray-600">or</span>
                 <a
                   href="https://ollama.com/download"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1 underline"
+                  className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 flex items-center gap-1 underline"
                 >
                   Download <ExternalLink className="w-3 h-3" />
                 </a>
@@ -404,7 +404,7 @@ function VaultSetupWizard() {
               <button
                 onClick={() => void checkOllama()}
                 disabled={ollamaStatus === "checking"}
-                className="flex items-center gap-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg px-3 py-1.5 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 {ollamaStatus === "checking" && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -429,18 +429,18 @@ function VaultSetupWizard() {
           complete={modelsStatus === "ready"}
         >
           {modelsStatus === "ready" ? (
-            <p className="text-xs text-slate-500">
-              <span className="text-emerald-600 font-medium">{selectedChatModel}</span>
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">{selectedChatModel}</span>
               {" + "}
-              <span className="text-emerald-600 font-medium">nomic-embed-text</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">nomic-embed-text</span>
             </p>
           ) : (
             <div className="space-y-2.5">
               {/* Embedding model */}
               <div className="flex items-center justify-between">
-                <div className="text-xs text-slate-700">
+                <div className="text-xs text-slate-700 dark:text-gray-300">
                   <span className="font-medium">nomic-embed-text</span>
-                  <span className="text-slate-400 ml-1">~274 MB, search</span>
+                  <span className="text-slate-400 dark:text-gray-500 ml-1">~274 MB, search</span>
                 </div>
                 {hasEmbeddingModel ? (
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
@@ -459,14 +459,14 @@ function VaultSetupWizard() {
                       className={cn(
                         "flex items-center justify-between w-full rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
                         selectedChatModel === m.name
-                          ? "bg-slate-100 font-medium text-slate-900"
-                          : "text-slate-600 hover:bg-slate-50",
+                          ? "bg-slate-100 dark:bg-gray-800 font-medium text-slate-900 dark:text-gray-100"
+                          : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
                       <span>
                         {m.name}
                         {m.size != null && (
-                          <span className="text-slate-400 ml-1">{formatSize(m.size)}</span>
+                          <span className="text-slate-400 dark:text-gray-500 ml-1">{formatSize(m.size)}</span>
                         )}
                       </span>
                       {selectedChatModel === m.name && (
@@ -476,7 +476,7 @@ function VaultSetupWizard() {
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 dark:text-gray-400">
                   No chat models found.{" "}
                   <CopyCommand command="ollama pull llama3.2:3b" />
                 </div>
@@ -485,7 +485,7 @@ function VaultSetupWizard() {
               <button
                 onClick={() => void checkModels()}
                 disabled={modelsStatus === "checking" || ollamaStatus !== "connected"}
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 disabled:opacity-50 transition-colors"
               >
                 {modelsStatus === "checking" ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -513,7 +513,7 @@ function VaultSetupWizard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => void startSync()}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700 transition-colors"
+                  className="flex items-center gap-1 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" /> Re-sync
                 </button>
@@ -526,18 +526,18 @@ function VaultSetupWizard() {
               </div>
             </div>
           ) : syncStatus === "syncing" || syncStatus === "embedding" ? (
-            <div className="flex items-center gap-2 text-xs text-slate-600">
+            <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> {syncProgress}
             </div>
           ) : (
             <div className="space-y-2.5">
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
                 Download and index company documents locally for search.
               </p>
               <button
                 onClick={() => void startSync()}
                 disabled={modelsStatus !== "ready"}
-                className="flex items-center gap-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg px-3 py-1.5 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 Sync Data
               </button>
@@ -552,7 +552,7 @@ function VaultSetupWizard() {
 
         {/* Step 4: Ready */}
         <StepRow number={4} title="Ready" active={step === 4} complete={step === 4}>
-          <p className={cn("text-xs", step === 4 ? "text-emerald-600" : "text-slate-400")}>
+          <p className={cn("text-xs", step === 4 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-gray-500")}>
             {step === 4
               ? "Vault Mode is ready. Use the privacy selector in the sidebar."
               : "Complete the steps above."}
@@ -587,13 +587,13 @@ function StepRow({
             complete
               ? "bg-emerald-500 text-white"
               : active
-                ? "bg-slate-900 text-white"
-                : "bg-slate-200 text-slate-500",
+                ? "bg-slate-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                : "bg-slate-200 text-slate-500 dark:bg-gray-700 dark:text-gray-400",
           )}
         >
           {complete ? <CheckCircle className="w-3 h-3" /> : number}
         </span>
-        <h4 className="text-xs font-medium text-slate-900">{title}</h4>
+        <h4 className="text-xs font-medium text-slate-900 dark:text-gray-100">{title}</h4>
       </div>
       <div className="pl-7">{children}</div>
     </div>
@@ -612,13 +612,13 @@ function CopyCommand({ command }: { command: string }) {
   return (
     <button
       onClick={copy}
-      className="inline-flex items-center gap-1.5 font-mono text-xs bg-slate-100 text-slate-700 rounded-lg px-2.5 py-1.5 hover:bg-slate-200 transition-colors"
+      className="inline-flex items-center gap-1.5 font-mono text-xs bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors"
     >
       <code>{command}</code>
       {copied ? (
         <CheckCircle className="w-3 h-3 text-emerald-500" />
       ) : (
-        <Copy className="w-3 h-3 text-slate-400" />
+        <Copy className="w-3 h-3 text-slate-400 dark:text-gray-500" />
       )}
     </button>
   );
@@ -638,7 +638,7 @@ export function PrivacyTab() {
       {user?.vaultModeEnabled && (
         <>
           {user?.isAdmin && (
-            <div className="border-t border-slate-200 pt-6" />
+            <div className="border-t border-slate-200 dark:border-gray-800 pt-6" />
           )}
           <VaultSetupWizard />
         </>
@@ -646,14 +646,14 @@ export function PrivacyTab() {
 
       {/* Status when no features enabled */}
       {!user?.isAdmin && !user?.privateModeEnabled && !user?.vaultModeEnabled && (
-        <div className="border border-slate-100 rounded-xl px-4 py-8 text-center">
-          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-            <ShieldCheck className="w-5 h-5 text-slate-400" />
+        <div className="border border-slate-100 dark:border-gray-800 rounded-xl px-4 py-8 text-center">
+          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-gray-800 flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-5 h-5 text-slate-400 dark:text-gray-500" />
           </div>
-          <p className="text-sm text-slate-500 mt-3">
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-3">
             No privacy features are enabled for your organization.
           </p>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">
             Contact your administrator to enable Private Mode or Vault Mode.
           </p>
         </div>
@@ -661,16 +661,16 @@ export function PrivacyTab() {
 
       {/* Employee info when only Private Mode enabled (no wizard needed) */}
       {!user?.isAdmin && user?.privateModeEnabled && !user?.vaultModeEnabled && (
-        <div className="border border-slate-200 rounded-xl p-4">
+        <div className="border border-slate-200 dark:border-gray-800 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 flex items-center justify-center flex-shrink-0">
               <EyeOff className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-900">
+              <p className="text-sm font-medium text-slate-900 dark:text-gray-100">
                 Private Mode Available
               </p>
-              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+              <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5 leading-relaxed">
                 Use the privacy selector in the sidebar to switch to Private
                 Mode. Your queries will be anonymous and nothing will be
                 logged.
