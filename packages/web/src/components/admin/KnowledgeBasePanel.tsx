@@ -19,6 +19,7 @@ import {
   Search,
   ArrowUp,
   ArrowDown,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -121,6 +122,7 @@ interface UploadingFile {
 interface KBDetailResponse extends KnowledgeBase {
   documents: (Document & { isStale?: boolean })[];
   accessList?: string[];
+  rebuilding?: boolean;
 }
 
 /** Tooltip that shows PII reasons on hover — uses fixed positioning to escape overflow containers. */
@@ -203,10 +205,11 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
     }
   }
 
-  const { data: kbs = [], isLoading } = useQuery<KnowledgeBase[]>({
+  const { data: kbs = [], isLoading } = useQuery<(KnowledgeBase & { rebuilding?: boolean })[]>({
     queryKey: ["knowledge-bases"],
     queryFn: () =>
-      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => r.json() as Promise<KnowledgeBase[]>),
+      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => r.json() as Promise<(KnowledgeBase & { rebuilding?: boolean })[]>),
+    refetchInterval: (query) => query.state.data?.some((kb) => kb.rebuilding) ? 3000 : false,
   });
 
   // Fetch org members for email autocomplete (only when create form is open)
@@ -613,8 +616,11 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-slate-500 dark:text-gray-400">
+                  <span className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
                     {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
+                    {kb.rebuilding && (
+                      <RefreshCw className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
+                    )}
                   </span>
                   <span
                     className={cn(
@@ -673,7 +679,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
       fetch(`/api/knowledge-bases/${kb.id}`, { credentials: "same-origin" }).then(
         (r) => r.json() as Promise<KBDetailResponse>,
       ),
-    refetchInterval: uploading.some((u) => u.status === "processing") ? 2000 : false,
+    refetchInterval: (query) => uploading.some((u) => u.status === "processing") || query.state.data?.rebuilding ? 2000 : false,
   });
 
   const docs = data?.documents ?? [];
@@ -1013,7 +1019,15 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 />
               )}
               <div className="flex-1">
-                <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? kb.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? kb.name}</h1>
+                  {data?.rebuilding && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Syncing
+                    </span>
+                  )}
+                </div>
                 {(data?.description ?? kb.description) && (
                   <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">{data?.description ?? kb.description}</p>
                 )}
@@ -1076,6 +1090,17 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
             </div>
           )}
         </div>
+
+        {/* Rebuild in progress banner */}
+        {data?.rebuilding && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900">
+            <RefreshCw className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Index syncing</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400">Search results may be temporarily incomplete while the index rebuilds.</p>
+            </div>
+          </div>
+        )}
 
         {/* Upload zone — editors only */}
         {canEdit && <div

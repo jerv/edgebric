@@ -22,6 +22,7 @@ import { getDocumentsByKB, setDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { clearChunksForDataset } from "../services/chunkRegistry.js";
+import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
 import { config, runtimeEdgeConfig } from "../config.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { createMKBClient } from "@edgebric/edge";
@@ -58,15 +59,20 @@ knowledgeBasesRouter.get("/", requireOrg, (req, res) => {
   const isAdmin = req.session.isAdmin ?? false;
   const kbs = listAccessibleKBs(email, isAdmin, req.session.orgId);
 
-  // Enrich with owner display names
+  // Enrich with owner display names + rebuild status
   const ownerCache = new Map<string, string>();
+  const rebuilds = getRebuildsInProgress();
   const enriched = kbs.map((kb) => {
     if (!ownerCache.has(kb.ownerId)) {
       const ownerUser = getUserByEmail(kb.ownerId);
       ownerCache.set(kb.ownerId, ownerUser?.name ?? "");
     }
     const ownerName = ownerCache.get(kb.ownerId);
-    return ownerName ? { ...kb, ownerName } : kb;
+    return {
+      ...kb,
+      ...(ownerName && { ownerName }),
+      rebuilding: rebuilds.has(kb.datasetName),
+    };
   });
 
   res.json(enriched);
@@ -138,7 +144,8 @@ knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
   const isAdmin = req.session.isAdmin ?? false;
   const accessList = isAdmin && kb.accessMode === "restricted" ? getKBAccessList(kb.id) : [];
 
-  res.json({ ...kb, documents: enrichedDocs, accessList });
+  const rebuilds = getRebuildsInProgress();
+  res.json({ ...kb, documents: enrichedDocs, accessList, rebuilding: rebuilds.has(kb.datasetName) });
 });
 
 // Everything below is admin-only

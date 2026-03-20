@@ -72,6 +72,9 @@ export interface KnowledgeBase {
   /** Can members access this KB from outside the local network? (default: true) */
   allowExternalAccess: boolean;
 
+  /** True when the underlying mKB dataset is being rebuilt (populated by API, not stored). */
+  rebuilding?: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }

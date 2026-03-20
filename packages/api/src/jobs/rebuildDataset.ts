@@ -14,6 +14,14 @@ const mkb = createMKBClient(runtimeEdgeConfig);
 const pendingRebuilds = new Map<string, ReturnType<typeof setTimeout>>();
 const activeRebuilds = new Set<string>();
 
+/** Returns all dataset names that are currently rebuilding or pending rebuild. */
+export function getRebuildsInProgress(): Set<string> {
+  const all = new Set<string>();
+  for (const name of pendingRebuilds.keys()) all.add(name);
+  for (const name of activeRebuilds) all.add(name);
+  return all;
+}
+
 /**
  * Schedule a dataset rebuild. Debounced by 2s per dataset so that rapid
  * successive document deletions are coalesced into a single rebuild.
