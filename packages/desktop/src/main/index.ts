@@ -24,8 +24,8 @@ function openSetupWizard() {
   }
 
   setupWindow = new BrowserWindow({
-    width: 640,
-    height: 520,
+    width: 680,
+    height: 640,
     resizable: false,
     title: "Edgebric Setup",
     titleBarStyle: "hiddenInset",

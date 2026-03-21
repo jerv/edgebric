@@ -137,9 +137,8 @@ export default function SetupWizard({ onComplete }: Props) {
   function handleProviderChange(providerId: string) {
     setAuthProvider(providerId);
     const provider = AUTH_PROVIDERS.find((p) => p.id === providerId);
-    if (provider && provider.issuerUrl) {
-      setOidcIssuer(provider.issuerUrl);
-    }
+    // Pre-fill issuer for known providers, clear it for "other"
+    setOidcIssuer(provider?.issuerUrl ?? "");
   }
 
   function canProceed(): boolean {
