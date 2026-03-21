@@ -1,0 +1,238 @@
+import { spawn, type ChildProcess } from "child_process";
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
+import { loadConfig, pidPath, logPath, envPath } from "./config.js";
+
+let serverProcess: ChildProcess | null = null;
+let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+
+export type ServerStatus = "stopped" | "starting" | "running" | "error";
+
+type StatusChangeCallback = (status: ServerStatus) => void;
+const listeners: StatusChangeCallback[] = [];
+let currentStatus: ServerStatus = "stopped";
+
+function setStatus(status: ServerStatus) {
+  currentStatus = status;
+  for (const cb of listeners) cb(status);
+}
+
+export function onStatusChange(cb: StatusChangeCallback) {
+  listeners.push(cb);
+  return () => {
+    const idx = listeners.indexOf(cb);
+    if (idx >= 0) listeners.splice(idx, 1);
+  };
+}
+
+export function getStatus(): ServerStatus {
+  return currentStatus;
+}
+
+export function getPort(): number {
+  return loadConfig()?.port ?? 3001;
+}
+
+/**
+ * Find the API server entry point.
+ * In development: packages/api/src/server.ts (run via tsx)
+ * In production: bundled server (TBD — pre-compiled JS)
+ */
+function findServerPath(): string | null {
+  const candidates = [
+    // Monorepo development — relative to desktop package
+    path.resolve(app.getAppPath(), "..", "api", "src", "server.ts"),
+    // Monorepo development — from project root
+    path.resolve(app.getAppPath(), "..", "..", "packages", "api", "src", "server.ts"),
+    // Packaged app — bundled server
+    path.resolve(process.resourcesPath ?? "", "server", "server.js"),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Check if a PID is still alive */
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Start the API server as a child process */
+export async function startServer(): Promise<void> {
+  const config = loadConfig();
+  if (!config) {
+    setStatus("error");
+    throw new Error("No configuration found. Run setup first.");
+  }
+
+  // Check if already running (via PID file from CLI or previous session)
+  const pidFile = pidPath(config.dataDir);
+  if (fs.existsSync(pidFile)) {
+    const existingPid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
+    if (!isNaN(existingPid) && isProcessRunning(existingPid)) {
+      // Adopt the existing process — don't spawn a new one
+      setStatus("starting");
+      startHealthCheck(config.port);
+      return;
+    }
+    // Stale PID file, clean up
+    try { fs.unlinkSync(pidFile); } catch { /* ignore */ }
+  }
+
+  const envFile = envPath(config.dataDir);
+  if (!fs.existsSync(envFile)) {
+    setStatus("error");
+    throw new Error("Environment file not found. Run setup first.");
+  }
+
+  const serverPath = findServerPath();
+  if (!serverPath) {
+    setStatus("error");
+    throw new Error("Could not find the Edgebric API server.");
+  }
+
+  setStatus("starting");
+
+  const logFile = logPath(config.dataDir);
+  const logFd = fs.openSync(logFile, "a");
+
+  // Determine how to run the server
+  const isTsFile = serverPath.endsWith(".ts");
+  const args = isTsFile
+    ? ["--import=tsx/esm", serverPath]
+    : [serverPath];
+
+  serverProcess = spawn("node", args, {
+    stdio: ["ignore", logFd, logFd],
+    env: { ...process.env, DOTENV_CONFIG_PATH: envFile },
+  });
+
+  fs.closeSync(logFd);
+
+  if (serverProcess.pid) {
+    fs.writeFileSync(pidFile, String(serverProcess.pid), "utf8");
+  }
+
+  serverProcess.on("exit", (code) => {
+    serverProcess = null;
+    stopHealthCheck();
+    // Clean up PID file
+    try { fs.unlinkSync(pidFile); } catch { /* ignore */ }
+    setStatus(code === 0 ? "stopped" : "error");
+  });
+
+  startHealthCheck(config.port);
+}
+
+/** Stop the API server */
+export async function stopServer(): Promise<void> {
+  stopHealthCheck();
+
+  const config = loadConfig();
+  const pidFile = config ? pidPath(config.dataDir) : null;
+
+  if (serverProcess) {
+    serverProcess.kill("SIGTERM");
+
+    // Wait for graceful shutdown (up to 10s)
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        if (serverProcess) {
+          serverProcess.kill("SIGKILL");
+        }
+        resolve();
+      }, 10_000);
+
+      serverProcess!.on("exit", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+
+    serverProcess = null;
+  } else if (pidFile && fs.existsSync(pidFile)) {
+    // Server was started by CLI or previous session — kill by PID
+    const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
+    if (!isNaN(pid) && isProcessRunning(pid)) {
+      process.kill(pid, "SIGTERM");
+
+      // Wait for exit
+      const start = Date.now();
+      while (Date.now() - start < 10_000) {
+        if (!isProcessRunning(pid)) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+    try { fs.unlinkSync(pidFile); } catch { /* ignore */ }
+  }
+
+  setStatus("stopped");
+}
+
+/** Restart the server */
+export async function restartServer(): Promise<void> {
+  await stopServer();
+  await startServer();
+}
+
+/** Poll the health endpoint to determine when server is ready */
+function startHealthCheck(port: number) {
+  stopHealthCheck();
+
+  healthCheckInterval = setInterval(async () => {
+    try {
+      const resp = await fetch(`http://localhost:${port}/api/health`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (resp.ok) {
+        setStatus("running");
+      }
+    } catch {
+      // Server not ready yet — keep status as "starting" or "error"
+      if (currentStatus === "running") {
+        setStatus("error");
+      }
+    }
+  }, 2000);
+}
+
+function stopHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
+  }
+}
+
+/** Read the last N lines of the log file */
+export function readLogs(lines = 100): string {
+  const config = loadConfig();
+  if (!config) return "No configuration found.";
+
+  const logFile = logPath(config.dataDir);
+  if (!fs.existsSync(logFile)) return "No log file found.";
+
+  const content = fs.readFileSync(logFile, "utf8");
+  const allLines = content.split("\n");
+  return allLines.slice(-lines).join("\n");
+}
+
+/** Clean up on app quit */
+export async function cleanup() {
+  stopHealthCheck();
+  if (serverProcess) {
+    serverProcess.kill("SIGTERM");
+    // Give it a moment to shut down
+    await new Promise((r) => setTimeout(r, 2000));
+    if (serverProcess) {
+      serverProcess.kill("SIGKILL");
+    }
+  }
+}

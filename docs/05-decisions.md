@@ -228,15 +228,25 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ---
 
-### PRICING-01 — Hardware vs. Cloud Cost Structure
+### PRICING-01 — Pricing & Distribution Model
 
-**Decision:** Lead with the hardware cost comparison in marketing.
+**Decision:** Self-service distribution, two purchase options, no free tier. See [11-pricing-distribution.md](11-pricing-distribution.md) for full details.
+
+**Summary:**
+- **30-day trial** — full product, no limits, no payment info required
+- **Perpetual license**: $499 one-time (free updates within major version, discount offered for major version upgrades — amount uncommitted)
+- **Subscription**: $49/mo (always latest, monthly only — costs more than license over 12 months)
+- No per-user pricing. Unlimited users on the node.
+- No sales team. No monthly subscription. No tiered pricing at launch.
+- Distribution via website + GUI installer (Electron). macOS only at launch.
+- Payments/licensing via LemonSqueezy or Paddle (handles keys, tax, delivery).
+
+**Hardware cost comparison (marketing angle):**
 
 | | Edgebric | Cloud HR AI (typical) |
 |---|---|---|
-| 100-person company | $599 one-time (Mac Mini M4) | $3,600-$20,400/year |
-| 200-person company | $599-$800 one-time | $7,200-$40,800/year |
-| Break-even | Month 1 | Never (recurring) |
+| 15-person company | $499 license + $499 Mac Mini = $998 total | $3,600-$9,000/year |
+| Break-even vs cloud | Month 1 | Never (recurring) |
 | Data custody | Customer owns hardware + data | Vendor holds data |
 | Ongoing costs | Electricity (~$10/year) | Subscription + overages |
 

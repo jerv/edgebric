@@ -1,0 +1,27 @@
+{
+  "name": "@edgebric/desktop",
+  "version": "0.5.0",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "unset ELECTRON_RUN_AS_NODE && electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "package": "electron-builder --mac",
+    "package:dmg": "electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "electron": "33.4.0",
+    "electron-builder": "^25.0.0",
+    "electron-vite": "^3.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}
