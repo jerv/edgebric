@@ -4,6 +4,58 @@ interface Props {
   onComplete: () => void;
 }
 
+interface AuthProvider {
+  id: string;
+  name: string;
+  issuerUrl: string;
+  instructions: string;
+  docsUrl: string;
+}
+
+const AUTH_PROVIDERS: AuthProvider[] = [
+  {
+    id: "google",
+    name: "Google Workspace",
+    issuerUrl: "https://accounts.google.com",
+    instructions:
+      "Go to console.cloud.google.com > APIs & Services > Credentials. Create an OAuth 2.0 Client ID and set the redirect URI.",
+    docsUrl: "https://console.cloud.google.com/apis/credentials",
+  },
+  // Future providers — uncomment when supported:
+  // {
+  //   id: "microsoft",
+  //   name: "Microsoft Entra ID",
+  //   issuerUrl: "https://login.microsoftonline.com/{tenant}/v2.0",
+  //   instructions:
+  //     "Go to Azure Portal > App registrations > New registration. Set redirect URI and copy Application (client) ID.",
+  //   docsUrl: "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps",
+  // },
+  // {
+  //   id: "okta",
+  //   name: "Okta",
+  //   issuerUrl: "https://{your-domain}.okta.com",
+  //   instructions:
+  //     "Go to Okta Admin > Applications > Create App Integration. Choose OIDC and Web Application.",
+  //   docsUrl: "https://developer.okta.com/docs/guides/implement-grant-type/authcode/main/",
+  // },
+  // {
+  //   id: "auth0",
+  //   name: "Auth0",
+  //   issuerUrl: "https://{your-domain}.auth0.com",
+  //   instructions:
+  //     "Go to Auth0 Dashboard > Applications > Create Application. Choose Regular Web Application.",
+  //   docsUrl: "https://auth0.com/docs/get-started/applications",
+  // },
+  {
+    id: "other",
+    name: "Other OIDC Provider",
+    issuerUrl: "",
+    instructions:
+      "Enter the issuer URL and OAuth credentials from your OIDC-compatible identity provider.",
+    docsUrl: "",
+  },
+];
+
 export default function SetupWizard({ onComplete }: Props) {
   const [step, setStep] = useState(1);
   const [error, setError] = useState("");
@@ -11,31 +63,44 @@ export default function SetupWizard({ onComplete }: Props) {
 
   // Form state
   const [dataDir, setDataDir] = useState("");
+  const [authProvider, setAuthProvider] = useState<string>("google");
   const [oidcIssuer, setOidcIssuer] = useState("https://accounts.google.com");
   const [oidcClientId, setOidcClientId] = useState("");
   const [oidcClientSecret, setOidcClientSecret] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
   const [port, setPort] = useState("3001");
 
-  const TOTAL_STEPS = 4;
+  const TOTAL_STEPS = 5;
 
   useEffect(() => {
     window.electronAPI.getDefaultDataDir().then(setDataDir);
   }, []);
+
+  const selectedProvider = AUTH_PROVIDERS.find((p) => p.id === authProvider)!;
+
+  function handleProviderChange(providerId: string) {
+    setAuthProvider(providerId);
+    const provider = AUTH_PROVIDERS.find((p) => p.id === providerId);
+    if (provider && provider.issuerUrl) {
+      setOidcIssuer(provider.issuerUrl);
+    }
+  }
 
   function canProceed(): boolean {
     switch (step) {
       case 1:
         return dataDir.trim().length > 0;
       case 2:
+        return authProvider.length > 0;
+      case 3:
         return (
           oidcIssuer.trim().length > 0 &&
           oidcClientId.trim().length > 0 &&
           oidcClientSecret.trim().length > 0
         );
-      case 3:
-        return adminEmails.trim().length > 0;
       case 4:
+        return adminEmails.trim().length > 0;
+      case 5:
         return parseInt(port, 10) > 0 && parseInt(port, 10) < 65536;
       default:
         return false;
@@ -112,21 +177,58 @@ export default function SetupWizard({ onComplete }: Props) {
 
         {step === 2 && (
           <>
-            <h2>Single Sign-On (OIDC)</h2>
+            <h2>Authentication Provider</h2>
             <p className="description">
-              Edgebric uses OIDC for authentication. You need credentials from your
-              identity provider (Google Workspace, Microsoft 365, Okta, etc.).
+              Choose the identity provider your organization uses for single sign-on.
             </p>
-            <div className="field">
-              <label htmlFor="oidcIssuer">Issuer URL</label>
-              <input
-                id="oidcIssuer"
-                type="text"
-                value={oidcIssuer}
-                onChange={(e) => setOidcIssuer(e.target.value)}
-                placeholder="https://accounts.google.com"
-              />
+            <div className="provider-list">
+              {AUTH_PROVIDERS.map((provider) => (
+                <label
+                  key={provider.id}
+                  className={`provider-option ${authProvider === provider.id ? "selected" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="authProvider"
+                    value={provider.id}
+                    checked={authProvider === provider.id}
+                    onChange={() => handleProviderChange(provider.id)}
+                  />
+                  <span className="provider-name">{provider.name}</span>
+                </label>
+              ))}
             </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <h2>{selectedProvider.name} Credentials</h2>
+            <p className="description">{selectedProvider.instructions}</p>
+            {selectedProvider.docsUrl && (
+              <p className="description">
+                <a
+                  href={selectedProvider.docsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="docs-link"
+                >
+                  Open {selectedProvider.name} console
+                </a>
+              </p>
+            )}
+            {authProvider === "other" && (
+              <div className="field">
+                <label htmlFor="oidcIssuer">Issuer URL</label>
+                <input
+                  id="oidcIssuer"
+                  type="text"
+                  value={oidcIssuer}
+                  onChange={(e) => setOidcIssuer(e.target.value)}
+                  placeholder="https://your-provider.com"
+                />
+              </div>
+            )}
             <div className="field">
               <label htmlFor="oidcClientId">Client ID</label>
               <input
@@ -144,14 +246,24 @@ export default function SetupWizard({ onComplete }: Props) {
                 value={oidcClientSecret}
                 onChange={(e) => setOidcClientSecret(e.target.value)}
               />
+            </div>
+            <div className="field">
+              <label>Redirect URI</label>
+              <input
+                type="text"
+                readOnly
+                value={`http://localhost:${port}/api/auth/callback`}
+                className="readonly"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
               <p className="hint">
-                For Google: console.cloud.google.com &gt; APIs &amp; Services &gt; Credentials
+                Copy this into your provider's redirect URI / callback URL field.
               </p>
             </div>
           </>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <>
             <h2>Admin Access</h2>
             <p className="description">
@@ -171,7 +283,7 @@ export default function SetupWizard({ onComplete }: Props) {
           </>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <>
             <h2>Server Port</h2>
             <p className="description">
