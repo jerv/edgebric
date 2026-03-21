@@ -1,8 +1,14 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, nativeImage } from "electron";
+import path from "path";
 import { createTray, destroyTray } from "./tray.js";
 import { startServer, cleanup, getStatus } from "./server.js";
 import { isFirstRun, loadConfig } from "./config.js";
 import { registerIpcHandlers } from "./ipc.js";
+
+function getAppIcon(): Electron.NativeImage {
+  const iconPath = path.join(__dirname, "..", "..", "resources", "icon.icns");
+  return nativeImage.createFromPath(iconPath);
+}
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -23,12 +29,20 @@ function openSetupWizard() {
     app.dock?.show();
   }
 
+  const appIcon = getAppIcon();
+
+  // Set Dock icon while setup is open
+  if (process.platform === "darwin" && !appIcon.isEmpty()) {
+    app.dock?.setIcon(appIcon);
+  }
+
   setupWindow = new BrowserWindow({
     width: 680,
-    height: 640,
+    height: 710,
     resizable: false,
     title: "Edgebric Setup",
     titleBarStyle: "hiddenInset",
+    icon: appIcon,
     webPreferences: {
       preload: `${__dirname}/../preload/index.js`,
       contextIsolation: true,

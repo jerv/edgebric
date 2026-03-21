@@ -11,6 +11,17 @@
     "package": "electron-builder --mac",
     "package:dmg": "electron-builder --mac dmg"
   },
+  "build": {
+    "appId": "com.edgebric.desktop",
+    "productName": "Edgebric",
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "extraResources": [
+      "resources/**"
+    ]
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",

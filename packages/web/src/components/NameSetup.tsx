@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logoSrc from "../assets/logo.png";
 
 interface NameSetupProps {
   onComplete: () => void;
@@ -42,7 +43,10 @@ export function NameSetup({ onComplete }: NameSetupProps) {
   return (
     <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950">
       <div className="w-full max-w-sm mx-auto px-6">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100 mb-1">Welcome to Edgebric</h1>
+        <div className="flex items-center gap-3 mb-1">
+          <img src={logoSrc} alt="" className="w-10 h-10 rounded-xl" />
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>
+        </div>
         <p className="text-sm text-slate-500 dark:text-gray-400 mb-6">What should we call you?</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

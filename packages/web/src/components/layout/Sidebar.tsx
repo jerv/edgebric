@@ -1,4 +1,5 @@
 import { useState } from "react";
+import logoSrc from "../../assets/logo.png";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -220,13 +221,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <Link
         to="/"
         onClick={onNavigate}
-        className="mb-1 overflow-hidden block px-4"
+        className="mb-3 overflow-hidden flex items-center gap-3 px-4"
       >
-        <span className="font-semibold text-slate-900 dark:text-gray-100 text-base">Edgebric</span>
+        <img src={logoSrc} alt="" className="w-9 h-9 rounded-lg flex-shrink-0" />
+        <div className="min-w-0">
+          <span className="font-semibold text-slate-900 dark:text-gray-100 text-base block">Edgebric</span>
+          {user?.orgName && (
+            <span className="text-[11px] text-slate-400 dark:text-gray-500 truncate block">{user.orgName}</span>
+          )}
+        </div>
       </Link>
-      {user?.orgName && (
-        <div className="px-4 mb-3 text-[11px] text-slate-400 dark:text-gray-500 truncate">{user.orgName}</div>
-      )}
 
       {/* New Chat button */}
       <div className="px-2 mb-1">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import logoSrc from "../assets/logo.png";
 
 interface Ripple {
   originX: number;
@@ -17,9 +18,12 @@ export function LoginPage() {
       <DotGrid />
       <div className="relative z-10 h-full flex items-center justify-center">
         <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border border-slate-200 dark:border-gray-800 rounded-2xl shadow-lg px-10 py-12 text-center space-y-8">
-          <div>
-            <h1 className="text-3xl font-semibold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
-            <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">Private knowledge. Quick access.</p>
+          <div className="flex flex-col items-center gap-3">
+            <img src={logoSrc} alt="Edgebric" className="w-16 h-16 rounded-2xl" />
+            <div>
+              <h1 className="text-3xl font-semibold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
+              <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">Private knowledge. Quick access.</p>
+            </div>
           </div>
           <a
             href="/api/auth/login"

@@ -20,28 +20,15 @@ const STATUS_LABELS: Record<ServerStatus, string> = {
   error: "Server Error",
 };
 
-const STATUS_ICONS: Record<ServerStatus, string> = {
-  stopped: "icon-stopped",
-  starting: "icon-starting",
-  running: "icon-running",
-  error: "icon-error",
-};
-
-function getTrayIcon(status: ServerStatus): Electron.NativeImage {
-  // Use template images for macOS menu bar (automatically adapts to dark/light)
-  // For now, use a simple 16x16 template icon
-  // TODO: Replace with actual icon assets
-  const iconName = STATUS_ICONS[status];
-  const iconPath = path.join(__dirname, "..", "..", "assets", `${iconName}.png`);
-
-  try {
-    const icon = nativeImage.createFromPath(iconPath);
+function getTrayIcon(_status: ServerStatus): Electron.NativeImage {
+  const iconPath = path.join(__dirname, "..", "..", "resources", "trayTemplate.png");
+  const icon = nativeImage.createFromPath(iconPath);
+  if (!icon.isEmpty()) {
     icon.setTemplateImage(true);
     return icon;
-  } catch {
-    // Fallback: create a simple colored icon programmatically
-    return createFallbackIcon(status);
   }
+  // Fallback if asset not found
+  return createFallbackIcon(_status);
 }
 
 function createFallbackIcon(status: ServerStatus): Electron.NativeImage {

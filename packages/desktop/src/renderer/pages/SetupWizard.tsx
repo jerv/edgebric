@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import logoSrc from "../assets/logo.png";
 
 interface Props {
   onComplete: () => void;
@@ -203,8 +204,11 @@ export default function SetupWizard({ onComplete }: Props) {
   return (
     <div className="wizard">
       <div className="wizard-header">
-        <h1>Edgebric Setup</h1>
-        <p>Configure Edgebric for first-time use.</p>
+        <img src={logoSrc} alt="Edgebric" className="wizard-logo" />
+        <div className="wizard-header-text">
+          <h1>Edgebric Setup</h1>
+          <p>Configure Edgebric for first-time use.</p>
+        </div>
       </div>
 
       <div className="wizard-step">

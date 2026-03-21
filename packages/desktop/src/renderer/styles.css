@@ -9,13 +9,20 @@ body {
   background: #fafafa;
   color: #111;
   line-height: 1.5;
-  -webkit-app-region: drag;
 }
 
-/* Allow interactions on non-titlebar elements */
-button, input, select, textarea, a, label {
-  -webkit-app-region: no-drag;
+/* Titlebar drag region — only the top padding area */
+.wizard::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 38px;
+  -webkit-app-region: drag;
+  z-index: 10;
 }
+
 
 .loading {
   display: flex;
@@ -55,7 +62,21 @@ button, input, select, textarea, a, label {
 }
 
 .wizard-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 24px;
+}
+
+.wizard-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.wizard-header-text {
+  flex: 1;
 }
 
 .wizard-header h1 {
@@ -73,6 +94,9 @@ button, input, select, textarea, a, label {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .wizard-step h2 {
