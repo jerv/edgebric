@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { readLogs, getStatus, getPort } from "./server.js";
+import { readLogs, getStatus, getPort, getHostname } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import crypto from "crypto";
 import fs from "fs";
@@ -65,9 +65,9 @@ export function registerIpcHandlers() {
       `OIDC_ISSUER=${config.oidcIssuer}`,
       `OIDC_CLIENT_ID=${config.oidcClientId}`,
       `OIDC_CLIENT_SECRET=${config.oidcClientSecret}`,
-      `OIDC_REDIRECT_URI=http://localhost:${config.port}/api/auth/callback`,
+      `OIDC_REDIRECT_URI=http://${config.hostname ?? "edgebric.local"}:${config.port}/api/auth/callback`,
       `ADMIN_EMAILS=${config.adminEmails.join(",")}`,
-      `FRONTEND_URL=http://localhost:${config.port}`,
+      `FRONTEND_URL=http://${config.hostname ?? "edgebric.local"}:${config.port}`,
       ...(config.chatBaseUrl ? [`CHAT_BASE_URL=${config.chatBaseUrl}`] : []),
       ...(config.chatModel ? [`CHAT_MODEL=${config.chatModel}`] : []),
       "",

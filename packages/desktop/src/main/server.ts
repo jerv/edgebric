@@ -2,10 +2,12 @@ import { spawn, type ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import { app } from "electron";
+import Bonjour from "bonjour-service";
 import { loadConfig, pidPath, logPath, envPath } from "./config.js";
 
 let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+let bonjourInstance: InstanceType<typeof Bonjour> | null = null;
 
 export type ServerStatus = "stopped" | "starting" | "running" | "error";
 
@@ -32,6 +34,41 @@ export function getStatus(): ServerStatus {
 
 export function getPort(): number {
   return loadConfig()?.port ?? 3001;
+}
+
+export function getHostname(): string {
+  return loadConfig()?.hostname ?? "edgebric.local";
+}
+
+/** Publish mDNS service so edgebric.local (or custom .local name) resolves on the LAN */
+function publishMdns(hostname: string, port: number) {
+  unpublishMdns();
+
+  // Only publish mDNS for .local hostnames — custom domains use real DNS
+  if (!hostname.endsWith(".local")) return;
+
+  try {
+    bonjourInstance = new Bonjour();
+    const name = hostname.replace(/\.local$/, "");
+    bonjourInstance.publish({
+      name,
+      type: "http",
+      port,
+      host: hostname,
+    });
+  } catch (err) {
+    console.error("mDNS publish failed:", err);
+  }
+}
+
+function unpublishMdns() {
+  if (bonjourInstance) {
+    try {
+      bonjourInstance.unpublishAll();
+      bonjourInstance.destroy();
+    } catch { /* ignore */ }
+    bonjourInstance = null;
+  }
 }
 
 /**
@@ -130,11 +167,16 @@ export async function startServer(): Promise<void> {
   });
 
   startHealthCheck(config.port);
+
+  // Publish mDNS so edgebric.local resolves on the network
+  const hostname = config.hostname ?? "edgebric.local";
+  publishMdns(hostname, config.port);
 }
 
 /** Stop the API server */
 export async function stopServer(): Promise<void> {
   stopHealthCheck();
+  unpublishMdns();
 
   const config = loadConfig();
   const pidFile = config ? pidPath(config.dataDir) : null;
@@ -227,6 +269,7 @@ export function readLogs(lines = 100): string {
 /** Clean up on app quit */
 export async function cleanup() {
   stopHealthCheck();
+  unpublishMdns();
   if (serverProcess) {
     serverProcess.kill("SIGTERM");
     // Give it a moment to shut down

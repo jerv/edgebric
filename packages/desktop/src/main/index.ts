@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage } from "electron";
+import { app, BrowserWindow, nativeImage, shell } from "electron";
 import path from "path";
 import { createTray, destroyTray } from "./tray.js";
 import { startServer, cleanup, getStatus } from "./server.js";
@@ -57,6 +57,14 @@ function openSetupWizard() {
   } else {
     setupWindow.loadFile(`${__dirname}/../renderer/index.html`);
   }
+
+  // Open external links in the system browser, not a blank Electron window
+  setupWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
 
   setupWindow.on("closed", () => {
     setupWindow = null;

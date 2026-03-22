@@ -147,6 +147,24 @@ body {
   margin-top: 3px;
 }
 
+/* Info tooltip icon */
+.info-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #d0d0d0;
+  color: #555;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
+  position: relative;
+}
+
 .wizard-footer {
   display: flex;
   justify-content: space-between;
@@ -311,6 +329,11 @@ body {
     box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
   }
   .field .hint { color: #636366; }
+
+  .info-tooltip {
+    background: #48484a;
+    color: #c7c7cc;
+  }
 
   .wizard-footer { border-top-color: #38383a; }
   .wizard-footer .step-indicator { color: #636366; }

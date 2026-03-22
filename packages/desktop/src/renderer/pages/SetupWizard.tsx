@@ -297,6 +297,11 @@ export default function SetupWizard({ onComplete }: Props) {
                 value={oidcClientId}
                 onChange={(e) => setOidcClientId(e.target.value)}
               />
+              <p className="hint">
+                {authProvider === "google"
+                  ? "Google Cloud Console > APIs & Services > Credentials > your OAuth 2.0 Client."
+                  : "Found in your OIDC provider's app registration page."}
+              </p>
             </div>
             <div className="field">
               <label htmlFor="oidcClientSecret">Client Secret</label>
@@ -306,13 +311,18 @@ export default function SetupWizard({ onComplete }: Props) {
                 value={oidcClientSecret}
                 onChange={(e) => setOidcClientSecret(e.target.value)}
               />
+              <p className="hint">
+                {authProvider === "google"
+                  ? "Same page, under 'Client secrets'. Click 'Add Client Secret' if you need a new one."
+                  : "Some providers only show this once — you may need to generate a new one."}
+              </p>
             </div>
             <div className="field">
               <label>Redirect URI</label>
               <input
                 type="text"
                 readOnly
-                value={`http://localhost:${port}/api/auth/callback`}
+                value={`http://edgebric.local:${port}/api/auth/callback`}
                 className="readonly"
                 onClick={(e) => (e.target as HTMLInputElement).select()}
               />

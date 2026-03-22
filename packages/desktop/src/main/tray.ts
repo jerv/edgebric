@@ -6,12 +6,16 @@ import {
   restartServer,
   getStatus,
   getPort,
+  getHostname,
   onStatusChange,
   type ServerStatus,
 } from "./server.js";
+import { loadConfig, saveConfig, envPath } from "./config.js";
+import fs from "fs";
 
 let tray: Tray | null = null;
 let logWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
 
 const STATUS_LABELS: Record<ServerStatus, string> = {
   stopped: "Server Stopped",
@@ -69,11 +73,20 @@ function createFallbackIcon(status: ServerStatus): Electron.NativeImage {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
+function getAccessUrl(): string {
+  const hostname = getHostname();
+  const port = getPort();
+  // Hide port in display for port 80
+  return port === 80 ? `http://${hostname}` : `http://${hostname}:${port}`;
+}
+
 function buildContextMenu(): Menu {
   const status = getStatus();
   const port = getPort();
+  const hostname = getHostname();
   const isRunning = status === "running";
   const isStopped = status === "stopped" || status === "error";
+  const accessUrl = getAccessUrl();
 
   return Menu.buildFromTemplate([
     {
@@ -81,14 +94,14 @@ function buildContextMenu(): Menu {
       enabled: false,
     },
     ...(isRunning
-      ? [{ label: `  Port ${port}`, enabled: false } as Electron.MenuItemConstructorOptions]
+      ? [{ label: `  ${accessUrl}`, enabled: false } as Electron.MenuItemConstructorOptions]
       : []),
     { type: "separator" as const },
     {
       label: "Open Edgebric",
       enabled: isRunning,
       click: () => {
-        shell.openExternal(`http://localhost:${port}`);
+        shell.openExternal(accessUrl);
       },
     },
     { type: "separator" as const },
@@ -118,6 +131,12 @@ function buildContextMenu(): Menu {
       label: "View Logs...",
       click: () => {
         openLogWindow();
+      },
+    },
+    {
+      label: "Server Settings...",
+      click: () => {
+        openSettingsWindow();
       },
     },
     { type: "separator" as const },
@@ -217,6 +236,218 @@ const LOG_VIEWER_HTML = `<!DOCTYPE html>
     refreshLogs();
     // Auto-refresh every 3 seconds
     setInterval(refreshLogs, 3000);
+  </script>
+</body>
+</html>`;
+
+function openSettingsWindow() {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+
+  const config = loadConfig();
+  const currentHostname = config?.hostname ?? "edgebric.local";
+  const currentPort = config?.port ?? 3001;
+
+  settingsWindow = new BrowserWindow({
+    width: 480,
+    height: 400,
+    title: "Server Settings",
+    resizable: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  const html = SETTINGS_HTML
+    .replace("{{hostname}}", currentHostname)
+    .replace("{{port}}", String(currentPort));
+
+  settingsWindow.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
+  );
+
+  // Handle save messages from the settings page
+  settingsWindow.webContents.on("will-navigate", (event, url) => {
+    event.preventDefault();
+    if (url.startsWith("edgebric://save?")) {
+      const params = new URL(url).searchParams;
+      const newHostname = params.get("hostname")?.trim();
+      const newPort = parseInt(params.get("port") ?? "", 10);
+
+      if (!newHostname || isNaN(newPort) || newPort < 1 || newPort > 65535) return;
+
+      if (config) {
+        config.hostname = newHostname;
+        config.port = newPort;
+        saveConfig(config);
+
+        // Update .env with new hostname/port
+        const envFile = envPath(config.dataDir);
+        if (fs.existsSync(envFile)) {
+          let env = fs.readFileSync(envFile, "utf8");
+          env = env.replace(/^OIDC_REDIRECT_URI=.*$/m, `OIDC_REDIRECT_URI=http://${newHostname}:${newPort}/api/auth/callback`);
+          env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=http://${newHostname}:${newPort}`);
+          env = env.replace(/^PORT=.*$/m, `PORT=${newPort}`);
+          fs.writeFileSync(envFile, env, "utf8");
+        }
+
+        // Show confirmation, then close
+        settingsWindow?.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(SETTINGS_SAVED_HTML)}`
+        );
+        setTimeout(() => {
+          settingsWindow?.close();
+        }, 1500);
+      }
+    }
+  });
+
+  settingsWindow.on("closed", () => {
+    settingsWindow = null;
+  });
+}
+
+const SETTINGS_SAVED_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      display: flex; align-items: center; justify-content: center; height: 100vh;
+      background: #fafafa; color: #111;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1c1e; color: #e5e5e7; }
+    }
+    .msg { text-align: center; }
+    .msg h2 { font-size: 18px; margin-bottom: 4px; }
+    .msg p { color: #666; font-size: 13px; }
+    @media (prefers-color-scheme: dark) { .msg p { color: #98989d; } }
+  </style>
+</head>
+<body>
+  <div class="msg">
+    <h2>Settings saved</h2>
+    <p>Restart the server for changes to take effect.</p>
+  </div>
+</body>
+</html>`;
+
+const SETTINGS_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #fafafa;
+      color: #111;
+      padding: 32px;
+      line-height: 1.5;
+    }
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #333; }
+    .field input {
+      width: 100%; padding: 8px 10px; border: 1px solid #d0d0d0; border-radius: 6px;
+      font-size: 14px; font-family: inherit; background: #fff; color: #111; outline: none;
+    }
+    .field input:focus { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
+    .field .hint { font-size: 11px; color: #888; margin-top: 3px; }
+    .preview { background: #f0f6ff; border: 1px solid #cce0ff; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+    .preview .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .preview .url { font-size: 15px; font-weight: 500; color: #0066cc; font-family: 'SF Mono', Menlo, monospace; }
+    .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+    .btn {
+      padding: 8px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;
+      font-family: inherit; cursor: pointer; border: 1px solid transparent;
+    }
+    .btn-secondary { background: #f0f0f0; color: #333; border-color: #d0d0d0; }
+    .btn-secondary:hover { background: #e5e5e5; }
+    .btn-primary { background: #0066cc; color: #fff; }
+    .btn-primary:hover { background: #0055b3; }
+    .error { color: #b91c1c; font-size: 12px; margin-top: 4px; display: none; }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #1c1c1e; color: #e5e5e7; }
+      .subtitle { color: #98989d; }
+      .field label { color: #c7c7cc; }
+      .field input { background: #2c2c2e; border-color: #48484a; color: #e5e5e7; }
+      .field input:focus { border-color: #0a84ff; box-shadow: 0 0 0 2px rgba(10,132,255,0.2); }
+      .field .hint { color: #636366; }
+      .preview { background: #1a2a3a; border-color: #2a4a6a; }
+      .preview .label { color: #98989d; }
+      .preview .url { color: #4da6ff; }
+      .btn-secondary { background: #2c2c2e; color: #e5e5e7; border-color: #48484a; }
+      .btn-secondary:hover { background: #3a3a3c; }
+      .btn-primary { background: #0a84ff; }
+      .btn-primary:hover { background: #0077e6; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Server Settings</h2>
+  <p class="subtitle">Change how Edgebric is accessed on your network.</p>
+
+  <div class="preview">
+    <div class="label">Access URL</div>
+    <div class="url" id="urlPreview">http://{{hostname}}:{{port}}</div>
+  </div>
+
+  <div class="field">
+    <label for="hostname">Hostname</label>
+    <input id="hostname" type="text" value="{{hostname}}" oninput="updatePreview()" />
+    <p class="hint">
+      Use <strong>edgebric.local</strong> for zero-config local access (mDNS).<br>
+      Or enter a custom domain like <strong>hr.acme.com</strong> if you have DNS configured.
+    </p>
+    <p class="error" id="hostnameError">Hostname cannot be empty.</p>
+  </div>
+
+  <div class="field">
+    <label for="port">Port</label>
+    <input id="port" type="number" min="1" max="65535" value="{{port}}" oninput="updatePreview()" />
+    <p class="hint">Default: 3001. Use 80 for a cleaner URL (may require admin privileges).</p>
+    <p class="error" id="portError">Port must be between 1 and 65535.</p>
+  </div>
+
+  <div class="buttons">
+    <button class="btn btn-secondary" onclick="window.close()">Cancel</button>
+    <button class="btn btn-primary" onclick="save()">Save</button>
+  </div>
+
+  <script>
+    function updatePreview() {
+      const h = document.getElementById('hostname').value.trim();
+      const p = parseInt(document.getElementById('port').value, 10);
+      const url = (p === 80) ? 'http://' + h : 'http://' + h + ':' + p;
+      document.getElementById('urlPreview').textContent = url;
+    }
+
+    function save() {
+      const h = document.getElementById('hostname').value.trim();
+      const p = parseInt(document.getElementById('port').value, 10);
+
+      let valid = true;
+      document.getElementById('hostnameError').style.display = 'none';
+      document.getElementById('portError').style.display = 'none';
+
+      if (!h) {
+        document.getElementById('hostnameError').style.display = 'block';
+        valid = false;
+      }
+      if (isNaN(p) || p < 1 || p > 65535) {
+        document.getElementById('portError').style.display = 'block';
+        valid = false;
+      }
+      if (!valid) return;
+
+      window.location.href = 'edgebric://save?hostname=' + encodeURIComponent(h) + '&port=' + p;
+    }
   </script>
 </body>
 </html>`;

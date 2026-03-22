@@ -1,3 +1,25 @@
+/**
+ * Edgebric Configuration System
+ *
+ * Config is stored at ~/Edgebric/.edgebric.json (or DATA_DIR/.edgebric.json).
+ * Advanced users can edit this file directly while the server is stopped.
+ *
+ * Available fields:
+ *   dataDir          — Where Edgebric stores its database, uploads, and logs
+ *   port             — Server port (default: 3001)
+ *   hostname         — How users access Edgebric in the browser (default: "edgebric.local")
+ *                      Use any *.local name for zero-config mDNS (Bonjour/Avahi),
+ *                      or a real domain like "hr.acme.com" if you have DNS configured.
+ *   oidcIssuer       — OIDC identity provider URL
+ *   oidcClientId     — OAuth 2.0 client ID
+ *   oidcClientSecret — OAuth 2.0 client secret
+ *   adminEmails      — Array of email addresses with admin access
+ *   chatBaseUrl      — (optional) LLM API endpoint (OpenAI-compatible)
+ *   chatModel        — (optional) LLM model name
+ *
+ * After editing, restart the server from the tray menu for changes to take effect.
+ * The .env file is regenerated automatically on save from the desktop app.
+ */
 import path from "path";
 import os from "os";
 import fs from "fs";
@@ -14,6 +36,23 @@ export interface EdgebricConfig {
   adminEmails: string[];
   chatBaseUrl?: string;
   chatModel?: string;
+
+  /**
+   * Hostname for accessing Edgebric in the browser.
+   *
+   * Default: "edgebric.local" — uses mDNS (Bonjour/Avahi), works on any
+   * network without DNS configuration. All devices on the LAN can reach it.
+   *
+   * Custom domain examples:
+   *   "hr.acme.com"       — if your org has DNS pointing to this machine
+   *   "edgebric.local"    — default mDNS name, zero-config
+   *   "my-edgebric.local" — custom mDNS name (auto-published via Bonjour)
+   *
+   * To use a custom domain, set this field and configure your DNS (A record
+   * pointing to this machine's IP) or use any *.local name for automatic
+   * mDNS resolution.
+   */
+  hostname?: string;
 }
 
 /** Config file location: DATA_DIR/.edgebric.json */
