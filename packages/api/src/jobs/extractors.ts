@@ -3,6 +3,7 @@ import path from "path";
 import { spawn } from "child_process";
 import mammoth from "mammoth";
 import type { Document } from "@edgebric/types";
+import { decryptFileToTemp, decryptFile } from "../lib/crypto.js";
 
 export interface ExtractionResult {
   markdown: string;
@@ -59,20 +60,26 @@ async function extractDOCX(filePath: string): Promise<ExtractionResult> {
 }
 
 async function extractText(filePath: string): Promise<ExtractionResult> {
-  const markdown = await fs.readFile(filePath, "utf-8");
-  return { markdown, headingPageMap: new Map() };
+  // Decrypt in memory — text files don't need a temp file
+  const content = decryptFile(filePath);
+  return { markdown: content.toString("utf-8"), headingPageMap: new Map() };
 }
 
 export async function extractDocument(
   filePath: string,
   type: Document["type"],
 ): Promise<ExtractionResult> {
-  switch (type) {
-    case "pdf":
-      return extractPDF(filePath);
-    case "docx":
-      return extractDOCX(filePath);
-    default:
-      return extractText(filePath);
+  // PDF and DOCX extractors need a real file path, so decrypt to temp if encrypted.
+  // Text files are handled in-memory by extractText.
+  if (type === "pdf" || type === "docx") {
+    const { tempPath, needsCleanup } = decryptFileToTemp(filePath);
+    try {
+      return type === "pdf" ? await extractPDF(tempPath) : await extractDOCX(tempPath);
+    } finally {
+      if (needsCleanup) {
+        await fs.unlink(tempPath).catch(() => {});
+      }
+    }
   }
+  return extractText(filePath);
 }

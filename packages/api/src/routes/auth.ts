@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
+import { recordAuditEvent } from "../services/auditLog.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
@@ -190,6 +191,12 @@ authRouter.get("/callback", async (req, res) => {
         res.status(500).json({ error: "Session error" });
         return;
       }
+      recordAuditEvent({
+        eventType: "auth.login",
+        actorEmail: email,
+        actorIp: req.ip,
+        details: { isAdmin, method: "oidc" },
+      });
       // If multiple orgs, frontend will detect missing orgId and show picker
       res.redirect(config.frontendUrl);
     });
@@ -207,6 +214,8 @@ authRouter.get("/callback", async (req, res) => {
 const COOKIE_CLEAR_OPTS = { path: "/", httpOnly: true, sameSite: "lax" as const };
 
 authRouter.post("/logout", (req, res) => {
+  const email = req.session.email;
+  recordAuditEvent({ eventType: "auth.logout", actorEmail: email, actorIp: req.ip });
   req.session.destroy((err) => {
     if (err) logger.error({ err }, "Session destroy error");
     res.clearCookie("edgebric.sid", COOKIE_CLEAR_OPTS);

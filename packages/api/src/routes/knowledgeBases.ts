@@ -25,6 +25,8 @@ import { clearChunksForDataset } from "../services/chunkRegistry.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
 import { revokeSharesForKB, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
 import { config, runtimeEdgeConfig } from "../config.js";
+import { encryptFile } from "../lib/crypto.js";
+import { recordAuditEvent } from "../services/auditLog.js";
 import type { Document, KBAccessMode } from "@edgebric/types";
 import { createMKBClient } from "@edgebric/edge";
 import { fileTypeFromBuffer } from "file-type";
@@ -111,6 +113,15 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
   if (accessList && accessList.length > 0) {
     setKBAccessList(kb.id, accessList);
   }
+
+  recordAuditEvent({
+    eventType: "kb.create",
+    actorEmail: email,
+    actorIp: req.ip,
+    resourceType: "kb",
+    resourceId: kb.id,
+    details: { name: kb.name, accessMode: accessMode ?? "all" },
+  });
 
   const final = getKB(kb.id)!;
   res.status(201).json({ ...final, accessList: accessList ?? [] });
@@ -200,6 +211,14 @@ knowledgeBasesRouter.delete("/:id", async (req, res) => {
     return;
   }
 
+  recordAuditEvent({
+    eventType: "kb.archive",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    resourceType: "kb",
+    resourceId: kb.id,
+    details: { name: kb.name },
+  });
   archiveKB(kb.id);
 
   // Revoke all group chat shares for this KB
@@ -277,6 +296,9 @@ knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async 
     return;
   }
 
+  // Encrypt the uploaded file at rest
+  encryptFile(req.file.path);
+
   const doc: Document = {
     id: randomUUID(),
     name: req.file.originalname,
@@ -292,6 +314,14 @@ knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async 
 
   setDocument(doc);
   refreshDocumentCount(kb.id);
+  recordAuditEvent({
+    eventType: "document.upload",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    resourceType: "document",
+    resourceId: doc.id,
+    details: { name: doc.name, type: doc.type, kbId: kb.id, kbName: kb.name },
+  });
   res.status(202).json({ documentId: doc.id, knowledgeBaseId: kb.id });
 
   // Kick off ingestion with KB-scoped dataset name

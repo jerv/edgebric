@@ -216,6 +216,22 @@ export const groupChatNotifPrefs = sqliteTable("group_chat_notif_prefs", {
   level: text("level").notNull().default("all"), // "all" | "mentions" | "none"
 });
 
+// ─── Audit Log (immutable, hash-chained) ─────────────────────────────────────
+
+export const auditLog = sqliteTable("audit_log", {
+  seq: integer("seq").primaryKey({ autoIncrement: true }), // monotonic sequence
+  id: text("id").notNull(), // UUID
+  timestamp: text("timestamp").notNull(), // ISO 8601
+  eventType: text("event_type").notNull(), // e.g. "auth.login", "document.upload"
+  actorEmail: text("actor_email"), // who performed the action (NULL for system events)
+  actorIp: text("actor_ip"), // client IP address
+  resourceType: text("resource_type"), // e.g. "document", "kb", "user"
+  resourceId: text("resource_id"), // ID of the affected resource
+  details: text("details"), // JSON object with event-specific data
+  prevHash: text("prev_hash").notNull(), // SHA-256 of previous entry (chain)
+  hash: text("hash").notNull(), // SHA-256 of this entry
+});
+
 // ─── Integration Config ──────────────────────────────────────────────────────
 
 export const integrationConfig = sqliteTable("integration_config", {

@@ -8,6 +8,7 @@ import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
+import { recordAuditEvent } from "../services/auditLog.js";
 import { lookupChunk } from "../services/chunkRegistry.js";
 import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
 import {
@@ -198,6 +199,14 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     res.status(200).json({ blocked: true, message: filterResult.redirectMessage });
     return;
   }
+
+  // Audit: log query execution (no query text — privacy)
+  recordAuditEvent({
+    eventType: "query.execute",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    details: { kbCount: knowledgeBaseIds?.length ?? 0, hasConversation: !!existingConvId },
+  });
 
   // ─── Private Mode: process query but don't log anything ────────────────────
   if (isPrivate) {

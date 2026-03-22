@@ -271,6 +271,26 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_notif_prefs_pk ON group_chat_notif_prefs(group_chat_id, user_email);
   `);
 
+  // Audit log (immutable, hash-chained)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      actor_email TEXT,
+      actor_ip TEXT,
+      resource_type TEXT,
+      resource_id TEXT,
+      details TEXT,
+      prev_hash TEXT NOT NULL,
+      hash TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_event_type ON audit_log(event_type);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_email);
+  `);
+
   // Multi-org: create indexes on new org_id columns
   try {
     sqlite.exec(`

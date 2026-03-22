@@ -3,6 +3,15 @@ import { getDb } from "../db/index.js";
 import { conversations, messages } from "../db/schema.js";
 import { eq, desc, asc, isNull, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { encryptText, decryptText } from "../lib/crypto.js";
+
+function decryptContentSafe(content: string): string {
+  try {
+    return decryptText(content);
+  } catch {
+    return content; // legacy plaintext
+  }
+}
 
 function rowToConversation(row: typeof conversations.$inferSelect): Conversation {
   const conv: Conversation = {
@@ -22,7 +31,7 @@ function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
     id: row.id,
     conversationId: row.conversationId,
     role: row.role as "user" | "assistant",
-    content: row.content,
+    content: decryptContentSafe(row.content),
     createdAt: new Date(row.createdAt),
   };
   if (row.citations != null) msg.citations = JSON.parse(row.citations) as Citation[];
@@ -80,7 +89,7 @@ export function addMessage(msg: PersistedMessage): void {
       id: msg.id,
       conversationId: msg.conversationId,
       role: msg.role,
-      content: msg.content,
+      content: encryptText(msg.content),
       citations: msg.citations ? JSON.stringify(msg.citations) : null,
       hasConfidentAnswer: msg.hasConfidentAnswer != null ? (msg.hasConfidentAnswer ? 1 : 0) : null,
       source: msg.source ?? null,
@@ -132,8 +141,8 @@ export function getConversationPreviews(
       .limit(1)
       .get();
     const result: Conversation & { preview?: string } = { ...conv };
-    const previewText = firstMsg?.content?.slice(0, 100);
-    if (previewText) result.preview = previewText;
+    const previewText = firstMsg?.content ? decryptContentSafe(firstMsg.content).slice(0, 100) : undefined;
+    if (previewText && previewText.length > 0) result.preview = previewText;
     return result;
   });
 }

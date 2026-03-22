@@ -2,6 +2,21 @@ import type { ChunkMetadata } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { chunks, documents, knowledgeBases } from "../db/schema.js";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
+import { encryptText, decryptText } from "../lib/crypto.js";
+
+/**
+ * Decrypt content, handling both encrypted (base64) and legacy plaintext.
+ * Legacy content won't be valid base64 AES-256-GCM output, so decryption
+ * will throw — in that case we return the raw string.
+ */
+function decryptContentSafe(content: string): string {
+  try {
+    return decryptText(content);
+  } catch {
+    // Legacy plaintext content — return as-is
+    return content;
+  }
+}
 
 /** Convert a DB row to ChunkMetadata. */
 function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
@@ -31,7 +46,8 @@ export function registerChunks(
   const db = getDb();
   for (let i = 0; i < metadataList.length; i++) {
     const meta = metadataList[i]!;
-    const chunkContent = contentList?.[i] ?? null;
+    const raw = contentList?.[i] ?? null;
+    const chunkContent = raw ? encryptText(raw) : null;
     db.insert(chunks)
       .values({
         chunkId: `${datasetName}-${startIndex + i}`,
@@ -91,7 +107,7 @@ export function getAllChunksWithContent(orgId?: string): Array<{
       .all();
     return rows.map((row) => ({
       chunkId: row.chunkId,
-      content: row.content!,
+      content: decryptContentSafe(row.content!),
       metadata: rowToMeta(row),
     }));
   }
@@ -101,7 +117,7 @@ export function getAllChunksWithContent(orgId?: string): Array<{
     .filter((row) => row.content != null)
     .map((row) => ({
       chunkId: row.chunkId,
-      content: row.content!,
+      content: decryptContentSafe(row.content!),
       metadata: rowToMeta(row),
     }));
 }
@@ -128,7 +144,7 @@ export function getChunksForDocument(documentId: string): Array<{
       heading: row.heading,
       sectionPath: JSON.parse(row.sectionPath) as string[],
       pageNumber: row.pageNumber,
-      content: row.content!,
+      content: decryptContentSafe(row.content!),
     }))
     .sort((a, b) => a.chunkIndex - b.chunkIndex);
 }
@@ -157,7 +173,7 @@ export function getChunksForDataset(datasetName: string): Array<{
     .filter((row) => row.content != null)
     .map((row) => ({
       chunkId: row.chunkId,
-      content: row.content!,
+      content: decryptContentSafe(row.content!),
       metadata: rowToMeta(row),
     }))
     .sort((a, b) => {

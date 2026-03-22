@@ -7,6 +7,8 @@ import { randomUUID } from "crypto";
 import { fileTypeFromBuffer } from "file-type";
 import { requireOrg, requireAdmin } from "../middleware/auth.js";
 import { config } from "../config.js";
+import { encryptFile, decryptFile } from "../lib/crypto.js";
+import { recordAuditEvent } from "../services/auditLog.js";
 import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
@@ -143,8 +145,9 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
   };
   res.setHeader("Content-Type", mimeTypes[ext] ?? "application/octet-stream");
 
-  const { createReadStream } = await import("fs");
-  createReadStream(doc.storageKey).pipe(res);
+  // Decrypt the file (handles both encrypted and legacy unencrypted files)
+  const content = decryptFile(doc.storageKey);
+  res.send(content);
 });
 
 // All remaining routes are admin-only
@@ -197,6 +200,9 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
     return;
   }
 
+  // Encrypt the uploaded file at rest
+  encryptFile(req.file.path);
+
   // Assign to default KB (backward compatible — old /api/documents/upload route)
   const adminEmail = req.session.email ?? "admin@edgebric.local";
   const defaultKB = ensureDefaultKB(adminEmail);
@@ -216,6 +222,14 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
 
   setDocument(doc);
   refreshDocumentCount(defaultKB.id);
+  recordAuditEvent({
+    eventType: "document.upload",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    resourceType: "document",
+    resourceId: doc.id,
+    details: { name: doc.name, type: doc.type, kbId: defaultKB.id },
+  });
   res.status(202).json({ documentId: doc.id });
 
   // Kick off ingestion in the background (non-blocking)
@@ -255,6 +269,15 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
     res.status(400).json({ error: `Document is not pending PII review (status: ${doc.status})` });
     return;
   }
+
+  recordAuditEvent({
+    eventType: "document.pii_approve",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    resourceType: "document",
+    resourceId: doc.id,
+    details: { name: doc.name, warningCount: doc.piiWarnings?.length ?? 0 },
+  });
 
   // Clear PII warnings, resume ingestion
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -316,6 +339,15 @@ documentsRouter.delete("/:id", async (req, res) => {
     res.status(404).json({ error: "Document not found" });
     return;
   }
+
+  recordAuditEvent({
+    eventType: "document.delete",
+    actorEmail: req.session.email,
+    actorIp: req.ip,
+    resourceType: "document",
+    resourceId: doc.id,
+    details: { name: doc.name, kbId: doc.knowledgeBaseId },
+  });
 
   const kbId = doc.knowledgeBaseId;
   // Resolve dataset name: doc may have it if ingested, otherwise fall back to KB

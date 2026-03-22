@@ -5,6 +5,7 @@ import FileStoreFactory from "session-file-store";
 import path from "path";
 import fs from "fs/promises";
 import { logger } from "./lib/logger.js";
+import { initEncryptionKey } from "./lib/crypto.js";
 import { initDatabase, closeDatabase } from "./db/index.js";
 import { backfillChunkContent } from "./jobs/backfillChunkContent.js";
 import { migrateOrphanedDocumentsToDefaultKB } from "./jobs/migrateDefaultKB.js";
@@ -44,6 +45,7 @@ if (!isDev) {
 async function start() {
   await fs.mkdir(path.join(config.dataDir, "uploads"), { recursive: true });
   await fs.mkdir(sessionsDir, { recursive: true });
+  initEncryptionKey();
   initDatabase();
 
   // Ensure default org + KB exist and assign orphaned documents (idempotent)

@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { eq, and, desc, asc, isNull, sql } from "drizzle-orm";
 import { getDb } from "../db/index.js";
+import { encryptText, decryptText } from "../lib/crypto.js";
 import {
   groupChats,
   groupChatMembers,
@@ -19,6 +20,14 @@ import type {
   GroupChatExpiration,
   Citation,
 } from "@edgebric/types";
+
+function decryptContentSafe(content: string): string {
+  try {
+    return decryptText(content);
+  } catch {
+    return content; // legacy plaintext
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +74,7 @@ function rowToMessage(row: typeof groupChatMessages.$inferSelect): GroupChatMess
     id: row.id,
     groupChatId: row.groupChatId,
     role: row.role as GroupChatMessage["role"],
-    content: row.content,
+    content: decryptContentSafe(row.content),
     createdAt: new Date(row.createdAt),
   };
   if (row.threadParentId) msg.threadParentId = row.threadParentId;
@@ -432,6 +441,7 @@ export function addMessage(data: {
   const id = randomUUID();
   const now = new Date().toISOString();
 
+  const encryptedContent = encryptText(data.content);
   db.insert(groupChatMessages).values({
     id,
     groupChatId: data.groupChatId,
@@ -439,7 +449,7 @@ export function addMessage(data: {
     authorEmail: data.authorEmail ?? null,
     authorName: data.authorName ?? null,
     role: data.role,
-    content: data.content,
+    content: encryptedContent,
     citations: data.citations ? JSON.stringify(data.citations) : null,
     hasConfidentAnswer: data.hasConfidentAnswer != null ? (data.hasConfidentAnswer ? 1 : 0) : null,
     createdAt: now,

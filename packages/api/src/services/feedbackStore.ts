@@ -3,6 +3,15 @@ import { getDb } from "../db/index.js";
 import { feedback } from "../db/schema.js";
 import { eq, desc, and, gte, sql, count } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { encryptText, decryptText } from "../lib/crypto.js";
+
+function decryptContentSafe(content: string): string {
+  try {
+    return decryptText(content);
+  } catch {
+    return content;
+  }
+}
 
 /** Convert a DB row to a Feedback object. */
 function rowToFeedback(row: typeof feedback.$inferSelect): Feedback {
@@ -11,7 +20,7 @@ function rowToFeedback(row: typeof feedback.$inferSelect): Feedback {
     conversationId: row.conversationId,
     messageId: row.messageId,
     rating: row.rating as "up" | "down",
-    messageSnapshot: JSON.parse(row.messageSnapshot),
+    messageSnapshot: JSON.parse(decryptContentSafe(row.messageSnapshot)),
     topic: row.topic ?? undefined,
     comment: row.comment ?? undefined,
     createdAt: new Date(row.createdAt),
@@ -37,7 +46,7 @@ export function addFeedback(params: {
       conversationId: params.conversationId,
       messageId: params.messageId,
       rating: params.rating,
-      messageSnapshot: JSON.stringify(params.messageSnapshot),
+      messageSnapshot: encryptText(JSON.stringify(params.messageSnapshot)),
       topic: null,
       comment: params.comment ?? null,
       orgId: params.orgId ?? null,

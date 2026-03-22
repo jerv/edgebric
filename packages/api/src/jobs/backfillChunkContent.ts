@@ -14,6 +14,7 @@ import { chunks, documents } from "../db/schema.js";
 import { eq, isNull } from "drizzle-orm";
 import { extractDocument } from "./extractors.js";
 import { logger } from "../lib/logger.js";
+import { encryptText } from "../lib/crypto.js";
 
 export async function backfillChunkContent(): Promise<void> {
   const db = getDb();
@@ -60,7 +61,7 @@ export async function backfillChunkContent(): Promise<void> {
         const content = contentByIndex.get(row.chunkIndex);
         if (content) {
           db.update(chunks)
-            .set({ content })
+            .set({ content: encryptText(content) })
             .where(eq(chunks.chunkId, row.chunkId))
             .run();
           filled++;

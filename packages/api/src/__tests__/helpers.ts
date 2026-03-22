@@ -9,6 +9,7 @@ import { initDatabase, closeDatabase, getDb } from "../db/index.js";
 import { organizations } from "../db/schema.js";
 import { createApp } from "../app.js";
 import { ensureDefaultOrg } from "../services/orgStore.js";
+import { initEncryptionKey } from "../lib/crypto.js";
 
 let app: Express;
 
@@ -17,7 +18,8 @@ let app: Express;
  * Call in beforeAll() or beforeEach() depending on isolation needs.
  */
 export function setupTestApp(): Express {
-  // Initialize DB (uses DATA_DIR from setup.ts env)
+  // Initialize encryption + DB (uses DATA_DIR from setup.ts env)
+  initEncryptionKey();
   initDatabase();
   ensureDefaultOrg();
 
