@@ -1,224 +1,252 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
-import { spawn, exec } from "child_process";
-import { existsSync } from "fs";
-import { fileURLToPath } from "url";
-import { join, dirname } from "path";
 import { z } from "zod";
-import { config, runtimeChatConfig } from "../config.js";
+import { runtimeChatConfig, config } from "../config.js";
 import { logger } from "../lib/logger.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import * as ollama from "../services/ollamaClient.js";
+import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog } from "@edgebric/types";
+import type { InstalledModel, ModelsResponse } from "@edgebric/types";
 
-const modelIdSchema = z.object({
-  modelId: z.string().min(1, "modelId is required").transform((s) => s.trim()),
+const tagSchema = z.object({
+  tag: z.string().min(1, "tag is required").transform((s) => s.trim()),
 });
 
 export const modelsRouter: IRouter = Router();
 
 modelsRouter.use(requireAdmin);
 
-const CHAT_BASE = config.chat.baseUrl;
-const CHAT_KEY = config.chat.apiKey;
+// Track in-progress pull so UI can show download state
+const activePulls = new Map<string, AbortController>();
 
-// Repo root = four levels up from packages/api/src/routes/
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+// ─── GET /api/admin/models ───────────────────────────────────────────────────
+// Returns installed models (with loaded status), official catalog, active model,
+// and system resources.
 
-// Directory where GGUF files live. Override with LLAMA_MODEL_DIR env var.
-const MODEL_DIR =
-  process.env["LLAMA_MODEL_DIR"] ??
-  join(REPO_ROOT, "scripts/binaries/mim-OE-ai/.edge/.edge-mcm/containers/912e9964-953a-41a3-a3d4-45594a196471-mim-v1/cache");
-
-// Static registry of models we expose in the UI.
-// filename: the .gguf file in MODEL_DIR
-// id: the ID llama-server reports (matches filename)
-const KNOWN_MODELS: Array<{ id: string; filename: string }> = [
-  { id: "qwen3.5-4b.gguf", filename: "qwen3.5-4b.gguf" },
-  { id: "qwen3.5-9b.gguf", filename: "qwen3.5-9b.gguf" },
-];
-
-// Track in-progress load so the UI can show a loading state
-let loadingModelId: string | null = null;
-
-async function listLlamaModels(): Promise<Array<{ id: string; readyToUse: boolean }>> {
-  const res = await fetch(`${CHAT_BASE}/models`, {
-    headers: { Authorization: `Bearer ${CHAT_KEY}` },
-    signal: AbortSignal.timeout(3000),
-  });
-  if (!res.ok) throw new Error(`llama-server models failed: ${res.status}`);
-  const data = (await res.json()) as { data: Array<{ id: string }> };
-  return data.data.map((m) => ({ id: m.id, readyToUse: true }));
-}
-
-// GET /api/admin/models
-// Returns known models with readyToUse=true for the currently loaded one,
-// plus which model is active and whether a load is in progress.
 modelsRouter.get("/", async (_req, res) => {
-  let loadedIds: string[] = [];
   try {
-    const live = await listLlamaModels();
-    loadedIds = live.map((m) => m.id);
-  } catch {
-    // llama-server not reachable — no models ready
-  }
-
-  const models = KNOWN_MODELS.map((m) => ({
-    id: m.id,
-    readyToUse: loadedIds.includes(m.id),
-    onDisk: existsSync(`${MODEL_DIR}/${m.filename}`),
-    loading: loadingModelId === m.id,
-  }));
-
-  res.json({ models, activeModel: runtimeChatConfig.model, loadingModelId });
-});
-
-// PUT /api/admin/models/active — hot-swap model name in runtimeChatConfig (no restart)
-modelsRouter.put("/active", validateBody(modelIdSchema), (req, res) => {
-  const { modelId } = req.body as z.infer<typeof modelIdSchema>;
-  const known = KNOWN_MODELS.find((m) => m.id === modelId);
-  if (!known) {
-    res.status(400).json({ error: "Unknown model" });
-    return;
-  }
-  runtimeChatConfig.model = known.id;
-  logger.info({ model: runtimeChatConfig.model }, "Active chat model switched");
-  res.json({ activeModel: runtimeChatConfig.model });
-});
-
-// POST /api/admin/models/stop — kill llama-server
-modelsRouter.post("/stop", async (_req, res) => {
-  logger.info("Stopping llama-server");
-  await new Promise<void>((resolve) => {
-    exec("pkill -f 'llama-server.*8080'", () => resolve());
-  });
-  loadingModelId = null;
-  res.json({ ok: true });
-});
-
-// POST /api/admin/models/restart — restart llama-server with current model
-modelsRouter.post("/restart", async (_req, res) => {
-  const currentModel = runtimeChatConfig.model;
-  const known = KNOWN_MODELS.find((m) => m.id === currentModel);
-  if (!known) {
-    res.status(400).json({ error: "No known model to restart" });
-    return;
-  }
-  const modelPath = `${MODEL_DIR}/${known.filename}`;
-  if (!existsSync(modelPath)) {
-    res.status(404).json({ error: "Model file not found on disk" });
-    return;
-  }
-  if (loadingModelId) {
-    res.status(409).json({ error: "A model is already loading" });
-    return;
-  }
-
-  loadingModelId = known.id;
-  logger.info({ modelId: known.id }, "Restarting llama-server");
-
-  await new Promise<void>((resolve) => {
-    exec("pkill -f 'llama-server.*8080'", () => resolve());
-  });
-  await new Promise((r) => setTimeout(r, 1500));
-  res.json({ loading: true, modelId: known.id });
-
-  const port = "8080";
-  const child = spawn(
-    "llama-server",
-    ["--model", modelPath, "--port", port, "--host", "127.0.0.1", "-ngl", "99", "--ctx-size", "4096", "--log-disable"],
-    { detached: true, stdio: "ignore" },
-  );
-  child.unref();
-
-  const deadline = Date.now() + 120_000;
-  const poll = async () => {
-    if (Date.now() > deadline) {
-      logger.error({ modelId: known.id }, "Timed out waiting for llama-server restart");
-      loadingModelId = null;
+    const ollamaUp = await ollama.isRunning();
+    if (!ollamaUp) {
+      // Ollama not running — return empty state with catalog
+      const system = ollama.getSystemResources();
+      const response: ModelsResponse = {
+        models: [],
+        catalog: getVisibleCatalog(),
+        activeModel: runtimeChatConfig.model,
+        system,
+      };
+      res.json(response);
       return;
     }
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/v1/models`, {
-        signal: AbortSignal.timeout(2000),
-      });
-      if (r.ok) {
-        loadingModelId = null;
-        logger.info({ modelId: known.id }, "Model restarted");
-        return;
+
+    const [installed, running] = await Promise.all([
+      ollama.listInstalled(),
+      ollama.listRunning(),
+    ]);
+
+    // Merge installed list with running status
+    const models: InstalledModel[] = installed.map((m) => {
+      const runInfo = running.get(m.tag);
+      const isDownloading = activePulls.has(m.tag);
+      return {
+        ...m,
+        status: isDownloading ? "downloading" as const : runInfo ? "loaded" as const : "installed" as const,
+        ramUsageBytes: runInfo?.ramUsageBytes,
+      };
+    });
+
+    // Add any models that are downloading but not yet in the installed list
+    for (const tag of activePulls.keys()) {
+      if (!models.some((m) => m.tag === tag)) {
+        models.push({
+          tag,
+          name: tag,
+          sizeBytes: 0,
+          digest: "",
+          modifiedAt: "",
+          status: "downloading",
+        });
       }
-    } catch { /* poll retry */ }
-    setTimeout(poll, 2000);
-  };
-  setTimeout(poll, 3000);
+    }
+
+    const system = ollama.getSystemResources();
+    const response: ModelsResponse = {
+      models,
+      catalog: getVisibleCatalog(),
+      activeModel: runtimeChatConfig.model,
+      system,
+    };
+    res.json(response);
+  } catch (err) {
+    logger.error({ err }, "Failed to list models");
+    res.status(500).json({ error: "Failed to list models" });
+  }
 });
 
-// POST /api/admin/models/load — kill llama-server and restart with a different model
-modelsRouter.post("/load", validateBody(modelIdSchema), async (req, res) => {
-  const { modelId } = req.body as z.infer<typeof modelIdSchema>;
+// ─── POST /api/admin/models/pull ─────────────────────────────────────────────
+// Download a model from Ollama registry. Returns SSE stream with progress.
 
-  const known = KNOWN_MODELS.find((m) => m.id === modelId);
-  if (!known) {
-    res.status(404).json({ error: "Unknown model" });
+modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
+  const { tag } = req.body as z.infer<typeof tagSchema>;
+
+  if (activePulls.has(tag)) {
+    res.status(409).json({ error: "This model is already being downloaded" });
     return;
   }
 
-  const modelPath = `${MODEL_DIR}/${known.filename}`;
-  if (!existsSync(modelPath)) {
-    res.status(404).json({ error: "Model file not found on disk" });
+  // Check Ollama is running
+  const ollamaUp = await ollama.isRunning();
+  if (!ollamaUp) {
+    res.status(503).json({ error: "AI engine is not running" });
     return;
   }
 
-  if (loadingModelId) {
-    res.status(409).json({ error: "A model is already loading" });
-    return;
+  // Warn for community models (not in official catalog)
+  const isCommunity = !OFFICIAL_CATALOG.some((m) => m.tag === tag);
+
+  // Set up SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  if (isCommunity) {
+    res.write(`event: warning\ndata: ${JSON.stringify({ message: "This is a community model and has not been tested with Edgebric." })}\n\n`);
   }
 
-  loadingModelId = known.id;
-  logger.info({ modelId: known.id }, "Loading model");
+  const controller = new AbortController();
+  activePulls.set(tag, controller);
 
-  // Kill existing llama-server on port 8080
-  await new Promise<void>((resolve) => {
-    exec("pkill -f 'llama-server.*8080'", () => resolve());
-  });
+  try {
+    await ollama.pullModel(
+      tag,
+      (event) => {
+        res.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
+      },
+      controller.signal,
+    );
 
-  // Brief pause to let port 8080 release
-  await new Promise((r) => setTimeout(r, 1500));
-
-  // Respond immediately — client polls GET /models for ready state
-  res.json({ loading: true, modelId: known.id });
-
-  // Spawn new llama-server in background
-  const port = "8080";
-  const child = spawn(
-    "llama-server",
-    ["--model", modelPath, "--port", port, "--host", "127.0.0.1", "-ngl", "99", "--ctx-size", "4096", "--log-disable"],
-    { detached: true, stdio: "ignore" },
-  );
-  child.unref();
-
-  // Poll until llama-server is responsive, then update runtimeChatConfig
-  const deadline = Date.now() + 120_000; // 2 min max
-  const poll = async () => {
-    if (Date.now() > deadline) {
-      logger.error({ modelId: known.id }, "Timed out waiting for llama-server to load model");
-      loadingModelId = null;
-      return;
+    activePulls.delete(tag);
+    res.write(`event: done\ndata: ${JSON.stringify({ tag })}\n\n`);
+    logger.info({ tag }, "Model pulled successfully");
+  } catch (err) {
+    activePulls.delete(tag);
+    const message = err instanceof Error ? err.message : "Pull failed";
+    if (controller.signal.aborted) {
+      res.write(`event: cancelled\ndata: ${JSON.stringify({ tag })}\n\n`);
+      logger.info({ tag }, "Model pull cancelled");
+    } else {
+      res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
+      logger.error({ tag, err }, "Model pull failed");
     }
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/v1/models`, {
-        signal: AbortSignal.timeout(2000),
-      });
-      if (r.ok) {
-        runtimeChatConfig.model = known.id;
-        runtimeChatConfig.baseUrl = `http://127.0.0.1:${port}/v1`;
-        logger.info({ modelId: known.id }, "Model loaded");
-        loadingModelId = null;
-        return;
+  } finally {
+    res.end();
+  }
+});
+
+// ─── POST /api/admin/models/pull/cancel ──────────────────────────────────────
+// Cancel an in-progress model download.
+
+modelsRouter.post("/pull/cancel", validateBody(tagSchema), (req, res) => {
+  const { tag } = req.body as z.infer<typeof tagSchema>;
+  const controller = activePulls.get(tag);
+  if (!controller) {
+    res.status(404).json({ error: "No active download for this model" });
+    return;
+  }
+  controller.abort();
+  activePulls.delete(tag);
+  res.json({ cancelled: true, tag });
+});
+
+// ─── POST /api/admin/models/load ─────────────────────────────────────────────
+// Load a model into RAM and set it as the active chat model.
+
+modelsRouter.post("/load", validateBody(tagSchema), async (req, res) => {
+  const { tag } = req.body as z.infer<typeof tagSchema>;
+
+  try {
+    await ollama.loadModel(tag);
+    // Update runtime config so queries use this model
+    runtimeChatConfig.model = tag;
+    runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+    logger.info({ tag }, "Model loaded and set as active");
+    res.json({ loaded: true, tag, activeModel: tag });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load model";
+    logger.error({ tag, err }, "Failed to load model");
+    res.status(500).json({ error: message });
+  }
+});
+
+// ─── POST /api/admin/models/unload ───────────────────────────────────────────
+// Evict a model from RAM.
+
+modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
+  const { tag } = req.body as z.infer<typeof tagSchema>;
+
+  // Can't unload the active model
+  if (tag === runtimeChatConfig.model) {
+    res.status(409).json({ error: "Cannot unload the active model. Switch to another model first." });
+    return;
+  }
+
+  try {
+    await ollama.unloadModel(tag);
+    res.json({ unloaded: true, tag });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to unload model";
+    logger.error({ tag, err }, "Failed to unload model");
+    res.status(500).json({ error: message });
+  }
+});
+
+// ─── PUT /api/admin/models/active ────────────────────────────────────────────
+// Set the active (default) chat model. Does NOT load it into RAM — just sets
+// which model to use for queries.
+
+modelsRouter.put("/active", validateBody(tagSchema), (req, res) => {
+  const { tag } = req.body as z.infer<typeof tagSchema>;
+  runtimeChatConfig.model = tag;
+  runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+  logger.info({ model: tag }, "Active chat model switched");
+  res.json({ activeModel: tag });
+});
+
+// ─── DELETE /api/admin/models/:tag ───────────────────────────────────────────
+// Remove a model from disk.
+
+modelsRouter.delete("/:tag", async (req, res) => {
+  const tag = decodeURIComponent(req.params["tag"]!);
+
+  // Protect embedding model
+  if (tag === EMBEDDING_MODEL_TAG) {
+    res.status(403).json({ error: "Cannot delete the embedding model" });
+    return;
+  }
+
+  try {
+    await ollama.deleteModel(tag);
+
+    // If the deleted model was active, switch to another
+    if (tag === runtimeChatConfig.model) {
+      try {
+        const installed = await ollama.listInstalled();
+        const remaining = installed.filter((m) => m.tag !== EMBEDDING_MODEL_TAG && m.tag !== tag);
+        if (remaining.length > 0) {
+          runtimeChatConfig.model = remaining[0]!.tag;
+          logger.info({ newActive: runtimeChatConfig.model }, "Auto-switched active model after deletion");
+        }
+      } catch {
+        // Can't list models — leave active as-is
       }
-    } catch {
-      // not ready yet
     }
-    setTimeout(poll, 2000);
-  };
-  setTimeout(poll, 3000);
+
+    res.json({ deleted: true, tag });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to delete model";
+    logger.error({ tag, err }, "Failed to delete model");
+    res.status(500).json({ error: message });
+  }
 });

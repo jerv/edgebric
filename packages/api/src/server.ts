@@ -98,6 +98,29 @@ async function start() {
     if (count > 0) logger.info({ count }, "Expired stale group chats");
   }, 5 * 60 * 1000);
 
+  // Auto-install embedding model if Ollama is running but nomic-embed-text is missing
+  (async () => {
+    try {
+      const { isRunning, listInstalled, pullModel } = await import("./services/ollamaClient.js");
+      const { EMBEDDING_MODEL_TAG } = await import("@edgebric/types");
+      if (await isRunning()) {
+        const installed = await listInstalled();
+        const hasEmbedding = installed.some((m) => m.tag === EMBEDDING_MODEL_TAG);
+        if (!hasEmbedding) {
+          logger.info("Auto-installing embedding model...");
+          await pullModel(EMBEDDING_MODEL_TAG, (e) => {
+            if (e.percent !== undefined && e.percent % 20 === 0) {
+              logger.info({ percent: e.percent }, "Embedding model download progress");
+            }
+          });
+          logger.info("Embedding model installed");
+        }
+      }
+    } catch (err) {
+      logger.warn({ err }, "Could not auto-install embedding model (Ollama may not be running)");
+    }
+  })();
+
   // Start with HTTPS if TLS_CERT and TLS_KEY are provided, otherwise HTTP
   const tlsCert = process.env["TLS_CERT"];
   const tlsKey = process.env["TLS_KEY"];

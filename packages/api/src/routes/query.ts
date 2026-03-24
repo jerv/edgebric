@@ -7,7 +7,8 @@ import type { SearchResult } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
-import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
+import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
+import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { lookupChunk } from "../services/chunkRegistry.js";
 import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
@@ -198,6 +199,36 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   if (!filterResult.allowed) {
     res.status(200).json({ blocked: true, message: filterResult.redirectMessage });
     return;
+  }
+
+  // Check that Ollama has a model loaded — fail early with a clear message
+  // instead of a cryptic connection error during generation.
+  const ollamaUp = await isOllamaRunning();
+  if (!ollamaUp) {
+    // SSE error so the chat UI can display it inline
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+    res.write(`event: error\ndata: ${JSON.stringify({ message: "The AI engine is not running. Please contact your administrator." })}\n\n`);
+    res.end();
+    return;
+  }
+
+  try {
+    const running = await listRunningModels();
+    if (running.size === 0) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+      res.write(`event: error\ndata: ${JSON.stringify({ message: "No AI model is loaded. An admin needs to load a model from Settings." })}\n\n`);
+      res.end();
+      return;
+    }
+  } catch {
+    // Could not check running models — proceed anyway and let the generation
+    // call fail with a more specific error if needed.
   }
 
   // Audit: log query execution (no query text — privacy)
