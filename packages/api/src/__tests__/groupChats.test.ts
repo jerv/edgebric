@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { setupTestApp, teardownTestApp, adminAgent, memberAgent, getDefaultOrgId, createAgent } from "./helpers.js";
+import { setupTestApp, teardownTestApp, adminAgent, getDefaultOrgId, createAgent } from "./helpers.js";
 import { createKB } from "../services/knowledgeBaseStore.js";
 import { upsertUser, updateUserPermissions } from "../services/userStore.js";
 

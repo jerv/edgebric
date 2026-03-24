@@ -1,10 +1,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import {
   CheckCircle, Circle, Loader2, Cpu, ShieldCheck,
-  Plus, Trash2, Pencil, ChevronDown,
+  Trash2, ChevronDown,
   Power, RotateCcw, Activity, Search, Upload, X, AlertTriangle,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -12,7 +11,6 @@ import type { User } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { modelMeta } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
-import type { OrgTab } from "@/components/OrganizationPage";
 
 const PAGE_SIZE = 15;
 

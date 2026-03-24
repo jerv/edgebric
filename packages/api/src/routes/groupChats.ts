@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Router as IRouter } from "express";
+import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -48,7 +48,7 @@ const shareKBSchema = z.object({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function requireMembership(groupChatId: string, email: string, res: import("express").Response): boolean {
+function requireMembership(groupChatId: string, email: string, res: Response): boolean {
   if (!isMember(groupChatId, email)) {
     res.status(403).json({ error: "You are not a member of this group chat" });
     return false;
@@ -56,7 +56,7 @@ function requireMembership(groupChatId: string, email: string, res: import("expr
   return true;
 }
 
-function requireActiveChat(groupChatId: string, res: import("express").Response): ReturnType<typeof getGroupChat> {
+function requireActiveChat(groupChatId: string, res: Response): ReturnType<typeof getGroupChat> {
   const chat = getGroupChat(groupChatId);
   if (!chat) {
     res.status(404).json({ error: "Group chat not found" });

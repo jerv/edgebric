@@ -57,6 +57,7 @@ export interface CreateAppOptions {
 export function createApp(opts: CreateAppOptions = {}): express.Express {
   const app = express();
   const isDev = process.env["NODE_ENV"] !== "production";
+  const useHttps = !!(process.env["TLS_CERT"] && process.env["TLS_KEY"]);
 
   // ─── Security Headers (helmet) ──────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
         baseUri: ["'self'"],
+        upgradeInsecureRequests: null,  // disabled — on-prem app runs over HTTP
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -99,6 +101,9 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   if (isDev) {
     allowedOrigins.push("http://localhost:5173", "http://127.0.0.1:5173");
   }
+  // Also allow .local mDNS hostname access (same server, different hostname)
+  const proto = useHttps ? "https" : "http";
+  allowedOrigins.push(`${proto}://edgebric.local:${config.port}`);
 
   app.use(
     cors({
@@ -151,7 +156,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
           httpOnly: true,
           sameSite: "lax",
           maxAge: 86_400_000,
-          secure: false, // always false in app factory (server.ts controls this)
+          secure: useHttps,
         },
       }),
     );
@@ -170,7 +175,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
         res.cookie(CSRF_COOKIE, token, {
           httpOnly: false,
           sameSite: "lax",
-          secure: !isDev,
+          secure: useHttps,
           path: "/",
         });
       }

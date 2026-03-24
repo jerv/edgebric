@@ -102,11 +102,11 @@ function getLastHash(): string {
  */
 export function recordAuditEvent(params: {
   eventType: AuditEventType;
-  actorEmail?: string;
-  actorIp?: string;
-  resourceType?: string;
-  resourceId?: string;
-  details?: Record<string, unknown>;
+  actorEmail?: string | undefined;
+  actorIp?: string | undefined;
+  resourceType?: string | undefined;
+  resourceId?: string | undefined;
+  details?: Record<string, unknown> | undefined;
 }): void {
   try {
     const db = getDb();
@@ -200,14 +200,14 @@ export function verifyAuditChain(): { valid: boolean; brokenAt?: number; totalEn
  * Query audit log entries with optional filters.
  */
 export function queryAuditLog(filters?: {
-  startDate?: string;
-  endDate?: string;
-  eventType?: AuditEventType;
-  actorEmail?: string;
-  resourceType?: string;
-  resourceId?: string;
-  limit?: number;
-  offset?: number;
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+  eventType?: AuditEventType | undefined;
+  actorEmail?: string | undefined;
+  resourceType?: string | undefined;
+  resourceId?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }): { entries: AuditEntry[]; total: number } {
   const db = getDb();
   const conditions = [];
@@ -265,10 +265,10 @@ export function queryAuditLog(filters?: {
  * Export audit log as CSV string.
  */
 export function exportAuditLogCSV(filters?: {
-  startDate?: string;
-  endDate?: string;
-  eventType?: AuditEventType;
-  actorEmail?: string;
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+  eventType?: AuditEventType | undefined;
+  actorEmail?: string | undefined;
 }): string {
   const { entries } = queryAuditLog({ ...filters, limit: 1_000_000 });
 

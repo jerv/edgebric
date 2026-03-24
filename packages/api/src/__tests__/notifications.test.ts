@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { setupTestApp, teardownTestApp, memberAgent, getDefaultOrgId, createAgent } from "./helpers.js";
+import { setupTestApp, teardownTestApp, getDefaultOrgId, createAgent } from "./helpers.js";
 import { upsertUser, updateUserPermissions } from "../services/userStore.js";
 import { createGroupChat, addMember, addMessage } from "../services/groupChatStore.js";
 

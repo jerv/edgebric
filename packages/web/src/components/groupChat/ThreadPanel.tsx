@@ -197,7 +197,6 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 min-h-0">
         {messages.map((msg) => {
           const isBot = msg.role === "assistant";
-          const isMine = msg.authorEmail === user?.email;
           return (
             <div key={msg.id} className="flex gap-2">
               {isBot ? (

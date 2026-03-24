@@ -1,7 +1,6 @@
 import { Router } from "express";
 import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
-import { randomUUID } from "crypto";
 import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import type { SearchResult, ChatMessage } from "@edgebric/core/rag";
