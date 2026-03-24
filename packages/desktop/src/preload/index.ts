@@ -30,4 +30,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     chatBaseUrl?: string;
     chatModel?: string;
   }) => ipcRenderer.invoke("save-setup", data),
+
+  // Ollama / AI Engine
+  getOllamaStatus: () => ipcRenderer.invoke("ollama-status"),
+  installOllama: (version?: string) => ipcRenderer.invoke("install-ollama", version),
+  startOllama: () => ipcRenderer.invoke("start-ollama"),
+  stopOllama: () => ipcRenderer.invoke("stop-ollama"),
+  onOllamaDownloadProgress: (callback: (percent: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, percent: number) => callback(percent);
+    ipcRenderer.on("ollama-download-progress", handler);
+    return () => ipcRenderer.removeListener("ollama-download-progress", handler);
+  },
 });

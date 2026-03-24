@@ -5,6 +5,15 @@ import { app } from "electron";
 import Bonjour from "bonjour-service";
 import { loadConfig, pidPath, logPath, envPath } from "./config.js";
 import { certsExist } from "./certs.js";
+import {
+  isOllamaInstalled,
+  downloadOllama,
+  startOllama,
+  stopOllama,
+  isOllamaRunning,
+  autoUpdate,
+  getInstalledVersion,
+} from "./ollama.js";
 
 let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -139,6 +148,28 @@ export async function startServer(): Promise<void> {
 
   setStatus("starting");
 
+  // Start Ollama before the API server
+  try {
+    if (!isOllamaInstalled(config.dataDir)) {
+      await downloadOllama(undefined, config.dataDir);
+    }
+
+    const ollamaResult = await startOllama(config.dataDir);
+    if (ollamaResult.external) {
+      console.log("Using existing Ollama instance on port 11434");
+    }
+
+    // Auto-update if enabled (non-blocking)
+    if (config.ollamaAutoUpdate !== false) {
+      autoUpdate(config.dataDir).catch((err) => {
+        console.error("Ollama auto-update failed:", err);
+      });
+    }
+  } catch (err) {
+    console.error("Ollama startup failed:", err);
+    // Continue anyway — the API will report AI as unavailable via health endpoint
+  }
+
   const logFile = logPath(config.dataDir);
   const logFd = fs.openSync(logFile, "a");
 
@@ -187,6 +218,13 @@ export async function stopServer(): Promise<void> {
   unpublishMdns();
 
   const config = loadConfig();
+
+  // Stop Ollama (only if we started it — external instances are left alone)
+  try {
+    await stopOllama(config?.dataDir);
+  } catch {
+    // Best effort
+  }
   const pidFile = config ? pidPath(config.dataDir) : null;
 
   if (serverProcess) {
@@ -295,5 +333,11 @@ export async function cleanup() {
     if (serverProcess) {
       serverProcess.kill("SIGKILL");
     }
+  }
+  // Stop Ollama on app quit
+  try {
+    await stopOllama();
+  } catch {
+    // Best effort
   }
 }

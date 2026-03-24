@@ -128,7 +128,10 @@ export default function SetupWizard({ onComplete }: Props) {
   const [port, setPort] = useState("3001");
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const TOTAL_STEPS = 4;
+  const [ollamaProgress, setOllamaProgress] = useState(-1); // -1 = not started
+  const [ollamaStatus, setOllamaStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
+  const [ollamaError, setOllamaError] = useState("");
+  const TOTAL_STEPS = 5;
 
   useEffect(() => {
     window.electronAPI.getDefaultDataDir().then(setDataDir);
@@ -159,6 +162,9 @@ export default function SetupWizard({ onComplete }: Props) {
         const portNum = parseInt(port, 10);
         return adminEmails.trim().length > 0 && portNum > 0 && portNum < 65536;
       }
+      case 5:
+        // AI engine step — can proceed once downloaded or skipped
+        return ollamaStatus === "done" || ollamaStatus === "idle";
       default:
         return false;
     }
@@ -167,34 +173,40 @@ export default function SetupWizard({ onComplete }: Props) {
   async function handleNext() {
     setError("");
 
+    // Save config when leaving step 4 (before AI engine step needs dataDir)
+    if (step === 4) {
+      setSaving(true);
+      try {
+        const emails = adminEmails
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
+
+        await window.electronAPI.saveSetup({
+          dataDir: dataDir.trim(),
+          port: parseInt(port, 10),
+          oidcIssuer: oidcIssuer.trim(),
+          oidcClientId: oidcClientId.trim(),
+          oidcClientSecret: oidcClientSecret.trim(),
+          adminEmails: emails,
+        });
+
+        setStep(step + 1);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Setup failed");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (step < TOTAL_STEPS) {
       setStep(step + 1);
       return;
     }
 
-    // Final step — save config
-    setSaving(true);
-    try {
-      const emails = adminEmails
-        .split(",")
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
-
-      await window.electronAPI.saveSetup({
-        dataDir: dataDir.trim(),
-        port: parseInt(port, 10),
-        oidcIssuer: oidcIssuer.trim(),
-        oidcClientId: oidcClientId.trim(),
-        oidcClientSecret: oidcClientSecret.trim(),
-        adminEmails: emails,
-      });
-
-      onComplete();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Setup failed");
-    } finally {
-      setSaving(false);
-    }
+    // Final step (AI engine) — just complete
+    onComplete();
   }
 
   function handleBack() {
@@ -368,7 +380,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
         {step === 4 && (
           <>
-            <h2>Admin Access</h2>
+            <h2>Admin Access &amp; Network</h2>
             <p className="description">
               Enter the email address(es) that should have admin access.
               Separate multiple emails with commas.
@@ -423,6 +435,75 @@ export default function SetupWizard({ onComplete }: Props) {
             )}
           </>
         )}
+        {step === 5 && (
+          <>
+            <h2>AI Engine</h2>
+            <p className="description">
+              Edgebric uses a local AI engine to process queries privately on this machine.
+              No data leaves your network.
+            </p>
+
+            {ollamaStatus === "idle" && (
+              <div className="ai-engine-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    setOllamaStatus("downloading");
+                    setOllamaError("");
+                    setOllamaProgress(0);
+                    const cleanup = window.electronAPI.onOllamaDownloadProgress((percent: number) => {
+                      setOllamaProgress(percent);
+                    });
+                    const result = await window.electronAPI.installOllama();
+                    cleanup();
+                    if (result.success) {
+                      setOllamaStatus("done");
+                    } else {
+                      setOllamaStatus("error");
+                      setOllamaError(result.error ?? "Download failed");
+                    }
+                  }}
+                >
+                  Download AI Engine
+                </button>
+                <p className="hint">
+                  Downloads approximately 90 MB. You can also skip this step and
+                  set it up later from Settings.
+                </p>
+              </div>
+            )}
+
+            {ollamaStatus === "downloading" && (
+              <div className="ai-engine-progress">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${ollamaProgress}%` }} />
+                </div>
+                <p className="progress-label">Downloading... {ollamaProgress}%</p>
+              </div>
+            )}
+
+            {ollamaStatus === "done" && (
+              <div className="ai-engine-done">
+                <p className="success-message">AI engine installed successfully.</p>
+                <p className="hint">
+                  You can manage AI models after setup from Settings &gt; Models.
+                </p>
+              </div>
+            )}
+
+            {ollamaStatus === "error" && (
+              <div className="ai-engine-error">
+                <p className="error-message">{ollamaError}</p>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setOllamaStatus("idle")}
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="wizard-footer">
@@ -438,9 +519,15 @@ export default function SetupWizard({ onComplete }: Props) {
           <button
             className="btn btn-primary"
             onClick={handleNext}
-            disabled={!canProceed() || saving}
+            disabled={!canProceed() || saving || ollamaStatus === "downloading"}
           >
-            {saving ? "Saving..." : step === TOTAL_STEPS ? "Finish" : "Next"}
+            {saving
+              ? "Saving..."
+              : ollamaStatus === "downloading"
+                ? "Downloading..."
+                : step === TOTAL_STEPS
+                  ? ollamaStatus === "idle" ? "Skip & Finish" : "Finish"
+                  : "Next"}
           </button>
         </div>
       </div>

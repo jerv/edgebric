@@ -2,6 +2,14 @@ import { ipcMain, BrowserWindow } from "electron";
 import { readLogs, getStatus, getPort, getHostname, startServer, stopServer, onStatusChange } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
+import {
+  isOllamaInstalled,
+  isOllamaRunning,
+  getInstalledVersion,
+  downloadOllama,
+  startOllama,
+  stopOllama,
+} from "./ollama.js";
 import crypto from "crypto";
 import fs from "fs";
 
@@ -116,5 +124,51 @@ export function registerIpcHandlers() {
     fs.writeFileSync(envFile, envContent, "utf8");
 
     return { success: true };
+  });
+
+  // ─── Ollama ─────────────────────────────────────────────────────────────────
+
+  ipcMain.handle("ollama-status", async () => {
+    const config = loadConfig();
+    const dataDir = config?.dataDir;
+    return {
+      installed: isOllamaInstalled(dataDir),
+      running: await isOllamaRunning(),
+      version: getInstalledVersion(dataDir),
+    };
+  });
+
+  ipcMain.handle("install-ollama", async (_event, version?: string) => {
+    const config = loadConfig();
+    try {
+      await downloadOllama(version, config?.dataDir, (percent) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send("ollama-download-progress", percent);
+        }
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle("start-ollama", async () => {
+    const config = loadConfig();
+    try {
+      const result = await startOllama(config?.dataDir);
+      return { success: true, external: result.external };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle("stop-ollama", async () => {
+    const config = loadConfig();
+    try {
+      await stopOllama(config?.dataDir);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   });
 }

@@ -53,6 +53,9 @@ export interface EdgebricConfig {
    * mDNS resolution.
    */
   hostname?: string;
+
+  /** Whether Ollama should auto-update on app launch. Default: true. */
+  ollamaAutoUpdate?: boolean;
 }
 
 /** Config file location: DATA_DIR/.edgebric.json */
