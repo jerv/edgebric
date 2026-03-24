@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { createRootRoute, Outlet, useRouter } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserContext } from "@/contexts/UserContext";
@@ -72,16 +73,52 @@ function ErrorPage({ error }: { error: Error }) {
   );
 }
 
+function OfflineBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    // Small delay so a momentary blip doesn't flash the banner
+    const timeout = setTimeout(() => setVisible(true), 500);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Auto-retry: reload when the server comes back
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch("/api/health", { credentials: "same-origin" });
+        if (r.ok) window.location.reload();
+      } catch {
+        // still offline
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed top-0 inset-x-0 z-[9999] bg-red-600 dark:bg-red-700 text-white text-center py-2 px-4 text-sm font-medium shadow-md flex items-center justify-center gap-2">
+      <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 8v4M12 16h.01" />
+      </svg>
+      <span>Server offline — start Edgebric from the menu bar. Reconnecting automatically...</span>
+    </div>
+  );
+}
+
 function RootInner() {
   const queryClient = useQueryClient();
-  const { data: user, isLoading } = useQuery<User | null>({
+  const { data: user, isLoading, isError } = useQuery<User | null>({
     queryKey: ["me"],
     queryFn: async () => {
       const r = await fetch("/api/auth/me", { credentials: "same-origin" });
       if (!r.ok) return null;
       return r.json() as Promise<User>;
     },
-    retry: false,
+    retry: 1,
+    retryDelay: 1000,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -91,6 +128,16 @@ function RootInner() {
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="text-muted-foreground text-sm">Loading…</div>
       </div>
+    );
+  }
+
+  // Server unreachable — show banner over whatever cached UI is visible
+  if (isError) {
+    return (
+      <>
+        <OfflineBanner />
+        <LoginPage />
+      </>
     );
   }
 

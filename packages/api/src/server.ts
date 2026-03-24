@@ -1,9 +1,11 @@
 import "dotenv/config";
 import session from "express-session";
 import express from "express";
+import https from "https";
 import FileStoreFactory from "session-file-store";
 import path from "path";
 import fs from "fs/promises";
+import fsSync from "fs";
 import { logger } from "./lib/logger.js";
 import { initEncryptionKey } from "./lib/crypto.js";
 import { initDatabase, closeDatabase } from "./db/index.js";
@@ -32,10 +34,27 @@ const app = createApp({
 // ─── Static frontend (production) ─────────────────────────────────────────────
 
 const webDistDir = path.join(import.meta.dirname, "..", "..", "web", "dist");
-if (!isDev) {
-  app.use(express.static(webDistDir));
+const serveStatic = !isDev || process.env["SERVE_STATIC"] === "1";
+if (serveStatic) {
+  // Hashed assets (JS/CSS/images) — cache aggressively
+  app.use("/assets", express.static(path.join(webDistDir, "assets"), {
+    maxAge: "1y",
+    immutable: true,
+  }));
+  // Everything else (favicon, etc.) — short cache
+  app.use(express.static(webDistDir, {
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+      // index.html must never be disk-cached — it's the SPA entry point.
+      // Without this, browsers serve stale HTML when the server is offline.
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-store");
+      }
+    },
+  }));
   app.get("*", (_req, res, next) => {
     if (_req.path.startsWith("/api/")) return next();
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile(path.join(webDistDir, "index.html"));
   });
 }
@@ -79,14 +98,31 @@ async function start() {
     if (count > 0) logger.info({ count }, "Expired stale group chats");
   }, 5 * 60 * 1000);
 
-  const server = app.listen(config.port, () => {
-    logger.info({
-      port: config.port,
-      corsOrigin: config.frontendUrl,
-      edgeBaseUrl: config.edge.baseUrl,
-      adminEmails: config.adminEmails,
-    }, `Edgebric API running on http://localhost:${config.port}`);
-  });
+  // Start with HTTPS if TLS_CERT and TLS_KEY are provided, otherwise HTTP
+  const tlsCert = process.env["TLS_CERT"];
+  const tlsKey = process.env["TLS_KEY"];
+  const useHttps = tlsCert && tlsKey && fsSync.existsSync(tlsCert) && fsSync.existsSync(tlsKey);
+
+  const server = useHttps
+    ? https.createServer(
+        { cert: fsSync.readFileSync(tlsCert), key: fsSync.readFileSync(tlsKey) },
+        app,
+      ).listen(config.port, () => {
+        logger.info({
+          port: config.port,
+          corsOrigin: config.frontendUrl,
+          edgeBaseUrl: config.edge.baseUrl,
+          adminEmails: config.adminEmails,
+        }, `Edgebric API running on https://localhost:${config.port}`);
+      })
+    : app.listen(config.port, () => {
+        logger.info({
+          port: config.port,
+          corsOrigin: config.frontendUrl,
+          edgeBaseUrl: config.edge.baseUrl,
+          adminEmails: config.adminEmails,
+        }, `Edgebric API running on http://localhost:${config.port}`);
+      });
 
   // ─── Graceful Shutdown ──────────────────────────────────────────────────────
 
