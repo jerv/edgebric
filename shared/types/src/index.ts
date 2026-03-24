@@ -336,6 +336,11 @@ export interface GroupChatMessage {
   createdAt: Date;
 }
 
+// ─── AI Models (re-exported from models.ts) ─────────────────────────────────
+
+export type { ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, ModelsResponse, PullProgressEvent } from "./models.js";
+export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG } from "./models.js";
+
 // ─── mimik / Edge Config ──────────────────────────────────────────────────────
 
 export interface EdgeConfig {

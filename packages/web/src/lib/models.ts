@@ -1,30 +1,39 @@
+import { MODEL_CATALOG_MAP } from "@edgebric/types";
+import type { ModelCatalogEntry } from "@edgebric/types";
+
 export interface ModelMeta {
   family: string;
   label: string;
   spec: string;
 }
 
-export const MODEL_META: Record<string, ModelMeta> = {
-  "qwen3.5-4b":      { family: "Qwen", label: "Fast",              spec: "4B" },
-  "qwen3.5-4b.gguf": { family: "Qwen", label: "Fast",              spec: "4B" },
-  "qwen3.5-9b":      { family: "Qwen", label: "Thinking (Slower)", spec: "9B" },
-  "qwen3.5-9b.gguf": { family: "Qwen", label: "Thinking (Slower)", spec: "9B" },
-  "qwen2.5-7b":      { family: "Qwen", label: "Balanced",          spec: "7B" },
-  "qwen2.5-7b.gguf": { family: "Qwen", label: "Balanced",          spec: "7B" },
-};
-
-export function modelMeta(id: string): ModelMeta {
-  return MODEL_META[id] ?? { family: id, label: "", spec: "" };
+/** Derive ModelMeta from the shared catalog. Falls back gracefully for community models. */
+export function modelMeta(tag: string): ModelMeta {
+  const entry = MODEL_CATALOG_MAP.get(tag);
+  if (entry) {
+    return { family: entry.name, label: entry.description.split(".")[0]!, spec: entry.paramCount };
+  }
+  // Community model — extract what we can from the tag
+  const parts = tag.split(":");
+  const name = parts[0] ?? tag;
+  const variant = parts[1] ?? "";
+  return { family: name, label: "Community model", spec: variant };
 }
 
-/** Full label for admin UI: "Qwen -- Fast . qwen3.5-4b" */
-export function adminLabel(id: string): string {
-  const m = MODEL_META[id];
-  if (!m) return id;
-  return `${m.family} — ${m.label} · ${id}`;
+/** Full label for admin UI: "Qwen 3 · 4B" */
+export function adminLabel(tag: string): string {
+  const entry = MODEL_CATALOG_MAP.get(tag);
+  if (entry) return `${entry.name} · ${entry.paramCount}`;
+  return tag;
 }
 
-/** Short label for employee UI: "Fast" */
-export function employeeLabel(id: string): string {
-  return MODEL_META[id]?.label ?? id;
+/** Short label for employee UI: "Qwen 3" */
+export function employeeLabel(tag: string): string {
+  const entry = MODEL_CATALOG_MAP.get(tag);
+  return entry?.name ?? tag;
+}
+
+/** Get the catalog entry for a tag, if it exists. */
+export function getCatalogEntry(tag: string): ModelCatalogEntry | undefined {
+  return MODEL_CATALOG_MAP.get(tag);
 }
