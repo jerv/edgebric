@@ -79,16 +79,27 @@ healthRouter.get("/", async (req, res) => {
     }
   }
 
-  const allOk = Object.values(checks).every((c) => c.status === "ok");
-  const anyDown = Object.values(checks).some((c) => c.status === "unavailable" || c.status === "critical");
-  const overallStatus = allOk ? "healthy" : anyDown ? "unhealthy" : "degraded";
+  // Core services (database, disk) affect overall health.
+  // AI services (inference, vectorStore) are informational — reported but don't degrade overall status.
+  const coreChecks = [checks.database, checks.disk].filter(Boolean);
+  const coreOk = coreChecks.every((c) => c!.status === "ok");
+  const coreCritical = coreChecks.some((c) => c!.status === "critical");
+  const overallStatus = coreCritical ? "unhealthy" : coreOk ? "healthy" : "degraded";
+
+  // AI services summary for the admin detail view
+  const aiReady = checks.inference?.status === "ok" && checks.vectorStore?.status === "ok";
 
   // Only expose detailed checks (latency, errors, uptime) to authenticated admins.
   // Unauthenticated callers get a simple status (useful for load balancers).
   const isAdmin = !!(req.session?.queryToken && req.session?.isAdmin);
   if (isAdmin) {
-    res.status(anyDown ? 503 : 200).json({ status: overallStatus, uptime: Math.floor((Date.now() - startTime) / 1000), checks });
+    res.status(coreCritical ? 503 : 200).json({
+      status: overallStatus,
+      aiReady,
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+      checks,
+    });
   } else {
-    res.status(anyDown ? 503 : 200).json({ status: overallStatus });
+    res.status(coreCritical ? 503 : 200).json({ status: overallStatus, aiReady });
   }
 });
