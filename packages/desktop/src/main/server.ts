@@ -207,9 +207,11 @@ export async function startServer(): Promise<void> {
 
   startHealthCheck(config.port);
 
-  // Publish mDNS so edgebric.local resolves on the network
-  const hostname = config.hostname ?? "edgebric.local";
-  publishMdns(hostname, config.port);
+  // Publish mDNS so edgebric.local resolves on the network (admin mode only)
+  if (config.mode !== "solo") {
+    const hostname = config.hostname ?? "edgebric.local";
+    publishMdns(hostname, config.port);
+  }
 }
 
 /** Stop the API server */

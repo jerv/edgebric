@@ -5,6 +5,8 @@ interface Props {
   onComplete: () => void;
 }
 
+type EdgebricMode = "solo" | "admin" | "member";
+
 interface AuthProvider {
   id: string;
   name: string;
@@ -24,35 +26,6 @@ function GoogleIcon() {
     </svg>
   );
 }
-
-// Future provider icons — uncomment when supported:
-// function MicrosoftIcon() {
-//   return (
-//     <svg width="20" height="20" viewBox="0 0 21 21">
-//       <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-//       <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-//       <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-//       <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-//     </svg>
-//   );
-// }
-
-// function OktaIcon() {
-//   return (
-//     <svg width="20" height="20" viewBox="0 0 24 24">
-//       <circle cx="12" cy="12" r="10" fill="#007DC1"/>
-//       <circle cx="12" cy="12" r="4" fill="#fff"/>
-//     </svg>
-//   );
-// }
-
-// function Auth0Icon() {
-//   return (
-//     <svg width="20" height="20" viewBox="0 0 24 24">
-//       <path fill="#EB5424" d="M17.98 18.55L12 24l-5.98-5.45L8.8 12 2.82 5.45 12 0l9.18 5.45L14.2 12l3.78 6.55z"/>
-//     </svg>
-//   );
-// }
 
 function OidcIcon() {
   return (
@@ -74,34 +47,6 @@ const AUTH_PROVIDERS: AuthProvider[] = [
     docsUrl: "https://console.cloud.google.com/apis/credentials",
     icon: <GoogleIcon />,
   },
-  // Future providers — uncomment when supported:
-  // {
-  //   id: "microsoft",
-  //   name: "Microsoft Entra ID",
-  //   issuerUrl: "https://login.microsoftonline.com/{tenant}/v2.0",
-  //   instructions:
-  //     "Go to Azure Portal > App registrations > New registration. Set redirect URI and copy Application (client) ID.",
-  //   docsUrl: "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps",
-  //   icon: <MicrosoftIcon />,
-  // },
-  // {
-  //   id: "okta",
-  //   name: "Okta",
-  //   issuerUrl: "https://{your-domain}.okta.com",
-  //   instructions:
-  //     "Go to Okta Admin > Applications > Create App Integration. Choose OIDC and Web Application.",
-  //   docsUrl: "https://developer.okta.com/docs/guides/implement-grant-type/authcode/main/",
-  //   icon: <OktaIcon />,
-  // },
-  // {
-  //   id: "auth0",
-  //   name: "Auth0",
-  //   issuerUrl: "https://{your-domain}.auth0.com",
-  //   instructions:
-  //     "Go to Auth0 Dashboard > Applications > Create Application. Choose Regular Web Application.",
-  //   docsUrl: "https://auth0.com/docs/get-started/applications",
-  //   icon: <Auth0Icon />,
-  // },
   {
     id: "other",
     name: "Other OIDC Provider",
@@ -113,10 +58,25 @@ const AUTH_PROVIDERS: AuthProvider[] = [
   },
 ];
 
+// ─── Step definitions per mode ──────────────────────────────────────────────
+
+type StepId = "mode" | "dataDir" | "authProvider" | "authCredentials" | "adminAccess" | "aiEngine";
+
+const STEPS_BY_MODE: Record<EdgebricMode, StepId[]> = {
+  solo:   ["mode", "dataDir", "aiEngine"],
+  admin:  ["mode", "dataDir", "authProvider", "authCredentials", "adminAccess", "aiEngine"],
+  member: ["mode", "dataDir", "aiEngine"], // member connect flow is Phase 5
+};
+
+// ─── Main component ─────────────────────────────────────────────────────────
+
 export default function SetupWizard({ onComplete }: Props) {
-  const [step, setStep] = useState(1);
+  const [stepIndex, setStepIndex] = useState(0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Mode
+  const [mode, setMode] = useState<EdgebricMode>("solo");
 
   // Form state
   const [dataDir, setDataDir] = useState("");
@@ -128,10 +88,13 @@ export default function SetupWizard({ onComplete }: Props) {
   const [port, setPort] = useState("3001");
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [ollamaProgress, setOllamaProgress] = useState(-1); // -1 = not started
+  const [ollamaProgress, setOllamaProgress] = useState(-1);
   const [ollamaStatus, setOllamaStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
   const [ollamaError, setOllamaError] = useState("");
-  const TOTAL_STEPS = 5;
+
+  const steps = STEPS_BY_MODE[mode];
+  const currentStep = steps[stepIndex];
+  const totalSteps = steps.length;
 
   useEffect(() => {
     window.electronAPI.getDefaultDataDir().then(setDataDir);
@@ -142,56 +105,68 @@ export default function SetupWizard({ onComplete }: Props) {
   function handleProviderChange(providerId: string) {
     setAuthProvider(providerId);
     const provider = AUTH_PROVIDERS.find((p) => p.id === providerId);
-    // Pre-fill issuer for known providers, clear it for "other"
     setOidcIssuer(provider?.issuerUrl ?? "");
   }
 
   function canProceed(): boolean {
-    switch (step) {
-      case 1:
+    switch (currentStep) {
+      case "mode":
+        return true;
+      case "dataDir":
         return dataDir.trim().length > 0;
-      case 2:
+      case "authProvider":
         return authProvider.length > 0;
-      case 3:
+      case "authCredentials":
         return (
           oidcIssuer.trim().length > 0 &&
           oidcClientId.trim().length > 0 &&
           oidcClientSecret.trim().length > 0
         );
-      case 4: {
+      case "adminAccess": {
         const portNum = parseInt(port, 10);
         return adminEmails.trim().length > 0 && portNum > 0 && portNum < 65536;
       }
-      case 5:
-        // AI engine step — can proceed once downloaded or skipped
+      case "aiEngine":
         return ollamaStatus === "done" || ollamaStatus === "idle";
       default:
         return false;
     }
   }
 
+  /** The step just before AI Engine is where we save config + .env */
+  function isPreSaveStep(): boolean {
+    const aiIdx = steps.indexOf("aiEngine");
+    return aiIdx > 0 && stepIndex === aiIdx - 1;
+  }
+
+  async function saveConfig() {
+    const emails = adminEmails
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    await window.electronAPI.saveSetup({
+      mode,
+      dataDir: dataDir.trim(),
+      port: parseInt(port, 10),
+      ...(mode === "admin" && {
+        oidcIssuer: oidcIssuer.trim(),
+        oidcClientId: oidcClientId.trim(),
+        oidcClientSecret: oidcClientSecret.trim(),
+        adminEmails: emails,
+      }),
+    });
+  }
+
   async function handleNext() {
     setError("");
 
-    // Save config when leaving step 4 (before AI engine step needs dataDir)
-    if (step === 4) {
+    // Save config before AI engine step
+    if (isPreSaveStep()) {
       setSaving(true);
       try {
-        const emails = adminEmails
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter(Boolean);
-
-        await window.electronAPI.saveSetup({
-          dataDir: dataDir.trim(),
-          port: parseInt(port, 10),
-          oidcIssuer: oidcIssuer.trim(),
-          oidcClientId: oidcClientId.trim(),
-          oidcClientSecret: oidcClientSecret.trim(),
-          adminEmails: emails,
-        });
-
-        setStep(step + 1);
+        await saveConfig();
+        setStepIndex(stepIndex + 1);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Setup failed");
       } finally {
@@ -200,19 +175,35 @@ export default function SetupWizard({ onComplete }: Props) {
       return;
     }
 
-    if (step < TOTAL_STEPS) {
-      setStep(step + 1);
+    if (stepIndex < totalSteps - 1) {
+      setStepIndex(stepIndex + 1);
       return;
     }
 
-    // Final step (AI engine) — just complete
+    // Final step — complete
     onComplete();
   }
 
   function handleBack() {
     setError("");
-    setStep(step - 1);
+    if (stepIndex === 0) return;
+
+    // If going back from step 1 (dataDir) to mode selector, reset step index
+    // to 0 since mode change may change step sequence
+    if (currentStep === "dataDir") {
+      setStepIndex(0);
+      return;
+    }
+
+    setStepIndex(stepIndex - 1);
   }
+
+  function handleModeSelect(newMode: EdgebricMode) {
+    setMode(newMode);
+    // Reset step index when mode changes (stays on mode step)
+  }
+
+  const isLastStep = stepIndex === totalSteps - 1;
 
   return (
     <div className="wizard">
@@ -227,7 +218,81 @@ export default function SetupWizard({ onComplete }: Props) {
       <div className="wizard-step">
         {error && <div className="error-message">{error}</div>}
 
-        {step === 1 && (
+        {currentStep === "mode" && (
+          <>
+            <h2>How will you use Edgebric?</h2>
+            <p className="description">
+              You can change this later from Settings.
+            </p>
+            <div className="provider-list">
+              <label className={`provider-option ${mode === "solo" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="mode"
+                  value="solo"
+                  checked={mode === "solo"}
+                  onChange={() => handleModeSelect("solo")}
+                />
+                <span className="provider-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </span>
+                <div>
+                  <span className="provider-name">Just for me</span>
+                  <span className="provider-desc">Run Edgebric locally for personal use. No account needed.</span>
+                </div>
+              </label>
+
+              <label className={`provider-option ${mode === "admin" ? "selected" : ""}`}>
+                <input
+                  type="radio"
+                  name="mode"
+                  value="admin"
+                  checked={mode === "admin"}
+                  onChange={() => handleModeSelect("admin")}
+                />
+                <span className="provider-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </span>
+                <div>
+                  <span className="provider-name">Run a server for my team</span>
+                  <span className="provider-desc">Set up Edgebric for your organization with SSO login.</span>
+                </div>
+              </label>
+
+              <label className={`provider-option ${mode === "member" ? "selected" : ""} disabled-option`}>
+                <input
+                  type="radio"
+                  name="mode"
+                  value="member"
+                  checked={mode === "member"}
+                  onChange={() => handleModeSelect("member")}
+                />
+                <span className="provider-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <line x1="19" y1="8" x2="19" y2="14"/>
+                    <line x1="22" y1="11" x2="16" y2="11"/>
+                  </svg>
+                </span>
+                <div>
+                  <span className="provider-name">Member of an organization</span>
+                  <span className="provider-desc">Connect to your team's Edgebric server. Coming soon.</span>
+                </div>
+              </label>
+            </div>
+          </>
+        )}
+
+        {currentStep === "dataDir" && (
           <>
             <h2>Data Directory</h2>
             <p className="description">
@@ -247,7 +312,7 @@ export default function SetupWizard({ onComplete }: Props) {
           </>
         )}
 
-        {step === 2 && (
+        {currentStep === "authProvider" && (
           <>
             <h2>Authentication Provider</h2>
             <p className="description">
@@ -274,7 +339,7 @@ export default function SetupWizard({ onComplete }: Props) {
           </>
         )}
 
-        {step === 3 && (
+        {currentStep === "authCredentials" && (
           <>
             <h2>{selectedProvider.name} Credentials</h2>
             <div className={authProvider === "google" ? "step3-split" : ""}>
@@ -355,7 +420,7 @@ export default function SetupWizard({ onComplete }: Props) {
                   />
                   <p className="hint">
                     {authProvider === "google"
-                      ? "NOT the name you typed — it's the long string ending in .apps.googleusercontent.com"
+                      ? "NOT the name you typed \u2014 it's the long string ending in .apps.googleusercontent.com"
                       : "Found in your OIDC provider's app registration page."}
                   </p>
                 </div>
@@ -370,7 +435,7 @@ export default function SetupWizard({ onComplete }: Props) {
                   <p className="hint">
                     {authProvider === "google"
                       ? "Shown right after you click CREATE. Can also be found later on the client details page."
-                      : "Some providers only show this once — you may need to generate a new one."}
+                      : "Some providers only show this once \u2014 you may need to generate a new one."}
                   </p>
                 </div>
               </div>
@@ -378,7 +443,7 @@ export default function SetupWizard({ onComplete }: Props) {
           </>
         )}
 
-        {step === 4 && (
+        {currentStep === "adminAccess" && (
           <>
             <h2>Admin Access &amp; Network</h2>
             <p className="description">
@@ -435,7 +500,8 @@ export default function SetupWizard({ onComplete }: Props) {
             )}
           </>
         )}
-        {step === 5 && (
+
+        {currentStep === "aiEngine" && (
           <>
             <h2>AI Engine</h2>
             <p className="description">
@@ -508,10 +574,10 @@ export default function SetupWizard({ onComplete }: Props) {
 
       <div className="wizard-footer">
         <span className="step-indicator">
-          Step {step} of {TOTAL_STEPS}
+          Step {stepIndex + 1} of {totalSteps}
         </span>
         <div className="buttons">
-          {step > 1 && (
+          {stepIndex > 0 && (
             <button className="btn btn-secondary" onClick={handleBack}>
               Back
             </button>
@@ -525,7 +591,7 @@ export default function SetupWizard({ onComplete }: Props) {
               ? "Saving..."
               : ollamaStatus === "downloading"
                 ? "Downloading..."
-                : step === TOTAL_STEPS
+                : isLastStep
                   ? ollamaStatus === "idle" ? "Skip & Finish" : "Finish"
                   : "Next"}
           </button>

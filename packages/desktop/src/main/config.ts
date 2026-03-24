@@ -27,15 +27,21 @@ import fs from "fs";
 /** Default data directory: ~/Edgebric */
 export const DEFAULT_DATA_DIR = path.join(os.homedir(), "Edgebric");
 
+export type EdgebricMode = "solo" | "admin" | "member";
+
 export interface EdgebricConfig {
+  /** Setup mode: solo (no auth), admin (org server), member (connect to org). */
+  mode: EdgebricMode;
   dataDir: string;
   port: number;
-  oidcIssuer: string;
-  oidcClientId: string;
-  oidcClientSecret: string;
-  adminEmails: string[];
+  oidcIssuer?: string;
+  oidcClientId?: string;
+  oidcClientSecret?: string;
+  adminEmails?: string[];
   chatBaseUrl?: string;
   chatModel?: string;
+  /** Org server URL for member mode. */
+  orgServerUrl?: string;
 
   /**
    * Hostname for accessing Edgebric in the browser.

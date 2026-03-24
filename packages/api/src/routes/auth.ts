@@ -91,6 +91,35 @@ function needsCrossOriginTransfer(): boolean {
 // Frontend checks this on load to determine session state.
 
 authRouter.get("/me", (req, res) => {
+  // Solo mode — auto-authenticated admin, skip OIDC/org lookups
+  if (config.authMode === "none") {
+    if (!req.session.queryToken) {
+      req.session.queryToken = "solo-user";
+      req.session.isAdmin = true;
+      req.session.email = "solo@localhost";
+      req.session.name = "You";
+      req.session.orgId = "solo";
+      req.session.orgSlug = "solo";
+    }
+    res.json({
+      isAdmin: true,
+      queryToken: req.session.queryToken,
+      email: req.session.email,
+      name: req.session.name,
+      orgId: "solo",
+      orgName: "Edgebric",
+      orgSlug: "solo",
+      privateModeEnabled: false,
+      vaultModeEnabled: true,
+      canCreateKBs: true,
+      defaultGroupChatNotifLevel: "all",
+      onboardingComplete: true,
+      needsNameSetup: false,
+      authMode: "none",
+    });
+    return;
+  }
+
   if (!req.session.queryToken || !req.session.email) {
     res.status(401).json({ error: "Not authenticated" });
     return;
@@ -131,6 +160,7 @@ authRouter.get("/me", (req, res) => {
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
     orgAvatarUrl: org?.settings.avatarUrl,
+    authMode: "oidc",
   });
 });
 

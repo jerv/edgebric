@@ -21,12 +21,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Setup
   saveSetup: (data: {
+    mode: "solo" | "admin" | "member";
     dataDir: string;
     port: number;
-    oidcIssuer: string;
-    oidcClientId: string;
-    oidcClientSecret: string;
-    adminEmails: string[];
+    oidcIssuer?: string;
+    oidcClientId?: string;
+    oidcClientSecret?: string;
+    adminEmails?: string[];
     chatBaseUrl?: string;
     chatModel?: string;
   }) => ipcRenderer.invoke("save-setup", data),

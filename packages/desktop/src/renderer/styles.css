@@ -571,6 +571,18 @@ body {
   color: #0055b3;
 }
 
+.provider-desc {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.provider-option.disabled-option {
+  opacity: 0.5;
+}
+
 /* Docs link */
 .docs-link {
   color: #0066cc;

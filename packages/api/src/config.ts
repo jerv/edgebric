@@ -14,20 +14,29 @@ if (process.env["NODE_ENV"] === "production" && sessionSecret === "dev-secret-ch
   );
 }
 
+/** Auth mode: "oidc" = full SSO, "none" = solo mode (no login, auto-admin). */
+const authMode = (process.env["AUTH_MODE"] ?? "oidc") as "oidc" | "none";
+
 export const config = {
   port: parseInt(process.env["PORT"] ?? "3001", 10),
   dataDir: process.env["DATA_DIR"] ?? "./data",
   sessionSecret,
+  authMode,
   // In production, frontend is served by the same origin as the API.
   // In dev, Vite runs on a separate port.
   frontendUrl: process.env["FRONTEND_URL"] ?? "http://localhost:5173",
 
-  oidc: {
+  oidc: authMode === "oidc" ? {
     issuer: process.env["OIDC_ISSUER"] ?? "https://accounts.google.com",
     clientId: requireEnv("OIDC_CLIENT_ID"),
     clientSecret: requireEnv("OIDC_CLIENT_SECRET"),
     redirectUri:
       process.env["OIDC_REDIRECT_URI"] ?? "http://localhost:3001/api/auth/callback",
+  } : {
+    issuer: "",
+    clientId: "",
+    clientSecret: "",
+    redirectUri: "",
   },
 
   // Comma-separated list of emails granted admin access after OIDC login

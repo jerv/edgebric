@@ -17,6 +17,7 @@ export interface User {
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
   orgAvatarUrl?: string;
+  authMode?: "oidc" | "none";
 }
 
 export const UserContext = createContext<User | null | undefined>(undefined);
