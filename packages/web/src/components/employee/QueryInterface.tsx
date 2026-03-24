@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
 import type { AnswerResponse, Citation, PersistedMessage } from "@edgebric/types";
 import { getLoginUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
-import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon } from "lucide-react";
+import { ModelPicker } from "@/components/shared/ModelPicker";
 import { getThinkingChats } from "@/hooks/useNotifications";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
@@ -33,15 +33,6 @@ interface Message {
   source?: "ai" | "admin" | "system";
 }
 
-interface MILMModel {
-  id: string;
-  readyToUse: boolean;
-}
-
-interface ModelsResponse {
-  models: MILMModel[];
-  activeModel: string;
-}
 
 // ─── Thinking Indicator ─────────────────────────────────────────────────────
 
@@ -187,7 +178,7 @@ export function ChatPanel() {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>(urlConvId);
   const [isLoading, setIsLoading] = useState(false);
-  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [privacyPopoverOpen, setPrivacyPopoverOpen] = useState(false);
   const [exitDialogTarget, setExitDialogTarget] = useState<"standard" | "private" | "vault" | null>(null);
@@ -207,7 +198,6 @@ export function ChatPanel() {
   const kbSelectorRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
   const privacyRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const prevUrlConvIdRef = useRef<string | undefined>(urlConvId);
@@ -450,34 +440,6 @@ export function ChatPanel() {
     staleTime: 0,
   });
 
-  const { data: modelsData, refetch: refetchModels } = useQuery<ModelsResponse>({
-    queryKey: ["admin", "models"],
-    queryFn: () =>
-      fetch("/api/admin/models", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error("no access");
-        return r.json() as Promise<ModelsResponse>;
-      }),
-    enabled: user?.isAdmin === true,
-    staleTime: 30_000,
-  });
-
-  const switchModelMutation = useMutation({
-    mutationFn: (modelId: string) =>
-      fetch("/api/admin/models/active", {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("switch failed");
-        return r.json() as Promise<{ activeModel: string }>;
-      }),
-    onSuccess: () => {
-      void refetchModels();
-      setModelPickerOpen(false);
-    },
-  });
-
   const { data: availableKBs } = useQuery<KnowledgeBase[]>({
     queryKey: ["knowledge-bases"],
     queryFn: () =>
@@ -493,18 +455,6 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Close model picker on outside click
-  useEffect(() => {
-    if (!modelPickerOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setModelPickerOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [modelPickerOpen]);
 
   // Close privacy popover on outside click
   useEffect(() => {
@@ -891,9 +841,6 @@ export function ChatPanel() {
     }
   }
 
-  const activeModel = modelsData?.activeModel;
-  const readyModels = (modelsData?.models ?? []).filter((m) => m.readyToUse);
-
   const chatTitle = (() => {
     const firstUserMsg = messages.find((m) => m.role === "user");
     if (!firstUserMsg) return "New Chat";
@@ -1237,45 +1184,19 @@ export function ChatPanel() {
               </div>
              </div>
 
-              {/* Model selector — admin only */}
-              {user?.isAdmin && activeModel && (
-                <div ref={pickerRef} className="relative">
-                  <button
-                    onClick={() => setModelPickerOpen((o) => !o)}
-                    disabled={switchModelMutation.isPending}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-900"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
-                    {adminLabel(activeModel)}
-                    <ChevronDown className={cn("w-3 h-3 transition-transform", modelPickerOpen && "rotate-180")} />
-                  </button>
-
-                  {modelPickerOpen && (
-                    <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
-                      {readyModels.map((m) => (
-                        <button
-                          key={m.id}
-                          onClick={() => switchModelMutation.mutate(m.id)}
-                          disabled={switchModelMutation.isPending}
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2",
-                            m.id === activeModel
-                              ? "text-slate-900 dark:text-gray-100 font-medium bg-slate-50 dark:bg-gray-900"
-                              : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
-                          )}
-                        >
-                          <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
-                          {adminLabel(m.id)}
-                          {m.id === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Model selector — visible to all users */}
+              <ModelPicker onModelLoading={setModelLoading} />
             </div>
 
-            <form onSubmit={(e) => void handleSubmit(e)} className="space-y-2">
+            {/* Model loading overlay */}
+            {modelLoading && (
+              <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-500 dark:text-gray-400">
+                <LoaderIcon className="w-4 h-4 animate-spin" />
+                <span>Loading model... This may take a few seconds.</span>
+              </div>
+            )}
+
+            <form onSubmit={(e) => void handleSubmit(e)} className={cn("space-y-2", modelLoading && "opacity-50 pointer-events-none")}>
               {/* KB target chips */}
               {targetKBs.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1">
