@@ -10,7 +10,6 @@ import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
 import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
-import { getThinkingChats } from "@/hooks/useNotifications";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
@@ -341,10 +340,6 @@ export function ChatPanel() {
           hasConfidentAnswer: m.hasConfidentAnswer,
           ...(m.source && { source: m.source }),
         }));
-        // If bot is still thinking for this conversation, append a streaming placeholder
-        if (conversationId && getThinkingChats().has(conversationId)) {
-          loaded.push({ role: "assistant", content: "", isStreaming: true });
-        }
         setMessages(loaded);
 
         // Auto-dismiss notifications for this conversation
@@ -366,8 +361,7 @@ export function ChatPanel() {
     return () => { cancelled = true; };
   }, [conversationId, hydrated]);
 
-  // Watch bot-thinking state: show thinking placeholder when returning to a thinking conversation,
-  // and auto-reload messages when bot finishes so the answer appears without refresh.
+  // Watch bot-thinking state for this conversation (from global SSE notifications).
   const { data: thinkingChatIds } = useQuery<Set<string>>({
     queryKey: ["bot-thinking"],
     queryFn: () => Promise.resolve(new Set<string>()),
@@ -379,23 +373,22 @@ export function ChatPanel() {
   );
   const prevThinkingRef = useRef(isBotThinking);
 
+  // Derive display messages: append a thinking placeholder when the bot is thinking
+  // and we're not already streaming locally. This is computed every render — no timing races.
+  const displayMessages = useMemo(() => {
+    if (!isBotThinking || isLoading || isPrivacyMode) return messages;
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant" && last.isStreaming) return messages;
+    return [...messages, { role: "assistant" as const, content: "", isStreaming: true }];
+  }, [messages, isBotThinking, isLoading, isPrivacyMode]);
+
+  // When bot finishes thinking, auto-reload messages so the answer appears without refresh.
   useEffect(() => {
     const wasThinking = prevThinkingRef.current;
     prevThinkingRef.current = isBotThinking;
 
     if (!conversationId || isPrivacyMode) return;
 
-    // Bot is thinking and we're not already streaming — append placeholder
-    // (handles returning to a conversation mid-stream)
-    if (isBotThinking && !isLoading) {
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last.isStreaming) return prev;
-        return [...prev, { role: "assistant", content: "", isStreaming: true }];
-      });
-    }
-
-    // Bot just finished thinking — reload messages to get the completed answer
     if (wasThinking && !isBotThinking && !isLoading) {
       void (async () => {
         try {
@@ -454,7 +447,7 @@ export function ChatPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [displayMessages]);
 
   // Close privacy popover on outside click
   useEffect(() => {
@@ -866,7 +859,7 @@ export function ChatPanel() {
 
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-        {messages.length === 0 && (
+        {displayMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             {privacyLevel === "vault" ? (
               <>
@@ -908,7 +901,7 @@ export function ChatPanel() {
           </div>
         )}
 
-        {messages.map((message, i) => {
+        {displayMessages.map((message, i) => {
           const dedupedCitations = dedupeCitations(message.citations ?? []);
 
           // During streaming: only show complete paragraphs via revealedContent
