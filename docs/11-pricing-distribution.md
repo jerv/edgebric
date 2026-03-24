@@ -14,15 +14,17 @@ Last updated: 2026-03-20
 
 ## Pricing Model
 
-Two purchase options. No free tier — trial only.
+Solo mode is free forever. License required only for multi-user (org) mode.
 
-### Trial
+### Solo Mode (Free)
 
-- **30 days**, full product, no feature limits
-- No payment info required to start
-- Trial IS the sales team — product sells itself or it doesn't
+- **Full product**, single user, no auth, no time limit
+- No license key, no payment info, no account required
+- Replaces the old 30-day trial concept — Solo mode IS the trial
+- The paywall is the OIDC/SSO setup step: configuring multi-user auth requires a license
+- Solo mode is the sales team — users experience the full product, then pay when they need multi-user
 
-### Option 1: Perpetual License
+### Option 1: Perpetual License (Org Mode)
 
 - **$499 one-time** for current major version (v1.x)
 - Free updates within major version
@@ -35,11 +37,11 @@ Two purchase options. No free tier — trial only.
 - **v1.0**: includes mesh networking + meeting mode (Phases 5-6). This is the "full product."
 - Beta pricing TBD — may offer v0.5 at a discount or use beta period as extended trial.
 
-### Option 2: Subscription
+### Option 2: Subscription (Org Mode)
 
 - **$49/mo** (monthly only — lower entry price, higher total cost)
 - Always on the latest version, all updates included
-- Cancel anytime, lose access when period ends
+- Cancel anytime, reverts to Solo mode (no data loss, just loses multi-user auth)
 - After 12 months: subscriber has paid $588 vs $499 for the license
 - Before annual renewal: offer to convert to perpetual license (saves them money long-term, gives us upfront cash)
 
@@ -56,7 +58,7 @@ Two purchase options. No free tier — trial only.
 ### What's NOT in the Model
 
 - No per-user pricing. Ever. Unlimited users on the node.
-- No free tier. Trial only.
+- No time-limited trial. Solo mode is free forever — it IS the free tier (single user, no auth).
 - No annual subscription option — monthly only. The license IS the annual option. If you're committing for a year, just buy the license and save money.
 - No separate support subscription at launch. Email support included with purchase. Re-evaluate if support volume becomes unmanageable.
 - No tiered pricing (Pro/Enterprise/etc.) at launch. One product, one price. Mesh features (Phase 5) may warrant a separate tier later.
@@ -135,12 +137,13 @@ Subscription revenue ($49/mo = ~$46.55 net per month per subscriber) compounds o
 - EU AI Act / HIPAA / data sovereignty compliant by architecture
 - Total cost (hardware + license) < 3 months of cloud alternatives
 
-### vs. Open Source (PrivateGPT, AnythingLLM, Ollama)
+### vs. Open Source (PrivateGPT, AnythingLLM)
 
 - No technical setup required — GUI installer, no CLI
 - Enterprise features included (SSO, vault encryption, group chats, audit)
 - Support included
 - Target market literally cannot set up OSS alternatives
+- Ollama is used under the hood (MIT license, credited in open-source acknowledgments) — but users never interact with it directly
 
 ### vs. Enterprise On-Prem (Pryon, Lucidworks)
 

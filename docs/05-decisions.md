@@ -93,7 +93,17 @@
 
 ### AUTH-01 — Authentication Model
 
-Authentication posture varies by surface, designed to maximize privacy by default.
+Authentication posture varies by app mode and surface, designed to maximize privacy by default.
+
+**Three app modes (one Electron app):**
+
+| Mode | Auth | Description |
+|---|---|---|
+| **Solo** (free) | None — no login, no OIDC | Single user on their own machine. Full product, free forever. |
+| **Admin** (org) | OIDC/SSO setup required | Multi-user org server. Admin configures OIDC provider, sets admin emails. License required. |
+| **Member** (coming soon) | Connects to org server | Employee connects to an existing Admin-mode instance on the network. |
+
+**Auth by surface (Admin/Member modes):**
 
 | Surface | Auth Method | Identity Exposure |
 |---|---|---|
@@ -102,7 +112,9 @@ Authentication posture varies by surface, designed to maximize privacy by defaul
 | Employee incognito mode (V2) | Biometric (vault access only) | None — no server contact during query |
 | Meeting mode | Authenticated user + room code | Identity visible to session participants |
 
-**Session cookies:** httpOnly, session-file-store. No localStorage tokens.
+**Solo mode:** No auth at all. No OIDC, no login screen, no session management. The user launches the app and starts querying. The paywall is the OIDC setup step — configuring SSO for multi-user access requires a license.
+
+**Session cookies (Admin/Member):** httpOnly, session-file-store. No localStorage tokens.
 
 **Role by email:** ADMIN_EMAILS env var. Simple, works for MVP. Proper role management in V2.
 
@@ -143,13 +155,20 @@ Employees can download their own personal records for private querying.
 
 ### MODEL-01 — Model Strategy
 
-Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec.
+Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec. **Ollama** is the inference backend, auto-managed by the desktop app (download, start, stop, auto-update with rollback). This replaces the previous llama-server approach.
+
+**Ollama management:**
+- Desktop app downloads and manages Ollama automatically — users never interact with Ollama directly
+- Users can install, load, and unload multiple models from within the app
+- Model picker dropdown in the chat interface lets users select which model to use
+- RAM and disk usage displayed per model so users can manage resources
+- Auto-update with rollback: Ollama binary is updated on app launch if a newer version is available, with automatic rollback if the update fails
 
 **Recommended defaults (March 2026):**
 - Coordinator / server-side: Qwen3.5-9B Q4_K_M (~5.8GB)
 - Constrained hardware / KB-only nodes: Qwen3.5-4B Q4_K_M (~2.6GB)
 - iOS / incognito: Qwen3.5-2B Q4_K_M
-- Embedding: nomic-embed-text (768-dim, runs via mILM)
+- Embedding: nomic-embed-text (768-dim)
 
 **Confirmed from spikes:** Qwen2.5-1.5B insufficient for production (fails multi-column table reading and "I don't know" instruction following). Qwen3.5-4B confirmed good enough via Spike 4.
 
@@ -230,14 +249,15 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ### PRICING-01 — Pricing & Distribution Model
 
-**Decision:** Self-service distribution, two purchase options, no free tier. See [11-pricing-distribution.md](11-pricing-distribution.md) for full details.
+**Decision:** Self-service distribution. Solo mode is free forever. License required only for multi-user (org) mode. See [11-pricing-distribution.md](11-pricing-distribution.md) for full details.
 
 **Summary:**
-- **30-day trial** — full product, no limits, no payment info required
+- **Solo mode** — free, full product, single user, no auth, no time limit. This replaces the 30-day trial concept.
+- **Org mode paywall** — configuring OIDC/SSO for multi-user access requires a license.
 - **Perpetual license**: $499 one-time (free updates within major version, discount offered for major version upgrades — amount uncommitted)
 - **Subscription**: $49/mo (always latest, monthly only — costs more than license over 12 months)
 - No per-user pricing. Unlimited users on the node.
-- No sales team. No monthly subscription. No tiered pricing at launch.
+- No sales team. No tiered pricing at launch.
 - Distribution via website + GUI installer (Electron). macOS only at launch.
 - Payments/licensing via LemonSqueezy or Paddle (handles keys, tax, delivery).
 
@@ -245,6 +265,7 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 | | Edgebric | Cloud HR AI (typical) |
 |---|---|---|
+| Solo user | Free (runs on any Mac) | $30-60/mo per user |
 | 15-person company | $499 license + $499 Mac Mini = $998 total | $3,600-$9,000/year |
 | Break-even vs cloud | Month 1 | Never (recurring) |
 | Data custody | Customer owns hardware + data | Vendor holds data |

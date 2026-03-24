@@ -6,7 +6,12 @@ Last updated: 2026-03-20
 
 ## What This Is
 
-A macOS menu bar app that replaces the CLI for non-technical users. It manages the Edgebric server lifecycle (setup, start, stop, status, logs) and opens the web UI in the user's default browser. No terminal required.
+A macOS Electron app with **three modes** that replaces the CLI for non-technical users. It manages the Edgebric server lifecycle (setup, start, stop, status, logs), Ollama inference backend, and model management. The web UI opens in the user's default browser. No terminal required.
+
+**Three app modes (one binary):**
+- **Solo** — Free, no auth, single user. Full product for personal use on your own machine. No license required.
+- **Admin** — Org server with OIDC/SSO. Multi-user. Requires license ($499 or $49/mo).
+- **Member** — Connect to an existing Admin-mode instance on the network (coming soon).
 
 **This is NOT a full Electron app with the web UI embedded.** The web UI already runs in the browser. The desktop app is a lightweight server manager + setup wizard that lives in the menu bar.
 
@@ -33,6 +38,8 @@ packages/desktop/
 │   │   ├── tray.ts            # Menu bar icon + context menu
 │   │   ├── server.ts          # Spawn/stop API server (reuse CLI logic)
 │   │   ├── setup.ts           # First-run setup wizard IPC handlers
+│   │   ├── ollama.ts          # Ollama lifecycle (download, start, stop, auto-update, rollback)
+│   │   ├── models.ts          # Model install/load/unload, RAM/disk usage tracking
 │   │   ├── updater.ts         # Auto-update check (electron-updater)
 │   │   ├── licensing.ts       # License key validation (LemonSqueezy/Paddle API)
 │   │   └── config.ts          # Read/write ~/Edgebric/.edgebric.json (reuse from CLI)
@@ -41,9 +48,10 @@ packages/desktop/
 │   └── renderer/              # Setup wizard + settings UI (React)
 │       ├── App.tsx
 │       ├── pages/
-│       │   ├── SetupWizard.tsx     # First-run: data dir, OIDC, admin email, port
-│       │   ├── Trial.tsx           # Trial status, days remaining, buy/activate
-│       │   ├── Activate.tsx        # Enter license key
+│       │   ├── SetupWizard.tsx     # First-run: mode select, data dir, OIDC (admin only), model download
+│       │   ├── Models.tsx          # Install/load/unload models, RAM/disk usage, model picker
+│       │   ├── Activate.tsx        # Enter license key (admin mode only)
+│       │   ├── Acknowledgments.tsx # Open-source credits (Ollama, mimik, etc.)
 │       │   └── Settings.tsx        # Change config, view logs, about
 │       └── components/
 │           └── ...                 # Shared UI components (minimal — this is a small app)
@@ -76,14 +84,19 @@ packages/desktop/
 3. Menu bar icon appears (grey — server not running)
 4. Setup wizard window opens automatically:
    - **Step 1 — Welcome**: Brief explanation, system requirements check (RAM, disk space)
-   - **Step 2 — Data Directory**: Where to store data (default: `~/Edgebric`)
-   - **Step 3 — Authentication**: OIDC/SSO config (issuer URL, client ID, secret). Link to guide for Google/Okta/Auth0 setup.
-   - **Step 4 — Admin**: Admin email address(es)
-   - **Step 5 — Activate**: Enter license key, start subscription, or begin 30-day trial
+   - **Step 2 — Mode**: Choose Solo (free, personal) or Admin (org, multi-user). Member mode listed as "coming soon."
+   - **Step 3 — Data Directory**: Where to store data (default: `~/Edgebric`)
+   - **Step 4 — Model**: Download a default model (e.g., Qwen3.5-4B via Ollama). Progress bar for the ~2.6GB download. Can install more models later.
+   - **Step 5 (Admin only) — Authentication**: OIDC/SSO config (issuer URL, client ID, secret). Link to guide for Google/Okta/Auth0 setup.
+   - **Step 6 (Admin only) — Admin Email**: Admin email address(es)
+   - **Step 7 (Admin only) — Activate**: Enter license key or start subscription
 5. Setup writes `~/Edgebric/.edgebric.json` and `.env` (same as CLI setup)
-6. Server starts automatically
-7. Menu bar icon turns green
-8. Browser opens to `http://localhost:3001`
+6. Ollama starts automatically (managed as background process)
+7. Server starts automatically
+8. Menu bar icon turns green
+9. Browser opens to `http://localhost:3001`
+
+**Solo mode shortcut:** Steps 5-7 are skipped entirely. User goes from model download straight to a running server in under 2 minutes (excluding download time).
 
 ### Normal Launch (Already Configured)
 
@@ -98,7 +111,7 @@ packages/desktop/
 Edgebric
 ─────────────────────
 ● Server Running          (status indicator)
-  Port 3001
+  Port 3001 · Solo Mode   (or "Admin Mode")
 ─────────────────────
 Open Edgebric             → opens browser to localhost:PORT
 ─────────────────────
@@ -106,23 +119,17 @@ Start Server
 Stop Server
 Restart Server
 ─────────────────────
+Models...                 → opens model management window
 View Logs...              → opens log viewer window
 Settings...               → opens settings window
 ─────────────────────
-License: Pro (v1.2)       (or "Trial: 18 days left")
+Mode: Solo (free)         (or "License: Pro (v1.2)")
 ─────────────────────
 Check for Updates...
+Acknowledgments...        → open-source credits
 About Edgebric
-Quit Edgebric             → stops server + quits app
+Quit Edgebric             → stops server + Ollama + quits app
 ```
-
-### Trial Expiry
-
-- Menu bar shows trial days remaining
-- At 7 days: gentle reminder notification
-- At 1 day: stronger reminder
-- At 0 days: server still starts but web UI shows activation overlay (can't dismiss without key or subscription)
-- Trial state stored locally in config file (not phoning home — offline-compatible)
 
 ---
 
@@ -130,15 +137,16 @@ Quit Edgebric             → stops server + quits app
 
 ### Phase D1 — Skeleton + Tray + Server Management
 
-**Goal:** Menu bar app that starts/stops the API server. No wizard, no licensing.
+**Goal:** Menu bar app that starts/stops Ollama + API server. No wizard, no licensing.
 
 - [ ] Initialize `packages/desktop/` with Electron + Vite + React + TypeScript
 - [ ] Tray icon with context menu (start/stop/restart/quit)
+- [ ] Ollama process management (start before API server, stop on quit)
 - [ ] Spawn API server as child process (port from config or default 3001)
 - [ ] Health check polling (GET /api/health) — update icon green/grey/red
 - [ ] "Open Edgebric" menu item → `shell.openExternal`
 - [ ] Stdout/stderr capture for log viewing
-- [ ] Graceful shutdown on quit (SIGTERM to child process)
+- [ ] Graceful shutdown on quit (stop API server, then Ollama)
 - [ ] Basic log viewer window (tail last 100 lines)
 
 **Reuse from CLI:**
@@ -146,32 +154,37 @@ Quit Edgebric             → stops server + quits app
 - `packages/cli/src/commands/start.ts` → server spawn logic
 - `packages/cli/src/commands/stop.ts` → graceful stop logic
 
-### Phase D2 — Setup Wizard
+### Phase D2 — Setup Wizard + Ollama Management
 
-**Goal:** First-run GUI setup replaces CLI `edgebric setup`.
+**Goal:** First-run GUI setup replaces CLI `edgebric setup`. Ollama auto-managed.
 
 - [ ] Detect first run (no `~/Edgebric/.edgebric.json`)
 - [ ] Multi-step wizard window (React, styled with Tailwind + shadcn)
+- [ ] Mode selection: Solo (free) / Admin (org) / Member (coming soon, greyed out)
 - [ ] System requirements check (RAM ≥ 16GB, disk space ≥ 20GB free)
 - [ ] Data directory picker (native folder dialog)
-- [ ] OIDC configuration form with inline help/links
-- [ ] Admin email input
+- [ ] Ollama auto-download if not present (with progress bar)
+- [ ] Default model download (Qwen3.5-4B) with progress bar (~2.6GB)
+- [ ] OIDC configuration form with inline help/links (Admin mode only)
+- [ ] Admin email input (Admin mode only)
+- [ ] License activation (Admin mode only) — enter key or start subscription
 - [ ] Port selection (default 3001, check if port available)
 - [ ] Write config + .env on completion
-- [ ] Auto-start server after wizard completes
+- [ ] Start Ollama + server automatically after wizard completes
+- [ ] Ollama auto-update on app launch (check for newer version, download, rollback on failure)
+- [ ] Model management UI: install/load/unload models, view RAM/disk usage per model
 
-### Phase D3 — Trial + Licensing
+### Phase D3 — Licensing (Admin Mode Only)
 
-**Goal:** 30-day trial enforcement + license key activation.
+**Goal:** License enforcement for org/multi-user mode. Solo mode is always free.
 
-- [ ] Trial start timestamp in config (set on first setup completion)
-- [ ] Days-remaining calculation (offline — no server check needed)
-- [ ] Trial status in menu bar and settings
+- [ ] Solo mode: no licensing, no restrictions, no time limits
+- [ ] Admin mode: license key required at setup (entered during wizard Step 7)
 - [ ] License activation window (enter key → validate against LemonSqueezy/Paddle API)
 - [ ] Subscription activation (redirect to payment page → callback with key)
 - [ ] License status persistence in config
-- [ ] Trial expiry enforcement (activation overlay on web UI after 30 days)
 - [ ] Periodic license revalidation for subscriptions (check on app launch, graceful offline handling)
+- [ ] Expired subscription: revert to Solo mode (server keeps running, OIDC auth disabled, data preserved)
 
 ### Phase D4 — Auto-Update
 
@@ -202,14 +215,21 @@ Quit Edgebric             → stops server + quits app
 
 ## Key Implementation Details
 
-### Server Process Management
+### Server + Ollama Process Management
 
-The desktop app spawns the API server the same way the CLI does — as a child process:
+The desktop app manages two background processes:
+
+1. **Ollama** — inference backend. Downloaded and managed automatically. Started before the API server. Stopped on app quit.
+2. **API server** — spawned as a child process, same as the CLI does today.
 
 ```typescript
 // Pseudocode — actual implementation in packages/desktop/src/main/server.ts
 import { spawn } from 'child_process';
 
+// 1. Start Ollama
+const ollamaProcess = spawn(ollamaBinaryPath, ['serve'], { ... });
+
+// 2. Start API server (after Ollama is healthy)
 const serverProcess = spawn('node', [
   '--import=tsx/esm',
   'packages/api/src/server.ts'
@@ -219,7 +239,9 @@ const serverProcess = spawn('node', [
 });
 ```
 
-PID tracking, log capture, and graceful shutdown all follow the existing CLI patterns.
+PID tracking, log capture, and graceful shutdown all follow the existing CLI patterns. On quit, both processes are stopped gracefully (API server first, then Ollama).
+
+**Ollama auto-update:** On app launch, check for a newer Ollama release. If available, download in the background, swap the binary, and restart Ollama. If the new version fails to start, automatically roll back to the previous binary.
 
 ### Config Sharing with CLI
 
@@ -231,13 +253,14 @@ Both CLI and desktop app read/write the same config files:
 
 A user can switch between CLI and desktop app freely. They manage the same server instance.
 
-### License Validation (Offline-First)
+### License Validation (Offline-First, Admin Mode Only)
 
+- Solo mode: no license validation at all. No phoning home. Free forever.
 - License key is a cryptographically signed token (issued by LemonSqueezy/Paddle)
 - On activation: validate online, store key + activation timestamp in config
 - On subsequent launches: validate signature locally (no network needed)
 - For subscriptions: periodic online check (on app launch if internet available, grace period if offline)
-- Trial: purely local timestamp — no phoning home during trial
+- Expired/revoked license: app reverts to Solo mode (data preserved, OIDC disabled)
 
 ### Web UI is NOT Embedded
 
@@ -247,7 +270,7 @@ The desktop app does NOT embed the web UI in an Electron BrowserWindow. Reasons:
 - Users expect browser features (tabs, bookmarks, password managers)
 - Reduces Electron's resource footprint (no renderer for the main UI)
 
-The ONLY renderer windows are: setup wizard, settings, log viewer, license activation. These are small, purpose-built windows.
+The ONLY renderer windows are: setup wizard, settings, model management, log viewer, license activation, acknowledgments. These are small, purpose-built windows.
 
 ---
 
@@ -277,13 +300,25 @@ Minimal dependencies. The renderer uses the same React + Tailwind + shadcn stack
 
 ```
 D1: Tray + server management         ← start here (core functionality)
-D2: Setup wizard                      ← makes it usable by non-technical people
-D3: Trial + licensing                 ← required before any distribution
+D2: Setup wizard + Ollama management  ← makes it usable by non-technical people
+D3: Licensing (admin mode only)       ← required before org mode distribution
 D4: Auto-update                       ← required before public launch
 D5: Polish + DMG packaging            ← required before public launch
 ```
 
-D1 and D2 are needed for v0.5 beta. D3-D5 are needed before any paid distribution.
+D1 and D2 are needed for v0.5 beta (Solo mode works without D3). D3-D5 are needed before any paid distribution.
+
+---
+
+## Open-Source Acknowledgments
+
+The app includes an Acknowledgments page crediting open-source dependencies:
+
+- **Ollama** (MIT License) — local AI inference backend
+- **mimik edgeEngine** (MIT License) — edge computing platform
+- Other significant dependencies listed with their licenses
+
+This page is accessible from the menu bar (Acknowledgments...) and from the About/Settings UI.
 
 ---
 
@@ -291,5 +326,5 @@ D1 and D2 are needed for v0.5 beta. D3-D5 are needed before any paid distributio
 
 - **Extract shared lib?** CLI and desktop both need config/path logic. Extract `packages/cli/src/lib/` to a shared package, or just import across workspace packages?
 - **Bundled Node.js?** Electron ships with Node.js, but the API server currently runs via `tsx/esm`. Need to either: (a) pre-compile the API server to plain JS, or (b) bundle tsx as a dependency in the desktop app. Pre-compilation is cleaner.
-- **Model downloads?** The setup wizard should probably handle downloading the AI model (Qwen3.5-4B GGUF). This is a ~2.6GB download. Need progress UI. Or defer to first-launch of web UI.
 - **mimik runtime bundling?** Currently mim OE is in `scripts/binaries/`. The desktop app needs to either bundle it or download it during setup. Licensing implications with mimik need clarification.
+- **Member mode UX?** How does a Member discover and connect to an Admin instance on the network? mDNS auto-discovery, manual IP entry, or QR code/invite link? Decision needed before Member mode implementation.
