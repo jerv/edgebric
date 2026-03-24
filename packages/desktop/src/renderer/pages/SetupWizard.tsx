@@ -70,7 +70,7 @@ const AUTH_PROVIDERS: AuthProvider[] = [
     name: "Google Workspace",
     issuerUrl: "https://accounts.google.com",
     instructions:
-      "Go to console.cloud.google.com > APIs & Services > Credentials. Create an OAuth 2.0 Client ID and set the redirect URI.",
+      "You'll need to create an OAuth app in Google Cloud Console. Follow the numbered steps below.",
     docsUrl: "https://console.cloud.google.com/apis/credentials",
     icon: <GoogleIcon />,
   },
@@ -127,7 +127,8 @@ export default function SetupWizard({ onComplete }: Props) {
   const [adminEmails, setAdminEmails] = useState("");
   const [port, setPort] = useState("3001");
 
-  const TOTAL_STEPS = 5;
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const TOTAL_STEPS = 4;
 
   useEffect(() => {
     window.electronAPI.getDefaultDataDir().then(setDataDir);
@@ -154,10 +155,10 @@ export default function SetupWizard({ onComplete }: Props) {
           oidcClientId.trim().length > 0 &&
           oidcClientSecret.trim().length > 0
         );
-      case 4:
-        return adminEmails.trim().length > 0;
-      case 5:
-        return parseInt(port, 10) > 0 && parseInt(port, 10) < 65536;
+      case 4: {
+        const portNum = parseInt(port, 10);
+        return adminEmails.trim().length > 0 && portNum > 0 && portNum < 65536;
+      }
       default:
         return false;
     }
@@ -264,71 +265,103 @@ export default function SetupWizard({ onComplete }: Props) {
         {step === 3 && (
           <>
             <h2>{selectedProvider.name} Credentials</h2>
-            <p className="description">{selectedProvider.instructions}</p>
-            {selectedProvider.docsUrl && (
-              <p className="description">
-                <a
-                  href={selectedProvider.docsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="docs-link"
-                >
-                  Open {selectedProvider.name} console
-                </a>
-              </p>
-            )}
-            {authProvider === "other" && (
-              <div className="field">
-                <label htmlFor="oidcIssuer">Issuer URL</label>
-                <input
-                  id="oidcIssuer"
-                  type="text"
-                  value={oidcIssuer}
-                  onChange={(e) => setOidcIssuer(e.target.value)}
-                  placeholder="https://your-provider.com"
-                />
+            <div className={authProvider === "google" ? "step3-split" : ""}>
+              {authProvider === "google" && (
+                <div className="step3-guide">
+                  <h3 className="guide-heading">Setup Guide</h3>
+                  <ol className="setup-steps">
+                    <li>
+                      Go to{" "}
+                      <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="docs-link">
+                        Google Cloud Console &gt; Credentials
+                      </a>
+                    </li>
+                    <li>Click <strong>+ CREATE CREDENTIALS</strong>, then <strong>OAuth client ID</strong></li>
+                    <li>Application type: <strong>Web application</strong></li>
+                    <li>Name it anything (e.g. "Edgebric")</li>
+                    <li>Under <strong>Authorized redirect URIs</strong>, add the URI from the form</li>
+                    <li>Click <strong>CREATE</strong></li>
+                    <li>Copy the <strong>Client ID</strong> (ends in <code>.apps.googleusercontent.com</code>) and <strong>Client Secret</strong> into the form</li>
+                  </ol>
+                </div>
+              )}
+              {selectedProvider.docsUrl && authProvider !== "google" && (
+                <p className="description">
+                  <a href={selectedProvider.docsUrl} target="_blank" rel="noopener noreferrer" className="docs-link">
+                    Open {selectedProvider.name} console
+                  </a>
+                </p>
+              )}
+              <div className="step3-form">
+                {authProvider === "other" && (
+                  <div className="field">
+                    <label htmlFor="oidcIssuer">Issuer URL</label>
+                    <input
+                      id="oidcIssuer"
+                      type="text"
+                      value={oidcIssuer}
+                      onChange={(e) => setOidcIssuer(e.target.value)}
+                      placeholder="https://your-provider.com"
+                    />
+                  </div>
+                )}
+                <div className="field">
+                  <label>Redirect URI</label>
+                  <div className="input-with-copy">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://localhost:${port}/api/auth/callback`}
+                      className="readonly"
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                    />
+                    <button
+                      type="button"
+                      className="copy-btn"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://localhost:${port}/api/auth/callback`);
+                        const btn = document.querySelector(".copy-btn") as HTMLButtonElement;
+                        btn.textContent = "Copied!";
+                        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+                      }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p className="hint">
+                    Paste this into Google's "Authorized redirect URIs" field (step 5).
+                  </p>
+                </div>
+                <div className="field">
+                  <label htmlFor="oidcClientId">Client ID</label>
+                  <input
+                    id="oidcClientId"
+                    type="text"
+                    value={oidcClientId}
+                    onChange={(e) => setOidcClientId(e.target.value)}
+                    placeholder={authProvider === "google" ? "xxxxxxxxxx.apps.googleusercontent.com" : ""}
+                  />
+                  <p className="hint">
+                    {authProvider === "google"
+                      ? "NOT the name you typed — it's the long string ending in .apps.googleusercontent.com"
+                      : "Found in your OIDC provider's app registration page."}
+                  </p>
+                </div>
+                <div className="field">
+                  <label htmlFor="oidcClientSecret">Client Secret</label>
+                  <input
+                    id="oidcClientSecret"
+                    type="password"
+                    value={oidcClientSecret}
+                    onChange={(e) => setOidcClientSecret(e.target.value)}
+                  />
+                  <p className="hint">
+                    {authProvider === "google"
+                      ? "Shown right after you click CREATE. Can also be found later on the client details page."
+                      : "Some providers only show this once — you may need to generate a new one."}
+                  </p>
+                </div>
               </div>
-            )}
-            <div className="field">
-              <label htmlFor="oidcClientId">Client ID</label>
-              <input
-                id="oidcClientId"
-                type="text"
-                value={oidcClientId}
-                onChange={(e) => setOidcClientId(e.target.value)}
-              />
-              <p className="hint">
-                {authProvider === "google"
-                  ? "Google Cloud Console > APIs & Services > Credentials > your OAuth 2.0 Client."
-                  : "Found in your OIDC provider's app registration page."}
-              </p>
-            </div>
-            <div className="field">
-              <label htmlFor="oidcClientSecret">Client Secret</label>
-              <input
-                id="oidcClientSecret"
-                type="password"
-                value={oidcClientSecret}
-                onChange={(e) => setOidcClientSecret(e.target.value)}
-              />
-              <p className="hint">
-                {authProvider === "google"
-                  ? "Same page, under 'Client secrets'. Click 'Add Client Secret' if you need a new one."
-                  : "Some providers only show this once — you may need to generate a new one."}
-              </p>
-            </div>
-            <div className="field">
-              <label>Redirect URI</label>
-              <input
-                type="text"
-                readOnly
-                value={`http://edgebric.local:${port}/api/auth/callback`}
-                className="readonly"
-                onClick={(e) => (e.target as HTMLInputElement).select()}
-              />
-              <p className="hint">
-                Copy this into your provider's redirect URI / callback URL field.
-              </p>
             </div>
           </>
         )}
@@ -350,26 +383,44 @@ export default function SetupWizard({ onComplete }: Props) {
                 placeholder="admin@yourcompany.com"
               />
             </div>
-          </>
-        )}
-
-        {step === 5 && (
-          <>
-            <h2>Server Port</h2>
-            <p className="description">
-              Which port should Edgebric run on? The default (3001) works for most setups.
-            </p>
-            <div className="field">
-              <label htmlFor="port">Port</label>
-              <input
-                id="port"
-                type="number"
-                min="1"
-                max="65535"
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-              />
-            </div>
+            <button
+              type="button"
+              className="advanced-toggle"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? "Hide advanced" : "Advanced options"}
+            </button>
+            {showAdvanced && (
+              <>
+                <div className="field">
+                  <label htmlFor="port">Server Port</label>
+                  <input
+                    id="port"
+                    type="number"
+                    min="1"
+                    max="65535"
+                    value={port}
+                    onChange={(e) => setPort(e.target.value)}
+                  />
+                  <p className="hint">Default 3001. Change only if another service uses this port.</p>
+                </div>
+                <div className="clean-url-tip">
+                  <h4>Want a clean URL without the port number?</h4>
+                  <p>
+                    Run this command once in Terminal to forward port 443 to {port}.
+                    After this, users can access Edgebric at <strong>https://edgebric.local</strong> instead
+                    of <strong>https://edgebric.local:{port}</strong>.
+                  </p>
+                  <div className="code-block">
+                    <code>echo "rdr pass on lo0 inet proto tcp from any to any port 443 -&gt; 127.0.0.1 port {port}" | sudo pfctl -ef -</code>
+                  </div>
+                  <p className="hint" style={{ marginTop: 6 }}>
+                    This survives until reboot. To make it permanent, add the rule to <code>/etc/pf.anchors/edgebric</code> and
+                    load it from <code>/etc/pf.conf</code>. Requires admin (sudo) password.
+                  </p>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

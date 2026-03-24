@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import SetupWizard from "./pages/SetupWizard.js";
+import ServerDashboard from "./pages/ServerDashboard.js";
 import "./styles.css";
 
 declare global {
   interface Window {
     electronAPI: {
       readLogs: (lines?: number) => Promise<string>;
-      getStatus: () => Promise<{ status: string; port: number }>;
+      getStatus: () => Promise<{ status: string; port: number; hostname?: string }>;
+      startServer: () => Promise<{ success: boolean; error?: string }>;
+      stopServer: () => Promise<{ success: boolean; error?: string }>;
+      onStatusChange: (callback: (status: string) => void) => () => void;
       getConfig: () => Promise<Record<string, unknown> | null>;
       isFirstRun: () => Promise<boolean>;
       getDefaultDataDir: () => Promise<string>;
@@ -47,10 +51,5 @@ export default function App() {
     return <SetupWizard onComplete={() => setIsSetup(false)} />;
   }
 
-  return (
-    <div className="complete">
-      <h1>Edgebric is running</h1>
-      <p>You can close this window. Edgebric lives in your menu bar.</p>
-    </div>
-  );
+  return <ServerDashboard />;
 }

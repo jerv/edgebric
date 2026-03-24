@@ -1,6 +1,7 @@
-import { ipcMain } from "electron";
-import { readLogs, getStatus, getPort, getHostname } from "./server.js";
+import { ipcMain, BrowserWindow } from "electron";
+import { readLogs, getStatus, getPort, getHostname, startServer, stopServer, onStatusChange } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
+import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
 import crypto from "crypto";
 import fs from "fs";
 
@@ -12,7 +13,33 @@ export function registerIpcHandlers() {
 
   // Server status
   ipcMain.handle("get-status", () => {
-    return { status: getStatus(), port: getPort() };
+    return { status: getStatus(), port: getPort(), hostname: getHostname() };
+  });
+
+  // Server control
+  ipcMain.handle("start-server", async () => {
+    try {
+      await startServer();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle("stop-server", async () => {
+    try {
+      await stopServer();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // Push status changes to all renderer windows
+  onStatusChange((status) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send("server-status-changed", status);
+    }
   });
 
   // Config
@@ -55,6 +82,16 @@ export function registerIpcHandlers() {
 
     saveConfig(config);
 
+    // Generate HTTPS certificates if they don't exist yet
+    const hostname = config.hostname ?? "edgebric.local";
+    if (!certsExist(config.dataDir)) {
+      generateCerts(config.dataDir, hostname, config.port);
+      trustCA(config.dataDir);
+    }
+
+    const certs = certPaths(config.dataDir);
+    const protocol = fs.existsSync(certs.serverCert) ? "https" : "http";
+
     // Write .env file for the API server
     const sessionSecret = crypto.randomBytes(64).toString("hex");
     const envContent = [
@@ -65,9 +102,11 @@ export function registerIpcHandlers() {
       `OIDC_ISSUER=${config.oidcIssuer}`,
       `OIDC_CLIENT_ID=${config.oidcClientId}`,
       `OIDC_CLIENT_SECRET=${config.oidcClientSecret}`,
-      `OIDC_REDIRECT_URI=http://${config.hostname ?? "edgebric.local"}:${config.port}/api/auth/callback`,
+      `OIDC_REDIRECT_URI=${protocol}://localhost:${config.port}/api/auth/callback`,
       `ADMIN_EMAILS=${config.adminEmails.join(",")}`,
-      `FRONTEND_URL=http://${config.hostname ?? "edgebric.local"}:${config.port}`,
+      `FRONTEND_URL=${protocol}://${hostname}:${config.port}`,
+      `TLS_CERT=${certs.serverCert}`,
+      `TLS_KEY=${certs.serverKey}`,
       ...(config.chatBaseUrl ? [`CHAT_BASE_URL=${config.chatBaseUrl}`] : []),
       ...(config.chatModel ? [`CHAT_MODEL=${config.chatModel}`] : []),
       "",

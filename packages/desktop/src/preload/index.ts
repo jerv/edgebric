@@ -4,8 +4,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Logs
   readLogs: (lines?: number) => ipcRenderer.invoke("read-logs", lines),
 
-  // Server status
+  // Server status & control
   getStatus: () => ipcRenderer.invoke("get-status"),
+  startServer: () => ipcRenderer.invoke("start-server"),
+  stopServer: () => ipcRenderer.invoke("stop-server"),
+  onStatusChange: (callback: (status: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: string) => callback(status);
+    ipcRenderer.on("server-status-changed", handler);
+    return () => ipcRenderer.removeListener("server-status-changed", handler);
+  },
 
   // Config
   getConfig: () => ipcRenderer.invoke("get-config"),

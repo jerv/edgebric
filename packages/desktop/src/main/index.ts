@@ -37,9 +37,10 @@ function openSetupWizard() {
   }
 
   setupWindow = new BrowserWindow({
-    width: 680,
-    height: 710,
-    resizable: false,
+    width: 900,
+    height: 680,
+    minWidth: 680,
+    minHeight: 580,
     title: "Edgebric Setup",
     titleBarStyle: "hiddenInset",
     icon: appIcon,
@@ -71,10 +72,6 @@ function openSetupWizard() {
     // Re-hide dock when setup window closes
     if (process.platform === "darwin") {
       app.dock?.hide();
-    }
-    // If config exists now, start the server
-    if (loadConfig()) {
-      startServer().catch(console.error);
     }
   });
 }

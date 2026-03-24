@@ -11,6 +11,7 @@ import {
   type ServerStatus,
 } from "./server.js";
 import { loadConfig, saveConfig, envPath } from "./config.js";
+import { certsExist } from "./certs.js";
 import fs from "fs";
 
 let tray: Tray | null = null;
@@ -73,20 +74,33 @@ function createFallbackIcon(status: ServerStatus): Electron.NativeImage {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
+function getProtocol(): string {
+  const config = loadConfig();
+  return config && certsExist(config.dataDir) ? "https" : "http";
+}
+
 function getAccessUrl(): string {
   const hostname = getHostname();
   const port = getPort();
-  // Hide port in display for port 80
-  return port === 80 ? `http://${hostname}` : `http://${hostname}:${port}`;
+  const proto = getProtocol();
+  const defaultPort = proto === "https" ? 443 : 80;
+  return port === defaultPort ? `${proto}://${hostname}` : `${proto}://${hostname}:${port}`;
+}
+
+function getLanUrl(): string {
+  const hostname = getHostname();
+  const port = getPort();
+  const proto = getProtocol();
+  const defaultPort = proto === "https" ? 443 : 80;
+  return port === defaultPort ? `${proto}://${hostname}` : `${proto}://${hostname}:${port}`;
 }
 
 function buildContextMenu(): Menu {
   const status = getStatus();
-  const port = getPort();
-  const hostname = getHostname();
   const isRunning = status === "running";
   const isStopped = status === "stopped" || status === "error";
   const accessUrl = getAccessUrl();
+  const lanUrl = getLanUrl();
 
   return Menu.buildFromTemplate([
     {
@@ -94,11 +108,16 @@ function buildContextMenu(): Menu {
       enabled: false,
     },
     ...(isRunning
-      ? [{ label: `  ${accessUrl}`, enabled: false } as Electron.MenuItemConstructorOptions]
+      ? [
+          { label: `  ${accessUrl}`, enabled: false } as Electron.MenuItemConstructorOptions,
+          ...(lanUrl !== accessUrl
+            ? [{ label: `  ${lanUrl} (LAN)`, enabled: false } as Electron.MenuItemConstructorOptions]
+            : []),
+        ]
       : []),
     { type: "separator" as const },
     {
-      label: "Open Edgebric",
+      label: "Open Web UI",
       enabled: isRunning,
       click: () => {
         shell.openExternal(accessUrl);
@@ -251,10 +270,11 @@ function openSettingsWindow() {
   const currentPort = config?.port ?? 3001;
 
   settingsWindow = new BrowserWindow({
-    width: 480,
-    height: 400,
+    width: 700,
+    height: 580,
     title: "Server Settings",
-    resizable: false,
+    minWidth: 560,
+    minHeight: 480,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -285,11 +305,12 @@ function openSettingsWindow() {
         saveConfig(config);
 
         // Update .env with new hostname/port
+        const proto = certsExist(config.dataDir) ? "https" : "http";
         const envFile = envPath(config.dataDir);
         if (fs.existsSync(envFile)) {
           let env = fs.readFileSync(envFile, "utf8");
-          env = env.replace(/^OIDC_REDIRECT_URI=.*$/m, `OIDC_REDIRECT_URI=http://${newHostname}:${newPort}/api/auth/callback`);
-          env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=http://${newHostname}:${newPort}`);
+          env = env.replace(/^OIDC_REDIRECT_URI=.*$/m, `OIDC_REDIRECT_URI=${proto}://localhost:${newPort}/api/auth/callback`);
+          env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=${proto}://${newHostname}:${newPort}`);
           env = env.replace(/^PORT=.*$/m, `PORT=${newPort}`);
           fs.writeFileSync(envFile, env, "utf8");
         }
@@ -345,25 +366,42 @@ const SETTINGS_HTML = `<!DOCTYPE html>
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #fafafa;
       color: #111;
-      padding: 32px;
+      padding: 32px 40px;
       line-height: 1.5;
     }
-    h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-    .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
-    .field { margin-bottom: 16px; }
+    h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 28px; }
+    .field { margin-bottom: 20px; }
     .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #333; }
     .field input {
-      width: 100%; padding: 8px 10px; border: 1px solid #d0d0d0; border-radius: 6px;
+      width: 100%; padding: 10px 12px; border: 1px solid #d0d0d0; border-radius: 6px;
       font-size: 14px; font-family: inherit; background: #fff; color: #111; outline: none;
     }
     .field input:focus { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.15); }
-    .field .hint { font-size: 11px; color: #888; margin-top: 3px; }
-    .preview { background: #f0f6ff; border: 1px solid #cce0ff; border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; }
+    .field .hint { font-size: 12px; color: #888; margin-top: 4px; }
+    .preview { background: #f0f6ff; border: 1px solid #cce0ff; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; }
     .preview .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
-    .preview .url { font-size: 15px; font-weight: 500; color: #0066cc; font-family: 'SF Mono', Menlo, monospace; }
-    .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+    .preview .url { font-size: 16px; font-weight: 500; color: #0066cc; font-family: 'SF Mono', Menlo, monospace; }
+    .advanced-toggle {
+      font-size: 13px; color: #0066cc; cursor: pointer; border: none; background: none;
+      padding: 0; font-family: inherit; margin-bottom: 16px; display: block;
+    }
+    .advanced-toggle:hover { text-decoration: underline; }
+    .advanced-section { display: none; }
+    .advanced-section.open { display: block; }
+    .clean-url-tip {
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+      padding: 12px 16px; margin-top: 12px; font-size: 12px; color: #92400e;
+    }
+    .clean-url-tip strong { color: #78350f; }
+    .code-block {
+      background: #1e1e1e; color: #d4d4d4; padding: 10px 14px; border-radius: 6px;
+      font-family: 'SF Mono', Menlo, monospace; font-size: 12px; margin: 8px 0;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 28px; }
     .btn {
-      padding: 8px 20px; border-radius: 6px; font-size: 14px; font-weight: 500;
+      padding: 10px 24px; border-radius: 6px; font-size: 14px; font-weight: 500;
       font-family: inherit; cursor: pointer; border: 1px solid transparent;
     }
     .btn-secondary { background: #f0f0f0; color: #333; border-color: #d0d0d0; }
@@ -382,6 +420,10 @@ const SETTINGS_HTML = `<!DOCTYPE html>
       .preview { background: #1a2a3a; border-color: #2a4a6a; }
       .preview .label { color: #98989d; }
       .preview .url { color: #4da6ff; }
+      .advanced-toggle { color: #0a84ff; }
+      .clean-url-tip { background: #2a2000; border-color: #5c4800; color: #fbbf24; }
+      .clean-url-tip strong { color: #fcd34d; }
+      .code-block { background: #000; color: #d4d4d4; }
       .btn-secondary { background: #2c2c2e; color: #e5e5e7; border-color: #48484a; }
       .btn-secondary:hover { background: #3a3a3c; }
       .btn-primary { background: #0a84ff; }
@@ -395,24 +437,38 @@ const SETTINGS_HTML = `<!DOCTYPE html>
 
   <div class="preview">
     <div class="label">Access URL</div>
-    <div class="url" id="urlPreview">http://{{hostname}}:{{port}}</div>
+    <div class="url" id="urlPreview">https://{{hostname}}:{{port}}</div>
   </div>
 
   <div class="field">
     <label for="hostname">Hostname</label>
     <input id="hostname" type="text" value="{{hostname}}" oninput="updatePreview()" />
     <p class="hint">
-      Use <strong>edgebric.local</strong> for zero-config local access (mDNS).<br>
-      Or enter a custom domain like <strong>hr.acme.com</strong> if you have DNS configured.
+      Use <strong>edgebric.local</strong> for zero-config local access (mDNS),
+      or a custom domain like <strong>hr.acme.com</strong> if you have DNS configured.
     </p>
     <p class="error" id="hostnameError">Hostname cannot be empty.</p>
   </div>
 
-  <div class="field">
-    <label for="port">Port</label>
-    <input id="port" type="number" min="1" max="65535" value="{{port}}" oninput="updatePreview()" />
-    <p class="hint">Default: 3001. Use 80 for a cleaner URL (may require admin privileges).</p>
-    <p class="error" id="portError">Port must be between 1 and 65535.</p>
+  <button class="advanced-toggle" onclick="toggleAdvanced()">
+    <span id="advToggleText">Show advanced options</span>
+  </button>
+
+  <div class="advanced-section" id="advancedSection">
+    <div class="field">
+      <label for="port">Port</label>
+      <input id="port" type="number" min="1" max="65535" value="{{port}}" oninput="updatePreview()" />
+      <p class="hint">Default: 3001. Most users don't need to change this.</p>
+      <p class="error" id="portError">Port must be between 1 and 65535.</p>
+    </div>
+
+    <div class="clean-url-tip">
+      <strong>Want a clean URL without a port number?</strong><br>
+      Run this once in Terminal to forward port 443 to your Edgebric port:
+      <div class="code-block">echo "rdr pass on lo0 inet proto tcp from any to any port 443 -> 127.0.0.1 port {{port}}" | sudo pfctl -ef -</div>
+      Then users can access Edgebric at just <strong>https://{{hostname}}</strong>.
+      To undo, run: <code>sudo pfctl -F all -f /etc/pf.conf</code>
+    </div>
   </div>
 
   <div class="buttons">
@@ -424,8 +480,15 @@ const SETTINGS_HTML = `<!DOCTYPE html>
     function updatePreview() {
       const h = document.getElementById('hostname').value.trim();
       const p = parseInt(document.getElementById('port').value, 10);
-      const url = (p === 80) ? 'http://' + h : 'http://' + h + ':' + p;
+      const url = (p === 443) ? 'https://' + h : 'https://' + h + ':' + p;
       document.getElementById('urlPreview').textContent = url;
+    }
+
+    function toggleAdvanced() {
+      const section = document.getElementById('advancedSection');
+      const text = document.getElementById('advToggleText');
+      const isOpen = section.classList.toggle('open');
+      text.textContent = isOpen ? 'Hide advanced options' : 'Show advanced options';
     }
 
     function save() {

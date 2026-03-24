@@ -4,6 +4,7 @@ import path from "path";
 import { app } from "electron";
 import Bonjour from "bonjour-service";
 import { loadConfig, pidPath, logPath, envPath } from "./config.js";
+import { certsExist } from "./certs.js";
 
 let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -143,13 +144,20 @@ export async function startServer(): Promise<void> {
 
   // Determine how to run the server
   const isTsFile = serverPath.endsWith(".ts");
+  // serverPath = .../packages/api/src/server.ts → go up 2 levels to packages/api
+  const apiDir = path.dirname(path.dirname(serverPath));
+
+  // Resolve tsx loader path absolutely — bare "tsx/esm" won't resolve from
+  // the desktop package since tsx is only in api/node_modules
+  const tsxEsmPath = path.join(apiDir, "node_modules", "tsx", "dist", "esm", "index.mjs");
   const args = isTsFile
-    ? ["--import=tsx/esm", serverPath]
+    ? [`--import=${tsxEsmPath}`, serverPath]
     : [serverPath];
 
   serverProcess = spawn("node", args, {
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, DOTENV_CONFIG_PATH: envFile },
+    env: { ...process.env, DOTENV_CONFIG_PATH: envFile, SERVE_STATIC: "1" },
+    cwd: apiDir,
   });
 
   fs.closeSync(logFd);
@@ -229,11 +237,21 @@ export async function restartServer(): Promise<void> {
 function startHealthCheck(port: number) {
   stopHealthCheck();
 
+  const config = loadConfig();
+  const proto = config && certsExist(config.dataDir) ? "https" : "http";
+
   healthCheckInterval = setInterval(async () => {
     try {
-      const resp = await fetch(`http://localhost:${port}/api/health`, {
+      // For self-signed certs, temporarily allow unauthorized for localhost health check
+      const prevTls = process.env["NODE_TLS_REJECT_UNAUTHORIZED"];
+      if (proto === "https") process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
+      const resp = await fetch(`${proto}://localhost:${port}/api/health`, {
         signal: AbortSignal.timeout(3000),
       });
+      if (proto === "https") {
+        if (prevTls !== undefined) process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = prevTls;
+        else delete process.env["NODE_TLS_REJECT_UNAUTHORIZED"];
+      }
       if (resp.ok) {
         setStatus("running");
       }
