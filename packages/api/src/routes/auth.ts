@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { Issuer, generators } from "openid-client";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { z } from "zod";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
@@ -44,6 +44,47 @@ async function getClient() {
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return _client as any;
+}
+
+// ─── Session transfer tokens ─────────────────────────────────────────────────
+// OIDC callback lands on localhost (Google requirement). If the frontend runs
+// on a different origin (e.g. edgebric.local), we can't just redirect — the
+// session cookie from localhost won't be sent to edgebric.local. Instead, we
+// issue a short-lived, single-use claim token that the target origin exchanges
+// for a new session.
+
+interface ClaimTokenData {
+  queryToken: string;
+  isAdmin: boolean;
+  email: string;
+  name?: string;
+  picture?: string;
+  orgId?: string;
+  orgSlug?: string;
+  createdAt: number;
+}
+
+const claimTokens = new Map<string, ClaimTokenData>();
+const CLAIM_TOKEN_TTL_MS = 30_000; // 30 seconds
+
+// Purge expired tokens periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of claimTokens) {
+    if (now - data.createdAt > CLAIM_TOKEN_TTL_MS) {
+      claimTokens.delete(token);
+    }
+  }
+}, 60_000);
+
+/** Check if FRONTEND_URL is on a different origin than the OIDC callback (localhost) */
+function needsCrossOriginTransfer(): boolean {
+  try {
+    const frontendOrigin = new URL(config.frontendUrl).hostname;
+    return frontendOrigin !== "localhost" && frontendOrigin !== "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
@@ -185,21 +226,42 @@ authRouter.get("/callback", async (req, res) => {
       req.session.orgSlug = userOrgs[0]!.slug;
     }
 
-    req.session.save((err) => {
-      if (err) {
-        logger.error({ err }, "Session save error after callback");
-        res.status(500).json({ error: "Session error" });
-        return;
-      }
-      recordAuditEvent({
-        eventType: "auth.login",
-        actorEmail: email,
-        actorIp: req.ip,
-        details: { isAdmin, method: "oidc" },
-      });
-      // If multiple orgs, frontend will detect missing orgId and show picker
-      res.redirect(config.frontendUrl);
+    recordAuditEvent({
+      eventType: "auth.login",
+      actorEmail: email,
+      actorIp: req.ip,
+      details: { isAdmin, method: "oidc" },
     });
+
+    if (needsCrossOriginTransfer()) {
+      // OIDC callback landed on localhost, but frontend is on a different
+      // origin (e.g. edgebric.local). Issue a one-time claim token and
+      // redirect to the frontend origin's /api/auth/claim endpoint.
+      const token = randomBytes(32).toString("hex");
+      claimTokens.set(token, {
+        queryToken: req.session.queryToken,
+        isAdmin: req.session.isAdmin,
+        email: req.session.email!,
+        name: req.session.name,
+        picture: req.session.picture,
+        orgId: req.session.orgId,
+        orgSlug: req.session.orgSlug,
+        createdAt: Date.now(),
+      });
+      // Redirect to the frontend origin — the /api/auth/claim handler will
+      // create a session on that origin and redirect to the app.
+      res.redirect(`${config.frontendUrl}/api/auth/claim?token=${token}`);
+    } else {
+      // Same origin — just save the session and redirect.
+      req.session.save((err) => {
+        if (err) {
+          logger.error({ err }, "Session save error after callback");
+          res.status(500).json({ error: "Session error" });
+          return;
+        }
+        res.redirect(config.frontendUrl);
+      });
+    }
   } catch (err) {
     logger.error({ err }, "OIDC callback error");
     // Redirect to frontend (not /api/auth/login) to avoid infinite loop when
@@ -207,6 +269,62 @@ authRouter.get("/callback", async (req, res) => {
     // missing session and show the login page.
     res.redirect(config.frontendUrl);
   }
+});
+
+// ─── GET /api/auth/claim ──────────────────────────────────────────────────────
+// Exchanges a one-time claim token for a session on the current origin.
+// Used after OIDC callback on localhost to transfer the session to edgebric.local.
+
+authRouter.get("/claim", (req, res) => {
+  const token = req.query["token"];
+  if (typeof token !== "string" || !token) {
+    res.status(400).json({ error: "Missing token" });
+    return;
+  }
+
+  const data = claimTokens.get(token);
+  if (!data) {
+    // Token expired or already used — redirect to login
+    logger.warn("Claim token not found or expired");
+    res.redirect(config.frontendUrl);
+    return;
+  }
+
+  // Single-use: delete immediately
+  claimTokens.delete(token);
+
+  // Check TTL
+  if (Date.now() - data.createdAt > CLAIM_TOKEN_TTL_MS) {
+    logger.warn("Claim token expired");
+    res.redirect(config.frontendUrl);
+    return;
+  }
+
+  // Regenerate session on this origin and populate with the claim data
+  req.session.regenerate((err) => {
+    if (err) {
+      logger.error({ err }, "Session regenerate error during claim");
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+
+    req.session.queryToken = data.queryToken;
+    req.session.isAdmin = data.isAdmin;
+    req.session.email = data.email;
+    if (data.name) req.session.name = data.name;
+    if (data.picture) req.session.picture = data.picture;
+    if (data.orgId) req.session.orgId = data.orgId;
+    if (data.orgSlug) req.session.orgSlug = data.orgSlug;
+
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        logger.error({ err: saveErr }, "Session save error during claim");
+        res.status(500).json({ error: "Session error" });
+        return;
+      }
+      res.redirect(config.frontendUrl);
+    });
+  });
 });
 
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────

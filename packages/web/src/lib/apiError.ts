@@ -1,4 +1,5 @@
 import { showToast } from "@/hooks/useToast";
+import { getLoginUrl } from "@/lib/api";
 
 /**
  * Handle API response errors with toast notifications.
@@ -25,7 +26,7 @@ export async function handleApiResponse<T = unknown>(
     });
     // Give the toast a moment to appear before redirecting
     setTimeout(() => {
-      window.location.href = "/api/auth/login";
+      window.location.href = getLoginUrl();
     }, 1500);
     return null;
   }

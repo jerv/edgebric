@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { getLoginUrl } from "@/lib/api";
 import logoSrc from "../assets/logo.png";
 
 interface Ripple {
@@ -26,7 +27,7 @@ export function LoginPage() {
             </div>
           </div>
           <a
-            href="/api/auth/login"
+            href={getLoginUrl()}
             className="inline-flex items-center gap-3 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-3 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-300 dark:hover:border-gray-600 transition-all shadow-sm"
           >
             <GoogleIcon />

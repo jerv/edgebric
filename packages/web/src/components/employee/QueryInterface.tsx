@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
 import type { AnswerResponse, Citation, PersistedMessage } from "@edgebric/types";
+import { getLoginUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { adminLabel } from "@/lib/models";
@@ -696,7 +697,7 @@ export function ChatPanel() {
       });
 
       if (response.status === 401) {
-        window.location.href = "/api/auth/login";
+        window.location.href = getLoginUrl();
         return;
       }
 

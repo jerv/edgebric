@@ -10,6 +10,11 @@
  */
 import { showToast } from "@/hooks/useToast";
 
+/** Build the login URL — always points to localhost so the OIDC session stays on one origin */
+export function getLoginUrl(): string {
+  return `${window.location.protocol}//localhost:${window.location.port}/api/auth/login`;
+}
+
 function getCsrfToken(): string | undefined {
   const match = document.cookie
     .split("; ")
@@ -51,7 +56,7 @@ globalThis.fetch = async function interceptedFetch(
       variant: "destructive",
     });
     setTimeout(() => {
-      window.location.href = "/api/auth/login";
+      window.location.href = getLoginUrl();
     }, 2000);
   }
 

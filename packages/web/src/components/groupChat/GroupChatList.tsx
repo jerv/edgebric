@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Users, Clock, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Plus, Users, MessageSquare } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { GroupChatSetupDialog } from "./GroupChatSetupDialog";
 import type { GroupChat } from "@edgebric/types";
