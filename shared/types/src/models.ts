@@ -42,9 +42,9 @@ export interface InstalledModel {
   /** Current status */
   status: ModelStatus;
   /** RAM usage in bytes (only set when model is loaded) */
-  ramUsageBytes?: number;
-  /** Matched catalog entry, if any (null for community models) */
-  catalogEntry?: ModelCatalogEntry;
+  ramUsageBytes?: number | undefined;
+  /** Matched catalog entry, if any (undefined for community models) */
+  catalogEntry?: ModelCatalogEntry | undefined;
 }
 
 export interface SystemResources {
@@ -63,9 +63,9 @@ export interface ModelsResponse {
 
 export interface PullProgressEvent {
   status: string;
-  completed?: number;
-  total?: number;
-  percent?: number;
+  completed?: number | undefined;
+  total?: number | undefined;
+  percent?: number | undefined;
 }
 
 // ─── Official Model Catalog ──────────────────────────────────────────────────

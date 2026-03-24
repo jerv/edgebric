@@ -43,14 +43,18 @@ export const config = {
     embeddingModel: process.env["EMBEDDING_MODEL"] ?? "nomic-embed-text",
   } satisfies EdgeConfig,
 
-  // Chat inference endpoint — separate from mILM so llama-server can be used
-  // for models that mILM's bundled llama.cpp doesn't support (e.g. qwen3.5 arch).
-  // Defaults to mILM. Override with CHAT_BASE_URL + CHAT_API_KEY + CHAT_MODEL.
+  // Ollama inference endpoint — manages local LLM models.
+  // Defaults to Ollama's standard port. Override with OLLAMA_BASE_URL.
+  ollama: {
+    baseUrl: process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434",
+  },
+
+  // Chat inference endpoint — points to Ollama's OpenAI-compatible API by default.
+  // Can be overridden to use mILM, llama-server, or any OpenAI-compatible endpoint.
   chat: {
-    baseUrl: process.env["CHAT_BASE_URL"] ?? process.env["MIMIK_BASE_URL"] ?? "http://localhost:8083",
-    apiKey: process.env["CHAT_API_KEY"] ?? process.env["MIMIK_API_KEY"] ?? "1234",
-    // CHAT_MODEL overrides MILM_MODEL for the chat endpoint specifically
-    model: process.env["CHAT_MODEL"] ?? process.env["MILM_MODEL"] ?? "qwen2.5-1.5b-instruct",
+    baseUrl: process.env["CHAT_BASE_URL"] ?? `${process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434"}/v1`,
+    apiKey: process.env["CHAT_API_KEY"] ?? "ollama",
+    model: process.env["CHAT_MODEL"] ?? "qwen3:4b",
   },
 };
 
