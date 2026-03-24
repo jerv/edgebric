@@ -37,6 +37,8 @@ export function LoginPage() {
             <a href="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</a>
             <span>·</span>
             <a href="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</a>
+            <span>·</span>
+            <a href="/acknowledgments" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Acknowledgments</a>
           </div>
         </div>
       </div>

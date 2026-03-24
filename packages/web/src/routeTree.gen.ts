@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as AcknowledgmentsRouteImport } from './routes/acknowledgments'
 import { Route as ShellRouteImport } from './routes/_shell'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ShellIndexRouteImport } from './routes/_shell/index'
@@ -38,6 +39,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcknowledgmentsRoute = AcknowledgmentsRouteImport.update({
+  id: '/acknowledgments',
+  path: '/acknowledgments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShellRoute = ShellRouteImport.update({
@@ -102,6 +108,7 @@ const ShellConversationsIdRoute = ShellConversationsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
+  '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/group-chats/$id': typeof ShellGroupChatsIdRoute
 }
 export interface FileRoutesByTo {
+  '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -135,6 +143,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_shell': typeof ShellRouteWithChildren
+  '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/acknowledgments'
     | '/onboarding'
     | '/privacy'
     | '/terms'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/group-chats/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/acknowledgments'
     | '/onboarding'
     | '/privacy'
     | '/terms'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_shell'
+    | '/acknowledgments'
     | '/onboarding'
     | '/privacy'
     | '/terms'
@@ -204,6 +216,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
+  AcknowledgmentsRoute: typeof AcknowledgmentsRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
@@ -231,6 +244,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/acknowledgments': {
+      id: '/acknowledgments'
+      path: '/acknowledgments'
+      fullPath: '/acknowledgments'
+      preLoaderRoute: typeof AcknowledgmentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_shell': {
@@ -360,6 +380,7 @@ const ShellRouteWithChildren = ShellRoute._addFileChildren(ShellRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
+  AcknowledgmentsRoute: AcknowledgmentsRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,

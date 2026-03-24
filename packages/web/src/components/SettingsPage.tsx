@@ -190,6 +190,12 @@ function GeneralTab() {
         </div>
       </div>
 
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
+        <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
+        <a href="/acknowledgments" className="hover:text-foreground transition-colors">Acknowledgments</a>
+      </div>
+
       <button
         onClick={() => void signOut()}
         className="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 transition-colors"
