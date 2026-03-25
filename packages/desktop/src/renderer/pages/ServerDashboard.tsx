@@ -82,10 +82,25 @@ function formatGB(bytes: number): string {
   return `${(bytes / (1024 ** 3)).toFixed(1)} GB`;
 }
 
+type RAMFitLevel = "ok" | "tight" | "exceeds";
+
+function checkRAMFit(modelRAMGB: number, systemRAMTotalBytes: number, headroomGB = 8): { level: RAMFitLevel; message: string } {
+  const totalGB = systemRAMTotalBytes / (1024 ** 3);
+  const availableGB = Math.max(0, totalGB - headroomGB);
+  if (modelRAMGB > totalGB) {
+    return { level: "exceeds", message: `Needs ~${modelRAMGB} GB RAM but your system only has ${Math.round(totalGB)} GB. It will not load.` };
+  }
+  if (modelRAMGB > availableGB) {
+    return { level: "tight", message: `Needs ~${modelRAMGB} GB RAM. With ~${headroomGB} GB reserved for your system, only ~${Math.round(availableGB)} GB is available. Performance may suffer.` };
+  }
+  return { level: "ok", message: "" };
+}
+
 function modelDisplayName(m: InstalledModel): string {
   if (m.catalogEntry) return `${m.catalogEntry.name} · ${m.catalogEntry.paramCount}`;
   return m.tag;
 }
+
 
 export default function ServerDashboard() {
   const [status, setStatus] = useState<ServerStatus>("stopped");
@@ -102,6 +117,7 @@ export default function ServerDashboard() {
   const [confirmText, setConfirmText] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
   const [showPortHint, setShowPortHint] = useState(false);
+  const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [isDark, setIsDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   // Models state
@@ -153,6 +169,7 @@ export default function ServerDashboard() {
       if (s.hostname) setHostname(s.hostname);
       if (s.errorMsg) setErrorMsg(s.errorMsg);
     });
+    window.electronAPI.getLaunchAtLogin().then(setLaunchAtLogin);
   }, []);
 
   useEffect(() => {
@@ -642,7 +659,7 @@ export default function ServerDashboard() {
                             <span className="model-badge model-badge-active">Running</span>
                           </div>
                           <span className="model-item-meta">
-                            {m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
+                            {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
                           </span>
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
@@ -659,17 +676,32 @@ export default function ServerDashboard() {
                   })}
                   {installedModels.map((m) => {
                     const isOpTarget = modelOp?.tag === m.tag;
+                    const modelRAMGB = m.catalogEntry?.ramUsageGB ?? m.sizeBytes / (1024 ** 3) * 1.2;
+                    const fit = checkRAMFit(modelRAMGB, ramTotal, headroomGB);
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
-                          <div className="model-item-name">{modelDisplayName(m)}</div>
-                          <span className="model-item-meta">{formatBytes(m.sizeBytes)} on disk</span>
+                          <div className="model-item-name">
+                            {modelDisplayName(m)}
+                            {fit.level === "exceeds" && (
+                              <span className="model-badge" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", marginLeft: 6 }}>Too large</span>
+                            )}
+                            {fit.level === "tight" && (
+                              <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
+                            )}
+                          </div>
+                          <span className="model-item-meta">{m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{formatBytes(m.sizeBytes)} on disk</span>
+                          {fit.level !== "ok" && (
+                            <span className="model-item-meta" style={{ color: fit.level === "exceeds" ? "#dc2626" : "#d97706", fontWeight: 500 }}>
+                              {fit.message}
+                            </span>
+                          )}
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
                           <button
                             className="btn btn-primary btn-sm"
                             onClick={() => handleLoadModel(m.tag)}
-                            disabled={!!modelOp}
+                            disabled={!!modelOp || !!pullTag}
                           >
                             {isOpTarget && modelOp?.type === "load" ? "Starting..." : "Start"}
                           </button>
@@ -678,14 +710,14 @@ export default function ServerDashboard() {
                               <button
                                 className="btn btn-danger btn-sm"
                                 onClick={() => { setDeleteConfirmTag(null); handleDeleteModel(m.tag); }}
-                                disabled={!!modelOp}
+                                disabled={!!modelOp || !!pullTag}
                               >
                                 {isOpTarget && modelOp?.type === "delete" ? "..." : "Confirm"}
                               </button>
                               <button
                                 className="btn btn-ghost btn-sm"
                                 onClick={() => setDeleteConfirmTag(null)}
-                                disabled={!!modelOp}
+                                disabled={!!modelOp || !!pullTag}
                               >
                                 Cancel
                               </button>
@@ -694,7 +726,7 @@ export default function ServerDashboard() {
                             <button
                               className="btn btn-danger-ghost btn-sm"
                               onClick={() => setDeleteConfirmTag(m.tag)}
-                              disabled={!!modelOp}
+                              disabled={!!modelOp || !!pullTag}
                             >
                               Delete
                             </button>
@@ -728,84 +760,81 @@ export default function ServerDashboard() {
               </section>
             )}
 
-            {/* Recommended Models */}
+            {/* Available Models — recommended + alternatives in one card */}
             {(() => {
               const recommended = availableCatalog.filter((c) => c.tier === "recommended");
-              if (recommended.length === 0) return null;
+              const supported = availableCatalog.filter((c) => c.tier === "supported");
+              if (recommended.length === 0 && supported.length === 0) return null;
+
+              const renderCatalogItem = (c: CatalogEntry) => {
+                const fit = checkRAMFit(c.ramUsageGB, ramTotal, headroomGB);
+                return (
+                  <div key={c.tag} className="model-item" style={fit.level === "exceeds" ? { opacity: 0.55 } : undefined}>
+                    <div className="model-item-left">
+                      <div className="model-item-name">
+                        {c.name}
+                        {fit.level === "exceeds" && (
+                          <span className="model-badge" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", marginLeft: 6 }}>Too large</span>
+                        )}
+                        {fit.level === "tight" && (
+                          <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
+                        )}
+                      </div>
+                      <span className="model-item-meta">by {c.family} · {c.description}</span>
+                      <span className="model-item-meta">
+                        {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
+                      </span>
+                      {fit.level !== "ok" && (
+                        <span className="model-item-meta" style={{ color: fit.level === "exceeds" ? "#dc2626" : "#d97706", fontWeight: 500 }}>
+                          {fit.message}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handlePullModel(c.tag)}
+                      disabled={!!pullTag || !!modelOp}
+                    >
+                      Install
+                    </button>
+                  </div>
+                );
+              };
+
               return (
                 <section className="card">
                   <h3 className="card-heading">
-                    Recommended for this system ({Math.round(ramTotalGB)} GB RAM{mode === "solo" ? ", personal use" : ""})
+                    Available Models ({Math.round(ramTotalGB)} GB RAM{mode === "solo" ? ", personal use" : ""})
                   </h3>
                   <p className="hint" style={{ margin: "0 0 10px" }}>
                     {mode === "solo"
                       ? `~${headroomGB} GB recommended for your system, ~${Math.round(effectiveRAMGB)} GB available for AI models.`
                       : `~${headroomGB} GB recommended for the OS, ~${Math.round(effectiveRAMGB)} GB available for AI models.`}
                   </p>
-                  <div className="model-list">
-                    {recommended.map((c) => {
-                      const canRun = effectiveRAMGB >= c.ramUsageGB;
-                      return (
-                        <div key={c.tag} className="model-item" style={!canRun ? { opacity: 0.45 } : undefined}>
-                          <div className="model-item-left">
-                            <div className="model-item-name">{c.name}</div>
-                            <span className="model-item-meta">{c.description}</span>
-                            <span className="model-item-meta">
-                              {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
-                              {!canRun && ` · Needs more RAM than available`}
-                            </span>
-                          </div>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handlePullModel(c.tag)}
-                            disabled={!!pullTag || !!modelOp || !canRun}
-                          >
-                            {canRun ? "Install" : "Too large"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {recommended.length > 0 && (
+                    <>
+                      <p className="card-subheading">Recommended</p>
+                      <div className="model-list">
+                        {recommended.map(renderCatalogItem)}
+                      </div>
+                    </>
+                  )}
+                  {recommended.length > 0 && supported.length > 0 && (
+                    <div className="card-divider" />
+                  )}
+                  {supported.length > 0 && (
+                    <>
+                      <p className="card-subheading">Alternatives</p>
+                      <div className="model-list">
+                        {supported.map(renderCatalogItem)}
+                      </div>
+                    </>
+                  )}
                 </section>
               );
             })()}
 
-            {/* Supported Alternatives */}
-            {(() => {
-              const supported = availableCatalog.filter((c) => c.tier === "supported");
-              if (supported.length === 0) return null;
-              return (
-                <section className="card">
-                  <h3 className="card-heading">Alternatives</h3>
-                  <div className="model-list">
-                    {supported.map((c) => {
-                      const canRun = effectiveRAMGB >= c.ramUsageGB;
-                      return (
-                        <div key={c.tag} className="model-item" style={!canRun ? { opacity: 0.45 } : undefined}>
-                          <div className="model-item-left">
-                            <div className="model-item-name">{c.name}</div>
-                            <span className="model-item-meta">{c.description}</span>
-                            <span className="model-item-meta">
-                              {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
-                              {!canRun && ` · Needs more RAM than available`}
-                            </span>
-                          </div>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => handlePullModel(c.tag)}
-                            disabled={!!pullTag || !!modelOp || !canRun}
-                          >
-                            {canRun ? "Install" : "Too large"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              );
-            })()}
-
-            {/* Other Models — search online registry */}
+            {/* Other Models — search + import in one card */}
             <section className="card">
               <h3 className="card-heading">Other Models</h3>
               <p className="hint" style={{ margin: "0 0 10px" }}>
@@ -829,6 +858,9 @@ export default function ServerDashboard() {
                       <div className="model-item-left">
                         <div className="model-item-name">{m.name}</div>
                         {m.description && <span className="model-item-meta">{m.description}</span>}
+                        <span className="model-item-meta" style={{ color: "#d97706" }}>
+                          RAM usage unknown — check model page for requirements. You have {Math.round(ramTotalGB)} GB total.
+                        </span>
                       </div>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -862,13 +894,12 @@ export default function ServerDashboard() {
                   </button>
                 </p>
               )}
-            </section>
 
-            {/* Import Model — from local GGUF file */}
-            <section className="card">
-              <h3 className="card-heading">Import Model</h3>
+              <div className="card-divider" />
+
+              <p className="card-subheading">Import from File</p>
               <p className="hint" style={{ margin: "0 0 10px" }}>
-                Import a model from a local GGUF file. Not officially supported.
+                Import a model from a local GGUF file.
               </p>
               {!ggufPath ? (
                 <button
@@ -937,6 +968,28 @@ export default function ServerDashboard() {
           {!dangerAction ? (
             <>
               <section className="card">
+                <h3 className="card-heading">General</h3>
+                <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <label style={{ marginBottom: 0 }}>Launch at Login</label>
+                    <p className="hint" style={{ marginTop: 2 }}>Start Edgebric automatically when you log in to your Mac.</p>
+                  </div>
+                  <button
+                    className={`toggle-btn ${launchAtLogin ? "toggle-on" : ""}`}
+                    onClick={async () => {
+                      const newVal = !launchAtLogin;
+                      setLaunchAtLogin(newVal);
+                      await window.electronAPI.setLaunchAtLogin(newVal);
+                    }}
+                    type="button"
+                    aria-pressed={launchAtLogin}
+                  >
+                    <span className="toggle-knob" />
+                  </button>
+                </div>
+              </section>
+
+              <section className="card">
                 <h3 className="card-heading">Network</h3>
                 <div className="field">
                   <label>Hostname</label>
@@ -980,11 +1033,10 @@ export default function ServerDashboard() {
                       of <strong>https://{editHostname || hostname}:{editPort || port}</strong>.
                     </p>
                     <div className="code-block">
-                      <code>echo "rdr pass on lo0 inet proto tcp from any to any port 443 -&gt; 127.0.0.1 port {editPort || port}" | sudo pfctl -ef -</code>
+                      <code>{`sudo bash -c 'echo "rdr pass on lo0 inet proto tcp from any to any port 443 -> 127.0.0.1 port ${editPort || port}" > /etc/pf.anchors/edgebric && grep -q edgebric /etc/pf.conf || echo -e "rdr-anchor \\"edgebric\\"\\nload anchor \\"edgebric\\" from \\"/etc/pf.anchors/edgebric\\"" | sudo tee -a /etc/pf.conf > /dev/null && sudo pfctl -ef /etc/pf.conf'`}</code>
                     </div>
                     <p className="hint" style={{ marginTop: 6 }}>
-                      This survives until reboot. To make it permanent, add the rule to <code>/etc/pf.anchors/edgebric</code> and
-                      load it from <code>/etc/pf.conf</code>. Requires admin (sudo) password.
+                      Requires your Mac password. Only needs to be done once — survives reboots.
                     </p>
                   </div>
                 )}

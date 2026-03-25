@@ -6,7 +6,7 @@ import { logger } from "../lib/logger.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import * as ollama from "../services/ollamaClient.js";
-import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog } from "@edgebric/types";
+import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog, MODEL_CATALOG_MAP, checkModelRAMFit } from "@edgebric/types";
 import type { InstalledModel, ModelsResponse } from "@edgebric/types";
 
 const tagSchema = z.object({
@@ -105,6 +105,22 @@ modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
   // Warn for community models (not in official catalog)
   const isCommunity = !OFFICIAL_CATALOG.some((m) => m.tag === tag);
 
+  // RAM fitness check
+  const catalogEntry = MODEL_CATALOG_MAP.get(tag);
+  const system = ollama.getSystemResources();
+  if (catalogEntry) {
+    const fit = checkModelRAMFit(catalogEntry.ramUsageGB, system.ramTotalBytes);
+    if (fit.level === "exceeds") {
+      logger.warn({ tag, modelRAMGB: catalogEntry.ramUsageGB, totalRAMGB: fit.totalRAMGB, availableRAMGB: fit.availableRAMGB }, "Model download requested but exceeds system RAM — model will not load");
+    } else if (fit.level === "tight") {
+      logger.warn({ tag, modelRAMGB: catalogEntry.ramUsageGB, totalRAMGB: fit.totalRAMGB, availableRAMGB: fit.availableRAMGB }, "Model download requested with low RAM headroom — performance may suffer");
+    } else {
+      logger.info({ tag, modelRAMGB: catalogEntry.ramUsageGB, totalRAMGB: fit.totalRAMGB, availableRAMGB: fit.availableRAMGB }, "Model download requested, RAM check OK");
+    }
+  } else {
+    logger.info({ tag, totalRAMGB: system.ramTotalBytes / (1024 ** 3) }, "Community model download requested — RAM usage unknown");
+  }
+
   // Set up SSE
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -113,6 +129,16 @@ modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
 
   if (isCommunity) {
     res.write(`event: warning\ndata: ${JSON.stringify({ message: "This is a community model and has not been tested with Edgebric." })}\n\n`);
+  }
+
+  // Send RAM warning via SSE so UI can display it
+  if (catalogEntry) {
+    const fit = checkModelRAMFit(catalogEntry.ramUsageGB, system.ramTotalBytes);
+    if (fit.level === "exceeds") {
+      res.write(`event: warning\ndata: ${JSON.stringify({ message: fit.message, level: "exceeds" })}\n\n`);
+    } else if (fit.level === "tight") {
+      res.write(`event: warning\ndata: ${JSON.stringify({ message: fit.message, level: "tight" })}\n\n`);
+    }
   }
 
   const controller = new AbortController();
@@ -166,16 +192,50 @@ modelsRouter.post("/pull/cancel", validateBody(tagSchema), (req, res) => {
 modelsRouter.post("/load", validateBody(tagSchema), async (req, res) => {
   const { tag } = req.body as z.infer<typeof tagSchema>;
 
+  // RAM fitness logging before load
+  const catalogEntry = MODEL_CATALOG_MAP.get(tag);
+  const system = ollama.getSystemResources();
+  const totalRAMGB = system.ramTotalBytes / (1024 ** 3);
+  const availRAMGB = system.ramAvailableBytes / (1024 ** 3);
+
+  if (catalogEntry) {
+    const fit = checkModelRAMFit(catalogEntry.ramUsageGB, system.ramTotalBytes);
+    if (fit.level === "exceeds") {
+      logger.warn({ tag, modelRAMGB: catalogEntry.ramUsageGB, totalRAMGB: fit.totalRAMGB, availableRAMGB: fit.availableRAMGB, currentFreeRAMGB: +availRAMGB.toFixed(1) },
+        "Loading model that EXCEEDS system RAM — expect failure or severe swapping");
+    } else if (fit.level === "tight") {
+      logger.warn({ tag, modelRAMGB: catalogEntry.ramUsageGB, totalRAMGB: fit.totalRAMGB, availableRAMGB: fit.availableRAMGB, currentFreeRAMGB: +availRAMGB.toFixed(1) },
+        "Loading model with low RAM headroom — system may become sluggish");
+    } else {
+      logger.info({ tag, modelRAMGB: catalogEntry.ramUsageGB, currentFreeRAMGB: +availRAMGB.toFixed(1) }, "Loading model, RAM check OK");
+    }
+  } else {
+    // Community model — log what we know
+    logger.info({ tag, totalRAMGB: +totalRAMGB.toFixed(1), currentFreeRAMGB: +availRAMGB.toFixed(1) },
+      "Loading community model — RAM usage unknown, monitor system resources");
+  }
+
   try {
     await ollama.loadModel(tag);
     // Update runtime config so queries use this model
     runtimeChatConfig.model = tag;
     runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
-    logger.info({ tag }, "Model loaded and set as active");
+
+    // Post-load resource snapshot
+    const postLoad = ollama.getSystemResources();
+    const postFreeGB = postLoad.ramAvailableBytes / (1024 ** 3);
+    if (postFreeGB < 2) {
+      logger.warn({ tag, postLoadFreeRAMGB: +postFreeGB.toFixed(1) }, "Model loaded but system RAM is critically low (<2 GB free)");
+    } else if (postFreeGB < 4) {
+      logger.warn({ tag, postLoadFreeRAMGB: +postFreeGB.toFixed(1) }, "Model loaded but system RAM is low (<4 GB free)");
+    } else {
+      logger.info({ tag, postLoadFreeRAMGB: +postFreeGB.toFixed(1) }, "Model loaded and set as active");
+    }
+
     res.json({ loaded: true, tag, activeModel: tag });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load model";
-    logger.error({ tag, err }, "Failed to load model");
+    logger.error({ tag, err, totalRAMGB: +totalRAMGB.toFixed(1), currentFreeRAMGB: +availRAMGB.toFixed(1) }, "Failed to load model — check RAM availability");
     res.status(500).json({ error: message });
   }
 });

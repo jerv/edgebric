@@ -24,8 +24,8 @@ import {
   useDeleteModel,
   useSwitchModel,
 } from "@/hooks/useModels";
-import type { InstalledModel, ModelCatalogEntry } from "@edgebric/types";
-import { getRecommendedModelTag, EMBEDDING_MODEL_TAG } from "@edgebric/types";
+import type { InstalledModel, ModelCatalogEntry, RAMFitResult } from "@edgebric/types";
+import { getRecommendedModelTag, EMBEDDING_MODEL_TAG, checkModelRAMFit } from "@edgebric/types";
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -66,7 +66,7 @@ function ResourceBar({ used, total, label, icon: Icon }: {
   );
 }
 
-function ModelCard({ model, isActive, onLoad, onUnload, onDelete, onSetDefault, loading }: {
+function ModelCard({ model, isActive, onLoad, onUnload, onDelete, onSetDefault, loading, ramFit }: {
   model: InstalledModel;
   isActive: boolean;
   onLoad: () => void;
@@ -74,6 +74,7 @@ function ModelCard({ model, isActive, onLoad, onUnload, onDelete, onSetDefault, 
   onDelete: () => void;
   onSetDefault: () => void;
   loading: boolean;
+  ramFit?: RAMFitResult;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isLoaded = model.status === "loaded";
@@ -124,6 +125,9 @@ function ModelCard({ model, isActive, onLoad, onUnload, onDelete, onSetDefault, 
             )}
             {catalogEntry && <span>{catalogEntry.origin}</span>}
           </div>
+          {!isLoaded && ramFit && ramFit.level !== "ok" && (
+            <RAMWarningBanner fit={ramFit} />
+          )}
         </div>
 
         {/* Actions */}
@@ -198,11 +202,29 @@ function ModelCard({ model, isActive, onLoad, onUnload, onDelete, onSetDefault, 
   );
 }
 
-function CatalogCard({ entry, onInstall, installing, recommended }: {
+function RAMWarningBanner({ fit }: { fit: RAMFitResult }) {
+  if (fit.level === "ok") return null;
+
+  const isExceeds = fit.level === "exceeds";
+  return (
+    <div className={cn(
+      "flex items-start gap-2 text-xs rounded-xl px-3 py-2 mt-2",
+      isExceeds
+        ? "bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+        : "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+    )}>
+      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+      <span>{fit.message}</span>
+    </div>
+  );
+}
+
+function CatalogCard({ entry, onInstall, installing, recommended, ramFit }: {
   entry: ModelCatalogEntry;
   onInstall: () => void;
   installing: boolean;
   recommended: boolean;
+  ramFit: RAMFitResult;
 }) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-200 dark:border-gray-800 px-5 py-4">
@@ -220,6 +242,16 @@ function CatalogCard({ entry, onInstall, installing, recommended }: {
                 Recommended
               </span>
             )}
+            {ramFit.level === "exceeds" && (
+              <span className="text-xs bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full font-medium">
+                Too large
+              </span>
+            )}
+            {ramFit.level === "tight" && (
+              <span className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full font-medium">
+                Low RAM
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">{entry.description}</p>
           <div className="flex items-center gap-3 text-xs text-slate-400 dark:text-gray-500 mt-1">
@@ -227,6 +259,7 @@ function CatalogCard({ entry, onInstall, installing, recommended }: {
             <span>{formatGB(entry.ramUsageGB)} RAM</span>
             <span>{entry.origin}</span>
           </div>
+          <RAMWarningBanner fit={ramFit} />
         </div>
 
         <button
@@ -374,18 +407,22 @@ export function ModelsPanel() {
             <h2 className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-gray-500">
               Installed ({installedModels.length})
             </h2>
-            {installedModels.map((model) => (
-              <ModelCard
-                key={model.tag}
-                model={model}
-                isActive={model.tag === activeModel}
-                onLoad={() => loadMutation.mutate(model.tag)}
-                onUnload={() => unloadMutation.mutate(model.tag)}
-                onDelete={() => deleteMutation.mutate(model.tag)}
-                onSetDefault={() => switchMutation.mutate(model.tag)}
-                loading={anyMutating}
-              />
-            ))}
+            {installedModels.map((model) => {
+              const ramGB = model.catalogEntry?.ramUsageGB ?? model.sizeBytes / (1024 ** 3) * 1.2;
+              return (
+                <ModelCard
+                  key={model.tag}
+                  model={model}
+                  isActive={model.tag === activeModel}
+                  onLoad={() => loadMutation.mutate(model.tag)}
+                  onUnload={() => unloadMutation.mutate(model.tag)}
+                  onDelete={() => deleteMutation.mutate(model.tag)}
+                  onSetDefault={() => switchMutation.mutate(model.tag)}
+                  loading={anyMutating}
+                  ramFit={checkModelRAMFit(ramGB, system.ramTotalBytes)}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -402,6 +439,7 @@ export function ModelsPanel() {
                 onInstall={() => void pull(entry.tag)}
                 installing={pulling && pullTag === entry.tag}
                 recommended={entry.tag === recommendedTag}
+                ramFit={checkModelRAMFit(entry.ramUsageGB, system.ramTotalBytes)}
               />
             ))}
           </div>

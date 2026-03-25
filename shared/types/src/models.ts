@@ -180,3 +180,56 @@ export function getVisibleCatalog(): ModelCatalogEntry[] {
 
 /** The embedding model tag — auto-installed, never shown to users. */
 export const EMBEDDING_MODEL_TAG = "nomic-embed-text";
+
+// ─── RAM Fitness Check ──────────────────────────────────────────────────────
+
+export type RAMFitLevel = "ok" | "tight" | "exceeds";
+
+export interface RAMFitResult {
+  level: RAMFitLevel;
+  /** Human-readable message for the UI */
+  message: string;
+  /** Model RAM requirement in GB */
+  modelRAMGB: number;
+  /** Available RAM for models in GB (total minus headroom) */
+  availableRAMGB: number;
+  /** Total system RAM in GB */
+  totalRAMGB: number;
+}
+
+/**
+ * Check whether a model fits in available RAM.
+ *
+ * @param modelRAMGB - RAM the model needs when loaded (from catalog or estimate)
+ * @param systemRAMTotalBytes - Total system RAM in bytes
+ * @param headroomGB - RAM to reserve for OS/apps (default 8 for solo, 4 for server)
+ * @returns RAMFitResult with level, message, and numeric details
+ */
+export function checkModelRAMFit(
+  modelRAMGB: number,
+  systemRAMTotalBytes: number,
+  headroomGB = 8,
+): RAMFitResult {
+  const totalRAMGB = systemRAMTotalBytes / (1024 ** 3);
+  const availableRAMGB = Math.max(0, totalRAMGB - headroomGB);
+
+  const base = { modelRAMGB, availableRAMGB, totalRAMGB };
+
+  if (modelRAMGB > totalRAMGB) {
+    return {
+      ...base,
+      level: "exceeds",
+      message: `This model needs ~${modelRAMGB} GB RAM but your system only has ${Math.round(totalRAMGB)} GB. It will not load.`,
+    };
+  }
+
+  if (modelRAMGB > availableRAMGB) {
+    return {
+      ...base,
+      level: "tight",
+      message: `This model needs ~${modelRAMGB} GB RAM. With ~${headroomGB} GB reserved for your system, only ~${Math.round(availableRAMGB)} GB is available for models. Performance may suffer.`,
+    };
+  }
+
+  return { ...base, level: "ok", message: "" };
+}
