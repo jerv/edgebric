@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  LogOut, Trash2, Pencil, ShieldCheck, Sun, Moon, Monitor, Bell,
+  LogOut, Trash2, Pencil, ShieldCheck, Sun, Moon, Monitor, Bell, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -190,19 +190,37 @@ function GeneralTab() {
         </div>
       </div>
 
+      {/* Solo → Org upgrade */}
+      {user?.authMode === "none" && (
+        <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Enable Organization Mode</h3>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-gray-400">
+            Upgrade to organization mode to enable SSO authentication, invite team members, create group chats, and share data sources across your network. Requires a license key.
+          </p>
+          <p className="text-xs text-slate-400 dark:text-gray-500">
+            To enable organization mode, open the Edgebric desktop app and go to Instance Management. Your existing data and sources will be preserved.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
         <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
         <a href="/acknowledgments" className="hover:text-foreground transition-colors">Acknowledgments</a>
       </div>
 
-      <button
-        onClick={() => void signOut()}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 transition-colors"
-      >
-        <LogOut className="w-4 h-4" />
-        Sign out
-      </button>
+      {user?.authMode !== "none" && (
+        <button
+          onClick={() => void signOut()}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign out
+        </button>
+      )}
     </div>
   );
 }

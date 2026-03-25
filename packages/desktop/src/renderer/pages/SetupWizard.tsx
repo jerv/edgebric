@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import logoSrc from "../assets/logo.png";
+import logoLight from "../assets/logo-black.svg";
+import logoDark from "../assets/logo-white.svg";
 
 interface Props {
   onComplete: () => void;
@@ -60,12 +61,12 @@ const AUTH_PROVIDERS: AuthProvider[] = [
 
 // ─── Step definitions per mode ──────────────────────────────────────────────
 
-type StepId = "mode" | "dataDir" | "authProvider" | "authCredentials" | "adminAccess" | "aiEngine";
+type StepId = "mode" | "dataDir" | "license" | "authProvider" | "authCredentials" | "adminAccess" | "memberConnect" | "aiEngine";
 
 const STEPS_BY_MODE: Record<EdgebricMode, StepId[]> = {
   solo:   ["mode", "dataDir", "aiEngine"],
-  admin:  ["mode", "dataDir", "authProvider", "authCredentials", "adminAccess", "aiEngine"],
-  member: ["mode", "dataDir", "aiEngine"], // member connect flow is Phase 5
+  admin:  ["mode", "dataDir", "license", "authProvider", "authCredentials", "adminAccess", "aiEngine"],
+  member: ["mode", "memberConnect", "dataDir", "aiEngine"],
 };
 
 // ─── Main component ─────────────────────────────────────────────────────────
@@ -86,6 +87,25 @@ export default function SetupWizard({ onComplete }: Props) {
   const [oidcClientSecret, setOidcClientSecret] = useState("");
   const [adminEmails, setAdminEmails] = useState("");
   const [port, setPort] = useState("3001");
+  const [isDark, setIsDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const [licenseKey, setLicenseKey] = useState("");
+  const [licenseValid, setLicenseValid] = useState(false);
+  const [licenseError, setLicenseError] = useState("");
+  const [licenseValidating, setLicenseValidating] = useState(false);
+  // Member connect
+  const [discoveredInstances, setDiscoveredInstances] = useState<Array<{ name: string; host: string; port: number; addresses: string[] }>>([]);
+  const [discovering, setDiscovering] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState<string>(""); // host:port
+  const [manualServerUrl, setManualServerUrl] = useState("");
+  const [useManualUrl, setUseManualUrl] = useState(false);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [ollamaProgress, setOllamaProgress] = useState(-1);
@@ -114,6 +134,8 @@ export default function SetupWizard({ onComplete }: Props) {
         return true;
       case "dataDir":
         return dataDir.trim().length > 0;
+      case "license":
+        return licenseValid;
       case "authProvider":
         return authProvider.length > 0;
       case "authCredentials":
@@ -124,7 +146,15 @@ export default function SetupWizard({ onComplete }: Props) {
         );
       case "adminAccess": {
         const portNum = parseInt(port, 10);
-        return adminEmails.trim().length > 0 && portNum > 0 && portNum < 65536;
+        const emailList = adminEmails.split(",").map((e) => e.trim()).filter(Boolean);
+        const emailsValid = emailList.length > 0 && emailList.every((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+        return emailsValid && portNum > 0 && portNum < 65536;
+      }
+      case "memberConnect": {
+        if (useManualUrl) {
+          try { new URL(manualServerUrl.trim()); return true; } catch { return false; }
+        }
+        return selectedInstance.length > 0;
       }
       case "aiEngine":
         return ollamaStatus === "done" || ollamaStatus === "idle";
@@ -145,6 +175,16 @@ export default function SetupWizard({ onComplete }: Props) {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
 
+    // Determine the org server URL for member mode
+    let orgServerUrl: string | undefined;
+    if (mode === "member") {
+      if (useManualUrl) {
+        orgServerUrl = manualServerUrl.trim();
+      } else if (selectedInstance) {
+        orgServerUrl = `https://${selectedInstance}`;
+      }
+    }
+
     await window.electronAPI.saveSetup({
       mode,
       dataDir: dataDir.trim(),
@@ -154,6 +194,9 @@ export default function SetupWizard({ onComplete }: Props) {
         oidcClientId: oidcClientId.trim(),
         oidcClientSecret: oidcClientSecret.trim(),
         adminEmails: emails,
+      }),
+      ...(mode === "member" && orgServerUrl && {
+        orgServerUrl,
       }),
     });
   }
@@ -208,7 +251,7 @@ export default function SetupWizard({ onComplete }: Props) {
   return (
     <div className="wizard">
       <div className="wizard-header">
-        <img src={logoSrc} alt="Edgebric" className="wizard-logo" />
+        <img src={isDark ? logoDark : logoLight} alt="Edgebric" className="wizard-logo" />
         <div className="wizard-header-text">
           <h1>Edgebric Setup</h1>
           <p>Configure Edgebric for first-time use.</p>
@@ -267,7 +310,7 @@ export default function SetupWizard({ onComplete }: Props) {
                 </div>
               </label>
 
-              <label className={`provider-option ${mode === "member" ? "selected" : ""} disabled-option`}>
+              <label className={`provider-option ${mode === "member" ? "selected" : ""}`}>
                 <input
                   type="radio"
                   name="mode"
@@ -285,7 +328,7 @@ export default function SetupWizard({ onComplete }: Props) {
                 </span>
                 <div>
                   <span className="provider-name">Member of an organization</span>
-                  <span className="provider-desc">Connect to your team's Edgebric server. Coming soon.</span>
+                  <span className="provider-desc">Connect to your team's Edgebric server on the network.</span>
                 </div>
               </label>
             </div>
@@ -308,6 +351,173 @@ export default function SetupWizard({ onComplete }: Props) {
                 placeholder="/Users/you/Edgebric"
               />
               <p className="hint">This folder will be created if it doesn't exist.</p>
+            </div>
+          </>
+        )}
+
+        {currentStep === "memberConnect" && (
+          <>
+            <h2>Connect to Server</h2>
+            <p className="description">
+              Find your organization's Edgebric server on the local network, or enter the address manually.
+            </p>
+
+            {!useManualUrl && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <button
+                    className="btn btn-secondary"
+                    disabled={discovering}
+                    onClick={async () => {
+                      setDiscovering(true);
+                      setDiscoveredInstances([]);
+                      try {
+                        const instances = await window.electronAPI.discoverInstances();
+                        setDiscoveredInstances(instances);
+                      } catch {
+                        // Discovery failed silently — user can enter manually
+                      } finally {
+                        setDiscovering(false);
+                      }
+                    }}
+                  >
+                    {discovering ? "Scanning..." : discoveredInstances.length > 0 ? "Scan Again" : "Scan Network"}
+                  </button>
+                  <button
+                    className="advanced-toggle"
+                    onClick={() => setUseManualUrl(true)}
+                  >
+                    Enter address manually
+                  </button>
+                </div>
+
+                {discovering && (
+                  <p className="hint">Scanning for Edgebric servers on your network...</p>
+                )}
+
+                {!discovering && discoveredInstances.length === 0 && (
+                  <p className="hint">
+                    No servers found yet. Make sure the server is running, then click "Scan Network".
+                    Or enter the server address manually.
+                  </p>
+                )}
+
+                {discoveredInstances.length > 0 && (
+                  <div className="provider-list">
+                    {discoveredInstances.map((instance) => {
+                      const key = `${instance.host}:${instance.port}`;
+                      return (
+                        <label
+                          key={key}
+                          className={`provider-option ${selectedInstance === key ? "selected" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="instance"
+                            value={key}
+                            checked={selectedInstance === key}
+                            onChange={() => setSelectedInstance(key)}
+                          />
+                          <span className="provider-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                              <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                              <line x1="6" y1="6" x2="6.01" y2="6"/>
+                              <line x1="6" y1="18" x2="6.01" y2="18"/>
+                            </svg>
+                          </span>
+                          <div>
+                            <span className="provider-name">{instance.name}</span>
+                            <span className="provider-desc">
+                              {instance.host}:{instance.port}
+                              {instance.addresses.length > 0 && ` (${instance.addresses[0]})`}
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {useManualUrl && (
+              <>
+                <div className="field">
+                  <label htmlFor="serverUrl">Server Address</label>
+                  <input
+                    id="serverUrl"
+                    type="text"
+                    value={manualServerUrl}
+                    onChange={(e) => setManualServerUrl(e.target.value)}
+                    placeholder="https://edgebric.local:3001"
+                  />
+                  <p className="hint">
+                    Ask your admin for the server address. Usually something like https://edgebric.local:3001
+                  </p>
+                </div>
+                <button
+                  className="advanced-toggle"
+                  onClick={() => setUseManualUrl(false)}
+                >
+                  Scan network instead
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {currentStep === "license" && (
+          <>
+            <h2>License Key</h2>
+            <p className="description">
+              A license is required to enable multi-user organization mode with SSO authentication.
+            </p>
+            <div className="form-fields">
+              <div className="field-group">
+                <label className="field-label">License Key</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    value={licenseKey}
+                    onChange={(e) => { setLicenseKey(e.target.value); setLicenseValid(false); setLicenseError(""); }}
+                    placeholder="XXXX-XXXX-XXXX-XXXX"
+                    className="field-input"
+                    style={{ flex: 1, fontFamily: "monospace" }}
+                  />
+                  <button
+                    className="btn-primary"
+                    disabled={!licenseKey.trim() || licenseValidating}
+                    onClick={async () => {
+                      setLicenseValidating(true);
+                      setLicenseError("");
+                      try {
+                        const result = await window.electronAPI.validateLicense(licenseKey.trim());
+                        if (result.valid) {
+                          setLicenseValid(true);
+                        } else {
+                          setLicenseError(result.error ?? "Invalid license key");
+                        }
+                      } catch {
+                        setLicenseError("Could not validate license key");
+                      } finally {
+                        setLicenseValidating(false);
+                      }
+                    }}
+                  >
+                    {licenseValidating ? "Validating..." : "Activate"}
+                  </button>
+                </div>
+                {licenseError && <p className="hint" style={{ color: "#e53e3e" }}>{licenseError}</p>}
+                {licenseValid && <p className="hint" style={{ color: "#38a169" }}>License activated successfully.</p>}
+              </div>
+              <p className="hint" style={{ marginTop: 16 }}>
+                Don't have a license?{" "}
+                <a href="https://edgebric.com/pricing" target="_blank" rel="noopener noreferrer" className="docs-link">
+                  Purchase one here
+                </a>
+                {" "}or go back and choose "Just for me" to use Edgebric for free.
+              </p>
             </div>
           </>
         )}
@@ -551,9 +761,13 @@ export default function SetupWizard({ onComplete }: Props) {
             {ollamaStatus === "done" && (
               <div className="ai-engine-done">
                 <p className="success-message">AI engine installed successfully.</p>
-                <p className="hint">
-                  You can manage AI models after setup from Settings &gt; Models.
-                </p>
+                <div style={{ marginTop: 16, padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Recommended model for your system</p>
+                  <p style={{ fontSize: 12, color: "#718096" }}>
+                    Edgebric will automatically download the best model for your hardware when the server starts.
+                    You can change models anytime from Settings &gt; Models.
+                  </p>
+                </div>
               </div>
             )}
 

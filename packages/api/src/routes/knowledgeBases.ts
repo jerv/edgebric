@@ -38,6 +38,7 @@ import sharp from "sharp";
 const createKBSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(1000).optional(),
+  type: z.enum(["organization", "personal"]).optional().default("organization"),
   accessMode: z.enum(["all", "restricted"]).optional(),
   accessList: z.array(z.string().email()).optional(),
 });
@@ -45,6 +46,7 @@ const createKBSchema = z.object({
 const updateKBSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional(),
+  type: z.enum(["organization", "personal"]).optional(),
   accessMode: z.enum(["all", "restricted"]).optional(),
   accessList: z.array(z.string().email()).optional(),
   allowSourceViewing: z.boolean().optional(),
@@ -96,12 +98,12 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
     }
   }
 
-  const { name, description, accessMode, accessList } = req.body as z.infer<typeof createKBSchema>;
+  const { name, description, type, accessMode, accessList } = req.body as z.infer<typeof createKBSchema>;
   const desc = description?.trim();
   const kb = createKB({
     name: name.trim(),
     ...(desc && { description: desc }),
-    type: "organization",
+    type,
     ownerId: email,
     ...(orgId && { orgId }),
   });
@@ -169,10 +171,21 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const { name, description, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
+  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
+
+  // Only the owner or an admin can change source type
+  if (type !== undefined) {
+    const existing = getKB(kbId);
+    if (existing && !req.session.isAdmin && existing.ownerId.toLowerCase() !== (req.session.email ?? "").toLowerCase()) {
+      res.status(403).json({ error: "Only the source owner or an admin can change source type" });
+      return;
+    }
+  }
+
   const updated = updateKB(kbId, {
     ...(name !== undefined && { name: name.trim() }),
     ...(description !== undefined && { description: description.trim() }),
+    ...(type !== undefined && { type }),
     ...(accessMode !== undefined && { accessMode: accessMode as KBAccessMode }),
     ...(allowSourceViewing !== undefined && { allowSourceViewing }),
     ...(allowVaultSync !== undefined && { allowVaultSync }),

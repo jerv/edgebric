@@ -5,7 +5,7 @@ import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/contexts/PrivacyContext";
 import { useUser } from "@/contexts/UserContext";
-import logoSrc from "../../assets/logo.png";
+import Logo from "../shared/Logo";
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -91,7 +91,7 @@ export function AppShell() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <img src={logoSrc} alt="" className="w-6 h-6 rounded-md" />
+          <Logo className="w-6 h-6 rounded-md" />
           <span className="font-semibold text-slate-900 dark:text-gray-100 text-sm">Edgebric</span>
         </header>
 

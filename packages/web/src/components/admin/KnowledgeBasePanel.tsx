@@ -53,6 +53,59 @@ type KBFilter = "all" | "mine";
 type KBSort = "name" | "updated" | "files" | "access" | "owner";
 type SortDir = "asc" | "desc";
 
+// ─── Shared Source Type Selector ─────────────────────────────────────────────
+
+function SourceTypeSelector({
+  value,
+  onChange,
+  compact,
+}: {
+  value: "organization" | "personal";
+  onChange: (type: "organization" | "personal") => void;
+  /** Compact labels for edit form ("Network" / "Vault") vs full labels for create ("Network Source" / "Vault Source"). */
+  compact?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Source Type</label>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onChange("organization")}
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors",
+            value === "organization"
+              ? "border-slate-900 dark:border-gray-100 bg-slate-900/5 dark:bg-gray-100/5"
+              : "border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700",
+          )}
+        >
+          <Globe className={cn("w-4 h-4 shrink-0", value === "organization" ? "text-slate-900 dark:text-gray-100" : "text-slate-400 dark:text-gray-500")} />
+          <div>
+            <p className={cn("text-sm font-medium", value === "organization" ? "text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400")}>{compact ? "Network" : "Network Source"}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">{compact ? "Org server" : "Stored on org server"}</p>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("personal")}
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors",
+            value === "personal"
+              ? "border-slate-900 dark:border-gray-100 bg-slate-900/5 dark:bg-gray-100/5"
+              : "border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700",
+          )}
+        >
+          <Lock className={cn("w-4 h-4 shrink-0", value === "personal" ? "text-slate-900 dark:text-gray-100" : "text-slate-400 dark:text-gray-500")} />
+          <div>
+            <p className={cn("text-sm font-medium", value === "personal" ? "text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400")}>{compact ? "Vault" : "Vault Source"}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">{compact ? "Your device" : "Encrypted on your device"}</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Status Badge ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: Document["status"] }) {
@@ -179,6 +232,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const [description, setDescription] = useState("");
   const [createAccessMode, setCreateAccessMode] = useState<"all" | "restricted">("all");
   const [createAccessList, setCreateAccessList] = useState<string[]>([]);
+  const [createType, setCreateType] = useState<"organization" | "personal">("organization");
   const [createAccessEmail, setCreateAccessEmail] = useState("");
   const [createShowSuggestions, setCreateShowSuggestions] = useState(false);
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
@@ -249,6 +303,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
     setShowCreate(false);
     setName("");
     setDescription("");
+    setCreateType("organization");
     setCreateAccessMode("all");
     setCreateAccessList([]);
     setCreateAccessEmail("");
@@ -258,7 +313,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   }
 
   const createMutation = useMutation({
-    mutationFn: (body: { name: string; description?: string; accessMode?: string; accessList?: string[] }) =>
+    mutationFn: (body: { name: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[] }) =>
       fetch("/api/knowledge-bases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -369,6 +424,12 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               />
               <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Create Data Source</h2>
             </div>
+
+            {/* Source type selector */}
+            {user?.authMode !== "none" && (
+              <SourceTypeSelector value={createType} onChange={setCreateType} />
+            )}
+
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -384,8 +445,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 resize-none bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
             />
 
-            {/* Access */}
-            <div className="space-y-3 pt-1">
+            {/* Access — only for organization sources */}
+            {createType === "organization" && <div className="space-y-3 pt-1">
               <div className="flex items-center gap-3">
                 <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Access</label>
                 <div className="relative inline-block">
@@ -464,7 +525,15 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   )}
                 </div>
               )}
-            </div>
+            </div>}
+
+            {/* Vault source note */}
+            {createType === "personal" && (
+              <p className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5" />
+                This source will be encrypted and stored locally on your device. Only you can access it.
+              </p>
+            )}
 
             <div className="flex gap-2 justify-end">
               <button
@@ -477,8 +546,9 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 onClick={() => createMutation.mutate({
                   name,
                   ...(description && { description }),
-                  ...(createAccessMode !== "all" && { accessMode: createAccessMode }),
-                  ...(createAccessMode === "restricted" && createAccessList.length > 0 && { accessList: createAccessList }),
+                  type: user?.authMode === "none" ? "personal" : createType,
+                  ...(createType === "organization" && createAccessMode !== "all" && { accessMode: createAccessMode }),
+                  ...(createType === "organization" && createAccessMode === "restricted" && createAccessList.length > 0 && { accessList: createAccessList }),
                 })}
                 disabled={!name.trim() || createMutation.isPending}
                 className="px-4 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -610,7 +680,12 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
+                        {kb.type === "personal" && (
+                          <Lock className="w-3 h-3 text-slate-400 dark:text-gray-500 shrink-0" />
+                        )}
+                      </div>
                       {kb.description && (
                         <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{kb.description}</p>
                       )}
@@ -625,12 +700,16 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
-                      kb.accessMode === "restricted"
-                        ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
-                        : "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400",
+                      kb.type === "personal"
+                        ? "bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400"
+                        : kb.accessMode === "restricted"
+                          ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
+                          : "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400",
                     )}
                   >
-                    {kb.accessMode === "restricted" ? (
+                    {kb.type === "personal" ? (
+                      <><Lock className="w-3 h-3" /> Private</>
+                    ) : kb.accessMode === "restricted" ? (
                       <><Lock className="w-3 h-3" /> Restricted</>
                     ) : (
                       <><Globe className="w-3 h-3" /> Whole org</>
@@ -669,6 +748,8 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(kb.name);
   const [editDesc, setEditDesc] = useState(kb.description ?? "");
+  const [editType, setEditType] = useState<"organization" | "personal">(kb.type as "organization" | "personal");
+  const [showTypeWarning, setShowTypeWarning] = useState(false);
   const [accessEmail, setAccessEmail] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string } | null>(null);
@@ -714,7 +795,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; description?: string; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
+    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
       fetch(`/api/knowledge-bases/${kb.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -862,8 +943,38 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                 className="w-full px-3 py-2 text-sm border border-slate-200 dark:border-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 resize-none bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100"
               />
 
-              {/* Access */}
-              <div className="space-y-3 pt-1">
+              {/* Source Type (only in org mode, only for owner/admin) */}
+              {user?.authMode !== "none" && (user?.isAdmin || kb.ownerId.toLowerCase() === (user?.email ?? "").toLowerCase()) && (
+                <div className="space-y-1.5">
+                  <SourceTypeSelector
+                    value={editType}
+                    onChange={(t) => {
+                      if (t === "organization" && kb.type === "personal") setShowTypeWarning(true);
+                      setEditType(t);
+                    }}
+                    compact
+                  />
+                  {/* Migration warning: vault → org */}
+                  {showTypeWarning && editType === "organization" && kb.type === "personal" && (
+                    <div className="flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="text-xs text-amber-700 dark:text-amber-300">
+                        <p className="font-medium">Moving to Network Source</p>
+                        <p className="mt-0.5">This source's data will be moved from your encrypted vault to the organization server. All org members with access will be able to query it.</p>
+                      </div>
+                    </div>
+                  )}
+                  {editType === "personal" && kb.type === "organization" && (
+                    <p className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      Data will be moved to your encrypted vault. Other users will lose access.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Access — only for organization sources */}
+              {editType === "organization" && <div className="space-y-3 pt-1">
                 <div className="flex items-center gap-3">
                   <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Access</label>
                   <div className="relative inline-block">
@@ -944,10 +1055,10 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
 
-              {/* Security toggles */}
-              {user?.isAdmin && (
+              {/* Security toggles — only for organization sources */}
+              {user?.isAdmin && editType === "organization" && (
                 <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-gray-800">
                   <label className="text-xs font-medium text-slate-500 dark:text-gray-400 pt-3 block">Security</label>
                   <SecurityToggle
@@ -976,13 +1087,17 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => { setEditing(false); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); }}
+                  onClick={() => { setEditing(false); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); setEditType(kb.type as "organization" | "personal"); setShowTypeWarning(false); }}
                   className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => updateMutation.mutateAsync({ name: editName, description: editDesc }).then(() => setEditing(false))}
+                  onClick={() => updateMutation.mutateAsync({
+                    name: editName,
+                    description: editDesc,
+                    ...(editType !== kb.type && { type: editType }),
+                  }).then(() => { setEditing(false); setShowTypeWarning(false); })}
                   disabled={!editName.trim() || updateMutation.isPending}
                   className="px-4 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1021,6 +1136,12 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? kb.name}</h1>
+                  {kb.type === "personal" && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400">
+                      <Lock className="w-3 h-3" />
+                      Vault
+                    </span>
+                  )}
                   {data?.rebuilding && (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
                       <RefreshCw className="w-3 h-3 animate-spin" />

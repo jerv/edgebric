@@ -50,7 +50,7 @@ export interface EdgebricConfig {
    * network without DNS configuration. All devices on the LAN can reach it.
    *
    * Custom domain examples:
-   *   "hr.acme.com"       — if your org has DNS pointing to this machine
+   *   "edgebric.yourcompany.com" — if your org has DNS pointing to this machine
    *   "edgebric.local"    — default mDNS name, zero-config
    *   "my-edgebric.local" — custom mDNS name (auto-published via Bonjour)
    *
@@ -62,6 +62,9 @@ export interface EdgebricConfig {
 
   /** Whether Ollama should auto-update on app launch. Default: true. */
   ollamaAutoUpdate?: boolean;
+
+  /** License key for org mode. Required to enable OIDC/SSO/multi-user features. */
+  licenseKey?: string;
 }
 
 /** Config file location: DATA_DIR/.edgebric.json */

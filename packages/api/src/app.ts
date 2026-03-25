@@ -2,7 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
-import { randomBytes } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import session from "express-session";
 import rateLimit from "express-rate-limit";
 import pinoHttpModule from "pino-http";
@@ -190,7 +190,12 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
       const cookieToken = req.cookies?.[CSRF_COOKIE];
       const headerToken = req.headers[CSRF_HEADER];
 
-      if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+      if (
+        !cookieToken || !headerToken ||
+        typeof headerToken !== "string" ||
+        cookieToken.length !== headerToken.length ||
+        !timingSafeEqual(Buffer.from(cookieToken), Buffer.from(headerToken))
+      ) {
         res.status(403).json({ error: "CSRF token missing or invalid" });
         return;
       }

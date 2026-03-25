@@ -142,6 +142,48 @@ describe("Knowledge Bases API", () => {
     });
   });
 
+  describe("Source type", () => {
+    it("defaults to organization type when not specified", async () => {
+      const res = await adminAgent(orgId)
+        .post("/api/knowledge-bases")
+        .send({ name: "Default Type" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.type).toBe("organization");
+    });
+
+    it("can create personal (vault) source", async () => {
+      const res = await adminAgent(orgId)
+        .post("/api/knowledge-bases")
+        .send({ name: "Vault Source", type: "personal" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.type).toBe("personal");
+    });
+
+    it("admin can change source type", async () => {
+      const createRes = await adminAgent(orgId)
+        .post("/api/knowledge-bases")
+        .send({ name: "Type Change", type: "organization" });
+      const kbId = createRes.body.id;
+
+      const res = await adminAgent(orgId)
+        .put(`/api/knowledge-bases/${kbId}`)
+        .send({ type: "personal" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.type).toBe("personal");
+    });
+
+    it("rejects invalid type value", async () => {
+      const res = await adminAgent(orgId)
+        .post("/api/knowledge-bases")
+        .send({ name: "Bad Type", type: "invalid" });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("DELETE /api/knowledge-bases/:id", () => {
     it("admin can archive a KB", async () => {
       const createRes = await adminAgent(orgId)

@@ -130,21 +130,23 @@ async function start() {
     ? https.createServer(
         { cert: fsSync.readFileSync(tlsCert), key: fsSync.readFileSync(tlsKey) },
         app,
-      ).listen(config.port, () => {
+      ).listen(config.port, config.listenHost, () => {
         logger.info({
           port: config.port,
+          host: config.listenHost,
           corsOrigin: config.frontendUrl,
           edgeBaseUrl: config.edge.baseUrl,
           adminEmails: config.adminEmails,
-        }, `Edgebric API running on https://localhost:${config.port}`);
+        }, `Edgebric API running on https://${config.listenHost}:${config.port}`);
       })
-    : app.listen(config.port, () => {
+    : app.listen(config.port, config.listenHost, () => {
         logger.info({
           port: config.port,
+          host: config.listenHost,
           corsOrigin: config.frontendUrl,
           edgeBaseUrl: config.edge.baseUrl,
           adminEmails: config.adminEmails,
-        }, `Edgebric API running on http://localhost:${config.port}`);
+        }, `Edgebric API running on http://${config.listenHost}:${config.port}`);
       });
 
   // ─── Graceful Shutdown ──────────────────────────────────────────────────────

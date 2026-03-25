@@ -19,6 +19,8 @@ const authMode = (process.env["AUTH_MODE"] ?? "oidc") as "oidc" | "none";
 
 export const config = {
   port: parseInt(process.env["PORT"] ?? "3001", 10),
+  /** Listen host: 127.0.0.1 for solo mode (local only), 0.0.0.0 for org mode (LAN-accessible). */
+  listenHost: process.env["LISTEN_HOST"] ?? (authMode === "none" ? "127.0.0.1" : "0.0.0.0"),
   dataDir: process.env["DATA_DIR"] ?? "./data",
   sessionSecret,
   authMode,

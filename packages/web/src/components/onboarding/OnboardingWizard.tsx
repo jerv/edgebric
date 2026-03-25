@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { CheckCircle, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logoSrc from "../../assets/logo.png";
+import Logo from "../shared/Logo";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 
 const STEPS = [
@@ -147,7 +147,7 @@ export function OnboardingWizard() {
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 w-full max-w-lg p-8">
         <div className="text-center mb-8">
-          <img src={logoSrc} alt="" className="w-12 h-12 rounded-xl mx-auto mb-3" />
+          <Logo className="w-12 h-12 rounded-xl mx-auto mb-3" />
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>
           <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Let's set up your knowledge assistant</p>
         </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import logoSrc from "../../assets/logo.png";
+import Logo from "../shared/Logo";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -135,6 +135,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const privacy = usePrivacy();
   const isPrivacyActive = privacy.level !== "standard";
   const isAdmin = !!user?.isAdmin;
+  const isSolo = user?.authMode === "none";
 
   function handleDeleteDone() {
     const wasActive = deletingConvId === activeConvId;
@@ -223,7 +224,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         onClick={onNavigate}
         className="mb-3 overflow-hidden flex items-center gap-3 px-4"
       >
-        <img src={logoSrc} alt="" className="w-9 h-9 rounded-lg flex-shrink-0" />
+        <Logo className="w-9 h-9 rounded-lg flex-shrink-0" />
         <div className="min-w-0">
           <span className="font-semibold text-slate-900 dark:text-gray-100 text-base block">Edgebric</span>
           {user?.orgName && (
@@ -301,13 +302,21 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   </button>
                   <button
                     onClick={() => {
+                      if (isSolo) return;
                       setShowNewChatMenu(false);
                       setShowCreateGroupChat(true);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
+                    disabled={isSolo}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
+                      isSolo
+                        ? "text-slate-300 dark:text-gray-600 cursor-not-allowed"
+                        : "text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900",
+                    )}
                   >
                     <Users className="w-3.5 h-3.5" />
                     New Group Chat
+                    {isSolo && <span className="ml-auto text-[10px] text-slate-400 dark:text-gray-500">Org</span>}
                   </button>
                 </div>
               </>
@@ -477,20 +486,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       {/* Bottom: Organization + Account */}
       <div className="px-2 border-t border-slate-100 dark:border-gray-800 pt-2 mt-2 space-y-0.5">
-        <Link
-          to="/organization"
-          search={{ tab: "general" }}
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center rounded-lg text-sm transition-colors gap-3 px-3 py-2",
-            currentPath.startsWith("/organization")
-              ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
-              : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
-          )}
-        >
-          <Building2 className="w-4 h-4 flex-shrink-0" />
-          <span>Organization</span>
-        </Link>
+        {!isSolo && (
+          <Link
+            to="/organization"
+            search={{ tab: "general" }}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center rounded-lg text-sm transition-colors gap-3 px-3 py-2",
+              currentPath.startsWith("/organization")
+                ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
+            )}
+          >
+            <Building2 className="w-4 h-4 flex-shrink-0" />
+            <span>Organization</span>
+          </Link>
+        )}
 
         <Link
           to="/account"

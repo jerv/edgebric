@@ -143,6 +143,7 @@ export function updateKB(
   data: {
     name?: string;
     description?: string;
+    type?: "organization" | "personal";
     accessMode?: KBAccessMode;
     avatarUrl?: string;
     allowSourceViewing?: boolean;
@@ -159,6 +160,7 @@ export function updateKB(
     .set({
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
+      ...(data.type !== undefined && { type: data.type }),
       ...(data.accessMode !== undefined && { accessMode: data.accessMode }),
       ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       ...(data.allowSourceViewing !== undefined && { allowSourceViewing: data.allowSourceViewing ? 1 : 0 }),

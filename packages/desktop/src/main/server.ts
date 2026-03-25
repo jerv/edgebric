@@ -62,7 +62,7 @@ function publishMdns(hostname: string, port: number) {
     const name = hostname.replace(/\.local$/, "");
     bonjourInstance.publish({
       name,
-      type: "http",
+      type: "_edgebric._tcp",
       port,
       host: hostname,
     });
@@ -279,6 +279,8 @@ function startHealthCheck(port: number) {
 
   const config = loadConfig();
   const proto = config && certsExist(config.dataDir) ? "https" : "http";
+  const startTime = Date.now();
+  const startupTimeoutMs = 60_000; // Give server 60s to start before marking as error
 
   healthCheckInterval = setInterval(async () => {
     try {
@@ -296,9 +298,13 @@ function startHealthCheck(port: number) {
         setStatus("running");
       }
     } catch {
-      // Server not ready yet — keep status as "starting" or "error"
       if (currentStatus === "running") {
+        // Server was running but is now unreachable
         setStatus("error");
+      } else if (currentStatus === "starting" && Date.now() - startTime > startupTimeoutMs) {
+        // Server never started within timeout
+        setStatus("error");
+        stopHealthCheck();
       }
     }
   }, 2000);
@@ -322,6 +328,29 @@ export function readLogs(lines = 100): string {
   const content = fs.readFileSync(logFile, "utf8");
   const allLines = content.split("\n");
   return allLines.slice(-lines).join("\n");
+}
+
+/** Discover Edgebric instances on the local network via mDNS */
+export function discoverInstances(timeoutMs = 5000): Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>> {
+  return new Promise((resolve) => {
+    const found: Array<{ name: string; host: string; port: number; addresses: string[] }> = [];
+    const browser = new Bonjour();
+
+    const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
+      found.push({
+        name: service.name,
+        host: service.host,
+        port: service.port,
+        addresses: service.addresses ?? [],
+      });
+    });
+
+    setTimeout(() => {
+      svc.stop();
+      browser.destroy();
+      resolve(found);
+    }, timeoutMs);
+  });
 }
 
 /** Clean up on app quit */

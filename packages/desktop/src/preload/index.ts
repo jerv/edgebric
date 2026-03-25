@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     adminEmails?: string[];
     chatBaseUrl?: string;
     chatModel?: string;
+    orgServerUrl?: string;
   }) => ipcRenderer.invoke("save-setup", data),
 
   // Ollama / AI Engine
@@ -42,4 +43,33 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("ollama-download-progress", handler);
     return () => ipcRenderer.removeListener("ollama-download-progress", handler);
   },
+
+  // License
+  validateLicense: (key: string) => ipcRenderer.invoke("validate-license", key),
+
+  // mDNS Discovery
+  discoverInstances: () => ipcRenderer.invoke("discover-instances") as Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>,
+
+  // Settings
+  saveSettings: (data: { hostname: string; port: number }) => ipcRenderer.invoke("save-settings", data),
+
+  // Log window
+  openLogWindow: () => ipcRenderer.invoke("open-log-window"),
+
+  // Navigation from tray
+  onNavigateTo: (callback: (view: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, view: string) => callback(view);
+    ipcRenderer.on("navigate-to", handler);
+    return () => ipcRenderer.removeListener("navigate-to", handler);
+  },
+
+  // Instance Management
+  instanceWipe: () => ipcRenderer.invoke("instance-wipe"),
+  instanceResetAuth: () => ipcRenderer.invoke("instance-reset-auth"),
+  instanceReconfigureAuth: (data: {
+    oidcIssuer: string;
+    oidcClientId: string;
+    oidcClientSecret: string;
+    adminEmails: string[];
+  }) => ipcRenderer.invoke("instance-reconfigure-auth", data),
 });

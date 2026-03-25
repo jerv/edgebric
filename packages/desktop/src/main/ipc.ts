@@ -1,7 +1,8 @@
 import { ipcMain, BrowserWindow } from "electron";
-import { readLogs, getStatus, getPort, getHostname, startServer, stopServer, onStatusChange } from "./server.js";
+import { readLogs, getStatus, getPort, getHostname, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
+import { openLogWindow } from "./index.js";
 import {
   isOllamaInstalled,
   isOllamaRunning,
@@ -12,6 +13,8 @@ import {
 } from "./ollama.js";
 import crypto from "crypto";
 import fs from "fs";
+import os from "os";
+import path from "path";
 
 export function registerIpcHandlers() {
   // Log viewer
@@ -50,6 +53,11 @@ export function registerIpcHandlers() {
     }
   });
 
+  // mDNS discovery — find Edgebric instances on the local network
+  ipcMain.handle("discover-instances", async () => {
+    return discoverInstances();
+  });
+
   // Config
   ipcMain.handle("get-config", () => {
     return loadConfig();
@@ -74,6 +82,7 @@ export function registerIpcHandlers() {
     adminEmails?: string[];
     chatBaseUrl?: string;
     chatModel?: string;
+    orgServerUrl?: string;
   }) => {
     const config: EdgebricConfig = {
       mode: setupData.mode,
@@ -85,9 +94,18 @@ export function registerIpcHandlers() {
       ...(setupData.adminEmails && { adminEmails: setupData.adminEmails }),
       ...(setupData.chatBaseUrl && { chatBaseUrl: setupData.chatBaseUrl }),
       ...(setupData.chatModel && { chatModel: setupData.chatModel }),
+      ...(setupData.orgServerUrl && { orgServerUrl: setupData.orgServerUrl }),
     };
 
-    const isSolo = setupData.mode === "solo";
+    const isSolo = setupData.mode === "solo" || setupData.mode === "member";
+
+    // Validate data directory is within user's home (prevent path traversal)
+    const resolvedDataDir = path.resolve(config.dataDir);
+    const homeDir = path.resolve(os.homedir());
+    if (!resolvedDataDir.startsWith(homeDir)) {
+      return { success: false, error: "Data directory must be within your home folder" };
+    }
+    config.dataDir = resolvedDataDir;
 
     // Ensure data directory exists
     fs.mkdirSync(config.dataDir, { recursive: true });
@@ -117,6 +135,7 @@ export function registerIpcHandlers() {
       `PORT=${config.port}`,
       `SESSION_SECRET=${sessionSecret}`,
       `AUTH_MODE=${isSolo ? "none" : "oidc"}`,
+      `LISTEN_HOST=${isSolo ? "127.0.0.1" : "0.0.0.0"}`,
     ];
 
     if (!isSolo) {
@@ -138,6 +157,7 @@ export function registerIpcHandlers() {
 
     if (config.chatBaseUrl) envLines.push(`CHAT_BASE_URL=${config.chatBaseUrl}`);
     if (config.chatModel) envLines.push(`CHAT_MODEL=${config.chatModel}`);
+    if (config.orgServerUrl) envLines.push(`ORG_SERVER_URL=${config.orgServerUrl}`);
 
     const envContent = [...envLines,
       "",
@@ -147,6 +167,42 @@ export function registerIpcHandlers() {
     fs.writeFileSync(envFile, envContent, "utf8");
 
     return { success: true };
+  });
+
+  // ─── Settings ──────────────────────────────────────────────────────────────
+
+  /** Save hostname/port settings from the dashboard. Updates config + .env. */
+  ipcMain.handle("save-settings", (_event, settings: { hostname: string; port: number }) => {
+    const config = loadConfig();
+    if (!config) return { success: false, error: "No config found" };
+
+    const newHostname = settings.hostname?.trim();
+    const newPort = settings.port;
+    if (!newHostname) return { success: false, error: "Hostname cannot be empty" };
+    if (isNaN(newPort) || newPort < 1 || newPort > 65535) return { success: false, error: "Port must be between 1 and 65535" };
+
+    config.hostname = newHostname;
+    config.port = newPort;
+    saveConfig(config);
+
+    // Update .env with new hostname/port
+    const proto = certsExist(config.dataDir) ? "https" : "http";
+    const envFile = envPath(config.dataDir);
+    if (fs.existsSync(envFile)) {
+      let env = fs.readFileSync(envFile, "utf8");
+      env = env.replace(/^OIDC_REDIRECT_URI=.*$/m, `OIDC_REDIRECT_URI=${proto}://localhost:${newPort}/api/auth/callback`);
+      env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=${proto}://${newHostname}:${newPort}`);
+      env = env.replace(/^PORT=.*$/m, `PORT=${newPort}`);
+      fs.writeFileSync(envFile, env, "utf8");
+    }
+
+    return { success: true };
+  });
+
+  // ─── Log Window ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle("open-log-window", () => {
+    openLogWindow();
   });
 
   // ─── Ollama ─────────────────────────────────────────────────────────────────
@@ -189,6 +245,176 @@ export function registerIpcHandlers() {
     const config = loadConfig();
     try {
       await stopOllama(config?.dataDir);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // ─── License Validation ────────────────────────────────────────────────────
+
+  /**
+   * Validate a license key. Returns { valid: true } if the key is accepted.
+   * TODO: Replace placeholder with LemonSqueezy/Paddle API call before distribution.
+   */
+  ipcMain.handle("validate-license", async (_event, key: string) => {
+    const trimmed = key.trim();
+    if (!trimmed) return { valid: false, error: "License key is required" };
+
+    // Placeholder: accept any non-empty key that looks like a license (8+ chars)
+    // In production, this will POST to LemonSqueezy API to validate
+    if (trimmed.length < 8) {
+      return { valid: false, error: "Invalid license key format" };
+    }
+
+    // Store the key in config
+    const config = loadConfig();
+    if (config) {
+      config.licenseKey = trimmed;
+      saveConfig(config);
+    }
+
+    return { valid: true };
+  });
+
+  // ─── Instance Management ──────────────────────────────────────────────────
+
+  /** Full wipe: stop server, delete data dir contents, remove config. Triggers re-setup on next launch. */
+  ipcMain.handle("instance-wipe", async () => {
+    const config = loadConfig();
+    if (!config) return { success: false, error: "No config found" };
+    try {
+      // Stop server + Ollama first
+      const { stopServer } = await import("./server.js");
+      await stopServer();
+      try { await stopOllama(config.dataDir); } catch { /* may not be running */ }
+
+      // Remove .env and config file, but preserve the data dir itself
+      const envFile = envPath(config.dataDir);
+      const configFile = path.join(config.dataDir, ".edgebric.json");
+      if (fs.existsSync(envFile)) fs.unlinkSync(envFile);
+      if (fs.existsSync(configFile)) fs.unlinkSync(configFile);
+
+      // Remove database, sessions, uploads
+      const toDelete = ["edgebric.db", "edgebric.db-wal", "edgebric.db-shm", "sessions", "uploads", "edgebric.log"];
+      for (const name of toDelete) {
+        const p = path.join(config.dataDir, name);
+        if (fs.existsSync(p)) {
+          fs.rmSync(p, { recursive: true, force: true });
+        }
+      }
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  /** Auth reset: stop server, clear OIDC config + sessions, regenerate .env with mode=solo. Keeps org data (DB, uploads). */
+  ipcMain.handle("instance-reset-auth", async () => {
+    const config = loadConfig();
+    if (!config) return { success: false, error: "No config found" };
+    try {
+      const { stopServer } = await import("./server.js");
+      await stopServer();
+
+      // Clear sessions
+      const sessionsDir = path.join(config.dataDir, "sessions");
+      if (fs.existsSync(sessionsDir)) fs.rmSync(sessionsDir, { recursive: true, force: true });
+
+      // Update config to solo mode, clear OIDC fields
+      const newConfig = {
+        ...config,
+        mode: "solo" as const,
+        oidcIssuer: undefined,
+        oidcClientId: undefined,
+        oidcClientSecret: undefined,
+        adminEmails: undefined,
+      };
+      saveConfig(newConfig);
+
+      // Regenerate .env for solo mode
+      const sessionSecret = crypto.randomBytes(64).toString("hex");
+      const envContent = [
+        `# Generated by Edgebric Desktop — ${new Date().toISOString()}`,
+        `DATA_DIR=${config.dataDir}`,
+        `PORT=${config.port}`,
+        `SESSION_SECRET=${sessionSecret}`,
+        `AUTH_MODE=none`,
+        `LISTEN_HOST=127.0.0.1`,
+        `FRONTEND_URL=http://localhost:${config.port}`,
+        "",
+      ].join("\n");
+      fs.writeFileSync(envPath(config.dataDir), envContent, "utf8");
+
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  /** Reconfigure auth: stop server, update mode to admin, regenerate .env with new OIDC creds. Keeps all data. */
+  ipcMain.handle("instance-reconfigure-auth", async (_event, authData: {
+    oidcIssuer: string;
+    oidcClientId: string;
+    oidcClientSecret: string;
+    adminEmails: string[];
+  }) => {
+    const config = loadConfig();
+    if (!config) return { success: false, error: "No config found" };
+    try {
+      const { stopServer } = await import("./server.js");
+      await stopServer();
+
+      // Clear sessions (old auth tokens are invalid)
+      const sessionsDir = path.join(config.dataDir, "sessions");
+      if (fs.existsSync(sessionsDir)) fs.rmSync(sessionsDir, { recursive: true, force: true });
+
+      // Update config
+      const newConfig = {
+        ...config,
+        mode: "admin" as const,
+        oidcIssuer: authData.oidcIssuer,
+        oidcClientId: authData.oidcClientId,
+        oidcClientSecret: authData.oidcClientSecret,
+        adminEmails: authData.adminEmails,
+      };
+      saveConfig(newConfig);
+
+      // Generate certs if not present
+      const hostname = config.hostname ?? "edgebric.local";
+      let protocol = "http";
+      const { certsExist: hasCerts, generateCerts, trustCA, certPaths: getCertPaths } = await import("./certs.js");
+      if (!hasCerts(config.dataDir)) {
+        generateCerts(config.dataDir, hostname, config.port);
+        trustCA(config.dataDir);
+      }
+      const certs = getCertPaths(config.dataDir);
+      protocol = fs.existsSync(certs.serverCert) ? "https" : "http";
+
+      // Regenerate .env
+      const sessionSecret = crypto.randomBytes(64).toString("hex");
+      const envContent = [
+        `# Generated by Edgebric Desktop — ${new Date().toISOString()}`,
+        `DATA_DIR=${config.dataDir}`,
+        `PORT=${config.port}`,
+        `SESSION_SECRET=${sessionSecret}`,
+        `AUTH_MODE=oidc`,
+        `LISTEN_HOST=0.0.0.0`,
+        `OIDC_ISSUER=${authData.oidcIssuer}`,
+        `OIDC_CLIENT_ID=${authData.oidcClientId}`,
+        `OIDC_CLIENT_SECRET=${authData.oidcClientSecret}`,
+        `OIDC_REDIRECT_URI=${protocol}://localhost:${config.port}/api/auth/callback`,
+        `ADMIN_EMAILS=${authData.adminEmails.join(",")}`,
+        `FRONTEND_URL=${protocol}://${hostname}:${config.port}`,
+        `TLS_CERT=${certs.serverCert}`,
+        `TLS_KEY=${certs.serverKey}`,
+        ...(config.chatBaseUrl ? [`CHAT_BASE_URL=${config.chatBaseUrl}`] : []),
+        ...(config.chatModel ? [`CHAT_MODEL=${config.chatModel}`] : []),
+        "",
+      ].join("\n");
+      fs.writeFileSync(envPath(config.dataDir), envContent, "utf8");
+
       return { success: true };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
