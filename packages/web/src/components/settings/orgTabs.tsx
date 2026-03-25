@@ -2,14 +2,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckCircle, Circle, Loader2, Cpu, ShieldCheck,
+  Loader2, ShieldCheck,
   Trash2, ChevronDown,
-  Activity, Search, Upload, X, AlertTriangle,
-  ChevronLeft, ChevronRight,
+  Search, Upload, X, AlertTriangle,
+  ChevronLeft, ChevronRight, Monitor,
 } from "lucide-react";
-import type { User, ModelsResponse } from "@edgebric/types";
+import type { User } from "@edgebric/types";
 import { cn } from "@/lib/utils";
-import { modelMeta } from "@/lib/models";
+import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 
 const PAGE_SIZE = 15;
@@ -785,13 +785,22 @@ export function MembersTab() {
 
 interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
-  uptime: number;
-  checks: Record<string, { status: string; latencyMs?: number; error?: string }>;
+  aiReady: boolean;
+  activeModel?: string;
+  uptime?: number;
+  checks?: Record<string, { status: string; latencyMs?: number; error?: string }>;
+}
+
+type ServiceStatus = "running" | "limited" | "error";
+
+function deriveStatus(health: HealthResponse | undefined): { status: ServiceStatus; label: string; dot: string } {
+  if (!health) return { status: "error", label: "Connecting...", dot: "#9ca3af" };
+  if (health.status === "healthy" && health.aiReady) return { status: "running", label: "Running", dot: "#22c55e" };
+  if (health.status === "healthy" || health.status === "degraded") return { status: "limited", label: "Running — AI not ready", dot: "#f59e0b" };
+  return { status: "error", label: "Error", dot: "#ef4444" };
 }
 
 export function ServiceTab() {
-  const queryClient = useQueryClient();
-
   const { data: health } = useQuery<HealthResponse>({
     queryKey: ["health"],
     queryFn: () =>
@@ -801,53 +810,7 @@ export function ServiceTab() {
     refetchInterval: 10_000,
   });
 
-  const { data, isLoading } = useQuery<ModelsResponse>({
-    queryKey: ["admin", "models"],
-    queryFn: () =>
-      fetch("/api/admin/models", { credentials: "same-origin" }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<ModelsResponse>;
-      }),
-    refetchInterval: (query) =>
-      query.state.data?.models.some((m) => m.status === "downloading") ? 3000 : 10_000,
-  });
-
-  const loadMutation = useMutation({
-    mutationFn: (tag: string) =>
-      fetch("/api/admin/models/load", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tag }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Load failed");
-        return r.json() as Promise<{ loaded: boolean; tag: string }>;
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-
-  const unloadMutation = useMutation({
-    mutationFn: (tag: string) =>
-      fetch("/api/admin/models/unload", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tag }),
-      }).then((r) => {
-        if (!r.ok) throw new Error("Unload failed");
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
-      void queryClient.invalidateQueries({ queryKey: ["health"] });
-    },
-  });
-
-  const anyLoading = loadMutation.isPending || unloadMutation.isPending || (data?.models.some((m) => m.status === "downloading") ?? false);
-  const inferenceStatus = health?.checks?.inference?.status ?? "unknown";
-  const vectorStoreStatus = health?.checks?.vectorStore?.status ?? "unknown";
+  const statusConf = deriveStatus(health);
 
   function formatUptime(seconds: number) {
     if (seconds < 60) return `${seconds}s`;
@@ -857,166 +820,51 @@ export function ServiceTab() {
     return `${h}h ${m}m`;
   }
 
-  // Sort: loaded first, then installed, then by tag
-  const sorted = [...(data?.models ?? [])].sort((a, b) => {
-    const statusOrder = { loaded: 0, downloading: 1, installed: 2, not_installed: 3 };
-    const aOrder = statusOrder[a.status] ?? 3;
-    const bOrder = statusOrder[b.status] ?? 3;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return a.tag.localeCompare(b.tag);
-  });
+  const activeModelLabel = health?.activeModel ? adminLabel(health.activeModel) : undefined;
 
   return (
     <div className="space-y-6">
-      {/* Service status card */}
+      {/* Service status — matches desktop dashboard style */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-3">
-          <Activity className="w-4 h-4 text-slate-400 dark:text-gray-500" />
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Service Status</h3>
-          {health && (
-            <span className={cn(
-              "text-xs px-2 py-0.5 rounded-full font-medium",
-              health.status === "healthy" && "bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800",
-              health.status === "degraded" && "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
-              health.status === "unhealthy" && "bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800",
-            )}>
-              {health.status === "healthy" ? "All systems operational" : health.status === "degraded" ? "Degraded" : "Unavailable"}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              style={{ background: statusConf.dot }}
+            />
+            <span className="text-sm font-semibold text-slate-900 dark:text-gray-100">
+              {statusConf.label}
+            </span>
+          </div>
+          {health?.uptime != null && (
+            <span className="text-xs text-slate-400 dark:text-gray-500">
+              Uptime: {formatUptime(health.uptime)}
             </span>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="border border-slate-100 dark:border-gray-800 rounded-xl p-3">
-            <p className="text-[11px] text-slate-400 dark:text-gray-500 uppercase tracking-wide mb-1">Inference</p>
-            <div className="flex items-center gap-1.5">
-              <div className={cn("w-2 h-2 rounded-full", inferenceStatus === "ok" ? "bg-green-500" : inferenceStatus === "degraded" ? "bg-amber-500" : "bg-red-400")} />
-              <span className="text-xs font-medium text-slate-700 dark:text-gray-300 capitalize">{inferenceStatus}</span>
-              {health?.checks?.inference?.latencyMs != null && (
-                <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-auto">{health.checks.inference.latencyMs}ms</span>
-              )}
-            </div>
+        {activeModelLabel && (
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
+            <span className="text-slate-400 dark:text-gray-500">Active model:</span>
+            <span className="font-medium text-slate-700 dark:text-gray-300">{activeModelLabel}</span>
           </div>
-          <div className="border border-slate-100 dark:border-gray-800 rounded-xl p-3">
-            <p className="text-[11px] text-slate-400 dark:text-gray-500 uppercase tracking-wide mb-1">Vector Store</p>
-            <div className="flex items-center gap-1.5">
-              <div className={cn("w-2 h-2 rounded-full", vectorStoreStatus === "ok" ? "bg-green-500" : vectorStoreStatus === "degraded" ? "bg-amber-500" : "bg-red-400")} />
-              <span className="text-xs font-medium text-slate-700 dark:text-gray-300 capitalize">{vectorStoreStatus}</span>
-              {health?.checks?.vectorStore?.latencyMs != null && (
-                <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-auto">{health.checks.vectorStore.latencyMs}ms</span>
-              )}
-            </div>
-          </div>
-          <div className="border border-slate-100 dark:border-gray-800 rounded-xl p-3">
-            <p className="text-[11px] text-slate-400 dark:text-gray-500 uppercase tracking-wide mb-1">Uptime</p>
-            <p className="text-xs font-medium text-slate-700 dark:text-gray-300">{health ? formatUptime(health.uptime) : "—"}</p>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Models */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-slate-400 dark:text-gray-500" />
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Models</h3>
-        </div>
-        <p className="text-xs text-slate-400 dark:text-gray-500">
-          Load a model to use it for AI responses. Only one model can be active at a time.
-        </p>
-
-        {isLoading && (
-          <div className="flex items-center gap-2 text-sm text-slate-400 dark:text-gray-500 py-4">
-            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
-          </div>
-        )}
-
-        {!isLoading && (
+      {/* Model management — desktop app only */}
+      <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5">
+        <div className="flex items-start gap-3">
+          <Monitor className="w-5 h-5 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
           <div className="space-y-2">
-            {sorted.map((model) => {
-              const meta = modelMeta(model.tag);
-              const isActive = model.tag === data?.activeModel;
-              const isLoaded = model.status === "loaded";
-              const isDownloading = model.status === "downloading";
-              const isMutating = loadMutation.isPending && loadMutation.variables === model.tag;
-
-              return (
-                <div
-                  key={model.tag}
-                  className={cn(
-                    "rounded-2xl border px-5 py-4 transition-colors",
-                    isActive
-                      ? "border-slate-900 bg-slate-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900"
-                      : "border-slate-200 dark:border-gray-800 bg-white dark:bg-gray-950",
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    {isDownloading || isMutating ? (
-                      <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-slate-400 dark:text-gray-500" />
-                    ) : isActive ? (
-                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-4 h-4 flex-shrink-0 text-slate-300 dark:text-gray-600" />
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={cn("font-medium text-sm", isActive ? "text-white dark:text-gray-900" : "text-slate-900 dark:text-gray-100")}>
-                          {meta.family} — {meta.label}
-                        </span>
-                        <span className={cn(
-                          "text-xs px-2 py-0.5 rounded-full font-mono font-medium",
-                          isActive ? "bg-white/20 text-white dark:bg-gray-900/30 dark:text-gray-900" : "bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400",
-                        )}>
-                          {model.tag}
-                        </span>
-                        {isActive && (
-                          <span className="text-xs bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-medium">
-                            Active
-                          </span>
-                        )}
-                        {isLoaded && !isActive && (
-                          <span className="text-xs bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium border border-green-200 dark:border-green-800">
-                            Loaded
-                          </span>
-                        )}
-                        {(isDownloading || isMutating) && (
-                          <span className={cn(
-                            "text-xs px-2 py-0.5 rounded-full font-medium",
-                            isActive ? "bg-white/10 text-white/70 dark:bg-gray-900/20 dark:text-gray-600" : "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
-                          )}>
-                            {isDownloading ? "Downloading..." : "Loading..."}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {!isActive && !isDownloading && !isMutating && (
-                      <button
-                        onClick={() => loadMutation.mutate(model.tag)}
-                        disabled={anyLoading}
-                        className={cn(
-                          "flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors",
-                          anyLoading
-                            ? "border-slate-100 dark:border-gray-800 text-slate-300 dark:text-gray-600 cursor-not-allowed"
-                            : "border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-400 dark:hover:border-gray-500",
-                        )}
-                      >
-                        {isLoaded ? "Set Active" : "Load"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Model Management</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
+              To download, load, or switch AI models, open the Edgebric desktop app. Models are managed from the desktop app because they require downloading large files and use your machine's memory.
+            </p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">
+              Look for the Edgebric icon in your menu bar, or open the Edgebric app from your Applications folder.
+            </p>
           </div>
-        )}
-
-        {(loadMutation.isError || unloadMutation.isError) && (
-          <p className="text-xs text-red-500">
-            {(loadMutation.error ?? unloadMutation.error) instanceof Error
-              ? (loadMutation.error ?? unloadMutation.error)!.message
-              : "Action failed"}
-          </p>
-        )}
+        </div>
       </div>
     </div>
   );

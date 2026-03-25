@@ -96,6 +96,7 @@ healthRouter.get("/", async (req, res) => {
     res.status(coreCritical ? 503 : 200).json({
       status: overallStatus,
       aiReady,
+      activeModel: runtimeChatConfig.model,
       uptime: Math.floor((Date.now() - startTime) / 1000),
       checks,
     });
