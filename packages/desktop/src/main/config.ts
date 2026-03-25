@@ -63,6 +63,9 @@ export interface EdgebricConfig {
   /** Whether Ollama should auto-update on app launch. Default: true. */
   ollamaAutoUpdate?: boolean;
 
+  /** Whether Edgebric launches automatically when you log in. Default: false. */
+  launchAtLogin?: boolean;
+
   /** License key for org mode. Required to enable OIDC/SSO/multi-user features. */
   licenseKey?: string;
 }

@@ -237,6 +237,12 @@ app.whenReady().then(async () => {
   openMainWindow();
 
   if (!isFirstRun()) {
+    // Sync login item with config (in case it got out of sync)
+    const config = loadConfig();
+    if (config?.launchAtLogin !== undefined) {
+      app.setLoginItemSettings({ openAtLogin: config.launchAtLogin });
+    }
+
     // Auto-start server on launch
     try {
       await startServer();

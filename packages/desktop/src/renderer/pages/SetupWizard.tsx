@@ -111,6 +111,7 @@ export default function SetupWizard({ onComplete }: Props) {
   const [ollamaProgress, setOllamaProgress] = useState(-1);
   const [ollamaStatus, setOllamaStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
   const [ollamaError, setOllamaError] = useState("");
+  const [launchAtLogin, setLaunchAtLogin] = useState(true);
 
   const steps = STEPS_BY_MODE[mode];
   const currentStep = steps[stepIndex];
@@ -223,7 +224,8 @@ export default function SetupWizard({ onComplete }: Props) {
       return;
     }
 
-    // Final step — complete
+    // Final step — apply launch-at-login preference, then complete
+    await window.electronAPI.setLaunchAtLogin(launchAtLogin);
     onComplete();
   }
 
@@ -699,11 +701,10 @@ export default function SetupWizard({ onComplete }: Props) {
                     of <strong>https://edgebric.local:{port}</strong>.
                   </p>
                   <div className="code-block">
-                    <code>echo "rdr pass on lo0 inet proto tcp from any to any port 443 -&gt; 127.0.0.1 port {port}" | sudo pfctl -ef -</code>
+                    <code>{`sudo bash -c 'echo "rdr pass on lo0 inet proto tcp from any to any port 443 -> 127.0.0.1 port ${port}" > /etc/pf.anchors/edgebric && grep -q edgebric /etc/pf.conf || echo -e "rdr-anchor \\"edgebric\\"\\nload anchor \\"edgebric\\" from \\"/etc/pf.anchors/edgebric\\"" | sudo tee -a /etc/pf.conf > /dev/null && sudo pfctl -ef /etc/pf.conf'`}</code>
                   </div>
                   <p className="hint" style={{ marginTop: 6 }}>
-                    This survives until reboot. To make it permanent, add the rule to <code>/etc/pf.anchors/edgebric</code> and
-                    load it from <code>/etc/pf.conf</code>. Requires admin (sudo) password.
+                    Requires your Mac password. Only needs to be done once — survives reboots.
                   </p>
                 </div>
               </>
@@ -782,6 +783,23 @@ export default function SetupWizard({ onComplete }: Props) {
                 </button>
               </div>
             )}
+
+            <div style={{ marginTop: 20, padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Launch at Login</p>
+                <p style={{ fontSize: 12, color: "#718096" }}>
+                  Recommended. Starts Edgebric automatically when you log in so it's always ready.
+                </p>
+              </div>
+              <button
+                className={`toggle-btn ${launchAtLogin ? "toggle-on" : ""}`}
+                onClick={() => setLaunchAtLogin(!launchAtLogin)}
+                type="button"
+                aria-pressed={launchAtLogin}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
           </>
         )}
       </div>

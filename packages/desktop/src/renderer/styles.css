@@ -773,6 +773,36 @@ body {
   color: #64748b;
 }
 
+/* ─── Toggle switch ─────────────────────────────────────────────────────── */
+.toggle-btn {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+  background: #cbd5e1;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.toggle-btn.toggle-on {
+  background: #1e293b;
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.toggle-btn.toggle-on .toggle-knob {
+  transform: translateX(18px);
+}
+
 /* ─── Dark mode ──────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
   body {
@@ -789,7 +819,7 @@ body {
   }
   .card-danger { border-color: #450a0a; }
 
-  .card-heading { color: #94a3b8; }
+  .card-heading { color: #cbd5e1; }
 
   .status-label { color: #e2e8f0; }
 
@@ -943,6 +973,10 @@ body {
   .advanced-toggle { color: #475569; }
   .advanced-toggle:hover { color: #64748b; }
 
+  .toggle-btn { background: #334155; }
+  .toggle-btn.toggle-on { background: #f1f5f9; }
+  .toggle-btn.toggle-on .toggle-knob { background: #0a0a0a; }
+
   .field input.readonly {
     background: #0a0a0a;
     color: #475569;
@@ -958,8 +992,8 @@ body {
   .legend-item { color: #94a3b8; }
 
   .model-list .model-item + .model-item { border-top-color: #1e293b; }
-  .model-list .model-item-name { color: #f1f5f9; }
-  .model-list .model-item-meta { color: #94a3b8; }
+  .model-item-name { color: #f1f5f9 !important; }
+  .model-item-meta { color: #cbd5e1 !important; }
 
   .model-badge-active {
     background: #064e3b !important;
@@ -971,14 +1005,28 @@ body {
   }
 
   .model-custom-input {
-    background: #141414;
-    border-color: #1e293b;
-    color: #e2e8f0;
+    background: #1a1a1a !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
   }
   .model-custom-input:focus {
-    border-color: #475569;
-    box-shadow: 0 0 0 2px rgba(71, 85, 105, 0.2);
+    border-color: #64748b !important;
+    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.25) !important;
   }
+  .model-custom-input::placeholder {
+    color: #64748b !important;
+  }
+
+  .card-divider {
+    background: #475569 !important;
+  }
+
+  .card-subheading {
+    color: #94a3b8;
+  }
+
+  .active-model-row { border-top-color: #1e293b; }
+  .active-model-name { color: #e2e8f0; }
 }
 
 /* ─── Active model row (home view) ───────────────────────────────────────── */
@@ -1151,3 +1199,18 @@ body {
   border-color: #94a3b8;
   box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.15);
 }
+
+/* ─── Card divider & subheading ─────────────────────────────────────────── */
+.card-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 14px 0;
+}
+
+.card-subheading {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+

@@ -372,16 +372,19 @@ export default function ServerDashboard() {
     setPullPercent(0);
     setPullStatus("Starting download...");
     setModelError("");
+    // Scroll to download progress after React re-renders
+    setTimeout(() => {
+      document.getElementById("download-progress")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
     try {
       const result = await window.electronAPI.modelsPull(tag);
       if (!result.success) {
         setModelError(result.error ?? "Failed to start download");
+        setPullTag(null);
       }
     } catch (err) {
       setModelError(err instanceof Error ? err.message : "Download failed");
-    } finally {
-      // Progress updates come via onModelPullProgress listener
-      // Pull tag is cleared when progress reports 100% or error
+      setPullTag(null);
     }
   }
 
@@ -741,7 +744,7 @@ export default function ServerDashboard() {
 
             {/* Download Progress */}
             {pullTag && (
-              <section className="card">
+              <section className="card" id="download-progress">
                 <h3 className="card-heading">Downloading</h3>
                 <div className="model-item">
                   <div className="model-item-left" style={{ flex: 1 }}>
@@ -795,7 +798,7 @@ export default function ServerDashboard() {
                       onClick={() => handlePullModel(c.tag)}
                       disabled={!!pullTag || !!modelOp}
                     >
-                      Install
+                      Download
                     </button>
                   </div>
                 );
@@ -858,9 +861,6 @@ export default function ServerDashboard() {
                       <div className="model-item-left">
                         <div className="model-item-name">{m.name}</div>
                         {m.description && <span className="model-item-meta">{m.description}</span>}
-                        <span className="model-item-meta" style={{ color: "#d97706" }}>
-                          RAM usage unknown — check model page for requirements. You have {Math.round(ramTotalGB)} GB total.
-                        </span>
                       </div>
                       <button
                         className="btn btn-ghost btn-sm"
@@ -871,7 +871,7 @@ export default function ServerDashboard() {
                         }}
                         disabled={!!pullTag || !!modelOp}
                       >
-                        Install
+                        Download
                       </button>
                     </div>
                   ))}
@@ -890,7 +890,7 @@ export default function ServerDashboard() {
                     }}
                     disabled={!!pullTag}
                   >
-                    Install "{searchQuery.trim()}"
+                    Download "{searchQuery.trim()}"
                   </button>
                 </p>
               )}

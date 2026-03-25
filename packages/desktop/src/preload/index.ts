@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Settings
   saveSettings: (data: { hostname: string; port: number }) => ipcRenderer.invoke("save-settings", data),
+  getLaunchAtLogin: () => ipcRenderer.invoke("get-launch-at-login") as Promise<boolean>,
+  setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke("set-launch-at-login", enabled) as Promise<{ success: boolean }>,
 
   // Log window
   openLogWindow: () => ipcRenderer.invoke("open-log-window"),

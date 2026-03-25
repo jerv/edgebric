@@ -200,7 +200,7 @@ function PIIReasonTooltip({ warnings }: { warnings: PIIWarning[] }) {
 
   return (
     <>
-      <span ref={ref} onMouseEnter={handleEnter} onMouseLeave={() => setShow(false)} className="cursor-help">
+      <span ref={ref} onMouseEnter={handleEnter} onMouseLeave={() => setShow(false)}>
         <StatusBadge status="pii_review" />
       </span>
       {show && (
@@ -1387,8 +1387,11 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                           {doc.name}
                         </button>
                         {doc.isStale && (
-                          <span title="File may be outdated" className="flex-shrink-0">
+                          <span className="relative group/stale flex-shrink-0">
                             <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/stale:opacity-100 transition-opacity z-10">
+                              File may be outdated
+                            </span>
                           </span>
                         )}
                       </div>

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog } from "electron";
+import { app, ipcMain, BrowserWindow, dialog } from "electron";
 import { readLogs, getStatus, getErrorMsg, getPort, getHostname, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
@@ -200,6 +200,23 @@ export function registerIpcHandlers() {
       fs.writeFileSync(envFile, env, "utf8");
     }
 
+    return { success: true };
+  });
+
+  // ─── Launch at Login ─────────────────────────────────────────────────────────
+
+  ipcMain.handle("get-launch-at-login", () => {
+    const settings = app.getLoginItemSettings();
+    return settings.openAtLogin;
+  });
+
+  ipcMain.handle("set-launch-at-login", (_event, enabled: boolean) => {
+    app.setLoginItemSettings({ openAtLogin: enabled });
+    const config = loadConfig();
+    if (config) {
+      config.launchAtLogin = enabled;
+      saveConfig(config);
+    }
     return { success: true };
   });
 
