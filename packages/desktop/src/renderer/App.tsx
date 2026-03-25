@@ -7,10 +7,10 @@ declare global {
   interface Window {
     electronAPI: {
       readLogs: (lines?: number) => Promise<string>;
-      getStatus: () => Promise<{ status: string; port: number; hostname?: string }>;
+      getStatus: () => Promise<{ status: string; port: number; hostname?: string; errorMsg?: string }>;
       startServer: () => Promise<{ success: boolean; error?: string }>;
       stopServer: () => Promise<{ success: boolean; error?: string }>;
-      onStatusChange: (callback: (status: string) => void) => () => void;
+      onStatusChange: (callback: (status: string, errorMsg?: string) => void) => () => void;
       getConfig: () => Promise<Record<string, unknown> | null>;
       isFirstRun: () => Promise<boolean>;
       getDefaultDataDir: () => Promise<string>;
@@ -51,8 +51,32 @@ declare global {
         oidcClientSecret: string;
         adminEmails: string[];
       }) => Promise<{ success: boolean; error?: string }>;
+      // Model Management
+      modelsList: () => Promise<ModelsListResult>;
+      modelsLoad: (tag: string) => Promise<{ success: boolean; error?: string }>;
+      modelsUnload: (tag: string) => Promise<{ success: boolean; error?: string }>;
+      modelsDelete: (tag: string) => Promise<{ success: boolean; error?: string }>;
+      modelsPull: (tag: string) => Promise<{ success: boolean; error?: string }>;
+      modelsSetActive: (tag: string) => Promise<{ success: boolean }>;
+      modelsPickGguf: () => Promise<{ path: string | null }>;
+      modelsImportGguf: (ggufPath: string, modelName: string) => Promise<{ success: boolean; error?: string }>;
+      modelsSearch: (query: string) => Promise<{ models: Array<{ name: string; description: string }>; error?: string }>;
+      onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => () => void;
     };
   }
+}
+
+interface ModelsListResult {
+  models: Array<{
+    tag: string; name: string; sizeBytes: number; digest: string;
+    modifiedAt: string; status: string; ramUsageBytes?: number;
+    catalogEntry?: { tag: string; name: string; family: string; description: string; paramCount: string; downloadSizeGB: number; ramUsageGB: number; origin: string; tier: string; minRAMGB: number; hidden?: boolean };
+  }>;
+  catalog: Array<{ tag: string; name: string; family: string; description: string; paramCount: string; downloadSizeGB: number; ramUsageGB: number; origin: string; tier: string; minRAMGB: number; hidden?: boolean }>;
+  activeModel: string;
+  system: { ramTotalBytes: number; ramAvailableBytes: number; diskFreeBytes: number; diskTotalBytes: number; edgebricRamBytes?: number };
+  mode?: string;
+  storage?: { dbBytes: number; uploadsBytes: number; ollamaModelsBytes: number; vaultBytes: number };
 }
 
 export default function App() {

@@ -49,8 +49,9 @@ function ownerDisplayName(kb: KnowledgeBase): string {
   return emailToDisplayName(kb.ownerId);
 }
 
-type KBFilter = "all" | "mine";
-type KBSort = "name" | "updated" | "files" | "access" | "owner";
+type KBOwnerFilter = "all" | "mine";
+type KBStorageFilter = "all" | "network" | "vault";
+type KBSort = "name" | "updated" | "files" | "storage" | "access" | "owner";
 type SortDir = "asc" | "desc";
 
 // ─── Shared Source Type Selector ─────────────────────────────────────────────
@@ -238,7 +239,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<KBFilter>("all");
+  const [ownerFilter, setOwnerFilter] = useState<KBOwnerFilter>("all");
+  const [storageFilter, setStorageFilter] = useState<KBStorageFilter>("all");
   const [sortBy, setSortBy] = useState<KBSort>(() =>
     (localStorage.getItem("sources-sort") as KBSort) || "name",
   );
@@ -346,8 +348,14 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const filteredKBs = useMemo(() => {
     let list = kbs;
     // Filter by ownership
-    if (filter === "mine") {
+    if (ownerFilter === "mine") {
       list = list.filter((kb) => kb.ownerId.toLowerCase() === myEmail);
+    }
+    // Filter by storage type
+    if (storageFilter === "network") {
+      list = list.filter((kb) => kb.type === "organization");
+    } else if (storageFilter === "vault") {
+      list = list.filter((kb) => kb.type === "personal");
     }
     // Search
     if (search.trim()) {
@@ -370,6 +378,8 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           return dir * (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
         case "files":
           return dir * ((a.documentCount ?? 0) - (b.documentCount ?? 0));
+        case "storage":
+          return dir * (a.type ?? "organization").localeCompare(b.type ?? "organization");
         case "access":
           return dir * (a.accessMode ?? "all").localeCompare(b.accessMode ?? "all");
         case "owner":
@@ -378,7 +388,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           return dir * a.name.localeCompare(b.name);
       }
     });
-  }, [kbs, filter, search, myEmail, sortBy, sortDir]);
+  }, [kbs, ownerFilter, storageFilter, search, myEmail, sortBy, sortDir]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -584,13 +594,13 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
               )}
             </div>
 
-            {/* Filter tabs */}
+            {/* Ownership filter */}
             <div className="flex items-center bg-slate-100 dark:bg-gray-800 rounded-lg p-0.5">
               <button
-                onClick={() => setFilter("all")}
+                onClick={() => setOwnerFilter("all")}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                  filter === "all"
+                  ownerFilter === "all"
                     ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
                     : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
@@ -598,15 +608,52 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 All ({kbs.length})
               </button>
               <button
-                onClick={() => setFilter("mine")}
+                onClick={() => setOwnerFilter("mine")}
                 className={cn(
                   "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                  filter === "mine"
+                  ownerFilter === "mine"
                     ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
                     : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
               >
                 Created by me ({myKBCount})
+              </button>
+            </div>
+
+            {/* Storage filter */}
+            <div className="flex items-center bg-slate-100 dark:bg-gray-800 rounded-lg p-0.5">
+              <button
+                onClick={() => setStorageFilter("all")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                  storageFilter === "all"
+                    ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
+                )}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setStorageFilter("network")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1",
+                  storageFilter === "network"
+                    ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
+                )}
+              >
+                <Globe className="w-3 h-3" /> Network
+              </button>
+              <button
+                onClick={() => setStorageFilter("vault")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center gap-1",
+                  storageFilter === "vault"
+                    ? "bg-white dark:bg-gray-950 text-slate-900 dark:text-gray-100 shadow-sm"
+                    : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
+                )}
+              >
+                <Lock className="w-3 h-3" /> Vault
               </button>
             </div>
           </div>
@@ -627,17 +674,18 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           <div className="text-center py-12">
             <Search className="w-8 h-8 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500 dark:text-gray-400">No matching data sources.</p>
-            <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
+            <button onClick={() => { setSearch(""); setOwnerFilter("all"); setStorageFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
               Clear filters
             </button>
           </div>
         ) : (
           <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">
             {/* Table header — clickable columns for sorting */}
-            <div className="grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-[11px] font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+            <div className="grid grid-cols-[1fr_100px_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-[11px] font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
               {([
                 ["name", "Name"],
                 ["files", "Files"],
+                ["storage", "Storage"],
                 ["access", "Access"],
                 ["owner", "Owner"],
               ] as const).map(([col, label]) => (
@@ -662,7 +710,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                   key={kb.id}
                   onClick={() => onSelect(kb)}
                   className={cn(
-                    "w-full grid grid-cols-[1fr_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors items-center",
+                    "w-full grid grid-cols-[1fr_100px_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors items-center",
                     i < filteredKBs.length - 1 && "border-b border-slate-100 dark:border-gray-800",
                   )}
                 >
@@ -674,18 +722,19 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     ) : (
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                        isMine ? "bg-blue-50 dark:bg-blue-950" : "bg-slate-100 dark:bg-gray-800",
+                        kb.type === "personal"
+                          ? "bg-green-50 dark:bg-green-950"
+                          : isMine ? "bg-blue-50 dark:bg-blue-950" : "bg-slate-100 dark:bg-gray-800",
                       )}>
-                        <Database className={cn("w-3.5 h-3.5", isMine ? "text-blue-500 dark:text-blue-400" : "text-slate-500 dark:text-gray-400")} />
+                        <Database className={cn("w-3.5 h-3.5",
+                          kb.type === "personal"
+                            ? "text-green-500 dark:text-green-400"
+                            : isMine ? "text-blue-500 dark:text-blue-400" : "text-slate-500 dark:text-gray-400",
+                        )} />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
-                        {kb.type === "personal" && (
-                          <Lock className="w-3 h-3 text-slate-400 dark:text-gray-500 shrink-0" />
-                        )}
-                      </div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
                       {kb.description && (
                         <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{kb.description}</p>
                       )}
@@ -697,23 +746,46 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                       <RefreshCw className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
                     )}
                   </span>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
-                      kb.type === "personal"
-                        ? "bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400"
-                        : kb.accessMode === "restricted"
+                  <span className="relative group/storage">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
+                        kb.type === "personal"
                           ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
-                          : "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400",
-                    )}
-                  >
-                    {kb.type === "personal" ? (
-                      <><Lock className="w-3 h-3" /> Private</>
-                    ) : kb.accessMode === "restricted" ? (
-                      <><Lock className="w-3 h-3" /> Restricted</>
-                    ) : (
-                      <><Globe className="w-3 h-3" /> Whole org</>
-                    )}
+                          : "bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400",
+                      )}
+                    >
+                      {kb.type === "personal" ? (
+                        <><Lock className="w-3 h-3" /> Vault</>
+                      ) : (
+                        <><Globe className="w-3 h-3" /> Network</>
+                      )}
+                    </span>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 transition-opacity z-10">
+                      {kb.type === "personal"
+                        ? "Encrypted on your device — never leaves your machine"
+                        : "Stored on the organization\u2019s network server"}
+                    </span>
+                  </span>
+                  <span className="relative group/access">
+                    <span
+                      className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400"
+                    >
+                      {kb.type === "personal" ? (
+                        <><Lock className="w-3 h-3" /> Only me</>
+                      ) : kb.accessMode === "restricted" ? (
+                        <><Lock className="w-3 h-3" /> Restricted</>
+                      ) : (
+                        <><Globe className="w-3 h-3" /> Whole org</>
+                      )}
+                    </span>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/access:opacity-100 transition-opacity z-10">
+                      {kb.type === "personal"
+                        ? "Only you can access this source"
+                        : kb.accessMode === "restricted"
+                          ? "Only specific members have access"
+                          : "All members in the organization can access this source"}
+                    </span>
                   </span>
                   <span className="text-xs text-slate-500 dark:text-gray-400 truncate">
                     {isMine ? "You" : ownerDisplayName(kb)}

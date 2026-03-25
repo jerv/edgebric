@@ -119,9 +119,13 @@ export function listKBs(opts?: {
  * or restricted KBs where their email is in the access list.
  */
 export function listAccessibleKBs(email: string, isAdmin: boolean, orgId?: string): KnowledgeBase[] {
-  if (isAdmin) return listKBs({ type: "organization", ...(orgId && { orgId }) });
+  // Org-wide sources
+  const orgKBs = listKBs({ type: "organization", ...(orgId && { orgId }) });
+  // Personal/vault sources owned by this user
+  const myVaultKBs = listKBs({ type: "personal", ownerId: email.toLowerCase() });
 
-  const allKBs = listKBs({ type: "organization", ...(orgId && { orgId }) });
+  if (isAdmin) return [...orgKBs, ...myVaultKBs];
+
   const db = getDb();
 
   // Get all KB IDs this user has explicit access to
@@ -132,9 +136,11 @@ export function listAccessibleKBs(email: string, isAdmin: boolean, orgId?: strin
     .all();
   const accessibleIds = new Set(accessRows.map((r) => r.kbId));
 
-  return allKBs.filter(
+  const accessibleOrgKBs = orgKBs.filter(
     (kb) => kb.accessMode === "all" || accessibleIds.has(kb.id),
   );
+
+  return [...accessibleOrgKBs, ...myVaultKBs];
 }
 
 /** Update KB metadata. */

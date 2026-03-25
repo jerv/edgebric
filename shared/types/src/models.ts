@@ -71,54 +71,81 @@ export interface PullProgressEvent {
 // ─── Official Model Catalog ──────────────────────────────────────────────────
 
 export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
+  // ── Recommended (curated, tested with Edgebric) ──
   {
     tag: "qwen3:4b",
-    name: "Qwen 3",
+    name: "Qwen 3 4B",
     family: "Qwen",
-    description: "Fast, high-quality responses. Best balance of speed and accuracy.",
+    description: "Best overall for most hardware. Fast, accurate, 256K context.",
     paramCount: "4B",
-    downloadSizeGB: 2.6,
-    ramUsageGB: 3.5,
+    downloadSizeGB: 2.5,
+    ramUsageGB: 5.5,
     origin: "Alibaba",
     tier: "recommended",
     minRAMGB: 8,
   },
   {
-    tag: "llama4:scout",
-    name: "Llama 4 Scout",
-    family: "Meta",
-    description: "Strong general-purpose model from Meta. Great for detailed analysis.",
+    tag: "qwen3:8b",
+    name: "Qwen 3 8B",
+    family: "Qwen",
+    description: "Stronger reasoning and analysis. Best for 16GB machines.",
     paramCount: "8B",
-    downloadSizeGB: 5.0,
-    ramUsageGB: 6.0,
-    origin: "Meta",
-    tier: "supported",
+    downloadSizeGB: 5.2,
+    ramUsageGB: 9,
+    origin: "Alibaba",
+    tier: "recommended",
     minRAMGB: 16,
   },
+  {
+    tag: "qwen3:14b",
+    name: "Qwen 3 14B",
+    family: "Qwen",
+    description: "Highest quality answers. Needs 32GB RAM.",
+    paramCount: "14B",
+    downloadSizeGB: 9.3,
+    ramUsageGB: 15,
+    origin: "Alibaba",
+    tier: "recommended",
+    minRAMGB: 32,
+  },
+  // ── Supported (alternatives, known to work) ──
   {
     tag: "phi4-mini",
     name: "Phi-4 Mini",
     family: "Microsoft",
-    description: "Compact and efficient. Ideal for resource-constrained environments.",
+    description: "Compact, efficient, 128K context. Good for constrained setups.",
     paramCount: "3.8B",
     downloadSizeGB: 2.5,
-    ramUsageGB: 3.2,
+    ramUsageGB: 5,
     origin: "Microsoft",
     tier: "supported",
     minRAMGB: 8,
   },
   {
     tag: "gemma3:4b",
-    name: "Gemma 3",
+    name: "Gemma 3 4B",
     family: "Google",
-    description: "Google's efficient model with multimodal capabilities.",
+    description: "Google's efficient model. Multimodal capable, 128K context.",
     paramCount: "4B",
-    downloadSizeGB: 3.0,
-    ramUsageGB: 3.8,
+    downloadSizeGB: 3.3,
+    ramUsageGB: 6,
     origin: "Google",
     tier: "supported",
     minRAMGB: 8,
   },
+  {
+    tag: "gemma3:12b",
+    name: "Gemma 3 12B",
+    family: "Google",
+    description: "Strong document analysis. Multimodal, 128K context.",
+    paramCount: "12B",
+    downloadSizeGB: 8.1,
+    ramUsageGB: 13,
+    origin: "Google",
+    tier: "supported",
+    minRAMGB: 16,
+  },
+  // ── Hidden infrastructure ──
   {
     tag: "nomic-embed-text",
     name: "Nomic Embed Text",
@@ -141,9 +168,9 @@ export const MODEL_CATALOG_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Map
 
 /** Returns the recommended model tag based on available RAM (in GB). */
 export function getRecommendedModelTag(ramGB: number): string {
-  if (ramGB < 12) return "phi4-mini";
-  if (ramGB < 24) return "qwen3:4b";
-  return "llama4:scout";
+  if (ramGB < 12) return "qwen3:4b";
+  if (ramGB < 24) return "qwen3:8b";
+  return "qwen3:14b";
 }
 
 /** User-visible catalog (excludes hidden models like embedding). */

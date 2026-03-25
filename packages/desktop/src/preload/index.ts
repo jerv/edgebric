@@ -8,8 +8,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getStatus: () => ipcRenderer.invoke("get-status"),
   startServer: () => ipcRenderer.invoke("start-server"),
   stopServer: () => ipcRenderer.invoke("stop-server"),
-  onStatusChange: (callback: (status: string) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, status: string) => callback(status);
+  onStatusChange: (callback: (status: string, errorMsg?: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: string, errorMsg?: string) => callback(status, errorMsg);
     ipcRenderer.on("server-status-changed", handler);
     return () => ipcRenderer.removeListener("server-status-changed", handler);
   },
@@ -72,4 +72,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
     oidcClientSecret: string;
     adminEmails: string[];
   }) => ipcRenderer.invoke("instance-reconfigure-auth", data),
+
+  // Model Management (talks directly to Ollama via main process)
+  modelsList: () => ipcRenderer.invoke("models-list"),
+  modelsLoad: (tag: string) => ipcRenderer.invoke("models-load", tag),
+  modelsUnload: (tag: string) => ipcRenderer.invoke("models-unload", tag),
+  modelsDelete: (tag: string) => ipcRenderer.invoke("models-delete", tag),
+  modelsPull: (tag: string) => ipcRenderer.invoke("models-pull", tag),
+  modelsSetActive: (tag: string) => ipcRenderer.invoke("models-set-active", tag),
+  modelsPickGguf: () => ipcRenderer.invoke("models-pick-gguf") as Promise<{ path: string | null }>,
+  modelsImportGguf: (ggufPath: string, modelName: string) => ipcRenderer.invoke("models-import-gguf", ggufPath, modelName) as Promise<{ success: boolean; error?: string }>,
+  modelsSearch: (query: string) => ipcRenderer.invoke("models-search", query) as Promise<{ models: Array<{ name: string; description: string }>; error?: string }>,
+  onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { tag: string; status: string; percent: number }) => callback(data);
+    ipcRenderer.on("model-pull-progress", handler);
+    return () => ipcRenderer.removeListener("model-pull-progress", handler);
+  },
 });

@@ -52,7 +52,24 @@ export function openMainWindow() {
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+    const devUrl = process.env.ELECTRON_RENDERER_URL;
+
+    // Poll until the dev server is up before loading the URL
+    const waitForDevServer = async () => {
+      for (let i = 0; i < 30; i++) {
+        try {
+          const resp = await fetch(devUrl, { signal: AbortSignal.timeout(500) });
+          if (resp.ok) return;
+        } catch { /* not ready yet */ }
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    };
+
+    waitForDevServer().then(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.loadURL(devUrl);
+      }
+    });
   } else {
     mainWindow.loadFile(`${__dirname}/../renderer/index.html`);
   }

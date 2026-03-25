@@ -789,7 +789,7 @@ body {
   }
   .card-danger { border-color: #450a0a; }
 
-  .card-heading { color: #64748b; }
+  .card-heading { color: #94a3b8; }
 
   .status-label { color: #e2e8f0; }
 
@@ -952,12 +952,14 @@ body {
   .active-model-row { border-top-color: #1e293b; }
   .active-model-name { color: #e2e8f0; }
 
+  .resource-bar-label { color: #94a3b8; }
   .resource-bar-track { background: #1e293b; }
   .resource-bar-value { color: #64748b; }
+  .legend-item { color: #94a3b8; }
 
-  .model-item { border-top-color: #1e293b; }
-  .model-item-name { color: #e2e8f0; }
-  .model-item-meta { color: #64748b; }
+  .model-list .model-item + .model-item { border-top-color: #1e293b; }
+  .model-list .model-item-name { color: #f1f5f9; }
+  .model-list .model-item-meta { color: #94a3b8; }
 
   .model-badge-active {
     background: #064e3b !important;
@@ -1038,12 +1040,37 @@ body {
   background: #f1f5f9;
   border-radius: 3px;
   overflow: hidden;
+  display: flex;
 }
 
 .resource-bar-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   transition: width 0.5s ease;
+}
+
+.resource-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 4px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* ─── Model list ─────────────────────────────────────────────────────────── */

@@ -37,6 +37,14 @@ interface SystemResources {
   ramAvailableBytes: number;
   diskFreeBytes: number;
   diskTotalBytes: number;
+  edgebricRamBytes?: number;
+}
+
+interface StorageBreakdown {
+  dbBytes: number;
+  uploadsBytes: number;
+  ollamaModelsBytes: number;
+  vaultBytes: number;
 }
 
 interface ModelsData {
@@ -44,6 +52,13 @@ interface ModelsData {
   catalog: CatalogEntry[];
   activeModel: string;
   system: SystemResources;
+  mode?: string;
+  storage?: StorageBreakdown;
+}
+
+interface RegistryModel {
+  name: string;
+  description: string;
 }
 
 const STATUS_CONFIG: Record<ServerStatus, { label: string; dot: string }> = {
@@ -96,10 +111,15 @@ export default function ServerDashboard() {
   const [pullTag, setPullTag] = useState<string | null>(null);
   const [pullPercent, setPullPercent] = useState(0);
   const [pullStatus, setPullStatus] = useState("");
-  const [customTag, setCustomTag] = useState("");
   const [modelError, setModelError] = useState("");
+  const [deleteConfirmTag, setDeleteConfirmTag] = useState<string | null>(null);
+  const [ggufPath, setGgufPath] = useState<string | null>(null);
+  const [ggufName, setGgufName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<RegistryModel[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modelsInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pullAbort = useRef<AbortController | null>(null);
 
   // Active model name for home view
   const activeModelLabel = modelsData?.activeModel
@@ -157,33 +177,41 @@ export default function ServerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch models data periodically when on home or models view and server is running
+  // Fetch models data via IPC (talks directly to Ollama, no API server auth needed)
   const fetchModels = useCallback(async () => {
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models`, {
-        credentials: "include",
-        signal: AbortSignal.timeout(5000),
-      });
-      if (resp.ok) {
-        const data = await resp.json() as ModelsData;
-        setModelsData(data);
-      }
+      const data = await window.electronAPI.modelsList();
+      setModelsData(data as ModelsData);
     } catch {
-      // Server might not be ready yet
+      // Ollama might not be ready yet
     }
-  }, [port]);
+  }, []);
 
   useEffect(() => {
     if (status !== "running") return;
-    // Initial fetch
     fetchModels();
-    // Poll every 5s (3s when on models view for responsiveness)
     const interval = view === "models" ? 3000 : 10000;
     modelsInterval.current = setInterval(fetchModels, interval);
     return () => {
       if (modelsInterval.current) clearInterval(modelsInterval.current);
     };
   }, [status, view, fetchModels]);
+
+  // Listen for pull progress from main process
+  useEffect(() => {
+    const unsub = window.electronAPI.onModelPullProgress((data) => {
+      if (data.status === "done") {
+        setPullTag(null);
+        setPullPercent(100);
+        setPullStatus("Complete");
+        fetchModels();
+      } else {
+        setPullPercent(data.percent);
+        setPullStatus(data.status);
+      }
+    });
+    return unsub;
+  }, [fetchModels]);
 
   async function handleStart() {
     setErrorMsg("");
@@ -258,15 +286,9 @@ export default function ServerDashboard() {
     setModelOp({ type: "load", tag });
     setModelError("");
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models/load`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tag }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        setModelError(data.error ?? "Failed to load model");
+      const result = await window.electronAPI.modelsLoad(tag);
+      if (!result.success) {
+        setModelError(result.error ?? "Failed to load model");
       } else {
         await fetchModels();
       }
@@ -281,15 +303,9 @@ export default function ServerDashboard() {
     setModelOp({ type: "unload", tag });
     setModelError("");
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models/unload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tag }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        setModelError(data.error ?? "Failed to unload model");
+      const result = await window.electronAPI.modelsUnload(tag);
+      if (!result.success) {
+        setModelError(result.error ?? "Failed to unload model");
       } else {
         await fetchModels();
       }
@@ -304,13 +320,9 @@ export default function ServerDashboard() {
     setModelOp({ type: "delete", tag });
     setModelError("");
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models/${encodeURIComponent(tag)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        setModelError(data.error ?? "Failed to delete model");
+      const result = await window.electronAPI.modelsDelete(tag);
+      if (!result.success) {
+        setModelError(result.error ?? "Failed to delete model");
       } else {
         await fetchModels();
       }
@@ -325,15 +337,9 @@ export default function ServerDashboard() {
     setModelOp({ type: "switch", tag });
     setModelError("");
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models/active`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tag }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        setModelError(data.error ?? "Failed to set active model");
+      const result = await window.electronAPI.modelsSetActive(tag);
+      if (!result.success) {
+        setModelError("Failed to set active model");
       } else {
         await fetchModels();
       }
@@ -349,80 +355,82 @@ export default function ServerDashboard() {
     setPullPercent(0);
     setPullStatus("Starting download...");
     setModelError("");
-
-    const controller = new AbortController();
-    pullAbort.current = controller;
-
     try {
-      const resp = await fetch(`http://localhost:${port}/api/admin/models/pull`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tag }),
-        signal: controller.signal,
-      });
-
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({})) as { error?: string };
-        setModelError(data.error ?? "Failed to start download");
-        setPullTag(null);
-        return;
-      }
-
-      const reader = resp.body?.getReader();
-      if (!reader) { setPullTag(null); return; }
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (line.startsWith("event: done")) {
-            setPullStatus("Complete");
-            setPullPercent(100);
-          } else if (line.startsWith("event: error")) {
-            setModelError("Download failed");
-          } else if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6)) as { status?: string; percent?: number; message?: string };
-              if (data.percent != null) setPullPercent(data.percent);
-              if (data.status) setPullStatus(data.status);
-              if (data.message) setModelError(data.message);
-            } catch { /* ignore */ }
-          }
-        }
+      const result = await window.electronAPI.modelsPull(tag);
+      if (!result.success) {
+        setModelError(result.error ?? "Failed to start download");
       }
     } catch (err) {
-      if (controller.signal.aborted) {
-        setPullStatus("Cancelled");
-      } else {
-        setModelError(err instanceof Error ? err.message : "Download failed");
-      }
+      setModelError(err instanceof Error ? err.message : "Download failed");
     } finally {
-      setPullTag(null);
-      pullAbort.current = null;
-      await fetchModels();
+      // Progress updates come via onModelPullProgress listener
+      // Pull tag is cleared when progress reports 100% or error
     }
   }
 
   function handleCancelPull() {
-    if (pullTag) {
-      pullAbort.current?.abort();
-      // Also tell the server to cancel
-      fetch(`http://localhost:${port}/api/admin/models/pull/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ tag: pullTag }),
-      }).catch(() => {});
+    // Pull runs in main process — no client-side cancel yet
+    setPullTag(null);
+    setPullPercent(0);
+    setPullStatus("");
+  }
+
+  async function handlePickGguf() {
+    const result = await window.electronAPI.modelsPickGguf();
+    if (result.path) {
+      setGgufPath(result.path);
+      // Auto-populate name from filename (e.g., "qwen3.5-4b-q4_K_M.gguf" → "qwen3-5-4b")
+      const basename = result.path.split("/").pop()?.replace(/\.gguf$/i, "") ?? "";
+      const suggested = basename.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+      setGgufName(suggested);
     }
+  }
+
+  async function handleImportGguf() {
+    if (!ggufPath || !ggufName.trim()) return;
+    const name = ggufName.trim();
+    setPullTag(name);
+    setPullPercent(0);
+    setPullStatus("Importing model...");
+    setModelError("");
+    try {
+      const result = await window.electronAPI.modelsImportGguf(ggufPath, name);
+      if (!result.success) {
+        setModelError(result.error ?? "Failed to import model");
+        setPullTag(null);
+      }
+      // Progress/completion comes via onModelPullProgress listener
+    } catch (err) {
+      setModelError(err instanceof Error ? err.message : "Import failed");
+      setPullTag(null);
+    } finally {
+      setGgufPath(null);
+      setGgufName("");
+    }
+  }
+
+  function handleSearchInput(value: string) {
+    setSearchQuery(value);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (value.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const result = await window.electronAPI.modelsSearch(value.trim());
+        // Filter out models we already have installed
+        const installedTags = new Set((modelsData?.models ?? []).map((m) => m.tag));
+        const catalogTags = new Set((modelsData?.catalog ?? []).map((c) => c.tag));
+        const filtered = result.models.filter((m) => !installedTags.has(m.name) && !catalogTags.has(m.name));
+        setSearchResults(filtered);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
   }
 
   const statusConf = STATUS_CONFIG[status];
@@ -445,11 +453,17 @@ export default function ServerDashboard() {
   if (view === "models") {
     const sys = modelsData?.system;
     const ramTotal = sys?.ramTotalBytes ?? 0;
-    const ramUsed = ramTotal - (sys?.ramAvailableBytes ?? 0);
+    const ramAvailable = sys?.ramAvailableBytes ?? 0;
+    const ramUsed = ramTotal - ramAvailable;
     const ramPercent = ramTotal > 0 ? Math.round((ramUsed / ramTotal) * 100) : 0;
     const diskTotal = sys?.diskTotalBytes ?? 0;
     const diskUsed = diskTotal - (sys?.diskFreeBytes ?? 0);
     const diskPercent = diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 100) : 0;
+    // Headroom: solo mode = personal computer (~8GB for OS+apps), admin/server = ~4GB
+    const mode = modelsData?.mode ?? "solo";
+    const headroomGB = mode === "solo" ? 8 : 4;
+    const ramTotalGB = ramTotal / (1024 ** 3);
+    const effectiveRAMGB = Math.max(0, ramTotalGB - headroomGB);
 
     // Separate models by state, exclude hidden embedding model from chat model lists
     const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_TAG);
@@ -488,98 +502,168 @@ export default function ServerDashboard() {
             <section className="card">
               <h3 className="card-heading">System Resources</h3>
               <div className="resource-bars">
-                <div className="resource-bar-item">
-                  <div className="resource-bar-label">
-                    <span>Memory</span>
-                    <span className="resource-bar-value">{formatGB(ramUsed)} / {formatGB(ramTotal)}</span>
-                  </div>
-                  <div className="resource-bar-track">
-                    <div className="resource-bar-fill" style={{ width: `${ramPercent}%`, background: barColor(ramPercent) }} />
-                  </div>
-                </div>
-                <div className="resource-bar-item">
-                  <div className="resource-bar-label">
-                    <span>Disk</span>
-                    <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
-                  </div>
-                  <div className="resource-bar-track">
-                    <div className="resource-bar-fill" style={{ width: `${diskPercent}%`, background: barColor(diskPercent) }} />
-                  </div>
-                </div>
-                {/* Embedding model shown as infrastructure */}
-                {embeddingModel && (
-                  <div className="resource-bar-item" style={{ marginTop: 4 }}>
-                    <div className="resource-bar-label">
-                      <span className="hint" style={{ margin: 0, fontSize: 11 }}>
-                        Embedding engine ({embeddingModel.tag})
-                        {embeddingModel.status === "loaded" ? " — active" : " — on disk"}
-                      </span>
-                      <span className="resource-bar-value" style={{ fontSize: 11 }}>
-                        {embeddingModel.ramUsageBytes ? formatBytes(embeddingModel.ramUsageBytes) : formatBytes(embeddingModel.sizeBytes)}
-                      </span>
+                {/* RAM bar — segmented: other apps, edgebric, embedding, chat model */}
+                {(() => {
+                  const modelRam = loadedModels
+                    .filter((m) => m.ramUsageBytes)
+                    .reduce((sum, m) => sum + (m.ramUsageBytes ?? 0), 0);
+                  const embeddingRam = embeddingModel?.ramUsageBytes ?? 0;
+                  const edgebricRam = sys?.edgebricRamBytes ?? 0;
+                  const otherUsed = Math.max(0, ramUsed - modelRam - embeddingRam - edgebricRam);
+                  const pctOf = (bytes: number) => ramTotal > 0 ? Math.max(0, (bytes / ramTotal) * 100) : 0;
+                  return (
+                    <div className="resource-bar-item">
+                      <div className="resource-bar-label">
+                        <span>Memory</span>
+                        <span className="resource-bar-value">
+                          {formatGB(ramAvailable)} available / {formatGB(ramTotal)} total
+                        </span>
+                      </div>
+                      <div className="resource-bar-track">
+                        <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
+                        {edgebricRam > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
+                        )}
+                        {embeddingRam > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
+                        )}
+                        {modelRam > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
+                        )}
+                      </div>
+                      <div className="resource-bar-legend">
+                        {modelRam > 0 && loadedModels.filter((m) => m.ramUsageBytes).map((m) => (
+                          <span key={m.tag} className="legend-item">
+                            <span className="legend-dot" style={{ background: "#3b82f6" }} />
+                            {modelDisplayName(m)} {formatBytes(m.ramUsageBytes!)}
+                          </span>
+                        ))}
+                        {embeddingRam > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#06b6d4" }} />
+                            Embeddings {formatBytes(embeddingRam)}
+                          </span>
+                        )}
+                        {edgebricRam > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#8b5cf6" }} />
+                            Edgebric {formatBytes(edgebricRam)}
+                          </span>
+                        )}
+                        <span className="legend-item">
+                          <span className="legend-dot" style={{ background: "#64748b" }} />
+                          Other {formatGB(otherUsed)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
+
+                {/* Disk bar — segmented: models, documents, embeddings on disk, database */}
+                {(() => {
+                  const st = modelsData?.storage;
+                  const ollamaBytes = st?.ollamaModelsBytes ?? 0;
+                  const uploadsBytes = st?.uploadsBytes ?? 0;
+                  const dbBytes = st?.dbBytes ?? 0;
+                  const vaultBytes = st?.vaultBytes ?? 0;
+                  const embeddingDisk = embeddingModel?.sizeBytes ?? 0;
+                  const edgebricTotal = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+                  const pctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
+                  const otherUsed = Math.max(0, diskUsed - edgebricTotal);
+                  return (
+                    <div className="resource-bar-item">
+                      <div className="resource-bar-label">
+                        <span>Disk</span>
+                        <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
+                      </div>
+                      <div className="resource-bar-track">
+                        <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
+                        {ollamaBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(ollamaBytes)}%`, background: "#3b82f6" }} />
+                        )}
+                        {uploadsBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(uploadsBytes)}%`, background: "#22c55e" }} />
+                        )}
+                        {vaultBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(vaultBytes)}%`, background: "#f59e0b" }} />
+                        )}
+                        {dbBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(dbBytes)}%`, background: "#8b5cf6", borderRadius: "0 3px 3px 0" }} />
+                        )}
+                      </div>
+                      <div className="resource-bar-legend">
+                        {ollamaBytes > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#3b82f6" }} />
+                            AI Models {formatBytes(ollamaBytes)}
+                          </span>
+                        )}
+                        {uploadsBytes > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#22c55e" }} />
+                            Documents {formatBytes(uploadsBytes)}
+                          </span>
+                        )}
+                        {vaultBytes > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#f59e0b" }} />
+                            Vault {formatBytes(vaultBytes)}
+                          </span>
+                        )}
+                        {dbBytes > 0 && (
+                          <span className="legend-item">
+                            <span className="legend-dot" style={{ background: "#8b5cf6" }} />
+                            Database {formatBytes(dbBytes)}
+                          </span>
+                        )}
+                        <span className="legend-item">
+                          <span className="legend-dot" style={{ background: "#64748b" }} />
+                          Other {formatGB(otherUsed)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </section>
 
-            {/* Loaded Models */}
-            {loadedModels.length > 0 && (
+            {/* Your Models — loaded + installed in one list */}
+            {(loadedModels.length > 0 || installedModels.length > 0) && (
               <section className="card">
-                <h3 className="card-heading">Loaded in Memory</h3>
+                <h3 className="card-heading">Your Models</h3>
                 <div className="model-list">
                   {loadedModels.map((m) => {
-                    const isActive = m.tag === modelsData.activeModel;
                     const isOpTarget = modelOp?.tag === m.tag;
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
                           <div className="model-item-name">
                             {modelDisplayName(m)}
-                            {isActive && <span className="model-badge model-badge-active">Active</span>}
+                            <span className="model-badge model-badge-active">Running</span>
                           </div>
-                          {m.ramUsageBytes != null && (
-                            <span className="model-item-meta">{formatBytes(m.ramUsageBytes)} RAM</span>
-                          )}
+                          <span className="model-item-meta">
+                            {m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
+                          </span>
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
-                          {!isActive && (
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => handleSetActive(m.tag)}
-                              disabled={!!modelOp}
-                            >
-                              {isOpTarget && modelOp?.type === "switch" ? "..." : "Set Active"}
-                            </button>
-                          )}
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => handleUnloadModel(m.tag)}
-                            disabled={!!modelOp || isActive}
-                            title={isActive ? "Cannot unload the active model" : "Remove from memory"}
+                            disabled={!!modelOp}
                           >
-                            {isOpTarget && modelOp?.type === "unload" ? "..." : "Unload"}
+                            {isOpTarget && modelOp?.type === "unload" ? "..." : "Stop"}
                           </button>
                         </div>
                       </div>
                     );
                   })}
-                </div>
-              </section>
-            )}
-
-            {/* Installed Models (not loaded) */}
-            {installedModels.length > 0 && (
-              <section className="card">
-                <h3 className="card-heading">On Disk</h3>
-                <div className="model-list">
                   {installedModels.map((m) => {
                     const isOpTarget = modelOp?.tag === m.tag;
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
                           <div className="model-item-name">{modelDisplayName(m)}</div>
-                          <span className="model-item-meta">{formatBytes(m.sizeBytes)}</span>
+                          <span className="model-item-meta">{formatBytes(m.sizeBytes)} on disk</span>
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
                           <button
@@ -587,15 +671,34 @@ export default function ServerDashboard() {
                             onClick={() => handleLoadModel(m.tag)}
                             disabled={!!modelOp}
                           >
-                            {isOpTarget && modelOp?.type === "load" ? "Loading..." : "Load"}
+                            {isOpTarget && modelOp?.type === "load" ? "Starting..." : "Start"}
                           </button>
-                          <button
-                            className="btn btn-danger-ghost btn-sm"
-                            onClick={() => handleDeleteModel(m.tag)}
-                            disabled={!!modelOp}
-                          >
-                            {isOpTarget && modelOp?.type === "delete" ? "..." : "Delete"}
-                          </button>
+                          {deleteConfirmTag === m.tag ? (
+                            <>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => { setDeleteConfirmTag(null); handleDeleteModel(m.tag); }}
+                                disabled={!!modelOp}
+                              >
+                                {isOpTarget && modelOp?.type === "delete" ? "..." : "Confirm"}
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setDeleteConfirmTag(null)}
+                                disabled={!!modelOp}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn btn-danger-ghost btn-sm"
+                              onClick={() => setDeleteConfirmTag(m.tag)}
+                              disabled={!!modelOp}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -625,76 +728,188 @@ export default function ServerDashboard() {
               </section>
             )}
 
-            {/* Available from Catalog */}
-            {availableCatalog.length > 0 && (
-              <section className="card">
-                <h3 className="card-heading">Available Models</h3>
-                <div className="model-list">
-                  {availableCatalog.map((c) => {
-                    const ramTotalGB = ramTotal / (1024 ** 3);
-                    const canRun = ramTotalGB >= c.minRAMGB;
-                    return (
-                      <div key={c.tag} className="model-item">
-                        <div className="model-item-left">
-                          <div className="model-item-name">
-                            {c.name} · {c.paramCount}
-                            {c.tier === "recommended" && <span className="model-badge model-badge-rec">Recommended</span>}
+            {/* Recommended Models */}
+            {(() => {
+              const recommended = availableCatalog.filter((c) => c.tier === "recommended");
+              if (recommended.length === 0) return null;
+              return (
+                <section className="card">
+                  <h3 className="card-heading">
+                    Recommended for this system ({Math.round(ramTotalGB)} GB RAM{mode === "solo" ? ", personal use" : ""})
+                  </h3>
+                  <p className="hint" style={{ margin: "0 0 10px" }}>
+                    {mode === "solo"
+                      ? `~${headroomGB} GB recommended for your system, ~${Math.round(effectiveRAMGB)} GB available for AI models.`
+                      : `~${headroomGB} GB recommended for the OS, ~${Math.round(effectiveRAMGB)} GB available for AI models.`}
+                  </p>
+                  <div className="model-list">
+                    {recommended.map((c) => {
+                      const canRun = effectiveRAMGB >= c.ramUsageGB;
+                      return (
+                        <div key={c.tag} className="model-item" style={!canRun ? { opacity: 0.45 } : undefined}>
+                          <div className="model-item-left">
+                            <div className="model-item-name">{c.name}</div>
+                            <span className="model-item-meta">{c.description}</span>
+                            <span className="model-item-meta">
+                              {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
+                              {!canRun && ` · Needs more RAM than available`}
+                            </span>
                           </div>
-                          <span className="model-item-meta">
-                            {c.description}
-                          </span>
-                          <span className="model-item-meta">
-                            {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
-                            {!canRun && ` · Needs ${c.minRAMGB} GB+ RAM`}
-                          </span>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handlePullModel(c.tag)}
+                            disabled={!!pullTag || !!modelOp || !canRun}
+                          >
+                            {canRun ? "Install" : "Too large"}
+                          </button>
                         </div>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => handlePullModel(c.tag)}
-                          disabled={!!pullTag || !!modelOp}
-                        >
-                          Install
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })()}
 
-            {/* Custom Model */}
+            {/* Supported Alternatives */}
+            {(() => {
+              const supported = availableCatalog.filter((c) => c.tier === "supported");
+              if (supported.length === 0) return null;
+              return (
+                <section className="card">
+                  <h3 className="card-heading">Alternatives</h3>
+                  <div className="model-list">
+                    {supported.map((c) => {
+                      const canRun = effectiveRAMGB >= c.ramUsageGB;
+                      return (
+                        <div key={c.tag} className="model-item" style={!canRun ? { opacity: 0.45 } : undefined}>
+                          <div className="model-item-left">
+                            <div className="model-item-name">{c.name}</div>
+                            <span className="model-item-meta">{c.description}</span>
+                            <span className="model-item-meta">
+                              {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
+                              {!canRun && ` · Needs more RAM than available`}
+                            </span>
+                          </div>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handlePullModel(c.tag)}
+                            disabled={!!pullTag || !!modelOp || !canRun}
+                          >
+                            {canRun ? "Install" : "Too large"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })()}
+
+            {/* Other Models — search online registry */}
             <section className="card">
-              <h3 className="card-heading">Custom Model</h3>
+              <h3 className="card-heading">Other Models</h3>
               <p className="hint" style={{ margin: "0 0 10px" }}>
-                Install any model from the Ollama registry. Custom models are not tested with Edgebric.
+                Search for models online. These are not tested and may not work correctly.
               </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="text"
-                  value={customTag}
-                  onChange={(e) => setCustomTag(e.target.value)}
-                  placeholder="e.g., mistral:7b"
-                  className="model-custom-input"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && customTag.trim() && !pullTag) {
-                      handlePullModel(customTag.trim());
-                      setCustomTag("");
-                    }
-                  }}
-                />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                placeholder="Search models (e.g., mistral, deepseek, llama)..."
+                className="model-custom-input"
+                style={{ width: "100%", marginBottom: searchResults.length > 0 || searchLoading ? 8 : 0 }}
+              />
+              {searchLoading && (
+                <p className="hint" style={{ margin: "4px 0" }}>Searching...</p>
+              )}
+              {searchResults.length > 0 && (
+                <div className="model-list" style={{ maxHeight: 240, overflowY: "auto" }}>
+                  {searchResults.map((m) => (
+                    <div key={m.name} className="model-item">
+                      <div className="model-item-left">
+                        <div className="model-item-name">{m.name}</div>
+                        {m.description && <span className="model-item-meta">{m.description}</span>}
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          handlePullModel(m.name);
+                          setSearchQuery("");
+                          setSearchResults([]);
+                        }}
+                        disabled={!!pullTag || !!modelOp}
+                      >
+                        Install
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {searchQuery.trim().length >= 2 && !searchLoading && searchResults.length === 0 && (
+                <p className="hint" style={{ margin: "4px 0" }}>
+                  No results. You can try installing directly:
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => {
+                      handlePullModel(searchQuery.trim());
+                      setSearchQuery("");
+                      setSearchResults([]);
+                    }}
+                    disabled={!!pullTag}
+                  >
+                    Install "{searchQuery.trim()}"
+                  </button>
+                </p>
+              )}
+            </section>
+
+            {/* Import Model — from local GGUF file */}
+            <section className="card">
+              <h3 className="card-heading">Import Model</h3>
+              <p className="hint" style={{ margin: "0 0 10px" }}>
+                Import a model from a local GGUF file. Not officially supported.
+              </p>
+              {!ggufPath ? (
                 <button
                   className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    if (customTag.trim()) {
-                      handlePullModel(customTag.trim());
-                      setCustomTag("");
-                    }
-                  }}
-                  disabled={!customTag.trim() || !!pullTag}
+                  onClick={handlePickGguf}
+                  disabled={!!pullTag}
                 >
-                  Install
+                  Choose .gguf file...
                 </button>
-              </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div className="hint" style={{ margin: 0, wordBreak: "break-all" }}>
+                    {ggufPath.split("/").pop()}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="text"
+                      value={ggufName}
+                      onChange={(e) => setGgufName(e.target.value)}
+                      placeholder="Model name"
+                      className="model-custom-input"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && ggufName.trim()) handleImportGguf();
+                      }}
+                    />
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleImportGguf}
+                      disabled={!ggufName.trim() || !!pullTag}
+                    >
+                      Import
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => { setGgufPath(null); setGgufName(""); }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Error */}
