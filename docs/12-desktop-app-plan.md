@@ -1,6 +1,6 @@
 # Desktop GUI App — Development Plan
 
-Last updated: 2026-03-20
+Last updated: 2026-03-24
 
 ---
 
@@ -135,44 +135,44 @@ Quit Edgebric             → stops server + Ollama + quits app
 
 ## Development Phases
 
-### Phase D1 — Skeleton + Tray + Server Management
+### Phase D1 — Skeleton + Tray + Server Management ✅ COMPLETE
 
 **Goal:** Menu bar app that starts/stops Ollama + API server. No wizard, no licensing.
 
-- [ ] Initialize `packages/desktop/` with Electron + Vite + React + TypeScript
-- [ ] Tray icon with context menu (start/stop/restart/quit)
-- [ ] Ollama process management (start before API server, stop on quit)
-- [ ] Spawn API server as child process (port from config or default 3001)
-- [ ] Health check polling (GET /api/health) — update icon green/grey/red
-- [ ] "Open Edgebric" menu item → `shell.openExternal`
-- [ ] Stdout/stderr capture for log viewing
-- [ ] Graceful shutdown on quit (stop API server, then Ollama)
-- [ ] Basic log viewer window (tail last 100 lines)
+- [x] Initialize `packages/desktop/` with Electron + electron-vite + React + TypeScript
+- [x] Tray icon with context menu (start/stop/restart/quit/open/settings/logs)
+- [x] Ollama process management (auto-download, start before API server, stop on quit, auto-update with rollback)
+- [x] Spawn API server as child process (port from config or default 3001)
+- [x] Health check polling (GET /api/health) — update tray icon green/grey/red, 60s startup timeout
+- [x] "Open Edgebric" menu item → `shell.openExternal`
+- [x] Stdout/stderr capture to log file with error extraction (EADDRINUSE, EACCES, etc.)
+- [x] Graceful shutdown on quit (stop API server, then Ollama, with SIGKILL fallback)
+- [x] Log viewer window (tail last 500 lines, auto-refresh, copy, clear)
+- [x] Server dashboard window (status, start/stop/restart, access URL, settings)
+- [x] mDNS publishing for .local hostnames (via bonjour-service)
+- [x] Single-instance lock (prevents duplicate launches)
+- [x] Concurrent operation guard (prevents multiple start/stop/restart from racing)
 
-**Reuse from CLI:**
-- `packages/cli/src/lib/paths.ts` → config/PID/log file paths
-- `packages/cli/src/commands/start.ts` → server spawn logic
-- `packages/cli/src/commands/stop.ts` → graceful stop logic
-
-### Phase D2 — Setup Wizard + Ollama Management
+### Phase D2 — Setup Wizard + Ollama Management ⚡ MOSTLY COMPLETE
 
 **Goal:** First-run GUI setup replaces CLI `edgebric setup`. Ollama auto-managed.
 
-- [ ] Detect first run (no `~/Edgebric/.edgebric.json`)
-- [ ] Multi-step wizard window (React, styled with Tailwind + shadcn)
-- [ ] Mode selection: Solo (free) / Admin (org) / Member (coming soon, greyed out)
-- [ ] System requirements check (RAM ≥ 16GB, disk space ≥ 20GB free)
-- [ ] Data directory picker (native folder dialog)
-- [ ] Ollama auto-download if not present (with progress bar)
-- [ ] Default model download (Qwen3.5-4B) with progress bar (~2.6GB)
-- [ ] OIDC configuration form with inline help/links (Admin mode only)
-- [ ] Admin email input (Admin mode only)
+- [x] Detect first run (no `~/Edgebric/.edgebric.json`)
+- [x] Multi-step wizard window (React, custom CSS)
+- [x] Mode selection: Solo (free) / Admin (org) / Member (coming soon, greyed out)
+- [x] Data directory picker (default: `~/Edgebric`)
+- [x] Ollama auto-download if not present (with progress reporting)
+- [x] Default model download during setup
+- [x] OIDC configuration form (Admin mode only)
+- [x] Admin email input (Admin mode only)
+- [x] Port + hostname configuration
+- [x] Write config + .env on completion
+- [x] Start Ollama + server automatically after wizard completes
+- [x] Ollama auto-update on app launch (check for newer version, download, rollback on failure)
+- [x] Self-signed TLS certificate generation (HTTPS by default)
+- [x] Settings page with hostname/port editing, danger zone (wipe/reset auth)
+- [ ] System requirements check (RAM ≥ 8GB, disk space ≥ 10GB free)
 - [ ] License activation (Admin mode only) — enter key or start subscription
-- [ ] Port selection (default 3001, check if port available)
-- [ ] Write config + .env on completion
-- [ ] Start Ollama + server automatically after wizard completes
-- [ ] Ollama auto-update on app launch (check for newer version, download, rollback on failure)
-- [ ] Model management UI: install/load/unload models, view RAM/disk usage per model
 
 ### Phase D3 — Licensing (Admin Mode Only)
 

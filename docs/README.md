@@ -1,8 +1,8 @@
 # Edgebric — Project Documentation
 
 **Name:** Edgebric
-**Status:** Pre-development — PRD in review
-**Last Updated:** 2026-03-02
+**Status:** Active development — v0.5 beta
+**Last Updated:** 2026-03-24
 
 ---
 
@@ -17,6 +17,11 @@
 | [05-decisions.md](05-decisions.md) | Resolved design decisions and open questions |
 | [06-metrics.md](06-metrics.md) | Success metrics |
 | [07-dev-plan.md](07-dev-plan.md) | Development plan — monorepo structure, spikes, phases, schema |
+| [08-productization.md](08-productization.md) | Phase 2 productization details |
+| [09-demo-plan.md](09-demo-plan.md) | Demo plan |
+| [10-architecture-onepager.md](10-architecture-onepager.md) | Architecture one-pager |
+| [11-pricing-distribution.md](11-pricing-distribution.md) | Pricing model and distribution strategy |
+| [12-desktop-app-plan.md](12-desktop-app-plan.md) | Desktop GUI app (Electron) development plan |
 
 ---
 

@@ -18,16 +18,23 @@ import {
 let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 let bonjourInstance: InstanceType<typeof Bonjour> | null = null;
+let operationInProgress = false;
 
 export type ServerStatus = "stopped" | "starting" | "running" | "error";
 
-type StatusChangeCallback = (status: ServerStatus) => void;
+type StatusChangeCallback = (status: ServerStatus, errorMsg?: string) => void;
 const listeners: StatusChangeCallback[] = [];
 let currentStatus: ServerStatus = "stopped";
+let currentErrorMsg: string | undefined;
 
-function setStatus(status: ServerStatus) {
+function setStatus(status: ServerStatus, errorMsg?: string) {
   currentStatus = status;
-  for (const cb of listeners) cb(status);
+  currentErrorMsg = status === "error" ? errorMsg : undefined;
+  for (const cb of listeners) cb(status, currentErrorMsg);
+}
+
+export function getErrorMsg(): string | undefined {
+  return currentErrorMsg;
 }
 
 export function onStatusChange(cb: StatusChangeCallback) {
@@ -112,11 +119,40 @@ function isProcessRunning(pid: number): boolean {
   }
 }
 
+/** Extract a useful error message from the last lines of a log file */
+function getLastError(logFile: string): string | null {
+  try {
+    const content = fs.readFileSync(logFile, "utf8");
+    const lines = content.split("\n").filter(Boolean);
+    // Look for common error patterns in the last 20 lines
+    const tail = lines.slice(-20);
+    for (const line of tail.reverse()) {
+      if (line.includes("EADDRINUSE")) return "Port already in use. Stop any other servers or change the port in Settings.";
+      if (line.includes("EACCES")) return "Permission denied. Try a port above 1024.";
+      if (line.includes("ENOSPC")) return "No disk space available.";
+      if (line.includes("Cannot find module")) return "Missing dependency. Try reinstalling.";
+      if (line.includes("SyntaxError")) return "Configuration error. Check your .env file.";
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 /** Start the API server as a child process */
 export async function startServer(): Promise<void> {
+  if (operationInProgress) return;
+  if (currentStatus === "starting" || currentStatus === "running") return;
+  operationInProgress = true;
+  try {
+    await _startServer();
+  } finally {
+    operationInProgress = false;
+  }
+}
+
+async function _startServer(): Promise<void> {
   const config = loadConfig();
   if (!config) {
-    setStatus("error");
+    setStatus("error", "No configuration found. Run setup first.");
     throw new Error("No configuration found. Run setup first.");
   }
 
@@ -136,13 +172,13 @@ export async function startServer(): Promise<void> {
 
   const envFile = envPath(config.dataDir);
   if (!fs.existsSync(envFile)) {
-    setStatus("error");
+    setStatus("error", "Environment file not found. Run setup first.");
     throw new Error("Environment file not found. Run setup first.");
   }
 
   const serverPath = findServerPath();
   if (!serverPath) {
-    setStatus("error");
+    setStatus("error", "Could not find the Edgebric API server.");
     throw new Error("Could not find the Edgebric API server.");
   }
 
@@ -202,7 +238,13 @@ export async function startServer(): Promise<void> {
     stopHealthCheck();
     // Clean up PID file
     try { fs.unlinkSync(pidFile); } catch { /* ignore */ }
-    setStatus(code === 0 ? "stopped" : "error");
+    if (code === 0) {
+      setStatus("stopped");
+    } else {
+      // Try to extract the crash reason from the log
+      const errMsg = getLastError(logFile);
+      setStatus("error", errMsg ?? `Server exited with code ${code}`);
+    }
   });
 
   startHealthCheck(config.port);
@@ -216,6 +258,16 @@ export async function startServer(): Promise<void> {
 
 /** Stop the API server */
 export async function stopServer(): Promise<void> {
+  if (operationInProgress) return;
+  operationInProgress = true;
+  try {
+    await _stopServer();
+  } finally {
+    operationInProgress = false;
+  }
+}
+
+async function _stopServer(): Promise<void> {
   stopHealthCheck();
   unpublishMdns();
 
@@ -269,8 +321,14 @@ export async function stopServer(): Promise<void> {
 
 /** Restart the server */
 export async function restartServer(): Promise<void> {
-  await stopServer();
-  await startServer();
+  if (operationInProgress) return;
+  operationInProgress = true;
+  try {
+    await _stopServer();
+    await _startServer();
+  } finally {
+    operationInProgress = false;
+  }
 }
 
 /** Poll the health endpoint to determine when server is ready */
@@ -300,10 +358,13 @@ function startHealthCheck(port: number) {
     } catch {
       if (currentStatus === "running") {
         // Server was running but is now unreachable
-        setStatus("error");
+        setStatus("error", "Server became unreachable.");
       } else if (currentStatus === "starting" && Date.now() - startTime > startupTimeoutMs) {
         // Server never started within timeout
-        setStatus("error");
+        const config2 = loadConfig();
+        const logFile = config2 ? logPath(config2.dataDir) : null;
+        const errMsg = logFile ? getLastError(logFile) : null;
+        setStatus("error", errMsg ?? "Server failed to start. Check logs for details.");
         stopHealthCheck();
       }
     }
