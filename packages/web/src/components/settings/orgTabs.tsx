@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle, Circle, Loader2, Cpu, ShieldCheck,
   Trash2, ChevronDown,
-  Power, RotateCcw, Activity, Search, Upload, X, AlertTriangle,
+  Activity, Search, Upload, X, AlertTriangle,
   ChevronLeft, ChevronRight,
 } from "lucide-react";
-import type { User } from "@edgebric/types";
+import type { User, ModelsResponse } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { modelMeta } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
@@ -783,20 +783,6 @@ export function MembersTab() {
 
 // ─── Service tab (formerly Models tab) ───────────────────────────────────────
 
-interface MILMModel {
-  id: string;
-  readyToUse: boolean;
-  onDisk: boolean;
-  loading: boolean;
-}
-
-interface ModelsResponse {
-  models: MILMModel[];
-  activeModel: string;
-  loadingModelId: string | null;
-}
-
-
 interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
   uptime: number;
@@ -823,30 +809,19 @@ export function ServiceTab() {
         return r.json() as Promise<ModelsResponse>;
       }),
     refetchInterval: (query) =>
-      query.state.data?.loadingModelId ? 3000 : 10_000,
+      query.state.data?.models.some((m) => m.status === "downloading") ? 3000 : 10_000,
   });
 
   const loadMutation = useMutation({
-    mutationFn: (modelId: string) =>
+    mutationFn: (tag: string) =>
       fetch("/api/admin/models/load", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId }),
+        body: JSON.stringify({ tag }),
       }).then((r) => {
         if (!r.ok) throw new Error("Load failed");
-        return r.json() as Promise<{ loading: boolean; modelId: string }>;
-      }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "models"] }),
-  });
-
-  const stopMutation = useMutation({
-    mutationFn: () =>
-      fetch("/api/admin/models/stop", {
-        method: "POST",
-        credentials: "same-origin",
-      }).then((r) => {
-        if (!r.ok) throw new Error("Stop failed");
+        return r.json() as Promise<{ loaded: boolean; tag: string }>;
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
@@ -854,13 +829,15 @@ export function ServiceTab() {
     },
   });
 
-  const restartMutation = useMutation({
-    mutationFn: () =>
-      fetch("/api/admin/models/restart", {
+  const unloadMutation = useMutation({
+    mutationFn: (tag: string) =>
+      fetch("/api/admin/models/unload", {
         method: "POST",
         credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag }),
       }).then((r) => {
-        if (!r.ok) throw new Error("Restart failed");
+        if (!r.ok) throw new Error("Unload failed");
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "models"] });
@@ -868,7 +845,7 @@ export function ServiceTab() {
     },
   });
 
-  const anyLoading = !!data?.loadingModelId || loadMutation.isPending || restartMutation.isPending;
+  const anyLoading = loadMutation.isPending || unloadMutation.isPending || (data?.models.some((m) => m.status === "downloading") ?? false);
   const inferenceStatus = health?.checks?.inference?.status ?? "unknown";
   const vectorStoreStatus = health?.checks?.vectorStore?.status ?? "unknown";
 
@@ -880,10 +857,13 @@ export function ServiceTab() {
     return `${h}h ${m}m`;
   }
 
-  // Sort: loaded first, then by id
+  // Sort: loaded first, then installed, then by tag
   const sorted = [...(data?.models ?? [])].sort((a, b) => {
-    if (a.readyToUse !== b.readyToUse) return a.readyToUse ? -1 : 1;
-    return a.id.localeCompare(b.id);
+    const statusOrder = { loaded: 0, downloading: 1, installed: 2, not_installed: 3 };
+    const aOrder = statusOrder[a.status] ?? 3;
+    const bOrder = statusOrder[b.status] ?? 3;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return a.tag.localeCompare(b.tag);
   });
 
   return (
@@ -931,32 +911,6 @@ export function ServiceTab() {
             <p className="text-xs font-medium text-slate-700 dark:text-gray-300">{health ? formatUptime(health.uptime) : "—"}</p>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            onClick={() => stopMutation.mutate()}
-            disabled={inferenceStatus !== "ok" || anyLoading || stopMutation.isPending}
-            className="flex items-center gap-1.5 text-xs border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-300 dark:hover:border-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <Power className="w-3.5 h-3.5" />
-            {stopMutation.isPending ? "Stopping..." : "Stop"}
-          </button>
-          <button
-            onClick={() => restartMutation.mutate()}
-            disabled={anyLoading || restartMutation.isPending}
-            className="flex items-center gap-1.5 text-xs border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-300 dark:hover:border-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            {restartMutation.isPending ? "Restarting..." : "Restart"}
-          </button>
-          {(stopMutation.isError || restartMutation.isError) && (
-            <span className="text-xs text-red-500">
-              {(stopMutation.error ?? restartMutation.error) instanceof Error
-                ? (stopMutation.error ?? restartMutation.error)!.message
-                : "Action failed"}
-            </span>
-          )}
-        </div>
       </div>
 
       {/* Models */}
@@ -966,7 +920,7 @@ export function ServiceTab() {
           <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Models</h3>
         </div>
         <p className="text-xs text-slate-400 dark:text-gray-500">
-          Loading a model restarts the inference server (~15-60s depending on model size).
+          Load a model to use it for AI responses. Only one model can be active at a time.
         </p>
 
         {isLoading && (
@@ -978,13 +932,15 @@ export function ServiceTab() {
         {!isLoading && (
           <div className="space-y-2">
             {sorted.map((model) => {
-              const meta = modelMeta(model.id);
-              const isActive = model.id === data?.activeModel;
-              const isLoading_ = model.loading || (loadMutation.isPending && loadMutation.variables === model.id);
+              const meta = modelMeta(model.tag);
+              const isActive = model.tag === data?.activeModel;
+              const isLoaded = model.status === "loaded";
+              const isDownloading = model.status === "downloading";
+              const isMutating = loadMutation.isPending && loadMutation.variables === model.tag;
 
               return (
                 <div
-                  key={model.id}
+                  key={model.tag}
                   className={cn(
                     "rounded-2xl border px-5 py-4 transition-colors",
                     isActive
@@ -993,7 +949,7 @@ export function ServiceTab() {
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    {isLoading_ ? (
+                    {isDownloading || isMutating ? (
                       <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-slate-400 dark:text-gray-500" />
                     ) : isActive ? (
                       <CheckCircle className="w-4 h-4 flex-shrink-0" />
@@ -1010,39 +966,41 @@ export function ServiceTab() {
                           "text-xs px-2 py-0.5 rounded-full font-mono font-medium",
                           isActive ? "bg-white/20 text-white dark:bg-gray-900/30 dark:text-gray-900" : "bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400",
                         )}>
-                          {model.id}
+                          {model.tag}
                         </span>
                         {isActive && (
                           <span className="text-xs bg-white/10 text-white/80 px-2 py-0.5 rounded-full font-medium">
                             Active
                           </span>
                         )}
-                        {isLoading_ && (
+                        {isLoaded && !isActive && (
+                          <span className="text-xs bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-medium border border-green-200 dark:border-green-800">
+                            Loaded
+                          </span>
+                        )}
+                        {(isDownloading || isMutating) && (
                           <span className={cn(
                             "text-xs px-2 py-0.5 rounded-full font-medium",
                             isActive ? "bg-white/10 text-white/70 dark:bg-gray-900/20 dark:text-gray-600" : "bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800",
                           )}>
-                            Loading...
+                            {isDownloading ? "Downloading..." : "Loading..."}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {!isActive && !isLoading_ && (
+                    {!isActive && !isDownloading && !isMutating && (
                       <button
-                        onClick={() => loadMutation.mutate(model.id)}
-                        disabled={anyLoading || !model.onDisk}
+                        onClick={() => loadMutation.mutate(model.tag)}
+                        disabled={anyLoading}
                         className={cn(
                           "flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors",
-                          !model.onDisk
-                            ? "border-slate-100 dark:border-gray-800 text-slate-300 dark:text-gray-600 cursor-not-allowed"
-                            : anyLoading
+                          anyLoading
                             ? "border-slate-100 dark:border-gray-800 text-slate-300 dark:text-gray-600 cursor-not-allowed"
                             : "border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-400 dark:hover:border-gray-500",
                         )}
-                        title={!model.onDisk ? "Model file not on disk" : undefined}
                       >
-                        {model.onDisk ? "Load" : "Not downloaded"}
+                        {isLoaded ? "Set Active" : "Load"}
                       </button>
                     )}
                   </div>
@@ -1050,6 +1008,14 @@ export function ServiceTab() {
               );
             })}
           </div>
+        )}
+
+        {(loadMutation.isError || unloadMutation.isError) && (
+          <p className="text-xs text-red-500">
+            {(loadMutation.error ?? unloadMutation.error) instanceof Error
+              ? (loadMutation.error ?? unloadMutation.error)!.message
+              : "Action failed"}
+          </p>
         )}
       </div>
     </div>
