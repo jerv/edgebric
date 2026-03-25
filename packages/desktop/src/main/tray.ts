@@ -10,7 +10,7 @@ import {
   onStatusChange,
   type ServerStatus,
 } from "./server.js";
-import { openMainWindow, openLogWindow, openMainWindowToSettings } from "./index.js";
+import { openMainWindow, openLogWindow, openMainWindowToSettings, openMainWindowToModels } from "./index.js";
 import { loadConfig } from "./config.js";
 import { certsExist } from "./certs.js";
 
@@ -150,6 +150,12 @@ function buildContextMenu(): Menu {
       },
     },
     { type: "separator" as const },
+    {
+      label: "Models...",
+      click: () => {
+        openMainWindowToModels();
+      },
+    },
     {
       label: "View Logs...",
       click: () => {

@@ -194,6 +194,15 @@ export function openMainWindowToSettings() {
   }, 500);
 }
 
+export function openMainWindowToModels() {
+  openMainWindow();
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("navigate-to", "models");
+    }
+  }, 500);
+}
+
 app.on("second-instance", () => {
   openMainWindow();
 });
