@@ -855,14 +855,28 @@ export function ServiceTab() {
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5">
         <div className="flex items-start gap-3">
           <Monitor className="w-5 h-5 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Model Management</h3>
-            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
-              To download, load, or switch AI models, open the Edgebric desktop app. Models are managed from the desktop app because they require downloading large files and use your machine's memory.
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Models</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              Models are managed from the desktop app.
             </p>
-            <p className="text-xs text-slate-400 dark:text-gray-500">
-              Look for the Edgebric icon in your menu bar, or open the Edgebric app from your Applications folder.
-            </p>
+            <div className="flex items-center gap-3 pt-1">
+              <a
+                href="edgebric://models"
+                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Open Desktop App
+              </a>
+              <span className="text-slate-300 dark:text-gray-700">|</span>
+              <a
+                href="https://edgebric.com/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:underline"
+              >
+                Download Edgebric
+              </a>
+            </div>
           </div>
         </div>
       </div>
