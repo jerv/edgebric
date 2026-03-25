@@ -863,7 +863,7 @@ export default function ServerDashboard() {
                         {m.description && <span className="model-item-meta">{m.description}</span>}
                       </div>
                       <button
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-primary btn-sm"
                         onClick={() => {
                           handlePullModel(m.name);
                           setSearchQuery("");
@@ -881,7 +881,7 @@ export default function ServerDashboard() {
                 <p className="hint" style={{ margin: "4px 0" }}>
                   No results. You can try installing directly:
                   <button
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-primary btn-sm"
                     style={{ marginLeft: 8 }}
                     onClick={() => {
                       handlePullModel(searchQuery.trim());
