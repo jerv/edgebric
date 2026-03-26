@@ -21,6 +21,7 @@ import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { broadcastToUser } from "../services/notificationStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
+import { routedSearch, type RoutedSearchResult } from "../services/queryRouter.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
@@ -90,13 +91,30 @@ const chatClient = createMILMClient(chatEdgeConfig, "");
 
 queryRouter.use(requireOrg);
 
-/** Enrich citations with the data source name, ID, avatar, and freshness based on document lookup. */
-function enrichCitationsWithDataSourceName(citations: Citation[]): void {
+/**
+ * Enrich citations with data source name, ID, avatar, freshness, and mesh node attribution.
+ * For remote mesh results, the citation includes sourceNodeName from the search results.
+ */
+function enrichCitationsWithDataSourceName(
+  citations: Citation[],
+  searchResults?: RoutedSearchResult[],
+): void {
   if (citations.length === 0) return;
   const dataSources = listDataSources({ type: "organization" });
   const dsMap = new Map(dataSources.map((ds) => [ds.id, ds]));
+
+  // Build chunkId → node attribution map from routed search results
+  const chunkNodeMap = new Map<string, { nodeId: string; nodeName: string }>();
+  if (searchResults) {
+    for (const r of searchResults) {
+      if (r.sourceNodeId && r.sourceNodeName) {
+        chunkNodeMap.set(r.chunkId, { nodeId: r.sourceNodeId, nodeName: r.sourceNodeName });
+      }
+    }
+  }
+
   for (const citation of citations) {
-    const doc = getDocument(citation.documentId);
+    const doc = citation.documentId ? getDocument(citation.documentId) : undefined;
     if (doc) {
       // Source freshness: include the document's last update time
       citation.documentUpdatedAt = doc.updatedAt instanceof Date
@@ -110,6 +128,14 @@ function enrichCitationsWithDataSourceName(citations: Citation[]): void {
           citation.dataSourceId = ds.id;
           if (ds.avatarUrl) citation.dataSourceAvatarUrl = ds.avatarUrl;
         }
+      }
+    }
+
+    // Add mesh node attribution if this citation came from a remote node
+    if (citation.chunkId) {
+      const nodeInfo = chunkNodeMap.get(citation.chunkId);
+      if (nodeInfo) {
+        citation.sourceNodeName = nodeInfo.nodeName;
       }
     }
   }
@@ -147,20 +173,23 @@ function resolveTargetDatasets(
 
 /**
  * Search across multiple mKB datasets with hybrid BM25+vector retrieval,
- * optional cross-encoder reranking, and adaptive top-K.
+ * optional cross-encoder reranking, adaptive top-K, and mesh fan-out.
+ *
+ * When mesh is enabled, queries also fan out to remote nodes and results
+ * are merged by similarity score.
  */
 async function searchWithHybrid(
   datasetNames: string[],
   queryText: string,
-): Promise<{ results: import("../services/searchService.js").HybridSearchResult[]; candidateCount: number; hybridBoost: boolean }> {
-  const { results, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
+): Promise<{ results: RoutedSearchResult[]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
+  const { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await routedSearch(
     mkb,
     datasetNames,
     queryText,
     20, // Retrieve 20 candidates for reranking/adaptive-K
   );
 
-  // Optional cross-encoder reranking
+  // Optional cross-encoder reranking (local results only — remote results already ranked)
   if (isRerankerAvailable() && results.length > 1) {
     const reranked = await rerank(
       queryText,
@@ -175,7 +204,7 @@ async function searchWithHybrid(
     results.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
   }
 
-  return { results, candidateCount, hybridBoost };
+  return { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable };
 }
 
 // Returns whether the system has at least one ready document to query against.
@@ -287,7 +316,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query);
       const stream = answerStream(
         query,
         session,
@@ -301,9 +330,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       for await (const chunk of stream) {
         if (chunk.delta) sendEvent("delta", { delta: chunk.delta });
         if (chunk.final) {
-          enrichCitationsWithDataSourceName(chunk.final.citations);
+          enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
           // No DB writes — just send the final response
-          sendEvent("done", { ...chunk.final, private: true });
+          sendEvent("done", { ...chunk.final, private: true, meshNodesSearched, meshNodesUnavailable });
         }
       }
     } catch {
@@ -381,7 +410,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   try {
     const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-    const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
+    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query);
     const stream = answerStream(
       query,
       session,
@@ -404,7 +433,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         sendEvent("delta", { delta: chunk.delta });
       }
       if (chunk.final) {
-        enrichCitationsWithDataSourceName(chunk.final.citations);
+        enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
 
         // Save assistant message to DB
         const assistantMsgId = randomUUID();
@@ -420,11 +449,13 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         addMessage(assistantMsg);
         updateConversationTimestamp(conversation.id);
 
-        // Emit done event with conversation + message IDs
+        // Emit done event with conversation + message IDs + mesh info
         sendEvent("done", {
           ...chunk.final,
           conversationId: conversation.id,
           messageId: assistantMsgId,
+          meshNodesSearched,
+          meshNodesUnavailable,
         });
       }
     }

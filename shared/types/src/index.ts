@@ -153,6 +153,10 @@ export interface Citation {
   dataSourceAvatarUrl?: string;
   /** When the source document was last updated (ISO string, for freshness display). */
   documentUpdatedAt?: string;
+  /** Chunk ID — used for mesh node attribution lookup. */
+  chunkId?: string;
+  /** Name of the mesh node this citation came from (null = local node). */
+  sourceNodeName?: string;
 }
 
 export interface AnswerResponse {
