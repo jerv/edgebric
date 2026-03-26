@@ -9,6 +9,7 @@ import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
 import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
 import {
   createConversation,
@@ -17,7 +18,6 @@ import {
   addMessage,
   updateConversationTimestamp,
 } from "../services/conversationStore.js";
-import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { broadcastToUser } from "../services/notificationStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
@@ -278,9 +278,12 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     details: { dsCount: dataSourceIds?.length ?? 0, hasConversation: !!existingConvId },
   });
 
+  // Determine strict mode (admin toggle: general answers)
+  const orgConfig = getIntegrationConfig();
+  const strict = !(orgConfig.generalAnswersEnabled ?? true);
+
   // ─── Private Mode: process query but don't log anything ────────────────────
   if (isPrivate) {
-    const orgConfig = getIntegrationConfig();
     if (!orgConfig.privateModeEnabled) {
       res.status(403).json({ error: "Private mode is not enabled" });
       return;
@@ -324,7 +327,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       const stream = answerStream(
         query,
         session,
-        { datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost },
+        { datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost, strict },
         {
           search: async () => searchResults,
           generate: (messages) => chatClient.chatStream(messages),
@@ -425,6 +428,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
+        strict,
       },
       {
         search: async () => searchResults,
@@ -448,6 +452,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
           content: chunk.final.answer,
           citations: chunk.final.citations,
           hasConfidentAnswer: chunk.final.hasConfidentAnswer,
+          ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
           createdAt: new Date(),
         };
         addMessage(assistantMsg);

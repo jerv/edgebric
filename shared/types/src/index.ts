@@ -136,6 +136,10 @@ export interface Chunk {
   embeddingId?: string;
 }
 
+// ─── Answer Types ────────────────────────────────────────────────────────────
+
+export type AnswerType = "grounded" | "blended" | "general" | "blocked";
+
 // ─── Citations & Answers ──────────────────────────────────────────────────────
 
 export interface Citation {
@@ -184,6 +188,8 @@ export interface AnswerResponse {
   meshNodesSearched?: number;
   /** Number of mesh nodes that were unreachable during the search. */
   meshNodesUnavailable?: number;
+  /** Classification of the answer source — grounded (docs), blended, general (LLM knowledge), or blocked. */
+  answerType?: AnswerType;
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────
@@ -231,6 +237,7 @@ export interface PersistedMessage {
   content: string;
   citations?: Citation[];
   hasConfidentAnswer?: boolean;
+  answerType?: AnswerType;
   source?: "ai" | "admin" | "system" | undefined;
   createdAt: Date;
 }
@@ -260,6 +267,8 @@ export interface IntegrationConfig {
   vaultModeEnabled?: boolean;
   /** Documents older than this are flagged as stale. Default: 180 days. */
   stalenessThresholdDays?: number;
+  /** When true, the AI answers from general knowledge when no documents match. Default: true. */
+  generalAnswersEnabled?: boolean;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────
@@ -354,6 +363,7 @@ export interface GroupChatMessage {
   content: string;
   citations?: Citation[];
   hasConfidentAnswer?: boolean;
+  answerType?: AnswerType;
   /** Number of replies in thread (populated on main chat messages only). */
   threadReplyCount?: number;
   /** Unique participants in this thread (populated on main chat messages only). */

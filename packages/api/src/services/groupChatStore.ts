@@ -19,6 +19,7 @@ import type {
   GroupChatMessage,
   GroupChatExpiration,
   Citation,
+  AnswerType,
 } from "@edgebric/types";
 
 function decryptContentSafe(content: string): string {
@@ -88,6 +89,7 @@ function rowToMessage(row: typeof groupChatMessages.$inferSelect): GroupChatMess
   if (row.authorName) msg.authorName = row.authorName;
   if (row.citations) msg.citations = JSON.parse(row.citations) as Citation[];
   if (row.hasConfidentAnswer != null) msg.hasConfidentAnswer = !!row.hasConfidentAnswer;
+  if (row.answerType != null) msg.answerType = row.answerType as AnswerType;
   return msg;
 }
 
@@ -453,6 +455,7 @@ export function addMessage(data: {
   content: string;
   citations?: Citation[];
   hasConfidentAnswer?: boolean;
+  answerType?: string;
 }): GroupChatMessage {
   const db = getDb();
   const id = randomUUID();
@@ -469,6 +472,7 @@ export function addMessage(data: {
     content: encryptedContent,
     citations: data.citations ? JSON.stringify(data.citations) : null,
     hasConfidentAnswer: data.hasConfidentAnswer != null ? (data.hasConfidentAnswer ? 1 : 0) : null,
+    answerType: data.answerType ?? null,
     createdAt: now,
   }).run();
 
@@ -489,6 +493,7 @@ export function addMessage(data: {
   if (data.authorName) msg.authorName = data.authorName;
   if (data.citations) msg.citations = data.citations;
   if (data.hasConfidentAnswer != null) msg.hasConfidentAnswer = data.hasConfidentAnswer;
+  if (data.answerType) msg.answerType = data.answerType as AnswerType;
   return msg;
 }
 

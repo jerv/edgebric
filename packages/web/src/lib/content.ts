@@ -1,10 +1,16 @@
+import type { ReactNode } from "react";
+import { createElement } from "react";
 import type { Citation } from "@edgebric/types";
 
-/** Strip all source/citation references from model output and ensure paragraph spacing. */
+/**
+ * Clean model output — strip junk but PRESERVE [Source N] inline markers.
+ * The inline markers are rendered as interactive superscripts by the UI.
+ */
 export function cleanContent(text: string): string {
   let cleaned = text;
-  // Remove inline [Source N] or [Source N: anything] references
-  cleaned = cleaned.replace(/\s*\[Source\s*\d+[^\]]*\]/gi, "");
+  // Keep [Source N] markers — these are now rendered as inline citation superscripts.
+  // Only strip the junk patterns the model sometimes generates:
+
   // Remove parenthesized sources: (Source: ...) or (Sources: ...)
   cleaned = cleaned.replace(/\s*\(Sources?:?[^)]*\)/gi, "");
   // Remove trailing Sources/References section (with or without bold/header markers)
@@ -31,6 +37,92 @@ export function dedupeCitations(citations: Citation[]): Citation[] {
     seen.add(key);
     return true;
   });
+}
+
+// ─── Inline Citation Processor ──────────────────────────────────────────────
+
+const SOURCE_MARKER_REGEX = /\[Source\s*(\d+)\]/gi;
+
+/**
+ * Process React children from markdown, replacing [Source N] text with
+ * interactive superscript citation buttons.
+ *
+ * Walks React children (strings and elements), splits strings on
+ * [Source N] patterns, and returns mixed text + superscript elements.
+ */
+export function processInlineCitations(
+  children: ReactNode,
+  onCitationClick?: (sourceIndex: number) => void,
+): ReactNode {
+  if (!children) return children;
+
+  if (typeof children === "string") {
+    return splitTextByCitations(children, onCitationClick);
+  }
+
+  if (Array.isArray(children)) {
+    return children.map((child, i) => {
+      if (typeof child === "string") {
+        return splitTextByCitations(child, onCitationClick, i);
+      }
+      return child;
+    });
+  }
+
+  return children;
+}
+
+function splitTextByCitations(
+  text: string,
+  onCitationClick?: (sourceIndex: number) => void,
+  keyPrefix: number = 0,
+): ReactNode {
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  // Reset regex state
+  const regex = new RegExp(SOURCE_MARKER_REGEX.source, SOURCE_MARKER_REGEX.flags);
+
+  while ((match = regex.exec(text)) !== null) {
+    // Text before the marker
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    const sourceNum = Number(match[1]);
+    parts.push(
+      createElement(
+        "button",
+        {
+          key: `cite-${keyPrefix}-${match.index}`,
+          className:
+            "inline text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 align-super ml-0.5 cursor-pointer",
+          onClick: onCitationClick
+            ? (e: { stopPropagation: () => void }) => {
+                e.stopPropagation();
+                onCitationClick(sourceNum);
+              }
+            : undefined,
+          title: `Source ${sourceNum}`,
+        },
+        `[${sourceNum}]`,
+      ),
+    );
+
+    lastIndex = regex.lastIndex;
+  }
+
+  // Remaining text after last marker
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  // If no markers found, return original string
+  if (parts.length === 0) return text;
+  if (parts.length === 1 && typeof parts[0] === "string") return parts[0];
+
+  return parts;
 }
 
 /** Tailwind classes for rendering markdown prose content. */

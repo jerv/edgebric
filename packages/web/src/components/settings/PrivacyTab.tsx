@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Copy, Trash2, RefreshCw, ExternalLink,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Copy, Trash2, RefreshCw, ExternalLink, Sparkles,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";
@@ -67,6 +67,26 @@ function AdminToggles() {
           enabled={config?.vaultModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ vaultModeEnabled: v })}
+        />
+      </div>
+
+      <div className="mt-6">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
+          AI Behavior
+        </h3>
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+          Control how the AI assistant responds to queries.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <ToggleCard
+          icon={<Sparkles className="w-4 h-4" />}
+          title="General AI Answers"
+          description="Allow the AI to answer from general knowledge when no matching documents are found. When disabled, the AI only answers from your uploaded documents."
+          enabled={config?.generalAnswersEnabled ?? true}
+          saving={mutation.isPending}
+          onToggle={(v) => mutation.mutate({ generalAnswersEnabled: v })}
         />
       </div>
 

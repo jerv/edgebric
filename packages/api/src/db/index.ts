@@ -213,6 +213,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE data_sources ADD COLUMN allow_vault_sync INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE data_sources ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE data_sources ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'all'",
+    "ALTER TABLE messages ADD COLUMN answer_type TEXT",
+    "ALTER TABLE group_chat_messages ADD COLUMN answer_type TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

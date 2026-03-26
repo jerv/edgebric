@@ -117,6 +117,7 @@ export const messages = sqliteTable("messages", {
   content: text("content").notNull(),
   citations: text("citations"),
   hasConfidentAnswer: integer("has_confident_answer"),
+  answerType: text("answer_type"), // "grounded" | "blended" | "general" | "blocked" | null
   source: text("source"), // "ai" | "admin" | "system" | null (null = "ai")
   createdAt: text("created_at").notNull(),
 });
@@ -201,6 +202,7 @@ export const groupChatMessages = sqliteTable("group_chat_messages", {
   content: text("content").notNull(),
   citations: text("citations"), // JSON array
   hasConfidentAnswer: integer("has_confident_answer"),
+  answerType: text("answer_type"), // "grounded" | "blended" | "general" | "blocked" | null
   createdAt: text("created_at").notNull(),
 });
 

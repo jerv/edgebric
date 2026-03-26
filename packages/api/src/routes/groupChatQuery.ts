@@ -9,6 +9,7 @@ import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getDocument } from "../services/documentStore.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
@@ -271,6 +272,8 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
 
   try {
     const query = extractQuery(content);
+    const gcOrgConfig = getIntegrationConfig();
+    const strict = !(gcOrgConfig.generalAnswersEnabled ?? true);
 
     // Resolve datasets from shared data sources
     const datasetNames = getSharedDatasetNames(chatId);
@@ -406,6 +409,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
+        strict,
       },
       {
         search: async () => searchResults,
@@ -426,6 +430,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
           role: "assistant",
           content: chunk.final.answer,
           hasConfidentAnswer: chunk.final.hasConfidentAnswer,
+          ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
         };
         if (threadParentId) botMsgOpts.threadParentId = threadParentId;
         if (chunk.final.citations.length > 0) botMsgOpts.citations = chunk.final.citations;

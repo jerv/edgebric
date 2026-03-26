@@ -1,7 +1,8 @@
-import type { AnswerResponse, Citation, Chunk, Session } from "@edgebric/types";
+import type { AnswerResponse, AnswerType, Citation, Chunk, Session } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { filterQuery } from "./queryFilter.js";
-import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
+import { buildSystemPrompt, buildGeneralPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
+import { detectAnswerType, validateMarkers } from "./answerAnalysis.js";
 
 // ─── Dependency interfaces ─────────────────────────────────────────────────────
 // The orchestrator has no knowledge of mimik, HTTP, or any specific library.
@@ -48,21 +49,26 @@ export interface RAGOptions {
   hybridBoost?: boolean;
   /** Average retrieval score from search service. */
   retrievalScore?: number;
+  /** When true, restrict to context-only answers (admin toggle off). */
+  strict?: boolean;
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────────────────────
 
 /**
- * Core RAG pipeline.
+ * Core RAG pipeline with answer type routing.
  *
  * Flow:
  * 1. Filter query (person + sensitive term → redirect)
  * 2. Search (hybrid BM25+vector with adaptive top-K, done by caller)
- * 3. If no relevant chunks → return no-answer response
+ * 3. If no relevant chunks:
+ *    - strict mode → return NO_ANSWER_RESPONSE
+ *    - permissive mode → generate from general knowledge
  * 4. Use parent content for LLM context (parent-child retrieval)
- * 5. Build system prompt with context
+ * 5. Build system prompt (strict vs permissive with inline citations)
  * 6. Generate streamed answer
- * 7. Return answer + citations with confidence signals
+ * 7. Analyze answer for inline citations → determine grounded vs blended
+ * 8. Return answer + citations + answerType + confidence signals
  *
  * All I/O is injected via deps — this function is pure business logic.
  */
@@ -74,6 +80,7 @@ export async function* answerStream(
 ): AsyncIterable<{ delta?: string; final?: AnswerResponse }> {
   const topK = options.topK ?? 5;
   const threshold = options.similarityThreshold ?? 0.3;
+  const strict = options.strict ?? false;
 
   // Layer 4: query filter
   const filter = filterQuery(query);
@@ -82,6 +89,7 @@ export async function* answerStream(
       answer: filter.redirectMessage ?? NO_ANSWER_RESPONSE,
       citations: [],
       hasConfidentAnswer: false,
+      answerType: "blocked",
       sessionId: session.id,
     };
     yield { final: response };
@@ -92,11 +100,45 @@ export async function* answerStream(
   const searchResults = await deps.search(query, topK);
   const relevantResults = searchResults.filter((r) => r.similarity >= threshold);
 
+  // ─── No relevant chunks ───────────────────────────────────────────────────
+
   if (relevantResults.length === 0) {
+    if (strict) {
+      // Strict mode: dead-end (current behavior)
+      const response: AnswerResponse = {
+        answer: NO_ANSWER_RESPONSE,
+        citations: [],
+        hasConfidentAnswer: false,
+        answerType: "general",
+        sessionId: session.id,
+        searchedDatasets: options.datasetNames ?? [options.datasetName],
+        candidateCount: options.candidateCount ?? 0,
+      };
+      yield { final: response };
+      return;
+    }
+
+    // Permissive mode: answer from general knowledge
+    const generalPrompt = buildGeneralPrompt();
+    const messages: Message[] = [
+      { role: "system", content: generalPrompt },
+      ...session.messages.map((m) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.content,
+      })),
+    ];
+
+    let fullAnswer = "";
+    for await (const delta of deps.generate(messages)) {
+      fullAnswer += delta;
+      yield { delta };
+    }
+
     const response: AnswerResponse = {
-      answer: NO_ANSWER_RESPONSE,
+      answer: fullAnswer,
       citations: [],
       hasConfidentAnswer: false,
+      answerType: "general",
       sessionId: session.id,
       searchedDatasets: options.datasetNames ?? [options.datasetName],
       candidateCount: options.candidateCount ?? 0,
@@ -104,6 +146,8 @@ export async function* answerStream(
     yield { final: response };
     return;
   }
+
+  // ─── Context chunks found ─────────────────────────────────────────────────
 
   // Build context chunks — use parent content when available for richer LLM context.
   // Deduplicate: if two child chunks share the same parent, only include the parent once.
@@ -139,7 +183,7 @@ export async function* answerStream(
   }
 
   // Build messages for generation
-  const systemPrompt = buildSystemPrompt(contextChunks);
+  const systemPrompt = buildSystemPrompt(contextChunks, { strict });
   const messages: Message[] = [
     { role: "system", content: systemPrompt },
     // Callers manage context window (solo chat: last 4, group chat: summarized + last 10)
@@ -178,10 +222,24 @@ export async function* answerStream(
         excerpt: r.chunk.slice(0, 300),
       }));
 
+  // Determine answer type via inline citation analysis.
+  // In strict mode, the model doesn't use [Source N] markers — always grounded.
+  let answerType: AnswerType;
+  if (modelDeclined) {
+    answerType = "grounded"; // Had context, model couldn't answer — still grounded, just low confidence
+  } else if (strict) {
+    answerType = "grounded";
+  } else {
+    // Validate markers (strip hallucinated source references)
+    fullAnswer = validateMarkers(fullAnswer, citations.length);
+    answerType = detectAnswerType(fullAnswer, true);
+  }
+
   const response: AnswerResponse = {
     answer: fullAnswer,
     citations,
     hasConfidentAnswer: !modelDeclined,
+    answerType,
     sessionId: session.id,
     searchedDatasets: options.datasetNames ?? [options.datasetName],
     retrievalScore: Math.round(avgSimilarity * 100) / 100,

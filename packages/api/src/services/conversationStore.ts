@@ -1,4 +1,4 @@
-import type { Conversation, PersistedMessage, Citation } from "@edgebric/types";
+import type { Conversation, PersistedMessage, Citation, AnswerType } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { conversations, messages } from "../db/schema.js";
 import { eq, desc, asc, isNull, and } from "drizzle-orm";
@@ -36,6 +36,7 @@ function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
   };
   if (row.citations != null) msg.citations = JSON.parse(row.citations) as Citation[];
   if (row.hasConfidentAnswer != null) msg.hasConfidentAnswer = Boolean(row.hasConfidentAnswer);
+  if (row.answerType != null) msg.answerType = row.answerType as AnswerType;
   if (row.source != null) msg.source = row.source as "ai" | "admin" | "system";
   return msg;
 }
@@ -92,6 +93,7 @@ export function addMessage(msg: PersistedMessage): void {
       content: encryptText(msg.content),
       citations: msg.citations ? JSON.stringify(msg.citations) : null,
       hasConfidentAnswer: msg.hasConfidentAnswer != null ? (msg.hasConfidentAnswer ? 1 : 0) : null,
+      answerType: msg.answerType ?? null,
       source: msg.source ?? null,
       createdAt: msg.createdAt.toISOString(),
     })
