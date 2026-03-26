@@ -120,7 +120,7 @@ pnpm dev
 - Config: `packages/api/.env` (copy from `.env.example`)
 - Database: local SQLite in `packages/api/data/`
 - Edge runtime: mimik mim OE on `localhost:8083`
-- Chat model: llama-server on `localhost:8080`
+- Chat model: Ollama on `localhost:11434` (auto-managed by desktop app)
 
 ### Development (Docker)
 

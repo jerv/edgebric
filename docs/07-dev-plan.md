@@ -25,9 +25,9 @@ Phase 1 and Phase 2 (productization) are complete. The single-node product is fu
 ```
 Phase 1: Foundation — Multi-data-source, auth, org model, security, privacy  ✅ COMPLETE
 Phase 2: Productization — Hardening, testing, validation, deployment         ✅ COMPLETE
-Phase 3: Group Chats — Collaborative data source sharing + threads           IN PROGRESS
+Phase 3: Group Chats — Collaborative data source sharing + threads           ✅ COMPLETE
 Phase 4: Integrations — Slack bot, email notifications                   NEXT
-Phase 5: Distributed — Mesh discovery + cross-device queries             (multi-Mac mesh)
+Phase 5: Distributed — Mesh networking + cross-node queries              ✅ COMPLETE (M1-M5, M7)
 Phase 6: Meeting Mode — Ephemeral sessions + room codes                  (the daily-use hook)
 ```
 
@@ -50,7 +50,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 
 ---
 
-## Phase 3 — Group Chats: Collaborative Data Source Sharing (IN PROGRESS)
+## Phase 3 — Group Chats: Collaborative Data Source Sharing ✅ COMPLETE
 
 **Goal:** Enable collaborative knowledge work where multiple people share data sources, discuss, and query the bot together. Replaces the old escalation system with a natural collaboration model.
 
@@ -337,15 +337,13 @@ edgebric/
 ```
 Phase 1:  Multi-data-source, auth, org model, security, privacy, UI    ✅ COMPLETE
 Phase 2:  Productization — validation, testing, hardening              ✅ COMPLETE
-Phase 3:  Group chats — collaborative data source sharing + threads     IN PROGRESS
+Phase 3:  Group chats — collaborative data source sharing + threads     ✅ COMPLETE
 Phase 4:  Integrations — Slack bot, email notifications                NEXT
-Phase 5:  Mesh discovery, cross-device query routing                   AFTER INTEGRATIONS
-Phase 6:  Meeting mode, session management, session UI                 AFTER MESH
+Phase 5:  Mesh networking, cross-node query routing                    ✅ COMPLETE (M1-M5, M7)
+Phase 6:  Meeting mode, session management, session UI                 AFTER INTEGRATIONS
 Phase 7:  iOS app, Android app                                         POST-LAUNCH
 ```
 
-Phase 3 (group chats) is the current focus. Group chats replace the old escalation system with natural collaboration — invite experts, share data sources, discuss with @bot assistance.
-
-Phase 4 (integrations) follows immediately — Slack bot lets customers query Edgebric from tools they already use. Socket Mode makes it firewall-friendly for on-prem.
+Phase 4 (integrations) is next — Slack bot lets customers query Edgebric from tools they already use. Socket Mode makes it firewall-friendly for on-prem.
 
 **The shipping milestone:** A non-technical office manager downloads a `.dmg`, drags to Applications, launches the app, walks through a 5-step wizard, and has a working private AI knowledge assistant with group collaboration for their team within 10 minutes.
