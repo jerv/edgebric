@@ -272,10 +272,10 @@ authRouter.get("/callback", async (req, res) => {
         queryToken: req.session.queryToken,
         isAdmin: req.session.isAdmin,
         email: req.session.email!,
-        name: req.session.name,
-        picture: req.session.picture,
-        orgId: req.session.orgId,
-        orgSlug: req.session.orgSlug,
+        ...(req.session.name != null && { name: req.session.name }),
+        ...(req.session.picture != null && { picture: req.session.picture }),
+        ...(req.session.orgId != null && { orgId: req.session.orgId }),
+        ...(req.session.orgSlug != null && { orgSlug: req.session.orgSlug }),
         createdAt: Date.now(),
       });
       // Redirect to the frontend origin — the /api/auth/claim handler will
