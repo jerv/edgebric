@@ -44,6 +44,8 @@ export default defineConfig({
       OLLAMA_BASE_URL: "http://localhost:99999", // intentionally unreachable
       MIMIK_BASE_URL: "http://localhost:99999",
       MIMIK_API_KEY: "e2e-test-key",
+      SKIP_CSRF: "1",
+      SKIP_RATE_LIMIT: "1",
     },
   },
 });

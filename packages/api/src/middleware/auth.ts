@@ -1,6 +1,17 @@
 import type { Request, Response, NextFunction } from "express";
 import { config } from "../config.js";
 
+/** Cached solo org info — populated once by initSoloMode(). */
+let soloOrg: { id: string; slug: string } | undefined;
+
+/**
+ * Set the solo mode org info and ensure a user record exists.
+ * Called from server.ts at startup (after DB init + ensureDefaultOrg).
+ */
+export function setSoloOrg(org: { id: string; slug: string }): void {
+  soloOrg = org;
+}
+
 /**
  * In solo mode (AUTH_MODE=none), auto-populate session with admin credentials
  * so all auth checks pass transparently.
@@ -12,8 +23,8 @@ function ensureSoloSession(req: Request): void {
     req.session.isAdmin = true;
     req.session.email = "solo@localhost";
     req.session.name = "You";
-    req.session.orgId = "solo";
-    req.session.orgSlug = "solo";
+    req.session.orgId = soloOrg?.id ?? "solo";
+    req.session.orgSlug = soloOrg?.slug ?? "solo";
   }
 }
 

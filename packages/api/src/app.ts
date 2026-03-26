@@ -122,7 +122,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
 
   // ─── Rate Limiting ───────────────────────────────────────────────────────────
 
-  if (!opts.skipRateLimit) {
+  if (!opts.skipRateLimit && process.env["SKIP_RATE_LIMIT"] !== "1") {
     const globalLimiter = rateLimit({
       windowMs: 60_000,
       limit: 100,
@@ -168,7 +168,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
 
   // ─── CSRF Protection (double-submit cookie) ────────────────────────────────
 
-  if (!opts.skipCsrf) {
+  if (!opts.skipCsrf && process.env["SKIP_CSRF"] !== "1") {
     const CSRF_COOKIE = "edgebric.csrf";
     const CSRF_HEADER = "x-csrf-token";
     const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -209,7 +209,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
 
   // ─── Routes ───────────────────────────────────────────────────────────────────
 
-  const queryLimiter = opts.skipRateLimit ? [] : [rateLimit({
+  const queryLimiter = (opts.skipRateLimit || process.env["SKIP_RATE_LIMIT"] === "1") ? [] : [rateLimit({
     windowMs: 60_000,
     limit: 20,
     standardHeaders: "draft-7",

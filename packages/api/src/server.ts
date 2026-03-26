@@ -68,8 +68,25 @@ async function start() {
   initDatabase();
 
   // Ensure default org + data source exist and assign orphaned documents (idempotent)
-  ensureDefaultOrg();
+  const defaultOrg = ensureDefaultOrg();
   migrateOrphanedDocumentsToDefaultDataSource();
+
+  // In solo mode, ensure the solo user record exists in the real default org
+  if (config.authMode === "none") {
+    const { setSoloOrg } = await import("./middleware/auth.js");
+    const { upsertUser, updateUserPermissions } = await import("./services/userStore.js");
+    setSoloOrg({ id: defaultOrg.id, slug: defaultOrg.slug });
+    const soloUser = upsertUser({
+      email: "solo@localhost",
+      name: "You",
+      orgId: defaultOrg.id,
+      role: "admin",
+    });
+    updateUserPermissions(soloUser.id, {
+      canCreateDataSources: true,
+      canCreateGroupChats: true,
+    });
+  }
 
   // Refresh all data source document counts (fixes stale cached counts)
   {
