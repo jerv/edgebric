@@ -100,9 +100,10 @@ async function executeRebuild(datasetName: string): Promise<void> {
     //    mKB assigns IDs as {datasetName}-{0..N-1}
     const oldMetadata = remaining.map((c) => c.metadata);
     const oldContent = remaining.map((c) => c.content);
+    const oldParentContent = remaining.map((c) => c.metadata.parentContent ?? c.content);
 
     clearChunksForDataset(datasetName);
-    registerChunks(datasetName, 0, oldMetadata, oldContent);
+    registerChunks(datasetName, 0, oldMetadata, oldContent, oldParentContent);
 
     log.info({ chunkCount: remaining.length }, "Dataset rebuild complete");
   } catch (err) {

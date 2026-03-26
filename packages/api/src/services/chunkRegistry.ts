@@ -1,5 +1,5 @@
 import type { ChunkMetadata } from "@edgebric/types";
-import { getDb } from "../db/index.js";
+import { getDb, getSqlite } from "../db/index.js";
 import { chunks, documents, knowledgeBases } from "../db/schema.js";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
 import { encryptText, decryptText } from "../lib/crypto.js";
@@ -28,6 +28,7 @@ function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
     chunkIndex: row.chunkIndex,
   };
   if (row.documentName != null) meta.documentName = row.documentName;
+  if (row.parentContent != null) meta.parentContent = decryptContentSafe(row.parentContent);
   return meta;
 }
 
@@ -36,32 +37,36 @@ function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
  *
  * mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially.
  * We store our own metadata here since mKB v1.3.0 doesn't persist it.
+ *
+ * Wrapped in a transaction for performance (1 disk sync instead of N).
+ * Also populates the FTS5 index for hybrid BM25+vector search.
  */
 export function registerChunks(
   datasetName: string,
   startIndex: number,
   metadataList: ChunkMetadata[],
   contentList?: string[],
+  parentContentList?: string[],
 ): void {
   const db = getDb();
-  for (let i = 0; i < metadataList.length; i++) {
-    const meta = metadataList[i]!;
-    const raw = contentList?.[i] ?? null;
-    const chunkContent = raw ? encryptText(raw) : null;
-    db.insert(chunks)
-      .values({
-        chunkId: `${datasetName}-${startIndex + i}`,
-        sourceDocument: meta.sourceDocument,
-        documentName: meta.documentName ?? null,
-        sectionPath: JSON.stringify(meta.sectionPath),
-        pageNumber: meta.pageNumber,
-        heading: meta.heading,
-        chunkIndex: meta.chunkIndex,
-        content: chunkContent,
-      })
-      .onConflictDoUpdate({
-        target: chunks.chunkId,
-        set: {
+  const sqlite = getSqlite();
+
+  const ftsInsert = sqlite.prepare(
+    "INSERT OR REPLACE INTO chunks_fts(chunk_id, content) VALUES (?, ?)",
+  );
+
+  db.transaction(() => {
+    for (let i = 0; i < metadataList.length; i++) {
+      const meta = metadataList[i]!;
+      const raw = contentList?.[i] ?? null;
+      const chunkContent = raw ? encryptText(raw) : null;
+      const parentRaw = parentContentList?.[i] ?? null;
+      const parentContent = parentRaw ? encryptText(parentRaw) : null;
+      const chunkId = `${datasetName}-${startIndex + i}`;
+
+      db.insert(chunks)
+        .values({
+          chunkId,
           sourceDocument: meta.sourceDocument,
           documentName: meta.documentName ?? null,
           sectionPath: JSON.stringify(meta.sectionPath),
@@ -69,10 +74,29 @@ export function registerChunks(
           heading: meta.heading,
           chunkIndex: meta.chunkIndex,
           content: chunkContent,
-        },
-      })
-      .run();
-  }
+          parentContent,
+        })
+        .onConflictDoUpdate({
+          target: chunks.chunkId,
+          set: {
+            sourceDocument: meta.sourceDocument,
+            documentName: meta.documentName ?? null,
+            sectionPath: JSON.stringify(meta.sectionPath),
+            pageNumber: meta.pageNumber,
+            heading: meta.heading,
+            chunkIndex: meta.chunkIndex,
+            content: chunkContent,
+            parentContent,
+          },
+        })
+        .run();
+
+      // Populate FTS5 index with plaintext for BM25 search
+      if (raw) {
+        ftsInsert.run(chunkId, raw);
+      }
+    }
+  });
 }
 
 /** Look up metadata for a single mKB chunk. */
@@ -152,7 +176,24 @@ export function getChunksForDocument(documentId: string): Array<{
 /** Remove all chunks belonging to a document. */
 export function clearChunksForDocument(documentId: string): void {
   const db = getDb();
+  const sqlite = getSqlite();
+
+  // Get chunk IDs before deleting so we can clean FTS5
+  const rows = db.select({ chunkId: chunks.chunkId })
+    .from(chunks)
+    .where(eq(chunks.sourceDocument, documentId))
+    .all();
+
   db.delete(chunks).where(eq(chunks.sourceDocument, documentId)).run();
+
+  // Clean FTS5 index
+  if (rows.length > 0) {
+    const deleteStmt = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const tx = sqlite.transaction((ids: string[]) => {
+      for (const id of ids) deleteStmt.run(id);
+    });
+    tx(rows.map((r) => r.chunkId));
+  }
 }
 
 /**
@@ -187,7 +228,24 @@ export function getChunksForDataset(datasetName: string): Array<{
 /** Clear all chunk registry entries for a dataset. */
 export function clearChunksForDataset(datasetName: string): void {
   const db = getDb();
+  const sqlite = getSqlite();
+
+  // Get chunk IDs before deleting so we can clean FTS5
+  const rows = db.select({ chunkId: chunks.chunkId })
+    .from(chunks)
+    .where(sql`${chunks.chunkId} LIKE ${datasetName + "-%"}`)
+    .all();
+
   db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${datasetName + "-%"}`);
+
+  // Clean FTS5 index
+  if (rows.length > 0) {
+    const deleteStmt = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const tx = sqlite.transaction((ids: string[]) => {
+      for (const id of ids) deleteStmt.run(id);
+    });
+    tx(rows.map((r) => r.chunkId));
+  }
 }
 
 /**

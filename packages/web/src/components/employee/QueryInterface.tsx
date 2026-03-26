@@ -30,6 +30,8 @@ interface Message {
   hasConfidentAnswer?: boolean;
   isStreaming?: boolean;
   source?: "ai" | "admin" | "system";
+  /** Average retrieval confidence score (0-1). Low values indicate uncertain results. */
+  retrievalScore?: number;
 }
 
 
@@ -580,6 +582,7 @@ export function ChatPanel() {
                   prevRevealedContent: last.revealedContent ?? "",
                   citations: chunk.citations,
                   hasConfidentAnswer: chunk.hasConfidentAnswer,
+                  retrievalScore: chunk.retrievalScore,
                   isStreaming: false,
                 };
               }
@@ -734,6 +737,7 @@ export function ChatPanel() {
                       prevRevealedContent: last.revealedContent ?? "",
                       citations: parsed.citations,
                       hasConfidentAnswer: parsed.hasConfidentAnswer,
+                      retrievalScore: parsed.retrievalScore,
                       isStreaming: false,
                     };
                   }
@@ -1004,9 +1008,16 @@ export function ChatPanel() {
                             {privacyLevel === "vault" ? "Vault — fully local" : "Private — not saved"}
                           </span>
                         ) : message.hasConfidentAnswer ? (
-                          <p className="text-xs text-slate-400 dark:text-gray-500">
-                            Verify all important answers with the appropriate human.
-                          </p>
+                          <>
+                            {message.retrievalScore != null && message.retrievalScore < 0.5 && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                                Lower confidence — the matching documents had weaker relevance scores. Verify this answer carefully.
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-400 dark:text-gray-500">
+                              Verify all important answers with the appropriate human.
+                            </p>
+                          </>
                         ) : null}
                       </div>
                     </div>

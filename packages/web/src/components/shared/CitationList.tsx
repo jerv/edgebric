@@ -1,6 +1,23 @@
 import { useMemo } from "react";
-import { Database } from "lucide-react";
+import { Database, AlertTriangle } from "lucide-react";
 import type { Citation } from "@edgebric/types";
+
+/** Returns a relative time string like "3 months ago". */
+function relativeTime(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days}d ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+/** 180 days — sources older than this get a staleness warning. */
+const STALENESS_DAYS = 180;
 
 interface SourceInfo {
   documentId: string;
@@ -80,14 +97,22 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
                 ? citation.sectionPath.join(" › ")
                 : null;
               const page = citation.pageNumber > 0 ? `p.${citation.pageNumber}` : null;
-              const detail = [breadcrumb, page].filter(Boolean).join(" · ");
+
+              // Freshness indicator
+              const updatedAt = citation.documentUpdatedAt;
+              const updatedLabel = updatedAt ? relativeTime(updatedAt) : null;
+              const isStale = updatedAt
+                ? (Date.now() - new Date(updatedAt).getTime()) > STALENESS_DAYS * 24 * 60 * 60 * 1000
+                : false;
+
+              const detail = [breadcrumb, page, updatedLabel].filter(Boolean).join(" · ");
 
               const fullText = [`[${displayName}]`, detail].filter(Boolean).join(" ");
               return (
                 <button
                   key={j}
                   className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1 text-left hover:text-slate-700 dark:hover:text-gray-300 transition-colors group/cite truncate max-w-full"
-                  title={fullText}
+                  title={isStale ? `${fullText} (may be outdated)` : fullText}
                   onClick={() => onSourceClick({
                     documentId: citation.documentId,
                     documentName: displayName,
@@ -96,11 +121,14 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
                   })}
                 >
                   <span className="text-slate-300 dark:text-gray-600 flex-shrink-0">↳</span>
+                  {isStale && (
+                    <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                  )}
                   <span className="font-medium text-slate-700 dark:text-gray-300 group-hover/cite:underline flex-shrink-0">
                     [{displayName}]
                   </span>
                   {detail && (
-                    <span className="text-slate-400 dark:text-gray-500 truncate">{detail}</span>
+                    <span className={`truncate ${isStale ? "text-amber-500 dark:text-amber-400" : "text-slate-400 dark:text-gray-500"}`}>{detail}</span>
                   )}
                 </button>
               );

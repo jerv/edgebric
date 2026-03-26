@@ -21,7 +21,7 @@ import {
 import { getDocumentsByKB, setDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
-import { clearChunksForDataset } from "../services/chunkRegistry.js";
+import { clearChunksForDataset, getChunksForDataset } from "../services/chunkRegistry.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
 import { revokeSharesForKB, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
 import { config, runtimeEdgeConfig } from "../config.js";
@@ -415,4 +415,48 @@ knowledgeBasesRouter.delete("/:id/avatar", async (req, res) => {
   }
   updateKB(kb.id, { avatarUrl: "" });
   res.json({ ok: true });
+});
+
+// GET /:id/health — source health metrics (admin)
+knowledgeBasesRouter.get("/:id/health", requireOrg, (req, res) => {
+  const kbId = req.params["id"] as string;
+  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+    res.status(404).json({ error: "Data source not found" });
+    return;
+  }
+  const kb = getKB(kbId);
+  if (!kb) {
+    res.status(404).json({ error: "Data source not found" });
+    return;
+  }
+
+  const docs = getDocumentsByKB(kbId);
+  const readyDocs = docs.filter((d) => d.status === "ready");
+  const chunks = getChunksForDataset(kb.datasetName);
+
+  const integrationConfig = getIntegrationConfig();
+  const stalenessThresholdDays = integrationConfig.stalenessThresholdDays ?? 180;
+  const stalenessDate = new Date();
+  stalenessDate.setDate(stalenessDate.getDate() - stalenessThresholdDays);
+
+  const staleDocuments = readyDocs.filter((d) => {
+    const updated = d.updatedAt instanceof Date ? d.updatedAt : new Date(String(d.updatedAt));
+    return updated < stalenessDate;
+  });
+
+  const updateDates = readyDocs.map((d) =>
+    d.updatedAt instanceof Date ? d.updatedAt.toISOString() : String(d.updatedAt),
+  ).sort();
+
+  res.json({
+    chunkCount: chunks.length,
+    documentCount: readyDocs.length,
+    oldestDocumentUpdatedAt: updateDates[0] ?? null,
+    newestDocumentUpdatedAt: updateDates[updateDates.length - 1] ?? null,
+    staleDocumentCount: staleDocuments.length,
+    averageChunksPerDocument: readyDocs.length > 0
+      ? Math.round((chunks.length / readyDocs.length) * 10) / 10
+      : 0,
+    stalenessThresholdDays,
+  });
 });

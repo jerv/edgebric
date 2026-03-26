@@ -91,11 +91,13 @@ export async function ingestDocument(
 
     // Register chunkId → metadata so the query route can build accurate citations.
     // mKB v1.3.0 does not persist custom metadata, so we maintain this in SQLite.
+    // Also stores parent content for parent-child retrieval and populates FTS5 for BM25 search.
     registerChunks(
       datasetName,
       actualStartIndex,
       chunks.map((c) => ({ ...c.metadata, documentName: doc.name })),
       chunks.map((c) => c.content),
+      chunks.map((c) => c.metadata.parentContent ?? c.content),
     );
 
     // Update document record

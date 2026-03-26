@@ -379,7 +379,7 @@ export async function* vaultQuery(
   conversationMessages: Array<{ role: string; content: string }>,
 ): AsyncGenerator<
   | { type: "delta"; delta: string }
-  | { type: "done"; answer: string; citations: Citation[]; hasConfidentAnswer: boolean }
+  | { type: "done"; answer: string; citations: Citation[]; hasConfidentAnswer: boolean; retrievalScore?: number }
 > {
   // 0. Query safety filter (mirrors server-side filterQuery)
   if (looksLikePersonName(query) && containsSensitiveTerm(query)) {
@@ -514,10 +514,16 @@ export async function* vaultQuery(
     excerpt: r.chunk.content.slice(0, 300),
   }));
 
+  // Compute average retrieval score for confidence signal
+  const avgScore = relevantResults.length > 0
+    ? relevantResults.reduce((sum, r) => sum + r.score, 0) / relevantResults.length
+    : 0;
+
   yield {
     type: "done",
     answer: fullAnswer,
     citations,
     hasConfidentAnswer: true,
+    retrievalScore: Math.round(avgScore * 100) / 100,
   };
 }

@@ -3,15 +3,16 @@ import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
 import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
-import type { SearchResult, ChatMessage } from "@edgebric/core/rag";
+import type { ChatMessage } from "@edgebric/core/rag";
 import type { Session, SessionMessage, Citation } from "@edgebric/types";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
-import { lookupChunk } from "../services/chunkRegistry.js";
 import { getDocument } from "../services/documentStore.js";
 import { listKBs } from "../services/knowledgeBaseStore.js";
+import { hybridMultiDatasetSearch } from "../services/searchService.js";
+import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import {
   getGroupChat,
   isMember,
@@ -133,46 +134,25 @@ function parseMentions(content: string, members: { userEmail: string; userName?:
   return mentioned;
 }
 
-/** Search across multiple mKB datasets, merge by similarity. */
-async function multiDatasetSearch(
-  datasetNames: string[],
-  queryText: string,
-  topK: number,
-): Promise<SearchResult[]> {
-  const resultSets = await Promise.all(
-    datasetNames.map(async (ds) => {
-      try {
-        return await mkb.search(ds, queryText, topK);
-      } catch {
-        return [];
-      }
-    }),
-  );
-
-  // Filter out orphaned chunks (deleted documents)
-  const allResults = resultSets.flat().flatMap((r) => {
-    const stored = lookupChunk(r.chunkId);
-    if (stored) return [{ ...r, metadata: stored }];
-    return [];
-  });
-
-  allResults.sort((a, b) => b.similarity - a.similarity);
-  return allResults.slice(0, topK);
-}
-
-/** Enrich citations with KB names. */
+/** Enrich citations with KB names and freshness. */
 function enrichCitations(citations: Citation[]): void {
   if (citations.length === 0) return;
   const kbs = listKBs({ type: "organization" });
   const kbMap = new Map(kbs.map((kb) => [kb.id, kb]));
   for (const citation of citations) {
     const doc = getDocument(citation.documentId);
-    if (doc?.knowledgeBaseId) {
-      const kb = kbMap.get(doc.knowledgeBaseId);
-      if (kb) {
-        citation.knowledgeBaseName = kb.name;
-        citation.knowledgeBaseId = kb.id;
-        if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+    if (doc) {
+      citation.documentUpdatedAt = doc.updatedAt instanceof Date
+        ? doc.updatedAt.toISOString()
+        : String(doc.updatedAt);
+
+      if (doc.knowledgeBaseId) {
+        const kb = kbMap.get(doc.knowledgeBaseId);
+        if (kb) {
+          citation.knowledgeBaseName = kb.name;
+          citation.knowledgeBaseId = kb.id;
+          if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+        }
       }
     }
   }
@@ -394,17 +374,41 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       messages: sessionMessages,
     };
 
+    // Hybrid BM25+vector search with optional reranking
+    const { results: searchResults, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
+      mkb,
+      datasetNames,
+      query,
+      20,
+    );
+
+    // Optional cross-encoder reranking
+    if (isRerankerAvailable() && searchResults.length > 1) {
+      const reranked = await rerank(
+        query,
+        searchResults.map((r) => ({
+          chunkId: r.chunkId,
+          text: r.chunk,
+          originalScore: r.similarity,
+        })),
+      );
+      const rerankedMap = new Map(reranked.map((r) => [r.chunkId, r.rerankerScore]));
+      searchResults.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
+    }
+
     const stream = answerStream(
       query,
       session,
       {
         datasetName: datasetNames[0]!,
         datasetNames,
-        topK: 3,
+        topK: 10,
         similarityThreshold: 0.3,
+        candidateCount,
+        hybridBoost,
       },
       {
-        search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
+        search: async () => searchResults,
         generate: (messages) => chatClient.chatStream(messages),
       },
     );

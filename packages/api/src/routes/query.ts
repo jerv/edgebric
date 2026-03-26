@@ -3,14 +3,12 @@ import type { Router as IRouter } from "express";
 import { z } from "zod";
 import { answerStream, filterQuery } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
-import type { SearchResult } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
 import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
-import { lookupChunk } from "../services/chunkRegistry.js";
 import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
 import {
   createConversation,
@@ -22,6 +20,8 @@ import {
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { listKBs, listAccessibleKBs } from "../services/knowledgeBaseStore.js";
 import { broadcastToUser } from "../services/notificationStore.js";
+import { hybridMultiDatasetSearch } from "../services/searchService.js";
+import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
 
@@ -90,19 +90,26 @@ const chatClient = createMILMClient(chatEdgeConfig, "");
 
 queryRouter.use(requireOrg);
 
-/** Enrich citations with the knowledge base name, ID, and avatar based on document → KB lookup. */
+/** Enrich citations with the knowledge base name, ID, avatar, and freshness based on document → KB lookup. */
 function enrichCitationsWithKBName(citations: Citation[]): void {
   if (citations.length === 0) return;
   const kbs = listKBs({ type: "organization" });
   const kbMap = new Map(kbs.map((kb) => [kb.id, kb]));
   for (const citation of citations) {
     const doc = getDocument(citation.documentId);
-    if (doc?.knowledgeBaseId) {
-      const kb = kbMap.get(doc.knowledgeBaseId);
-      if (kb) {
-        citation.knowledgeBaseName = kb.name;
-        citation.knowledgeBaseId = kb.id;
-        if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+    if (doc) {
+      // Source freshness: include the document's last update time
+      citation.documentUpdatedAt = doc.updatedAt instanceof Date
+        ? doc.updatedAt.toISOString()
+        : String(doc.updatedAt);
+
+      if (doc.knowledgeBaseId) {
+        const kb = kbMap.get(doc.knowledgeBaseId);
+        if (kb) {
+          citation.knowledgeBaseName = kb.name;
+          citation.knowledgeBaseId = kb.id;
+          if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+        }
       }
     }
   }
@@ -139,37 +146,36 @@ function resolveTargetDatasets(
 }
 
 /**
- * Search across multiple mKB datasets, merge results by similarity score,
- * and enrich with chunk metadata from our registry.
+ * Search across multiple mKB datasets with hybrid BM25+vector retrieval,
+ * optional cross-encoder reranking, and adaptive top-K.
  */
-async function multiDatasetSearch(
+async function searchWithHybrid(
   datasetNames: string[],
   queryText: string,
-  topK: number,
-): Promise<SearchResult[]> {
-  // Fan out to all datasets in parallel
-  const resultSets = await Promise.all(
-    datasetNames.map(async (ds) => {
-      try {
-        return await mkb.search(ds, queryText, topK);
-      } catch {
-        // Dataset may not exist yet or be empty — don't fail the whole query
-        return [];
-      }
-    }),
+): Promise<{ results: import("../services/searchService.js").HybridSearchResult[]; candidateCount: number; hybridBoost: boolean }> {
+  const { results, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
+    mkb,
+    datasetNames,
+    queryText,
+    20, // Retrieve 20 candidates for reranking/adaptive-K
   );
 
-  // Flatten, enrich, and filter out orphaned chunks (deleted documents)
-  const allResults = resultSets.flat().flatMap((r) => {
-    const stored = lookupChunk(r.chunkId);
-    if (stored) return [{ ...r, metadata: stored }];
-    // No registry entry → chunk belongs to a deleted document; skip it
-    return [];
-  });
+  // Optional cross-encoder reranking
+  if (isRerankerAvailable() && results.length > 1) {
+    const reranked = await rerank(
+      queryText,
+      results.map((r) => ({
+        chunkId: r.chunkId,
+        text: r.chunk,
+        originalScore: r.similarity,
+      })),
+    );
+    // Re-sort results by reranker score
+    const rerankedMap = new Map(reranked.map((r) => [r.chunkId, r.rerankerScore]));
+    results.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
+  }
 
-  // Sort by similarity (descending) and take top-K
-  allResults.sort((a, b) => b.similarity - a.similarity);
-  return allResults.slice(0, topK);
+  return { results, candidateCount, hybridBoost };
 }
 
 // Returns whether the system has at least one ready document to query against.
@@ -281,12 +287,13 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
       const stream = answerStream(
         query,
         session,
-        { datasetName: datasetNames[0]!, datasetNames, topK: 3, similarityThreshold: 0.3 },
+        { datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost },
         {
-          search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
+          search: async () => searchResults,
           generate: (messages) => chatClient.chatStream(messages),
         },
       );
@@ -374,17 +381,20 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   try {
     const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+    const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
     const stream = answerStream(
       query,
       session,
       {
         datasetName: datasetNames[0]!,
         datasetNames,
-        topK: 3,
+        topK: 10,
         similarityThreshold: 0.3,
+        candidateCount,
+        hybridBoost,
       },
       {
-        search: (queryText, topK) => multiDatasetSearch(datasetNames, queryText, topK),
+        search: async () => searchResults,
         generate: (messages) => chatClient.chatStream(messages),
       },
     );

@@ -42,6 +42,12 @@ export interface RAGOptions {
   datasetNames?: string[];
   /** Minimum similarity score to consider a chunk relevant (0–1). */
   similarityThreshold?: number;
+  /** Number of candidate chunks found before filtering (for confidence signals). */
+  candidateCount?: number;
+  /** Whether BM25 keyword search surfaced results that vector missed. */
+  hybridBoost?: boolean;
+  /** Average retrieval score from search service. */
+  retrievalScore?: number;
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────────────────────
@@ -51,12 +57,12 @@ export interface RAGOptions {
  *
  * Flow:
  * 1. Filter query (person + sensitive term → redirect)
- * 2. Embed query
- * 3. Retrieve top-k chunks
- * 4. If no relevant chunks → return no-answer response
+ * 2. Search (hybrid BM25+vector with adaptive top-K, done by caller)
+ * 3. If no relevant chunks → return no-answer response
+ * 4. Use parent content for LLM context (parent-child retrieval)
  * 5. Build system prompt with context
  * 6. Generate streamed answer
- * 7. Return answer + citations
+ * 7. Return answer + citations with confidence signals
  *
  * All I/O is injected via deps — this function is pure business logic.
  */
@@ -82,7 +88,7 @@ export async function* answerStream(
     return;
   }
 
-  // Retrieve relevant chunks (mKB handles embedding internally)
+  // Retrieve relevant chunks (search service handles hybrid + reranking)
   const searchResults = await deps.search(query, topK);
   const relevantResults = searchResults.filter((r) => r.similarity >= threshold);
 
@@ -93,19 +99,44 @@ export async function* answerStream(
       hasConfidentAnswer: false,
       sessionId: session.id,
       searchedDatasets: options.datasetNames ?? [options.datasetName],
+      candidateCount: options.candidateCount ?? 0,
     };
     yield { final: response };
     return;
   }
 
-  // Build context chunks from search results
-  const contextChunks: Chunk[] = relevantResults.map((r) => ({
-    id: r.chunkId,
-    documentId: r.metadata.sourceDocument,
-    content: r.chunk,
-    metadata: r.metadata,
-    embeddingId: r.chunkId,
-  }));
+  // Build context chunks — use parent content when available for richer LLM context.
+  // Deduplicate: if two child chunks share the same parent, only include the parent once.
+  const seenParents = new Set<string>();
+  const contextChunks: Chunk[] = [];
+
+  for (const r of relevantResults) {
+    const parentContent = r.metadata.parentContent;
+
+    if (parentContent) {
+      // Use a hash of the parent content to deduplicate
+      const parentKey = `${r.metadata.sourceDocument}:${r.metadata.heading}:${parentContent.slice(0, 100)}`;
+      if (seenParents.has(parentKey)) continue;
+      seenParents.add(parentKey);
+
+      contextChunks.push({
+        id: r.chunkId,
+        documentId: r.metadata.sourceDocument,
+        content: parentContent, // Use the richer parent content for LLM
+        metadata: r.metadata,
+        embeddingId: r.chunkId,
+      });
+    } else {
+      // No parent content — use the chunk directly (legacy or small chunks)
+      contextChunks.push({
+        id: r.chunkId,
+        documentId: r.metadata.sourceDocument,
+        content: r.chunk,
+        metadata: r.metadata,
+        embeddingId: r.chunkId,
+      });
+    }
+  }
 
   // Build messages for generation
   const systemPrompt = buildSystemPrompt(contextChunks);
@@ -129,8 +160,14 @@ export async function* answerStream(
   const noAnswerPattern = /couldn'?t find a clear answer|not (?:found|covered|mentioned|addressed) in (?:the |any )?(?:current |provided |available )?(?:documentation|documents|context|policy)/i;
   const modelDeclined = noAnswerPattern.test(fullAnswer);
 
+  // Compute retrieval confidence score (average similarity of used chunks)
+  const avgSimilarity = relevantResults.length > 0
+    ? relevantResults.reduce((sum, r) => sum + r.similarity, 0) / relevantResults.length
+    : 0;
+
   // Build citations from the chunks that were used as context —
   // but only if the model actually used the context to answer.
+  // Use the child chunk excerpt (more precise) for citations, not parent content.
   const citations: Citation[] = modelDeclined
     ? []
     : relevantResults.map((r) => ({
@@ -147,6 +184,9 @@ export async function* answerStream(
     hasConfidentAnswer: !modelDeclined,
     sessionId: session.id,
     searchedDatasets: options.datasetNames ?? [options.datasetName],
+    retrievalScore: Math.round(avgSimilarity * 100) / 100,
+    ...(options.candidateCount != null && { candidateCount: options.candidateCount }),
+    ...(options.hybridBoost != null && { hybridBoost: options.hybridBoost }),
   };
 
   yield { final: response };
