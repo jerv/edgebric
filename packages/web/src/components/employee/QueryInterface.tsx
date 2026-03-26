@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon, Network } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
@@ -32,6 +32,10 @@ interface Message {
   source?: "ai" | "admin" | "system";
   /** Average retrieval confidence score (0-1). Low values indicate uncertain results. */
   retrievalScore?: number;
+  /** Number of mesh nodes searched (0 or undefined = single-node). */
+  meshNodesSearched?: number;
+  /** Number of mesh nodes that were unreachable. */
+  meshNodesUnavailable?: number;
 }
 
 
@@ -738,6 +742,8 @@ export function ChatPanel() {
                       citations: parsed.citations,
                       hasConfidentAnswer: parsed.hasConfidentAnswer,
                       retrievalScore: parsed.retrievalScore,
+                      meshNodesSearched: parsed.meshNodesSearched,
+                      meshNodesUnavailable: parsed.meshNodesUnavailable,
                       isStreaming: false,
                     };
                   }
@@ -988,6 +994,19 @@ export function ChatPanel() {
                   {/* Citations */}
                   {!message.isStreaming && (
                     <CitationList citations={dedupedCitations} onSourceClick={setActiveSource} />
+                  )}
+
+                  {/* Mesh search status */}
+                  {!message.isStreaming && message.meshNodesSearched != null && message.meshNodesSearched > 0 && (
+                    <p className="text-[11px] text-slate-400 dark:text-gray-500 flex items-center gap-1 px-1 mt-1">
+                      <Network className="w-3 h-3" />
+                      Searched {message.meshNodesSearched} {message.meshNodesSearched === 1 ? "node" : "nodes"}
+                      {message.meshNodesUnavailable != null && message.meshNodesUnavailable > 0 && (
+                        <span className="text-amber-500 dark:text-amber-400">
+                          ({message.meshNodesUnavailable} unavailable)
+                        </span>
+                      )}
+                    </p>
                   )}
 
                   {!message.isStreaming && (

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Network, Server, Plus, Trash2, Pencil, Copy, Check, Eye, EyeOff,
   RefreshCw, Power, PowerOff, ChevronDown, ChevronRight, AlertTriangle,
-  Loader2, Shield, Globe,
+  Loader2, Shield, Globe, HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -486,6 +486,53 @@ function RegisterNodeForm({ groups, onDone }: { groups: NodeGroup[]; onDone: () 
   );
 }
 
+// ─── Mesh Explainer ─────────────────────────────────────────────────────────
+
+function MeshExplainer() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+      >
+        <HelpCircle className="w-4 h-4 flex-shrink-0" />
+        <span className="font-medium">What is mesh networking?</span>
+        <ChevronDown className={cn("w-4 h-4 ml-auto transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 text-sm text-slate-600 dark:text-gray-400 space-y-4 border-t border-slate-100 dark:border-gray-800 pt-3">
+          {/* Diagram */}
+          <div className="bg-slate-50 dark:bg-gray-800/50 rounded-lg p-4 font-mono text-xs text-slate-500 dark:text-gray-500 leading-relaxed">
+            <pre className="whitespace-pre overflow-x-auto">{`
+  ┌──────────┐    ┌──────────┐    ┌──────────┐
+  │ HR Node  │    │  Legal   │    │   Eng    │
+  │(Primary) │◄──►│  Node    │◄──►│  Node    │
+  │          │    │          │    │          │
+  │ Handbook │    │ Contracts│    │ Runbooks │
+  │ Benefits │    │ IP Docs  │    │ API Docs │
+  └──────────┘    └──────────┘    └──────────┘
+        ▲               ▲               ▲
+        └───────── query fans out ───────┘
+                        │
+                   ┌─────────┐
+                   │ Employee │
+                   │  asks a  │
+                   │ question │
+                   └─────────┘`.trim()}</pre>
+          </div>
+          <div className="space-y-2">
+            <p><strong className="text-slate-700 dark:text-gray-300">Data never moves.</strong> Each node keeps its own documents. Nothing is copied or synced between nodes.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">Queries move.</strong> When an employee asks a question, the query fans out to every node. Each node searches its local sources and sends back results.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">Resilient.</strong> If a node goes offline, the rest keep working. Results from unavailable nodes are simply skipped.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">One login.</strong> The primary node handles authentication. Other nodes proxy login through it — no duplicate setup needed.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main NetworkTab ─────────────────────────────────────────────────────────
 
 export function NetworkTab() {
@@ -628,6 +675,7 @@ export function NetworkTab() {
             Set Up Mesh
           </button>
         </div>
+        <MeshExplainer />
       </div>
     );
   }

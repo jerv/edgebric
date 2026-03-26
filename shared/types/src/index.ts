@@ -180,6 +180,10 @@ export interface AnswerResponse {
   candidateCount?: number;
   /** True when BM25 keyword search surfaced results that vector search missed. */
   hybridBoost?: boolean;
+  /** Number of mesh nodes that were searched (0 when mesh is disabled). */
+  meshNodesSearched?: number;
+  /** Number of mesh nodes that were unreachable during the search. */
+  meshNodesUnavailable?: number;
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────

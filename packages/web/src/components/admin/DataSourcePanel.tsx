@@ -20,6 +20,7 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -1154,6 +1155,12 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                     onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
                     disabled={updateMutation.isPending}
                   />
+                  {(data?.allowExternalAccess ?? ds.allowExternalAccess ?? true) && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pl-1 mt-1">
+                      <Network className="w-3 h-3 flex-shrink-0" />
+                      For stronger data isolation, consider enabling Mesh Networking to keep sensitive sources on a separate internal node.
+                    </p>
+                  )}
                 </div>
               )}
 

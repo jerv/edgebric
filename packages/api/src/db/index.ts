@@ -204,6 +204,15 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE data_source_access RENAME COLUMN kb_id TO data_source_id",
     "ALTER TABLE group_chat_shared_data_sources RENAME COLUMN knowledge_base_id TO data_source_id",
     "ALTER TABLE users RENAME COLUMN can_create_kbs TO can_create_data_sources",
+    // ── Post-rename catch-up: ensure columns exist on data_sources ──────
+    // If the table was already data_sources (not renamed from knowledge_bases),
+    // earlier org_id/avatar_url/security toggle migrations targeted knowledge_bases and silently failed.
+    "ALTER TABLE data_sources ADD COLUMN org_id TEXT",
+    "ALTER TABLE data_sources ADD COLUMN avatar_url TEXT",
+    "ALTER TABLE data_sources ADD COLUMN allow_source_viewing INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE data_sources ADD COLUMN allow_vault_sync INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE data_sources ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE data_sources ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'all'",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
