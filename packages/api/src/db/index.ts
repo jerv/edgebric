@@ -155,6 +155,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_feedback_topic ON feedback(topic);
     CREATE INDEX IF NOT EXISTS idx_notifications_user_email ON notifications(user_email);
     CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);
+    CREATE INDEX IF NOT EXISTS idx_chunks_source_document ON chunks(source_document);
   `);
 
   // Migrate existing tables — add new columns if they don't exist yet
@@ -184,8 +185,15 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE users ADD COLUMN can_create_group_chats INTEGER DEFAULT 0",
     // Default group chat notification level
     "ALTER TABLE users ADD COLUMN default_group_chat_notif_level TEXT DEFAULT 'all'",
+    // OIDC provider tracking (for audit + provider migration)
+    "ALTER TABLE users ADD COLUMN auth_provider TEXT",
+    "ALTER TABLE users ADD COLUMN auth_provider_sub TEXT",
     // Group chat ID on notifications (for org-scoped filtering)
     "ALTER TABLE notifications ADD COLUMN group_chat_id TEXT",
+    // Time-limited source sharing in group chats
+    "ALTER TABLE group_chat_shared_kbs ADD COLUMN expires_at TEXT",
+    // Parent chunk content for parent-child retrieval (larger context for LLM)
+    "ALTER TABLE chunks ADD COLUMN parent_content TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
@@ -271,6 +279,15 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_notif_prefs_pk ON group_chat_notif_prefs(group_chat_id, user_email);
   `);
 
+  // FTS5 full-text search index for hybrid BM25+vector retrieval
+  sqlite.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+      chunk_id UNINDEXED,
+      content,
+      tokenize='porter unicode61'
+    );
+  `);
+
   // Audit log (immutable, hash-chained)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS audit_log (
@@ -319,6 +336,12 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
 export function getDb(): ReturnType<typeof drizzle<typeof schema>> {
   if (!_db) throw new Error("Database not initialized — call initDatabase() first");
   return _db;
+}
+
+/** Get the raw better-sqlite3 instance (needed for FTS5 and other features Drizzle doesn't support). */
+export function getSqlite(): InstanceType<typeof Database> {
+  if (!_sqlite) throw new Error("Database not initialized — call initDatabase() first");
+  return _sqlite;
 }
 
 /** Close the database connection (for graceful shutdown). */

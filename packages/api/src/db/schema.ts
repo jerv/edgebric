@@ -24,6 +24,8 @@ export const users = sqliteTable("users", {
   orgId: text("org_id").notNull(),
   invitedBy: text("invited_by"),
   lastLoginAt: text("last_login_at"),
+  authProvider: text("auth_provider"), // "google" | "microsoft" | "okta" | "onelogin" | "ping" | "generic"
+  authProviderSub: text("auth_provider_sub"), // provider's unique sub claim
   canCreateKBs: integer("can_create_kbs").default(0), // 0 = no, 1 = yes
   canCreateGroupChats: integer("can_create_group_chats").default(0), // 0 = no, 1 = yes
   defaultGroupChatNotifLevel: text("default_group_chat_notif_level").default("all"), // "all" | "mentions" | "none"
@@ -91,6 +93,7 @@ export const chunks = sqliteTable("chunks", {
   heading: text("heading").notNull().default(""),
   chunkIndex: integer("chunk_index").notNull().default(0),
   content: text("content"), // chunk text for Vault Mode sync
+  parentContent: text("parent_content"), // larger context chunk for LLM (parent-child retrieval)
 });
 
 // ─── Conversations ──────────────────────────────────────────────────────────
@@ -184,6 +187,7 @@ export const groupChatSharedKBs = sqliteTable("group_chat_shared_kbs", {
   knowledgeBaseId: text("knowledge_base_id").notNull(),
   sharedByEmail: text("shared_by_email").notNull(),
   allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
+  expiresAt: text("expires_at"), // ISO string; NULL = permanent (no expiration)
   sharedAt: text("shared_at").notNull(),
 });
 

@@ -66,7 +66,13 @@ function rowToSharedKB(
     sharedAt: new Date(row.sharedAt),
   };
   if (sharerName) kb.sharedByName = sharerName;
+  if (row.expiresAt) kb.expiresAt = row.expiresAt;
   return kb;
+}
+
+/** Check if a shared KB row is expired (has expiresAt in the past). */
+function isShareExpired(row: { expiresAt: string | null }): boolean {
+  return !!row.expiresAt && new Date(row.expiresAt).getTime() < Date.now();
 }
 
 function rowToMessage(row: typeof groupChatMessages.$inferSelect): GroupChatMessage {
@@ -275,6 +281,7 @@ export function shareKB(data: {
   sharedByEmail: string;
   sharedByName?: string;
   allowSourceViewing: boolean;
+  expiresAt?: string; // ISO string
 }): GroupChatSharedKB {
   const db = getDb();
   const id = randomUUID();
@@ -286,13 +293,20 @@ export function shareKB(data: {
     knowledgeBaseId: data.knowledgeBaseId,
     sharedByEmail: data.sharedByEmail,
     allowSourceViewing: data.allowSourceViewing ? 1 : 0,
+    expiresAt: data.expiresAt ?? null,
     sharedAt: now,
   }).run();
 
   // Get KB name for system message
   const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, data.knowledgeBaseId)).get();
   const kbName = kb?.name ?? "a data source";
-  addSystemMessage(data.groupChatId, `${data.sharedByName ?? data.sharedByEmail} shared "${kbName}" with the group.`);
+
+  if (data.expiresAt) {
+    const duration = formatDuration(new Date(data.expiresAt).getTime() - Date.now());
+    addSystemMessage(data.groupChatId, `${data.sharedByName ?? data.sharedByEmail} shared "${kbName}" with the group (expires in ${duration}).`);
+  } else {
+    addSystemMessage(data.groupChatId, `${data.sharedByName ?? data.sharedByEmail} shared "${kbName}" with the group.`);
+  }
 
   db.update(groupChats)
     .set({ updatedAt: now })
@@ -308,6 +322,7 @@ export function shareKB(data: {
     sharedAt: new Date(now),
   };
   if (data.sharedByName) result.sharedByName = data.sharedByName;
+  if (data.expiresAt) result.expiresAt = data.expiresAt;
   return result;
 }
 
@@ -372,7 +387,8 @@ export function getSharedKBs(groupChatId: string): GroupChatSharedKB[] {
   const db = getDb();
   const rows = db.select().from(groupChatSharedKBs)
     .where(eq(groupChatSharedKBs.groupChatId, groupChatId))
-    .all();
+    .all()
+    .filter((row) => !isShareExpired(row));
 
   return rows.map((row) => {
     const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, row.knowledgeBaseId)).get();
@@ -392,10 +408,11 @@ export function getSharedDatasetNames(groupChatId: string): string[] {
   const seen = new Set<string>();
   const datasetNames: string[] = [];
 
-  // 1. Explicitly shared KBs (skip archived/deleted)
+  // 1. Explicitly shared KBs (skip archived/deleted and expired)
   const shares = db.select().from(groupChatSharedKBs)
     .where(eq(groupChatSharedKBs.groupChatId, groupChatId))
-    .all();
+    .all()
+    .filter((row) => !isShareExpired(row));
   for (const share of shares) {
     const kb = db.select().from(knowledgeBases)
       .where(and(eq(knowledgeBases.id, share.knowledgeBaseId), eq(knowledgeBases.status, "active")))
@@ -600,6 +617,64 @@ export function expireStaleChats(): number {
   return stale.length;
 }
 
+/** Expire stale shared KB entries. Called periodically by server timer. */
+export function expireStaleShares(): number {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const stale = db.select().from(groupChatSharedKBs)
+    .where(sql`${groupChatSharedKBs.expiresAt} IS NOT NULL AND ${groupChatSharedKBs.expiresAt} < ${now}`)
+    .all();
+
+  for (const share of stale) {
+    db.delete(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, share.id)).run();
+    const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, share.knowledgeBaseId)).get();
+    const kbName = kb?.name ?? "a data source";
+    addSystemMessage(share.groupChatId, `"${kbName}" is no longer shared (expired).`);
+  }
+
+  return stale.length;
+}
+
+/** Extend the expiration of a share. Returns updated share or undefined if not found. */
+export function extendShare(shareId: string, newExpiresAt: string): GroupChatSharedKB | undefined {
+  const db = getDb();
+  const row = db.select().from(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, shareId)).get();
+  if (!row) return undefined;
+
+  db.update(groupChatSharedKBs)
+    .set({ expiresAt: newExpiresAt })
+    .where(eq(groupChatSharedKBs.id, shareId))
+    .run();
+
+  const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, row.knowledgeBaseId)).get();
+  const kbName = kb?.name ?? "a data source";
+  const sharer = db.select().from(users).where(eq(users.email, row.sharedByEmail)).get();
+  const sharerName = sharer?.name ?? row.sharedByEmail;
+  const duration = formatDuration(new Date(newExpiresAt).getTime() - Date.now());
+  addSystemMessage(row.groupChatId, `${sharerName} extended sharing of "${kbName}" (expires in ${duration}).`);
+
+  db.update(groupChats)
+    .set({ updatedAt: new Date().toISOString() })
+    .where(eq(groupChats.id, row.groupChatId))
+    .run();
+
+  const updated = db.select().from(groupChatSharedKBs).where(eq(groupChatSharedKBs.id, shareId)).get();
+  if (!updated) return undefined;
+  return rowToSharedKB(updated, kb?.name, sharer?.name ?? undefined);
+}
+
+/** Format a millisecond duration into a human-readable string. */
+function formatDuration(ms: number): string {
+  const hours = Math.floor(ms / (60 * 60 * 1000));
+  if (hours < 1) return "less than 1 hour";
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""}`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days !== 1 ? "s" : ""}`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks} week${weeks !== 1 ? "s" : ""}`;
+}
+
 // ─── Context Summary Cache ───────────────────────────────────────────────────
 
 export function getContextSummary(groupChatId: string): { summary: string; upTo: string } | undefined {
@@ -712,7 +787,8 @@ function enrichGroupChat(row: typeof groupChats.$inferSelect): GroupChat {
     .where(eq(groupChatMembers.groupChatId, row.id)).all();
 
   const sharedKBRows = db.select().from(groupChatSharedKBs)
-    .where(eq(groupChatSharedKBs.groupChatId, row.id)).all();
+    .where(eq(groupChatSharedKBs.groupChatId, row.id)).all()
+    .filter((s) => !isShareExpired(s));
 
   const sharedKBsEnriched = sharedKBRows.map((s) => {
     const kb = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, s.knowledgeBaseId)).get();

@@ -92,11 +92,17 @@ async function start() {
   );
 
   // Expire stale group chats every 5 minutes
-  const { expireStaleChats } = await import("./services/groupChatStore.js");
+  const { expireStaleChats, expireStaleShares } = await import("./services/groupChatStore.js");
   setInterval(() => {
     const count = expireStaleChats();
     if (count > 0) logger.info({ count }, "Expired stale group chats");
   }, 5 * 60 * 1000);
+
+  // Expire stale shared sources every 60 seconds
+  setInterval(() => {
+    const count = expireStaleShares();
+    if (count > 0) logger.info({ count }, "Expired stale shared sources");
+  }, 60 * 1000);
 
   // Auto-install embedding model if Ollama is running but nomic-embed-text is missing
   (async () => {

@@ -15,6 +15,7 @@ import {
   isCreator,
   shareKB,
   unshareKB,
+  extendShare,
   getMainMessages,
   getThreadMessages,
 } from "../services/groupChatStore.js";
@@ -44,6 +45,11 @@ const addMemberSchema = z.object({
 const shareKBSchema = z.object({
   knowledgeBaseId: z.string().uuid(),
   allowSourceViewing: z.boolean(),
+  expiresAt: z.string().datetime().optional(),
+});
+
+const extendShareSchema = z.object({
+  expiresAt: z.string().datetime(),
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -276,6 +282,12 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
     return;
   }
 
+  // Validate expiresAt is in the future if provided
+  if (req.body.expiresAt && new Date(req.body.expiresAt).getTime() <= Date.now()) {
+    res.status(400).json({ error: "Expiration must be in the future" });
+    return;
+  }
+
   const shareOpts: Parameters<typeof shareKB>[0] = {
     groupChatId: chatId,
     knowledgeBaseId: req.body.knowledgeBaseId,
@@ -283,6 +295,7 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
     allowSourceViewing: req.body.allowSourceViewing,
   };
   if (req.session.name) shareOpts.sharedByName = req.session.name;
+  if (req.body.expiresAt) shareOpts.expiresAt = req.body.expiresAt;
   const shared = shareKB(shareOpts);
 
   res.status(201).json(shared);
@@ -314,6 +327,43 @@ groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
   const sysMsg = unshareKB(shareId, chatId, revokerName);
   if (sysMsg) broadcastToChat(chatId, "message", sysMsg);
   res.json({ ok: true });
+});
+
+// PATCH /api/group-chats/:id/shared-kbs/:shareId — extend share expiration (sharer only)
+groupChatsRouter.patch("/:id/shared-kbs/:shareId", validateBody(extendShareSchema), (req, res) => {
+  const email = req.session.email!;
+  const chatId = req.params["id"] as string;
+  const shareId = req.params["shareId"] as string;
+
+  const chat = requireActiveChat(chatId, res);
+  if (!chat) return;
+  if (!requireMembership(chatId, email, res)) return;
+
+  const share = chat.sharedKBs.find((s) => s.id === shareId);
+  if (!share) {
+    res.status(404).json({ error: "Shared data source not found" });
+    return;
+  }
+
+  // Only the sharer can extend
+  if (share.sharedByEmail !== email.toLowerCase()) {
+    res.status(403).json({ error: "Only the sharer can extend the share duration" });
+    return;
+  }
+
+  // Validate new expiresAt is in the future
+  if (new Date(req.body.expiresAt).getTime() <= Date.now()) {
+    res.status(400).json({ error: "Expiration must be in the future" });
+    return;
+  }
+
+  const updated = extendShare(shareId, req.body.expiresAt);
+  if (!updated) {
+    res.status(404).json({ error: "Share not found" });
+    return;
+  }
+
+  res.json(updated);
 });
 
 // ─── Messages ─────────────────────────────────────────────────────────────────

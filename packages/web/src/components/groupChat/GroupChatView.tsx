@@ -51,6 +51,17 @@ function formatTime(date: Date | string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "expired";
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainMin = minutes % 60;
+  if (hours < 24) return remainMin > 0 ? `${hours}h ${remainMin}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
 // ─── Thinking Indicator ─────────────────────────────────────────────────────
 
 function ThinkingDots() {
@@ -192,7 +203,7 @@ export function GroupChatView() {
   ]).size;
 
   // Build a list of all queryable KBs for the selector and tooltip
-  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string; shareId?: string; sharedByEmail?: string }[] = [];
+  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string; shareId?: string; sharedByEmail?: string; expiresAt?: string }[] = [];
   const seenIds = new Set<string>();
   for (const s of chat?.sharedKBs ?? []) {
     if (!seenIds.has(s.knowledgeBaseId)) {
@@ -204,6 +215,7 @@ export function GroupChatView() {
         sharedBy: s.sharedByName ?? s.sharedByEmail,
         shareId: s.id,
         sharedByEmail: s.sharedByEmail,
+        expiresAt: s.expiresAt,
       });
     }
   }
@@ -444,9 +456,11 @@ export function GroupChatView() {
                 {effectiveKBCount} data source{effectiveKBCount !== 1 ? "s" : ""}
                 {kbTooltipOpen && queryableKBs.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
-                    <div className="w-72 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
+                    <div className="w-80 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
                       {queryableKBs.map((kb) => {
-                        const canRevoke = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
+                        const isOwner = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
+                        const expiresMs = kb.expiresAt ? new Date(kb.expiresAt).getTime() - Date.now() : null;
+                        const isExpiringSoon = expiresMs != null && expiresMs > 0 && expiresMs < 5 * 60 * 1000;
                         return (
                           <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2 group/kb">
                             <Database className="w-3 h-3 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
@@ -455,24 +469,55 @@ export function GroupChatView() {
                               <p className="text-[10px] text-slate-400 dark:text-gray-500 truncate">
                                 {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
                               </p>
+                              {kb.expiresAt && expiresMs != null && expiresMs > 0 && (
+                                <p className={cn(
+                                  "text-[10px] flex items-center gap-1 mt-0.5",
+                                  isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : "text-slate-400 dark:text-gray-500",
+                                )}>
+                                  <Clock className="w-2.5 h-2.5" />
+                                  Expires in {formatCountdown(expiresMs)}
+                                </p>
+                              )}
                             </div>
-                            {canRevoke && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  if (!kb.shareId || !chat) return;
-                                  await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
-                                    method: "DELETE",
-                                    credentials: "same-origin",
-                                  });
-                                  void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
-                                }}
-                                className="text-[10px] text-red-500 hover:text-red-700 flex-shrink-0"
-                                title="Revoke sharing"
-                              >
-                                Revoke
-                              </button>
-                            )}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {isOwner && kb.expiresAt && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!kb.shareId || !chat) return;
+                                    const newExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+                                    await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
+                                      method: "PATCH",
+                                      credentials: "same-origin",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ expiresAt: newExpiry }),
+                                    });
+                                    void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
+                                  }}
+                                  className="text-[10px] text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  title="Extend by 1 hour"
+                                >
+                                  +1h
+                                </button>
+                              )}
+                              {isOwner && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!kb.shareId || !chat) return;
+                                    await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
+                                      method: "DELETE",
+                                      credentials: "same-origin",
+                                    });
+                                    void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
+                                  }}
+                                  className="text-[10px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                  title="Revoke sharing"
+                                >
+                                  Revoke
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -823,6 +868,7 @@ export function GroupChatView() {
         <ShareKBDialog
           groupChatId={chat.id}
           existingShares={chat.sharedKBs}
+          chatExpiresAt={chat.expiresAt ? new Date(chat.expiresAt).toISOString() : undefined}
           onClose={() => setShowShareKB(false)}
         />
       )}

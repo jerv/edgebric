@@ -22,6 +22,7 @@ export interface OrgSettings {
 
 export type UserRole = "owner" | "admin" | "member";
 export type UserStatus = "active" | "invited";
+export type OidcProviderId = "google" | "microsoft" | "okta" | "onelogin" | "ping" | "generic";
 
 export interface User {
   id: string;
@@ -33,6 +34,10 @@ export interface User {
   orgId: string;
   invitedBy?: string;
   lastLoginAt?: Date;
+  /** OIDC provider that authenticated this user (e.g. "google", "microsoft"). */
+  authProvider?: OidcProviderId;
+  /** The provider's unique subject ID (sub claim). */
+  authProviderSub?: string;
   /** Whether this member can create org-shared knowledge bases. Admins always can. */
   canCreateKBs?: boolean;
   /** Whether this member can create group chats. Admins always can. */
@@ -118,6 +123,8 @@ export interface ChunkMetadata {
   pageNumber: number;
   heading: string;
   chunkIndex: number;
+  /** Larger parent context for LLM generation (parent-child retrieval). */
+  parentContent?: string;
 }
 
 export interface Chunk {
@@ -144,6 +151,8 @@ export interface Citation {
   knowledgeBaseId?: string;
   /** KB avatar URL (populated by query route, shown as mini icon in citations). */
   knowledgeBaseAvatarUrl?: string;
+  /** When the source document was last updated (ISO string, for freshness display). */
+  documentUpdatedAt?: string;
 }
 
 export interface AnswerResponse {
@@ -161,6 +170,12 @@ export interface AnswerResponse {
   conversationId?: string;
   /** UUID of the persisted assistant message — populated by the API route layer. */
   messageId?: string;
+  /** Average similarity score of context chunks (0-1). Higher = more confident retrieval. */
+  retrievalScore?: number;
+  /** Number of candidate chunks found before filtering/reranking. */
+  candidateCount?: number;
+  /** True when BM25 keyword search surfaced results that vector search missed. */
+  hybridBoost?: boolean;
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────
@@ -316,6 +331,8 @@ export interface GroupChatSharedKB {
   sharedByEmail: string;
   sharedByName?: string;
   allowSourceViewing: boolean;
+  /** ISO date when the share expires. Undefined = permanent. */
+  expiresAt?: string;
   sharedAt: Date;
 }
 

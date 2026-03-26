@@ -1,20 +1,58 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { X, AlertTriangle, Database, Eye, EyeOff, Trash2 } from "lucide-react";
+import { X, AlertTriangle, Database, Eye, EyeOff, Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import type { KnowledgeBase, GroupChatSharedKB } from "@edgebric/types";
 
+// ─── Duration options ────────────────────────────────────────────────────────
+
+type DurationOption = "permanent" | "1h" | "24h" | "session" | "custom";
+
+const DURATION_OPTIONS: { value: DurationOption; label: string }[] = [
+  { value: "permanent", label: "Until I revoke" },
+  { value: "1h", label: "1 hour" },
+  { value: "24h", label: "24 hours" },
+  { value: "session", label: "This session" },
+  { value: "custom", label: "Custom..." },
+];
+
+function durationToExpiresAt(
+  option: DurationOption,
+  customDate?: string,
+  chatExpiresAt?: string,
+): string | undefined {
+  const now = Date.now();
+  switch (option) {
+    case "permanent":
+      return undefined;
+    case "1h":
+      return new Date(now + 60 * 60 * 1000).toISOString();
+    case "24h":
+      return new Date(now + 24 * 60 * 60 * 1000).toISOString();
+    case "session":
+      // If chat has an expiration, use it; otherwise treat as permanent
+      return chatExpiresAt ?? undefined;
+    case "custom":
+      return customDate ? new Date(customDate).toISOString() : undefined;
+  }
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
+
 interface Props {
   groupChatId: string;
   existingShares: GroupChatSharedKB[];
+  chatExpiresAt?: string;
   onClose: () => void;
 }
 
-export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
+export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onClose }: Props) {
   const user = useUser();
   const [selectedKBId, setSelectedKBId] = useState<string | null>(null);
   const [allowSourceViewing, setAllowSourceViewing] = useState(false);
+  const [duration, setDuration] = useState<DurationOption>("permanent");
+  const [customDate, setCustomDate] = useState("");
   const [step, setStep] = useState<"select" | "confirm">("select");
   const [loading, setLoading] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
@@ -33,6 +71,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
   const alreadySharedIds = new Set(existingShares.map((s) => s.knowledgeBaseId));
   const allActiveKBs = (kbs ?? []).filter((kb) => kb.status !== "archived");
   const selectedKB = allActiveKBs.find((kb) => kb.id === selectedKBId);
+  const isPersonalSource = selectedKB?.type === "personal";
 
   function kbDisabledReason(kb: KnowledgeBase): string | null {
     if (alreadySharedIds.has(kb.id)) return "Already shared";
@@ -62,6 +101,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
     setError(null);
 
     try {
+      const expiresAt = durationToExpiresAt(duration, customDate, chatExpiresAt);
       const res = await fetch(`/api/group-chats/${groupChatId}/shared-kbs`, {
         method: "POST",
         credentials: "same-origin",
@@ -69,6 +109,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
         body: JSON.stringify({
           knowledgeBaseId: selectedKBId,
           allowSourceViewing,
+          ...(expiresAt ? { expiresAt } : {}),
         }),
       });
 
@@ -88,6 +129,9 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
       setLoading(false);
     }
   }
+
+  // Minimum datetime for the custom picker (now + 5 min)
+  const minDatetime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
 
   return (
     <div
@@ -122,6 +166,12 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
                       <Database className="w-4 h-4 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{share.knowledgeBaseName}</p>
+                        {share.expiresAt && (
+                          <p className="text-[10px] text-slate-400 dark:text-gray-500 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            Expires {new Date(share.expiresAt).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => void handleRevoke(share.id)}
@@ -166,7 +216,13 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{kb.name}</p>
                         <p className={cn("text-[11px] truncate", isSelected && !disabled ? "text-white/60 dark:text-gray-900/60" : "text-slate-400 dark:text-gray-500")}>
-                          {disabled ?? `${kb.documentCount ?? 0} document${kb.documentCount !== 1 ? "s" : ""}`}
+                          {disabled ?? (
+                            <>
+                              {kb.type === "personal" ? "Vault Source" : "Network Source"}
+                              {" — "}
+                              {kb.documentCount ?? 0} document{kb.documentCount !== 1 ? "s" : ""}
+                            </>
+                          )}
                         </p>
                       </div>
                     </button>
@@ -176,7 +232,46 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
             )}
 
             {selectedKBId && !kbDisabledReason(allActiveKBs.find((kb) => kb.id === selectedKBId)!) && (
-              <div className="mt-4 border-t border-slate-100 dark:border-gray-800 pt-3">
+              <div className="mt-4 border-t border-slate-100 dark:border-gray-800 pt-3 space-y-3">
+                {/* Duration picker — shown for personal/vault sources */}
+                {isPersonalSource && (
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
+                      Share duration
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DURATION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setDuration(opt.value)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors",
+                            duration === opt.value
+                              ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
+                              : "bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700",
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    {duration === "custom" && (
+                      <input
+                        type="datetime-local"
+                        value={customDate}
+                        min={minDatetime}
+                        onChange={(e) => setCustomDate(e.target.value)}
+                        className="mt-2 w-full rounded-lg border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs text-slate-700 dark:text-gray-300"
+                      />
+                    )}
+                    {duration === "session" && !chatExpiresAt && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                        This chat has no expiration set — share will be permanent.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -189,7 +284,7 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
                     Allow members to view source documents
                   </span>
                 </label>
-                <p className="text-[10px] text-slate-400 dark:text-gray-500 mt-1 ml-6">
+                <p className="text-[10px] text-slate-400 dark:text-gray-500 ml-6">
                   When disabled, members can only see bot-synthesized answers, not original document excerpts.
                 </p>
               </div>
@@ -224,6 +319,23 @@ export function ShareKBDialog({ groupChatId, existingShares, onClose }: Props) {
                     of this group chat. The bot will be able to search and answer questions from
                     this data source on behalf of all members.
                   </p>
+                  {isPersonalSource && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed mt-1">
+                      Members will be able to query this source's content through the AI assistant.
+                      You can revoke access at any time.
+                    </p>
+                  )}
+                  {isPersonalSource && duration !== "permanent" && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3 flex-shrink-0" />
+                      Access will automatically expire{" "}
+                      {duration === "1h" && "in 1 hour"}
+                      {duration === "24h" && "in 24 hours"}
+                      {duration === "session" && chatExpiresAt && `when this chat expires (${new Date(chatExpiresAt).toLocaleDateString()})`}
+                      {duration === "custom" && customDate && `on ${new Date(customDate).toLocaleString()}`}
+                      .
+                    </p>
+                  )}
                   {allowSourceViewing && (
                     <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed mt-1">
                       Source document viewing is <strong>enabled</strong> — members will be able to
