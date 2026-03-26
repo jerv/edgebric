@@ -231,7 +231,7 @@ export const auditLog = sqliteTable("audit_log", {
   eventType: text("event_type").notNull(), // e.g. "auth.login", "document.upload"
   actorEmail: text("actor_email"), // who performed the action (NULL for system events)
   actorIp: text("actor_ip"), // client IP address
-  resourceType: text("resource_type"), // e.g. "document", "kb", "user"
+  resourceType: text("resource_type"), // e.g. "document", "data_source", "user"
   resourceId: text("resource_id"), // ID of the affected resource
   details: text("details"), // JSON object with event-specific data
   prevHash: text("prev_hash").notNull(), // SHA-256 of previous entry (chain)

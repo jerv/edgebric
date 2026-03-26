@@ -817,7 +817,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleteDSConfirm, setDeleteKBConfirm] = useState(false);
+  const [deleteDSConfirm, setDeleteDSConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(ds.name);
   const [editDesc, setEditDesc] = useState(ds.description ?? "");
@@ -1253,7 +1253,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                     Edit
                   </button>
                   <button
-                    onClick={() => setDeleteKBConfirm(true)}
+                    onClick={() => setDeleteDSConfirm(true)}
                     className="p-2 text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded-lg transition-colors"
                     title="Delete data source"
                   >
@@ -1274,7 +1274,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setDeleteKBConfirm(false)}
+                  onClick={() => setDeleteDSConfirm(false)}
                   className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                 >
                   Cancel
