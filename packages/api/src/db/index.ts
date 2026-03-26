@@ -49,8 +49,15 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       name TEXT,
       picture TEXT,
       role TEXT NOT NULL DEFAULT 'member',
+      status TEXT NOT NULL DEFAULT 'active',
       org_id TEXT NOT NULL,
+      invited_by TEXT,
       last_login_at TEXT,
+      auth_provider TEXT,
+      auth_provider_sub TEXT,
+      can_create_data_sources INTEGER DEFAULT 0,
+      can_create_group_chats INTEGER DEFAULT 0,
+      default_group_chat_notif_level TEXT DEFAULT 'all',
       created_at TEXT NOT NULL
     );
 
@@ -63,9 +70,15 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       description TEXT,
       type TEXT NOT NULL DEFAULT 'organization',
       owner_id TEXT NOT NULL,
+      org_id TEXT,
       dataset_name TEXT NOT NULL,
       document_count INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
+      access_mode TEXT NOT NULL DEFAULT 'all',
+      avatar_url TEXT,
+      allow_source_viewing INTEGER NOT NULL DEFAULT 1,
+      allow_vault_sync INTEGER NOT NULL DEFAULT 1,
+      allow_external_access INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -81,7 +94,9 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       page_count INTEGER,
       section_headings TEXT NOT NULL DEFAULT '[]',
       storage_key TEXT NOT NULL,
-      dataset_name TEXT
+      dataset_name TEXT,
+      pii_warnings TEXT,
+      data_source_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS chunks (
@@ -91,15 +106,19 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       section_path TEXT NOT NULL DEFAULT '[]',
       page_number INTEGER NOT NULL DEFAULT 0,
       heading TEXT NOT NULL DEFAULT '',
-      chunk_index INTEGER NOT NULL DEFAULT 0
+      chunk_index INTEGER NOT NULL DEFAULT 0,
+      content TEXT,
+      parent_content TEXT
     );
 
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       user_email TEXT NOT NULL,
       user_name TEXT,
+      org_id TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      archived_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -109,6 +128,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       content TEXT NOT NULL,
       citations TEXT,
       has_confident_answer INTEGER,
+      answer_type TEXT,
       source TEXT,
       created_at TEXT NOT NULL
     );
@@ -126,6 +146,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       message_snapshot TEXT NOT NULL,
       topic TEXT,
       comment TEXT,
+      org_id TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -140,6 +161,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       user_email TEXT NOT NULL,
       type TEXT NOT NULL,
       conversation_id TEXT NOT NULL,
+      group_chat_id TEXT,
       message_id TEXT,
       title TEXT NOT NULL,
       body TEXT,
@@ -262,6 +284,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       data_source_id TEXT NOT NULL,
       shared_by_email TEXT NOT NULL,
       allow_source_viewing INTEGER NOT NULL DEFAULT 1,
+      expires_at TEXT,
       shared_at TEXT NOT NULL
     );
 
@@ -275,6 +298,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       content TEXT NOT NULL,
       citations TEXT,
       has_confident_answer INTEGER,
+      answer_type TEXT,
       created_at TEXT NOT NULL
     );
 

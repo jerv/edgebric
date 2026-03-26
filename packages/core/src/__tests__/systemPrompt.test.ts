@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSystemPrompt, NO_ANSWER_RESPONSE } from "../rag/systemPrompt.js";
+import { buildSystemPrompt, buildGeneralPrompt, NO_ANSWER_RESPONSE } from "../rag/systemPrompt.js";
 import type { Chunk } from "@edgebric/types";
 
 function makeChunk(content: string, opts?: Partial<Chunk["metadata"]>): Chunk {
@@ -19,7 +19,7 @@ function makeChunk(content: string, opts?: Partial<Chunk["metadata"]>): Chunk {
   };
 }
 
-describe("buildSystemPrompt", () => {
+describe("buildSystemPrompt (permissive — default)", () => {
   it("includes context from chunks with source labels", () => {
     const chunks = [makeChunk("Gold plan has a $500 deductible.")];
     const prompt = buildSystemPrompt(chunks);
@@ -50,10 +50,14 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Policy Document");
   });
 
-  it("includes core rules about not using outside knowledge", () => {
+  it("allows general knowledge supplementation", () => {
     const prompt = buildSystemPrompt([makeChunk("test")]);
-    expect(prompt).toContain("Answer ONLY using information from the provided context");
-    expect(prompt).toContain("Do not use outside knowledge");
+    expect(prompt).toContain("general knowledge");
+  });
+
+  it("instructs inline [Source N] citation markers", () => {
+    const prompt = buildSystemPrompt([makeChunk("test")]);
+    expect(prompt).toContain("[Source N]");
   });
 
   it("includes rule about not revealing personal information", () => {
@@ -61,9 +65,49 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Never reveal information about named individuals");
   });
 
-  it("includes rule about not including source citations in answer", () => {
+  it("includes disclaimer about not being a professional advisor", () => {
     const prompt = buildSystemPrompt([makeChunk("test")]);
+    expect(prompt).toContain("not a lawyer");
+  });
+
+  it("forbids a separate Sources section at the end", () => {
+    const prompt = buildSystemPrompt([makeChunk("test")]);
+    expect(prompt).toContain('Do NOT include a separate "Sources"');
+  });
+});
+
+describe("buildSystemPrompt (strict)", () => {
+  it("restricts to context-only answers", () => {
+    const prompt = buildSystemPrompt([makeChunk("test")], { strict: true });
+    expect(prompt).toContain("Answer ONLY using information from the provided context");
+    expect(prompt).toContain("Do not use outside knowledge");
+  });
+
+  it("includes rule about not including source citations", () => {
+    const prompt = buildSystemPrompt([makeChunk("test")], { strict: true });
     expect(prompt).toContain("Do NOT include source citations");
+  });
+
+  it("includes personal information protection rule", () => {
+    const prompt = buildSystemPrompt([makeChunk("test")], { strict: true });
+    expect(prompt).toContain("Never reveal information about named individuals");
+  });
+});
+
+describe("buildGeneralPrompt", () => {
+  it("instructs the model to use general knowledge", () => {
+    const prompt = buildGeneralPrompt();
+    expect(prompt).toContain("general knowledge");
+  });
+
+  it("forbids fabricating company-specific data", () => {
+    const prompt = buildGeneralPrompt();
+    expect(prompt).toContain("Never fabricate company-specific");
+  });
+
+  it("includes disclaimer", () => {
+    const prompt = buildGeneralPrompt();
+    expect(prompt).toContain("not a lawyer");
   });
 });
 
@@ -76,4 +120,3 @@ describe("NO_ANSWER_RESPONSE", () => {
     expect(NO_ANSWER_RESPONSE).toContain("contact");
   });
 });
-

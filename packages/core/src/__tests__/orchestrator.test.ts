@@ -49,6 +49,11 @@ const defaultOptions: RAGOptions = {
   similarityThreshold: 0.3,
 };
 
+const strictOptions: RAGOptions = {
+  ...defaultOptions,
+  strict: true,
+};
+
 describe("answer (non-streaming)", () => {
   it("returns confident answer when relevant chunks found", async () => {
     const results = [
@@ -61,11 +66,19 @@ describe("answer (non-streaming)", () => {
     expect(response.citations[0]!.documentName).toBe("Handbook");
   });
 
-  it("returns no-answer when no chunks found", async () => {
-    const response = await answer("Something obscure?", makeSession(), defaultOptions, makeDeps([]));
+  it("returns no-answer in strict mode when no chunks found", async () => {
+    const response = await answer("Something obscure?", makeSession(), strictOptions, makeDeps([]));
     expect(response.hasConfidentAnswer).toBe(false);
     expect(response.citations).toHaveLength(0);
     expect(response.answer).toContain("couldn't find");
+  });
+
+  it("generates general-knowledge answer in permissive mode when no chunks found", async () => {
+    const response = await answer("What is photosynthesis?", makeSession(), defaultOptions, makeDeps([], "Photosynthesis is how plants make energy."));
+    expect(response.hasConfidentAnswer).toBe(false);
+    expect(response.answerType).toBe("general");
+    expect(response.citations).toHaveLength(0);
+    expect(response.answer).toContain("Photosynthesis");
   });
 
   it("returns no-answer when all chunks below similarity threshold", async () => {
@@ -73,7 +86,7 @@ describe("answer (non-streaming)", () => {
       makeSearchResult("Unrelated text", 0.1),
       makeSearchResult("Also unrelated", 0.2),
     ];
-    const response = await answer("Something specific?", makeSession(), defaultOptions, makeDeps(results));
+    const response = await answer("Something specific?", makeSession(), strictOptions, makeDeps(results));
     expect(response.hasConfidentAnswer).toBe(false);
   });
 
@@ -81,19 +94,19 @@ describe("answer (non-streaming)", () => {
     const results = [makeSearchResult("Some policy", 0.9)];
     const response = await answer("What is John Smith's salary?", makeSession(), defaultOptions, makeDeps(results));
     expect(response.hasConfidentAnswer).toBe(false);
-    // Should not even call search — blocked at filter level
+    expect(response.answerType).toBe("blocked");
     expect(response.citations).toHaveLength(0);
   });
 
   it("includes sessionId in response", async () => {
     const session = makeSession();
-    const response = await answer("Test?", session, defaultOptions, makeDeps([]));
+    const response = await answer("Test?", session, strictOptions, makeDeps([]));
     expect(response.sessionId).toBe(session.id);
   });
 
   it("includes searchedDatasets from options", async () => {
     const opts: RAGOptions = {
-      ...defaultOptions,
+      ...strictOptions,
       datasetNames: ["kb-1", "kb-2"],
     };
     const response = await answer("Test?", makeSession(), opts, makeDeps([]));
@@ -101,7 +114,7 @@ describe("answer (non-streaming)", () => {
   });
 
   it("falls back to [datasetName] when datasetNames not provided", async () => {
-    const response = await answer("Test?", makeSession(), defaultOptions, makeDeps([]));
+    const response = await answer("Test?", makeSession(), strictOptions, makeDeps([]));
     expect(response.searchedDatasets).toEqual(["test-dataset"]);
   });
 
@@ -137,17 +150,33 @@ describe("answerStream", () => {
     expect(finalResponse!.hasConfidentAnswer).toBe(false);
   });
 
-  it("yields only final for no-answer (no deltas)", async () => {
+  it("yields only final for no-answer in strict mode (no deltas)", async () => {
     const deltas: string[] = [];
     let finalResponse;
 
-    for await (const chunk of answerStream("Unknown?", makeSession(), defaultOptions, makeDeps([]))) {
+    for await (const chunk of answerStream("Unknown?", makeSession(), strictOptions, makeDeps([]))) {
       if (chunk.delta) deltas.push(chunk.delta);
       if (chunk.final) finalResponse = chunk.final;
     }
 
     expect(deltas).toHaveLength(0);
     expect(finalResponse!.hasConfidentAnswer).toBe(false);
+    expect(finalResponse!.answerType).toBe("general");
+  });
+
+  it("yields deltas for general-knowledge answer in permissive mode", async () => {
+    const deltas: string[] = [];
+    let finalResponse;
+
+    for await (const chunk of answerStream("What is gravity?", makeSession(), defaultOptions, makeDeps([], "Gravity is a force."))) {
+      if (chunk.delta) deltas.push(chunk.delta);
+      if (chunk.final) finalResponse = chunk.final;
+    }
+
+    expect(deltas.length).toBeGreaterThan(0);
+    expect(finalResponse!.hasConfidentAnswer).toBe(false);
+    expect(finalResponse!.answerType).toBe("general");
+    expect(finalResponse!.citations).toHaveLength(0);
   });
 });
 
