@@ -6,7 +6,7 @@
 
 > **"Data never moves. Queries move."**
 
-Edgebric is a **distributed knowledge platform** built on [mimik](https://mimik.com)'s edge computing mesh. It enables organizations to build, distribute, and query knowledge bases across multiple devices — where each device physically holds its own data, devices discover each other automatically via the mesh, and queries route across the network to find answers without any data leaving its host device.
+Edgebric is a **distributed knowledge platform** built on [mimik](https://mimik.com)'s edge computing mesh. It enables organizations to build, distribute, and query data sources across multiple devices — where each device physically holds its own data, devices discover each other automatically via the mesh, and queries route across the network to find answers without any data leaving its host device.
 
 HR is the flagship use case: the most emotionally loaded, the most legally sensitive, and the most universally relatable knowledge domain in any organization. If Edgebric earns employee trust in HR — where trust is hardest to earn — it validates the architecture for every other sensitive context: legal, compliance, IT, finance, executive operations, and beyond.
 
@@ -114,7 +114,7 @@ A $599 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 - **Glean** ($7.2B valuation) — horizontal enterprise search, recently launched on-prem via expensive Dell partnership; not distributed, requires massive central infrastructure
 - **Moveworks** (acquired by ServiceNow, $2.85B) — HR/IT AI, cloud-only, now bundled into $100k+ ServiceNow contracts
 - **Leena AI** ($40M raised) — HR-specific, cloud-only, from $3/employee/month, complaints of generic answers
-- **Guru** — general knowledge base with AI, $5-12/user, cloud-only
+- **Guru** — general knowledge base with AI, $5-12/user, cloud-only (their term)
 - **No competitor offers:** distributed multi-device mesh + physical data isolation + meeting mode + vault sources + group chats + sub-$1K hardware deployment
 
 ### Target Markets

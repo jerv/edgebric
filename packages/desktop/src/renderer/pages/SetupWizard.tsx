@@ -12,8 +12,12 @@ interface AuthProvider {
   id: string;
   name: string;
   issuerUrl: string;
+  /** Placeholder hint for the issuer field. */
+  issuerHint?: string;
   instructions: string;
   docsUrl: string;
+  /** Placeholder for Client ID field. */
+  clientIdHint?: string;
   icon: React.ReactNode;
 }
 
@@ -24,6 +28,42 @@ function GoogleIcon() {
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
+
+function OktaIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="9" fill="#007DC1" />
+      <circle cx="10" cy="10" r="4" fill="white" />
+    </svg>
+  );
+}
+
+function OneLoginIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 1C6.5 1 3 2.5 3 5.5V9.5C3 14 6 17.5 10 19C14 17.5 17 14 17 9.5V5.5C17 2.5 13.5 1 10 1Z" fill="#232F6A" />
+    </svg>
+  );
+}
+
+function PingIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M4 2L16 10L4 18V2Z" fill="#B31B34" />
     </svg>
   );
 }
@@ -46,12 +86,55 @@ const AUTH_PROVIDERS: AuthProvider[] = [
     instructions:
       "You'll need to create an OAuth app in Google Cloud Console. Follow the numbered steps below.",
     docsUrl: "https://console.cloud.google.com/apis/credentials",
+    clientIdHint: "xxxxxxxxxx.apps.googleusercontent.com",
     icon: <GoogleIcon />,
   },
   {
-    id: "other",
-    name: "Other OIDC Provider",
+    id: "microsoft",
+    name: "Microsoft Entra ID",
     issuerUrl: "",
+    issuerHint: "https://login.microsoftonline.com/<tenant-id>/v2.0",
+    instructions:
+      "Register an app in Microsoft Entra ID (Azure AD). Follow the numbered steps below.",
+    docsUrl: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+    clientIdHint: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    icon: <MicrosoftIcon />,
+  },
+  {
+    id: "okta",
+    name: "Okta",
+    issuerUrl: "",
+    issuerHint: "https://your-domain.okta.com/oauth2/default",
+    instructions:
+      "Create an OIDC Web App integration in Okta. Follow the numbered steps below.",
+    docsUrl: "https://login.okta.com/",
+    icon: <OktaIcon />,
+  },
+  {
+    id: "onelogin",
+    name: "OneLogin",
+    issuerUrl: "",
+    issuerHint: "https://your-subdomain.onelogin.com/oidc/2",
+    instructions:
+      "Create an OpenID Connect app in OneLogin. Follow the numbered steps below.",
+    docsUrl: "https://app.onelogin.com/apps",
+    icon: <OneLoginIcon />,
+  },
+  {
+    id: "ping",
+    name: "Ping Identity",
+    issuerUrl: "",
+    issuerHint: "https://auth.pingone.com/<environment-id>/as",
+    instructions:
+      "Create an OIDC application in PingOne or PingFederate. Follow the numbered steps below.",
+    docsUrl: "https://console.pingone.com/",
+    icon: <PingIcon />,
+  },
+  {
+    id: "generic",
+    name: "Custom OIDC Provider",
+    issuerUrl: "",
+    issuerHint: "https://your-provider.com",
     instructions:
       "Enter the issuer URL and OAuth credentials from your OIDC-compatible identity provider.",
     docsUrl: "",
@@ -191,6 +274,7 @@ export default function SetupWizard({ onComplete }: Props) {
       dataDir: dataDir.trim(),
       port: parseInt(port, 10),
       ...(mode === "admin" && {
+        oidcProvider: authProvider,
         oidcIssuer: oidcIssuer.trim(),
         oidcClientId: oidcClientId.trim(),
         oidcClientSecret: oidcClientSecret.trim(),
@@ -554,7 +638,8 @@ export default function SetupWizard({ onComplete }: Props) {
         {currentStep === "authCredentials" && (
           <>
             <h2>{selectedProvider.name} Credentials</h2>
-            <div className={authProvider === "google" ? "step3-split" : ""}>
+            <div className={authProvider !== "generic" ? "step3-split" : ""}>
+              {/* ── Provider-specific setup guides ─────────────────────── */}
               {authProvider === "google" && (
                 <div className="step3-guide">
                   <h3 className="guide-heading">Setup Guide</h3>
@@ -565,24 +650,124 @@ export default function SetupWizard({ onComplete }: Props) {
                         Google Cloud Console &gt; Credentials
                       </a>
                     </li>
+                    <li>If you haven't already, configure the <strong>OAuth consent screen</strong> (Internal for Workspace, or External for testing)</li>
                     <li>Click <strong>+ CREATE CREDENTIALS</strong>, then <strong>OAuth client ID</strong></li>
                     <li>Application type: <strong>Web application</strong></li>
                     <li>Name it anything (e.g. "Edgebric")</li>
-                    <li>Under <strong>Authorized redirect URIs</strong>, add the URI from the form</li>
+                    <li>Under <strong>Authorized redirect URIs</strong>, add the redirect URI from the form</li>
                     <li>Click <strong>CREATE</strong></li>
                     <li>Copy the <strong>Client ID</strong> (ends in <code>.apps.googleusercontent.com</code>) and <strong>Client Secret</strong> into the form</li>
                   </ol>
                 </div>
               )}
-              {selectedProvider.docsUrl && authProvider !== "google" && (
-                <p className="description">
-                  <a href={selectedProvider.docsUrl} target="_blank" rel="noopener noreferrer" className="docs-link">
-                    Open {selectedProvider.name} console
-                  </a>
-                </p>
+              {authProvider === "microsoft" && (
+                <div className="step3-guide">
+                  <h3 className="guide-heading">Setup Guide</h3>
+                  <ol className="setup-steps">
+                    <li>
+                      Go to{" "}
+                      <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="docs-link">
+                        Microsoft Entra admin center &gt; App registrations
+                      </a>
+                    </li>
+                    <li>Click <strong>+ New registration</strong></li>
+                    <li>Name: <strong>Edgebric</strong></li>
+                    <li>Supported account types: <strong>Accounts in this organizational directory only</strong> (single tenant)</li>
+                    <li>Redirect URI: select <strong>Web</strong>, paste the redirect URI from the form</li>
+                    <li>Click <strong>Register</strong></li>
+                    <li>Copy the <strong>Application (client) ID</strong> (a UUID) from the overview page</li>
+                    <li>Copy the <strong>Directory (tenant) ID</strong> and paste it below to build the issuer URL</li>
+                    <li>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>+ New client secret</strong> &gt; <strong>Add</strong></li>
+                    <li>Copy the <strong>Value</strong> (not the Secret ID) immediately &mdash; it's only shown once</li>
+                    <li>Go to <strong>API permissions</strong> &gt; <strong>+ Add a permission</strong> &gt; <strong>Microsoft Graph</strong> &gt; <strong>Delegated</strong> &gt; search <strong>User.Read</strong> &gt; <strong>Add permissions</strong></li>
+                    <li>Go to <strong>Token configuration</strong> &gt; <strong>+ Add optional claim</strong> &gt; Token type: <strong>ID</strong> &gt; select <strong>email</strong> &gt; <strong>Add</strong>. If prompted, check "Turn on the Microsoft Graph email permission".</li>
+                  </ol>
+                  <p className="hint" style={{ marginTop: 8 }}>
+                    Steps 11-12 are critical: User.Read enables profile photo sync, and the email claim ensures Entra includes the user's email in the ID token. Without these, login will fail.
+                  </p>
+                </div>
               )}
+              {authProvider === "okta" && (
+                <div className="step3-guide">
+                  <h3 className="guide-heading">Setup Guide</h3>
+                  <ol className="setup-steps">
+                    <li>
+                      Sign in to your{" "}
+                      <a href="https://login.okta.com/" target="_blank" rel="noopener noreferrer" className="docs-link">
+                        Okta admin console
+                      </a>
+                    </li>
+                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
+                    <li>Click <strong>Create App Integration</strong></li>
+                    <li>Sign-in method: <strong>OIDC - OpenID Connect</strong></li>
+                    <li>Application type: <strong>Web Application</strong> &gt; <strong>Next</strong></li>
+                    <li>App integration name: <strong>Edgebric</strong></li>
+                    <li>Sign-in redirect URIs: paste the redirect URI from the form</li>
+                    <li>Under <strong>Assignments</strong>, select <strong>Allow everyone in your organization to access</strong> (or limit to specific groups)</li>
+                    <li>Click <strong>Save</strong></li>
+                    <li>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> from the app's <strong>General</strong> tab</li>
+                  </ol>
+                  <p className="hint" style={{ marginTop: 8 }}>
+                    Your issuer URL is typically <code>https://your-company.okta.com/oauth2/default</code> (using the default authorization server). If you use a custom authorization server, replace <code>/default</code> with your server ID. Find your Okta domain in <strong>Settings</strong> &gt; <strong>Customization</strong> &gt; <strong>Org Contact</strong>.
+                  </p>
+                </div>
+              )}
+              {authProvider === "onelogin" && (
+                <div className="step3-guide">
+                  <h3 className="guide-heading">Setup Guide</h3>
+                  <ol className="setup-steps">
+                    <li>
+                      Sign in to your{" "}
+                      <a href="https://app.onelogin.com/apps" target="_blank" rel="noopener noreferrer" className="docs-link">
+                        OneLogin admin portal
+                      </a>
+                    </li>
+                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
+                    <li>Click <strong>Add App</strong></li>
+                    <li>Search for <strong>OpenID Connect (OIDC)</strong> and select it</li>
+                    <li>Display name: <strong>Edgebric</strong> &gt; <strong>Save</strong></li>
+                    <li>Go to the <strong>Configuration</strong> tab</li>
+                    <li>Redirect URI: paste the redirect URI from the form</li>
+                    <li>Set <strong>Token Endpoint</strong> authentication method to <strong>POST</strong></li>
+                    <li>Click <strong>Save</strong></li>
+                    <li>Go to the <strong>SSO</strong> tab</li>
+                    <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                  </ol>
+                  <p className="hint" style={{ marginTop: 8 }}>
+                    Your issuer URL is <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code>. Find your subdomain in the browser URL bar when logged in to OneLogin admin (e.g. <code>your-company.onelogin.com</code>).
+                  </p>
+                </div>
+              )}
+              {authProvider === "ping" && (
+                <div className="step3-guide">
+                  <h3 className="guide-heading">Setup Guide</h3>
+                  <ol className="setup-steps">
+                    <li>
+                      Sign in to your{" "}
+                      <a href="https://console.pingone.com/" target="_blank" rel="noopener noreferrer" className="docs-link">
+                        PingOne admin console
+                      </a>
+                    </li>
+                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
+                    <li>Click <strong>+</strong> to add an application</li>
+                    <li>Name: <strong>Edgebric</strong>, Application type: <strong>OIDC Web App</strong></li>
+                    <li>Click <strong>Configure</strong></li>
+                    <li>Redirect URIs: paste the redirect URI from the form</li>
+                    <li>Grant type: <strong>Authorization Code</strong></li>
+                    <li>Click <strong>Save</strong></li>
+                    <li>On the app's <strong>Configuration</strong> tab, copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                    <li>On the <strong>Configuration</strong> tab, note the <strong>Issuer</strong> URL (or find it under your environment settings)</li>
+                  </ol>
+                  <p className="hint" style={{ marginTop: 8 }}>
+                    PingOne issuer URL varies by region: <code>auth.pingone.com</code> (US), <code>auth.pingone.eu</code> (EU), <code>auth.pingone.ca</code> (Canada), <code>auth.pingone.asia</code> (Asia). For PingFederate (self-hosted), use your PingFederate base URL, e.g. <code>https://sso.yourcompany.com</code>.
+                  </p>
+                </div>
+              )}
+
+              {/* ── Credential form ─────────────────────────────────── */}
               <div className="step3-form">
-                {authProvider === "other" && (
+                {/* Issuer URL — shown for all providers except Google (which has a fixed issuer) */}
+                {authProvider !== "google" && (
                   <div className="field">
                     <label htmlFor="oidcIssuer">Issuer URL</label>
                     <input
@@ -590,8 +775,23 @@ export default function SetupWizard({ onComplete }: Props) {
                       type="text"
                       value={oidcIssuer}
                       onChange={(e) => setOidcIssuer(e.target.value)}
-                      placeholder="https://your-provider.com"
+                      placeholder={selectedProvider.issuerHint ?? "https://your-provider.com"}
                     />
+                    {authProvider === "microsoft" && (
+                      <p className="hint">
+                        Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code> &mdash; replace TENANT-ID with your Directory (tenant) ID from step 8.
+                      </p>
+                    )}
+                    {authProvider === "okta" && (
+                      <p className="hint">
+                        Your Okta domain, e.g. <code>https://your-company.okta.com</code>
+                      </p>
+                    )}
+                    {authProvider === "onelogin" && (
+                      <p className="hint">
+                        Format: <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code>
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="field">
@@ -618,7 +818,9 @@ export default function SetupWizard({ onComplete }: Props) {
                     </button>
                   </div>
                   <p className="hint">
-                    Paste this into Google's "Authorized redirect URIs" field (step 5).
+                    {authProvider === "google"
+                      ? "Paste this into Google's \"Authorized redirect URIs\" field (step 5)."
+                      : `Paste this as the redirect URI in your ${selectedProvider.name} app configuration.`}
                   </p>
                 </div>
                 <div className="field">
@@ -628,12 +830,14 @@ export default function SetupWizard({ onComplete }: Props) {
                     type="text"
                     value={oidcClientId}
                     onChange={(e) => setOidcClientId(e.target.value)}
-                    placeholder={authProvider === "google" ? "xxxxxxxxxx.apps.googleusercontent.com" : ""}
+                    placeholder={selectedProvider.clientIdHint ?? ""}
                   />
                   <p className="hint">
                     {authProvider === "google"
                       ? "NOT the name you typed \u2014 it's the long string ending in .apps.googleusercontent.com"
-                      : "Found in your OIDC provider's app registration page."}
+                      : authProvider === "microsoft"
+                        ? "The Application (client) ID from your app registration's overview page (a UUID)."
+                        : `Found in your ${selectedProvider.name} app's settings or credentials page.`}
                   </p>
                 </div>
                 <div className="field">
@@ -647,7 +851,9 @@ export default function SetupWizard({ onComplete }: Props) {
                   <p className="hint">
                     {authProvider === "google"
                       ? "Shown right after you click CREATE. Can also be found later on the client details page."
-                      : "Some providers only show this once \u2014 you may need to generate a new one."}
+                      : authProvider === "microsoft"
+                        ? "The Value (not Secret ID) from Certificates & secrets. Only shown once \u2014 copy it immediately."
+                        : "Some providers only show this once \u2014 you may need to generate a new one."}
                   </p>
                 </div>
               </div>

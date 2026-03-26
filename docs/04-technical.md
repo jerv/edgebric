@@ -304,9 +304,10 @@ Edgebric's inference layer targets the **OpenAI-compatible API spec**. Any model
 
 | Hardware | Cost | Model Capacity | Daily Users | Best For |
 |---|---|---|---|---|
-| Mac Mini M2 (8GB) | $499 | Qwen3.5-4B @ ~35-45 tok/s | 50-100 | Single small office, source-only node |
-| Mac Mini M4 (16GB) | $599 | Qwen3.5-4B @ ~35-50 tok/s | 100-200 | Primary node for 50-200 person company |
-| Mac Mini M2 Pro (16GB) | ~$800 used | Qwen3.5-9B @ ~37 tok/s | 150-300 | Multi-department coordinator |
+| Apple Silicon Mac (16GB) | varies | Qwen3.5-4B @ ~35-50 tok/s | Personal | Local/vault mode on worker laptops |
+| Mac Mini M4 (16GB) | $499 | Qwen3.5-4B @ ~35-50 tok/s | 50-100 | Small team server, budget org node |
+| Mac Mini M4 (24GB) | $699 | Qwen3.5-9B or 27B Q3 | 100-200 | **Recommended org server** |
+| Mac Mini M4 Pro (48GB) | $1,599 | 27B Q8 or multiple models | 200-500 | Large org, multi-department coordinator |
 | iPhone (iOS 16+) | existing | Qwen3.5-2B | Personal use | Meeting mode knowledge node |
 
 mKB vector search on 50K chunks: <5ms latency, ~250MB RAM. Mac Mini idles at 3-4 watts (~$5-10/year electricity).

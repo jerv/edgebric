@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { KnowledgeBasePanel } from "@/components/admin/KnowledgeBasePanel";
+import { DataSourcePanel } from "@/components/admin/DataSourcePanel";
 
 export const Route = createFileRoute("/_shell/library")({
-  component: KnowledgeBasePanel,
+  component: DataSourcePanel,
 });

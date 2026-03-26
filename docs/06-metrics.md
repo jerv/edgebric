@@ -6,9 +6,9 @@
 
 | Metric | Target | Notes |
 |---|---|---|
-| Query deflection rate (questions answered without human involvement) | 60%+ at 3 months | Across all modes (org, meeting, personal KB) |
+| Query deflection rate (questions answered without human involvement) | 60%+ at 3 months | Across all modes (org, meeting, personal data source) |
 | Response satisfaction (thumbs up rate) | 75%+ | Includes AI answers and admin replies |
-| Median query response time — single-node | < 5 seconds | Org mode, single KB |
+| Median query response time — single-node | < 5 seconds | Org mode, single data source |
 | Median query response time — cross-node | < 8 seconds | 2-3 node fan-out |
 | Median query response time — meeting mode | < 12 seconds | 3-5 participant devices |
 | Vault source adoption | 40%+ of users create at least one | Key stickiness metric |

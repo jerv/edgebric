@@ -1,46 +1,46 @@
-import type { KnowledgeBase, KnowledgeBaseType, KBAccessMode } from "@edgebric/types";
+import type { DataSource, DataSourceType, DataSourceAccessMode } from "@edgebric/types";
 import { getDb } from "../db/index.js";
-import { knowledgeBases, documents, kbAccess } from "../db/schema.js";
+import { dataSources, documents, dataSourceAccess } from "../db/schema.js";
 import { eq, and, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-function rowToKB(row: typeof knowledgeBases.$inferSelect): KnowledgeBase {
-  const kb: KnowledgeBase = {
+function rowToDataSource(row: typeof dataSources.$inferSelect): DataSource {
+  const ds: DataSource = {
     id: row.id,
     name: row.name,
-    type: row.type as KnowledgeBaseType,
+    type: row.type as DataSourceType,
     ownerId: row.ownerId,
     datasetName: row.datasetName,
     documentCount: row.documentCount,
-    status: row.status as KnowledgeBase["status"],
-    accessMode: (row.accessMode ?? "all") as KBAccessMode,
+    status: row.status as DataSource["status"],
+    accessMode: (row.accessMode ?? "all") as DataSourceAccessMode,
     allowSourceViewing: row.allowSourceViewing !== 0,
     allowVaultSync: row.allowVaultSync !== 0,
     allowExternalAccess: row.allowExternalAccess !== 0,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
-  if (row.description != null) kb.description = row.description;
-  if (row.avatarUrl != null) kb.avatarUrl = row.avatarUrl;
-  return kb;
+  if (row.description != null) ds.description = row.description;
+  if (row.avatarUrl != null) ds.avatarUrl = row.avatarUrl;
+  return ds;
 }
 
-/** Create a new knowledge base. Returns the created KB. */
-export function createKB(opts: {
+/** Create a new data source. Returns the created data source. */
+export function createDataSource(opts: {
   name: string;
   description?: string;
-  type?: KnowledgeBaseType;
+  type?: DataSourceType;
   ownerId: string;
   orgId?: string;
   datasetName?: string;
-}): KnowledgeBase {
+}): DataSource {
   const db = getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
-  // Generate a unique mKB dataset name from the KB name
-  const datasetName = opts.datasetName ?? `kb-${id.slice(0, 8)}`;
+  // Generate a unique mKB dataset name from the data source name
+  const datasetName = opts.datasetName ?? `ds-${id.slice(0, 8)}`;
 
-  db.insert(knowledgeBases)
+  db.insert(dataSources)
     .values({
       id,
       name: opts.name,
@@ -57,112 +57,112 @@ export function createKB(opts: {
     })
     .run();
 
-  return getKB(id)!;
+  return getDataSource(id)!;
 }
 
-/** Get a single KB by ID. */
-export function getKB(id: string): KnowledgeBase | undefined {
+/** Get a single data source by ID. */
+export function getDataSource(id: string): DataSource | undefined {
   const db = getDb();
-  const row = db.select().from(knowledgeBases).where(eq(knowledgeBases.id, id)).get();
-  return row ? rowToKB(row) : undefined;
+  const row = db.select().from(dataSources).where(eq(dataSources.id, id)).get();
+  return row ? rowToDataSource(row) : undefined;
 }
 
-/** Check if a KB belongs to a specific org. */
-export function kbBelongsToOrg(kbId: string, orgId: string): boolean {
+/** Check if a data source belongs to a specific org. */
+export function dataSourceBelongsToOrg(dataSourceId: string, orgId: string): boolean {
   const db = getDb();
-  const row = db.select({ orgId: knowledgeBases.orgId }).from(knowledgeBases)
-    .where(and(eq(knowledgeBases.id, kbId), eq(knowledgeBases.orgId, orgId)))
+  const row = db.select({ orgId: dataSources.orgId }).from(dataSources)
+    .where(and(eq(dataSources.id, dataSourceId), eq(dataSources.orgId, orgId)))
     .get();
   return !!row;
 }
 
-/** Get a KB by its dataset name. */
-export function getKBByDatasetName(datasetName: string): KnowledgeBase | undefined {
+/** Get a data source by its dataset name. */
+export function getDataSourceByDatasetName(datasetName: string): DataSource | undefined {
   const db = getDb();
-  const row = db.select().from(knowledgeBases).where(eq(knowledgeBases.datasetName, datasetName)).get();
-  return row ? rowToKB(row) : undefined;
+  const row = db.select().from(dataSources).where(eq(dataSources.datasetName, datasetName)).get();
+  return row ? rowToDataSource(row) : undefined;
 }
 
-/** List all KBs, optionally filtered by type, owner, and/or org. */
-export function listKBs(opts?: {
-  type?: KnowledgeBaseType;
+/** List all data sources, optionally filtered by type, owner, and/or org. */
+export function listDataSources(opts?: {
+  type?: DataSourceType;
   ownerId?: string;
   orgId?: string;
   includeArchived?: boolean;
-}): KnowledgeBase[] {
+}): DataSource[] {
   const db = getDb();
   const conditions = [];
 
   if (opts?.type) {
-    conditions.push(eq(knowledgeBases.type, opts.type));
+    conditions.push(eq(dataSources.type, opts.type));
   }
   if (opts?.ownerId) {
-    conditions.push(eq(knowledgeBases.ownerId, opts.ownerId));
+    conditions.push(eq(dataSources.ownerId, opts.ownerId));
   }
   if (opts?.orgId) {
-    conditions.push(eq(knowledgeBases.orgId, opts.orgId));
+    conditions.push(eq(dataSources.orgId, opts.orgId));
   }
   if (!opts?.includeArchived) {
-    conditions.push(eq(knowledgeBases.status, "active"));
+    conditions.push(eq(dataSources.status, "active"));
   }
 
   const query = conditions.length > 0
-    ? db.select().from(knowledgeBases).where(and(...conditions))
-    : db.select().from(knowledgeBases);
+    ? db.select().from(dataSources).where(and(...conditions))
+    : db.select().from(dataSources);
 
-  return query.all().map(rowToKB);
+  return query.all().map(rowToDataSource);
 }
 
 /**
- * List KBs accessible to a specific user email.
- * Admins see all KBs. Regular users only see KBs with accessMode "all"
- * or restricted KBs where their email is in the access list.
+ * List data sources accessible to a specific user email.
+ * Admins see all data sources. Regular users only see data sources with accessMode "all"
+ * or restricted data sources where their email is in the access list.
  */
-export function listAccessibleKBs(email: string, isAdmin: boolean, orgId?: string): KnowledgeBase[] {
+export function listAccessibleDataSources(email: string, isAdmin: boolean, orgId?: string): DataSource[] {
   // Org-wide sources
-  const orgKBs = listKBs({ type: "organization", ...(orgId && { orgId }) });
+  const orgDataSources = listDataSources({ type: "organization", ...(orgId && { orgId }) });
   // Personal/vault sources owned by this user
-  const myVaultKBs = listKBs({ type: "personal", ownerId: email.toLowerCase() });
+  const myVaultDataSources = listDataSources({ type: "personal", ownerId: email.toLowerCase() });
 
-  if (isAdmin) return [...orgKBs, ...myVaultKBs];
+  if (isAdmin) return [...orgDataSources, ...myVaultDataSources];
 
   const db = getDb();
 
-  // Get all KB IDs this user has explicit access to
+  // Get all data source IDs this user has explicit access to
   const accessRows = db
-    .select({ kbId: kbAccess.kbId })
-    .from(kbAccess)
-    .where(eq(kbAccess.email, email.toLowerCase()))
+    .select({ dataSourceId: dataSourceAccess.dataSourceId })
+    .from(dataSourceAccess)
+    .where(eq(dataSourceAccess.email, email.toLowerCase()))
     .all();
-  const accessibleIds = new Set(accessRows.map((r) => r.kbId));
+  const accessibleIds = new Set(accessRows.map((r) => r.dataSourceId));
 
-  const accessibleOrgKBs = orgKBs.filter(
-    (kb) => kb.accessMode === "all" || accessibleIds.has(kb.id),
+  const accessibleOrgDataSources = orgDataSources.filter(
+    (ds) => ds.accessMode === "all" || accessibleIds.has(ds.id),
   );
 
-  return [...accessibleOrgKBs, ...myVaultKBs];
+  return [...accessibleOrgDataSources, ...myVaultDataSources];
 }
 
-/** Update KB metadata. */
-export function updateKB(
+/** Update data source metadata. */
+export function updateDataSource(
   id: string,
   data: {
     name?: string;
     description?: string;
     type?: "organization" | "personal";
-    accessMode?: KBAccessMode;
+    accessMode?: DataSourceAccessMode;
     avatarUrl?: string;
     allowSourceViewing?: boolean;
     allowVaultSync?: boolean;
     allowExternalAccess?: boolean;
   },
-): KnowledgeBase | undefined {
+): DataSource | undefined {
   const db = getDb();
-  const existing = getKB(id);
+  const existing = getDataSource(id);
   if (!existing) return undefined;
 
   const now = new Date().toISOString();
-  db.update(knowledgeBases)
+  db.update(dataSources)
     .set({
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
@@ -174,55 +174,55 @@ export function updateKB(
       ...(data.allowExternalAccess !== undefined && { allowExternalAccess: data.allowExternalAccess ? 1 : 0 }),
       updatedAt: now,
     })
-    .where(eq(knowledgeBases.id, id))
+    .where(eq(dataSources.id, id))
     .run();
 
-  return getKB(id);
+  return getDataSource(id);
 }
 
-/** Archive a KB (soft delete). */
-export function archiveKB(id: string): KnowledgeBase | undefined {
+/** Archive a data source (soft delete). */
+export function archiveDataSource(id: string): DataSource | undefined {
   const db = getDb();
-  const existing = getKB(id);
+  const existing = getDataSource(id);
   if (!existing) return undefined;
 
-  db.update(knowledgeBases)
+  db.update(dataSources)
     .set({ status: "archived", updatedAt: new Date().toISOString() })
-    .where(eq(knowledgeBases.id, id))
+    .where(eq(dataSources.id, id))
     .run();
 
-  return getKB(id);
+  return getDataSource(id);
 }
 
-/** Hard delete a KB. Does NOT delete the mKB dataset or files — caller must handle that. */
-export function deleteKB(id: string): void {
+/** Hard delete a data source. Does NOT delete the mKB dataset or files — caller must handle that. */
+export function deleteDataSource(id: string): void {
   const db = getDb();
-  db.delete(kbAccess).where(eq(kbAccess.kbId, id)).run();
-  db.delete(knowledgeBases).where(eq(knowledgeBases.id, id)).run();
+  db.delete(dataSourceAccess).where(eq(dataSourceAccess.dataSourceId, id)).run();
+  db.delete(dataSources).where(eq(dataSources.id, id)).run();
 }
 
-/** Recalculate and update document count for a KB. */
-export function refreshDocumentCount(knowledgeBaseId: string): void {
+/** Recalculate and update document count for a data source. */
+export function refreshDocumentCount(dataSourceId: string): void {
   const db = getDb();
   const result = db
     .select({ count: sql<number>`count(*)` })
     .from(documents)
-    .where(eq(documents.knowledgeBaseId, knowledgeBaseId))
+    .where(eq(documents.dataSourceId, dataSourceId))
     .get();
 
   const count = result?.count ?? 0;
-  db.update(knowledgeBases)
+  db.update(dataSources)
     .set({ documentCount: count, updatedAt: new Date().toISOString() })
-    .where(eq(knowledgeBases.id, knowledgeBaseId))
+    .where(eq(dataSources.id, dataSourceId))
     .run();
 }
 
-/** Get or create a default "Policy Documents" KB. Idempotent. */
-export function ensureDefaultKB(ownerId: string, orgId?: string): KnowledgeBase {
-  const existing = getKBByDatasetName("knowledge-base");
+/** Get or create a default "Policy Documents" data source. Idempotent. */
+export function ensureDefaultDataSource(ownerId: string, orgId?: string): DataSource {
+  const existing = getDataSourceByDatasetName("knowledge-base");
   if (existing) return existing;
 
-  return createKB({
+  return createDataSource({
     name: "Policy Documents",
     description: "Default source for organization policy documents.",
     type: "organization",
@@ -232,31 +232,31 @@ export function ensureDefaultKB(ownerId: string, orgId?: string): KnowledgeBase 
   });
 }
 
-// ─── KB Access Control ──────────────────────────────────────────────────────
+// ─── Data Source Access Control ─────────────────────────────────────────────
 
-/** Get the access list for a restricted KB. */
-export function getKBAccessList(kbId: string): string[] {
+/** Get the access list for a restricted data source. */
+export function getDataSourceAccessList(dataSourceId: string): string[] {
   const db = getDb();
   const rows = db
-    .select({ email: kbAccess.email })
-    .from(kbAccess)
-    .where(eq(kbAccess.kbId, kbId))
+    .select({ email: dataSourceAccess.email })
+    .from(dataSourceAccess)
+    .where(eq(dataSourceAccess.dataSourceId, dataSourceId))
     .all();
   return rows.map((r) => r.email);
 }
 
-/** Set the access list for a KB (replaces existing list). */
-export function setKBAccessList(kbId: string, emails: string[]): void {
+/** Set the access list for a data source (replaces existing list). */
+export function setDataSourceAccessList(dataSourceId: string, emails: string[]): void {
   const db = getDb();
   // Clear existing
-  db.delete(kbAccess).where(eq(kbAccess.kbId, kbId)).run();
+  db.delete(dataSourceAccess).where(eq(dataSourceAccess.dataSourceId, dataSourceId)).run();
   // Insert new
   const now = new Date().toISOString();
   for (const email of emails) {
-    db.insert(kbAccess)
+    db.insert(dataSourceAccess)
       .values({
         id: randomUUID(),
-        kbId,
+        dataSourceId,
         email: email.toLowerCase().trim(),
         createdAt: now,
       })
@@ -264,17 +264,17 @@ export function setKBAccessList(kbId: string, emails: string[]): void {
   }
 }
 
-/** Check if a user has access to a specific KB. */
-export function userHasKBAccess(kbId: string, email: string): boolean {
-  const kb = getKB(kbId);
-  if (!kb) return false;
-  if (kb.accessMode === "all") return true;
+/** Check if a user has access to a specific data source. */
+export function userHasDataSourceAccess(dataSourceId: string, email: string): boolean {
+  const ds = getDataSource(dataSourceId);
+  if (!ds) return false;
+  if (ds.accessMode === "all") return true;
 
   const db = getDb();
   const row = db
     .select()
-    .from(kbAccess)
-    .where(and(eq(kbAccess.kbId, kbId), eq(kbAccess.email, email.toLowerCase())))
+    .from(dataSourceAccess)
+    .where(and(eq(dataSourceAccess.dataSourceId, dataSourceId), eq(dataSourceAccess.email, email.toLowerCase())))
     .get();
   return !!row;
 }

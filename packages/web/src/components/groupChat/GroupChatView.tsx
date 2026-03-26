@@ -25,12 +25,12 @@ import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
 import { ThreadPanel } from "./ThreadPanel";
 import { InviteMemberDialog } from "./InviteMemberDialog";
-import { ShareKBDialog } from "./ShareKBDialog";
+import { ShareDataSourceDialog } from "./ShareDataSourceDialog";
 import type {
   GroupChat,
   GroupChatMessage,
   GroupChatNotifLevel,
-  KnowledgeBase,
+  DataSource,
 } from "@edgebric/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -91,11 +91,11 @@ export function GroupChatView() {
   const [localMessages, setLocalMessages] = useState<GroupChatMessage[]>([]);
   const [threadParentId, setThreadParentId] = useState<string | null>(null);
   const [showInvite, setShowInvite] = useState(false);
-  const [showShareKB, setShowShareKB] = useState(false);
+  const [showShareDS, setShowShareDS] = useState(false);
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
-  const [kbSelectorOpen, setKbSelectorOpen] = useState(false);
-  const [selectedKBIds, setSelectedKBIds] = useState<string[]>([]); // empty = all shared KBs
-  const [kbTooltipOpen, setKbTooltipOpen] = useState(false);
+  const [dsSelectorOpen, setDsSelectorOpen] = useState(false);
+  const [selectedDSIds, setSelectedDSIds] = useState<string[]>([]); // empty = all shared data sources
+  const [dsTooltipOpen, setDsTooltipOpen] = useState(false);
   const [sendMode, setSendMode] = useState<"chat" | "ai">("chat");
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
 
@@ -123,13 +123,13 @@ export function GroupChatView() {
     refetchInterval: 5000,
   });
 
-  // Fetch all org KBs to show org-wide ones alongside shared ones
-  const { data: allKBs } = useQuery<KnowledgeBase[]>({
-    queryKey: ["knowledge-bases"],
+  // Fetch all org data sources to show org-wide ones alongside shared ones
+  const { data: allDataSources } = useQuery<DataSource[]>({
+    queryKey: ["data-sources"],
     queryFn: () =>
-      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => {
+      fetch("/api/data-sources", { credentials: "same-origin" }).then((r) => {
         if (!r.ok) return [];
-        return r.json() as Promise<KnowledgeBase[]>;
+        return r.json() as Promise<DataSource[]>;
       }),
     staleTime: 30_000,
   });
@@ -191,26 +191,26 @@ export function GroupChatView() {
 
   // ─── Derived data ──────────────────────────────────────────────────────────
 
-  // Org-wide KBs that are accessible to everyone (not explicitly shared but available)
-  const orgWideKBs = (allKBs ?? []).filter(
-    (kb) => kb.status === "active" && kb.type === "organization" && kb.accessMode === "all",
+  // Org-wide data sources that are accessible to everyone (not explicitly shared but available)
+  const orgWideDataSources = (allDataSources ?? []).filter(
+    (ds) => ds.status === "active" && ds.type === "organization" && ds.accessMode === "all",
   );
-  const sharedKBIds = new Set((chat?.sharedKBs ?? []).map((s) => s.knowledgeBaseId));
-  // Effective KBs = explicitly shared + org-wide (deduplicated)
-  const effectiveKBCount = new Set([
-    ...Array.from(sharedKBIds),
-    ...orgWideKBs.map((kb) => kb.id),
+  const sharedDSIds = new Set((chat?.sharedDataSources ?? []).map((s) => s.dataSourceId));
+  // Effective data sources = explicitly shared + org-wide (deduplicated)
+  const effectiveDSCount = new Set([
+    ...Array.from(sharedDSIds),
+    ...orgWideDataSources.map((ds) => ds.id),
   ]).size;
 
-  // Build a list of all queryable KBs for the selector and tooltip
-  const queryableKBs: { id: string; name: string; source: "shared" | "org"; sharedBy?: string; shareId?: string; sharedByEmail?: string; expiresAt?: string }[] = [];
+  // Build a list of all queryable data sources for the selector and tooltip
+  const queryableDataSources: { id: string; name: string; source: "shared" | "org"; sharedBy?: string; shareId?: string; sharedByEmail?: string; expiresAt?: string }[] = [];
   const seenIds = new Set<string>();
-  for (const s of chat?.sharedKBs ?? []) {
-    if (!seenIds.has(s.knowledgeBaseId)) {
-      seenIds.add(s.knowledgeBaseId);
-      queryableKBs.push({
-        id: s.knowledgeBaseId,
-        name: s.knowledgeBaseName,
+  for (const s of chat?.sharedDataSources ?? []) {
+    if (!seenIds.has(s.dataSourceId)) {
+      seenIds.add(s.dataSourceId);
+      queryableDataSources.push({
+        id: s.dataSourceId,
+        name: s.dataSourceName,
         source: "shared",
         sharedBy: s.sharedByName ?? s.sharedByEmail,
         shareId: s.id,
@@ -219,18 +219,18 @@ export function GroupChatView() {
       });
     }
   }
-  for (const kb of orgWideKBs) {
-    if (!seenIds.has(kb.id)) {
-      seenIds.add(kb.id);
-      queryableKBs.push({ id: kb.id, name: kb.name, source: "org" });
+  for (const ds of orgWideDataSources) {
+    if (!seenIds.has(ds.id)) {
+      seenIds.add(ds.id);
+      queryableDataSources.push({ id: ds.id, name: ds.name, source: "org" });
     }
   }
 
-  const kbSelectorLabel = selectedKBIds.length === 0
+  const dsSelectorLabel = selectedDSIds.length === 0
     ? "All Data Sources"
-    : selectedKBIds.length === 1
-      ? queryableKBs.find((kb) => kb.id === selectedKBIds[0])?.name ?? "1 data source"
-      : `${selectedKBIds.length} data sources`;
+    : selectedDSIds.length === 1
+      ? queryableDataSources.find((ds) => ds.id === selectedDSIds[0])?.name ?? "1 data source"
+      : `${selectedDSIds.length} data sources`;
 
   // Merge server + local messages
   const messages = (() => {
@@ -337,7 +337,7 @@ export function GroupChatView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: botContent,
-          knowledgeBaseIds: selectedKBIds.length > 0 ? selectedKBIds : undefined,
+          dataSourceIds: selectedDSIds.length > 0 ? selectedDSIds : undefined,
         }),
       });
 
@@ -404,7 +404,7 @@ export function GroupChatView() {
     setStreaming(false);
     setSending(false);
     void queryClient.invalidateQueries({ queryKey: ["group-chat-messages", id] });
-  }, [input, sending, id, queryClient, selectedKBIds]);
+  }, [input, sending, id, queryClient, selectedDSIds]);
 
   const isCreator = chat?.creatorEmail === user?.email;
   const isActive = chat?.status === "active";
@@ -453,7 +453,7 @@ export function GroupChatView() {
                 onMouseLeave={() => setKbTooltipOpen(false)}
               >
                 <Database className="w-3 h-3" />
-                {effectiveKBCount} data source{effectiveKBCount !== 1 ? "s" : ""}
+                {effectiveDSCount} data source{effectiveDSCount !== 1 ? "s" : ""}
                 {kbTooltipOpen && queryableKBs.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
                     <div className="w-80 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
@@ -693,7 +693,7 @@ export function GroupChatView() {
                       onClick={() => setKbSelectorOpen((o) => !o)}
                       className={cn(
                         "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
-                        selectedKBIds.length > 0
+                        selectedDSIds.length > 0
                           ? "text-blue-600 hover:bg-blue-50"
                           : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
@@ -714,12 +714,12 @@ export function GroupChatView() {
                           }}
                           className={cn(
                             "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
-                            selectedKBIds.length === 0 ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
+                            selectedDSIds.length === 0 ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                           )}
                         >
                           <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                           <span className="truncate">All shared data sources</span>
-                          {selectedKBIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
+                          {selectedDSIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                         </button>
 
                         {queryableKBs.length > 0 && (
@@ -728,7 +728,7 @@ export function GroupChatView() {
                           </div>
                         )}
                         {queryableKBs.map((kb) => {
-                          const isSelected = selectedKBIds.includes(kb.id);
+                          const isSelected = selectedDSIds.includes(kb.id);
                           return (
                             <button
                               key={kb.id}
@@ -796,9 +796,9 @@ export function GroupChatView() {
               </div>
 
               {/* KB target chips */}
-              {selectedKBIds.length > 0 && (
+              {selectedDSIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1">
-                  {selectedKBIds.map((kbId) => {
+                  {selectedDSIds.map((kbId) => {
                     const kb = queryableKBs.find((k) => k.id === kbId);
                     return (
                       <span

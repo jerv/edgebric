@@ -29,27 +29,25 @@ function MicrosoftIcon() {
 
 function OktaIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="11" stroke="#007DC1" strokeWidth="2" />
-      <circle cx="12" cy="12" r="5" fill="#007DC1" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="9" fill="#007DC1" />
+      <circle cx="10" cy="10" r="4" fill="white" />
     </svg>
   );
 }
 
 function OneLoginIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="2" width="20" height="20" rx="4" fill="#2C3E50" />
-      <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" fontFamily="system-ui">1</text>
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <path d="M10 1C6.5 1 3 2.5 3 5.5V9.5C3 14 6 17.5 10 19C14 17.5 17 14 17 9.5V5.5C17 2.5 13.5 1 10 1Z" fill="#232F6A" />
     </svg>
   );
 }
 
 function PingIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="#B4202A" strokeWidth="2.5" />
-      <circle cx="12" cy="12" r="4" fill="#B4202A" />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <path d="M4 2L16 10L4 18V2Z" fill="#B31B34" />
     </svg>
   );
 }

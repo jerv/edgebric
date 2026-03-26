@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, AlertTriangle, Database, Eye, EyeOff, Trash2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
-import type { KnowledgeBase, GroupChatSharedKB } from "@edgebric/types";
+import type { DataSource, GroupChatSharedDataSource } from "@edgebric/types";
 
 // ─── Duration options ────────────────────────────────────────────────────────
 
@@ -42,14 +42,14 @@ function durationToExpiresAt(
 
 interface Props {
   groupChatId: string;
-  existingShares: GroupChatSharedKB[];
+  existingShares: GroupChatSharedDataSource[];
   chatExpiresAt?: string;
   onClose: () => void;
 }
 
-export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onClose }: Props) {
+export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpiresAt, onClose }: Props) {
   const user = useUser();
-  const [selectedKBId, setSelectedKBId] = useState<string | null>(null);
+  const [selectedDSId, setSelectedDSId] = useState<string | null>(null);
   const [allowSourceViewing, setAllowSourceViewing] = useState(false);
   const [duration, setDuration] = useState<DurationOption>("permanent");
   const [customDate, setCustomDate] = useState("");
@@ -59,23 +59,23 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: kbs } = useQuery<KnowledgeBase[]>({
-    queryKey: ["knowledge-bases"],
+  const { data: dataSources } = useQuery<DataSource[]>({
+    queryKey: ["data-sources"],
     queryFn: () =>
-      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => {
+      fetch("/api/data-sources", { credentials: "same-origin" }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<KnowledgeBase[]>;
+        return r.json() as Promise<DataSource[]>;
       }),
   });
 
-  const alreadySharedIds = new Set(existingShares.map((s) => s.knowledgeBaseId));
-  const allActiveKBs = (kbs ?? []).filter((kb) => kb.status !== "archived");
-  const selectedKB = allActiveKBs.find((kb) => kb.id === selectedKBId);
-  const isPersonalSource = selectedKB?.type === "personal";
+  const alreadySharedIds = new Set(existingShares.map((s) => s.dataSourceId));
+  const allActiveDS = (dataSources ?? []).filter((ds) => ds.status !== "archived");
+  const selectedDS = allActiveDS.find((ds) => ds.id === selectedDSId);
+  const isPersonalSource = selectedDS?.type === "personal";
 
-  function kbDisabledReason(kb: KnowledgeBase): string | null {
-    if (alreadySharedIds.has(kb.id)) return "Already shared";
-    if (kb.type === "organization" && kb.accessMode === "all") return "Shared org-wide — always included";
+  function dsDisabledReason(ds: DataSource): string | null {
+    if (alreadySharedIds.has(ds.id)) return "Already shared";
+    if (ds.type === "organization" && ds.accessMode === "all") return "Shared org-wide — always included";
     return null;
   }
 
@@ -86,7 +86,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
   async function handleRevoke(shareId: string) {
     setRevoking(shareId);
     try {
-      await fetch(`/api/group-chats/${groupChatId}/shared-kbs/${shareId}`, {
+      await fetch(`/api/group-chats/${groupChatId}/shared-data-sources/${shareId}`, {
         method: "DELETE",
         credentials: "same-origin",
       });
@@ -96,18 +96,18 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
   }
 
   async function handleShare() {
-    if (!selectedKBId) return;
+    if (!selectedDSId) return;
     setLoading(true);
     setError(null);
 
     try {
       const expiresAt = durationToExpiresAt(duration, customDate, chatExpiresAt);
-      const res = await fetch(`/api/group-chats/${groupChatId}/shared-kbs`, {
+      const res = await fetch(`/api/group-chats/${groupChatId}/shared-data-sources`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          knowledgeBaseId: selectedKBId,
+          dataSourceId: selectedDSId,
           allowSourceViewing,
           ...(expiresAt ? { expiresAt } : {}),
         }),
@@ -165,7 +165,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
                     >
                       <Database className="w-4 h-4 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{share.knowledgeBaseName}</p>
+                        <p className="text-sm font-medium truncate">{share.dataSourceName}</p>
                         {share.expiresAt && (
                           <p className="text-[10px] text-slate-400 dark:text-gray-500 flex items-center gap-1">
                             <Clock className="w-2.5 h-2.5" />
@@ -188,20 +188,20 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
               </div>
             )}
 
-            {allActiveKBs.length === 0 ? (
+            {allActiveDS.length === 0 ? (
               <p className="text-xs text-slate-500 dark:text-gray-400 py-4 text-center">
                 No data sources available.
               </p>
             ) : (
               <div className="space-y-1 max-h-60 overflow-y-auto">
-                {allActiveKBs.map((kb) => {
-                  const disabled = kbDisabledReason(kb);
-                  const isSelected = selectedKBId === kb.id;
+                {allActiveDS.map((ds) => {
+                  const disabled = dsDisabledReason(ds);
+                  const isSelected = selectedDSId === ds.id;
 
                   return (
                     <button
-                      key={kb.id}
-                      onClick={() => !disabled && setSelectedKBId(kb.id)}
+                      key={ds.id}
+                      onClick={() => !disabled && setSelectedDSId(ds.id)}
                       disabled={!!disabled}
                       className={cn(
                         "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
@@ -214,13 +214,13 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
                     >
                       <Database className={cn("w-4 h-4 flex-shrink-0", isSelected && !disabled ? "text-white/70 dark:text-gray-900/70" : "text-slate-400 dark:text-gray-500")} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{kb.name}</p>
+                        <p className="text-sm font-medium truncate">{ds.name}</p>
                         <p className={cn("text-[11px] truncate", isSelected && !disabled ? "text-white/60 dark:text-gray-900/60" : "text-slate-400 dark:text-gray-500")}>
                           {disabled ?? (
                             <>
-                              {kb.type === "personal" ? "Vault Source" : "Network Source"}
+                              {ds.type === "personal" ? "Vault Source" : "Network Source"}
                               {" — "}
-                              {kb.documentCount ?? 0} document{kb.documentCount !== 1 ? "s" : ""}
+                              {ds.documentCount ?? 0} document{ds.documentCount !== 1 ? "s" : ""}
                             </>
                           )}
                         </p>
@@ -231,7 +231,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
               </div>
             )}
 
-            {selectedKBId && !kbDisabledReason(allActiveKBs.find((kb) => kb.id === selectedKBId)!) && (
+            {selectedDSId && !dsDisabledReason(allActiveDS.find((ds) => ds.id === selectedDSId)!) && (
               <div className="mt-4 border-t border-slate-100 dark:border-gray-800 pt-3 space-y-3">
                 {/* Duration picker — shown for personal/vault sources */}
                 {isPersonalSource && (
@@ -295,7 +295,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
             <div className="flex items-center gap-2 mt-5">
               <button
                 onClick={() => setStep("confirm")}
-                disabled={!selectedKBId || !!kbDisabledReason(allActiveKBs.find((kb) => kb.id === selectedKBId)!)}
+                disabled={!selectedDSId || !!dsDisabledReason(allActiveDS.find((ds) => ds.id === selectedDSId)!)}
                 className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg px-4 py-2 text-xs font-medium hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
                 Next
@@ -307,7 +307,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
           </>
         )}
 
-        {step === "confirm" && selectedKB && (
+        {step === "confirm" && selectedDS && (
           <>
             <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-4">
               <div className="flex items-start gap-2">
@@ -315,7 +315,7 @@ export function ShareKBDialog({ groupChatId, existingShares, chatExpiresAt, onCl
                 <div>
                   <p className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-1">Confirm data source sharing</p>
                   <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                    You are about to share <strong>"{selectedKB.name}"</strong> with all members
+                    You are about to share <strong>"{selectedDS.name}"</strong> with all members
                     of this group chat. The bot will be able to search and answer questions from
                     this data source on behalf of all members.
                   </p>

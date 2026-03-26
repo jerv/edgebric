@@ -94,8 +94,8 @@ Current solutions force a choice: centralize everything in one place (security r
 1. Click "Create Session" — room code appears: "LAUNCH-Q3"
 2. On iPhone A: enter room code "LAUNCH-Q3" → joins session
 3. On iPhone B: enter room code "LAUNCH-Q3" → joins session
-4. Show participant list with their KBs
-5. Each participant opts in their KBs (show the granular toggles)
+4. Show participant list with their data sources
+5. Each participant opts in their data sources (show the granular toggles)
 
 **The key question:**
 
@@ -138,7 +138,7 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 ### Act 7: End Session + Close (1 minute)
 
 1. Click "End Session"
-2. Show: ephemeral sharing dissolved. KBs are private again.
+2. Show: ephemeral sharing dissolved. Data sources are private again.
 3. "The meeting's over. The sharing is gone. No data was ever copied. Each device still has exactly what it started with."
 
 "Data never moves. Queries move. That's the product. And that's what mimik makes possible."

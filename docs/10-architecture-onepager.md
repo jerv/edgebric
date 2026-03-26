@@ -6,7 +6,7 @@
 
 ## What is Edgebric?
 
-Edgebric is **on-premise software** that enables organizations to build private, AI-powered knowledge bases from their internal documents. It runs entirely on your hardware. No data leaves your network.
+Edgebric is **on-premise software** that enables organizations to build private, AI-powered data sources from their internal documents. It runs entirely on your hardware. No data leaves your network.
 
 ---
 
@@ -59,7 +59,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | **Anonymity** | After login, queries use anonymous UUIDs. Individual query activity cannot be traced to users. |
 | **PII protection** | 4-layer defense: upload policy, PII detection scan, system prompt guardrails, query-time filter. |
 | **Encryption at rest** | Vault mode: AES-256-GCM encryption for sensitive conversations. Standard mode: relies on OS-level disk encryption. |
-| **Access control** | Per-knowledge-base permissions. Organization-scoped data isolation. Role-based admin access. |
+| **Access control** | Per-data-source permissions. Organization-scoped data isolation. Role-based admin access. |
 | **Network exposure** | Listens on localhost only. No inbound ports exposed to the internet. |
 
 ---
@@ -69,7 +69,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Data Type | Location | Encrypted | Deletable |
 |---|---|---|---|
 | Uploaded documents (PDF, DOCX) | `{DATA_DIR}/uploads/` | OS-level | Yes, via admin UI |
-| Document embeddings (vectors) | Local mKB vector store | No (in-memory/disk) | Yes, with KB deletion |
+| Document embeddings (vectors) | Local mKB vector store | No (in-memory/disk) | Yes, with data source deletion |
 | Conversations | SQLite database | No (standard) / AES-256 (vault) | Yes, via UI |
 | User accounts | SQLite database | No | Yes, via admin |
 | Session data | `{DATA_DIR}/sessions/` | No | Auto-expires |

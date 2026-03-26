@@ -1,4 +1,5 @@
-import type { EdgeConfig } from "@edgebric/types";
+import type { EdgeConfig, OidcProviderId } from "@edgebric/types";
+import { detectProvider } from "./lib/oidcProviders.js";
 
 function requireEnv(key: string): string {
   const value = process.env[key];
@@ -29,12 +30,14 @@ export const config = {
   frontendUrl: process.env["FRONTEND_URL"] ?? "http://localhost:5173",
 
   oidc: authMode === "oidc" ? {
+    provider: (process.env["OIDC_PROVIDER"] ?? detectProvider(process.env["OIDC_ISSUER"] ?? "")) as OidcProviderId,
     issuer: process.env["OIDC_ISSUER"] ?? "https://accounts.google.com",
     clientId: requireEnv("OIDC_CLIENT_ID"),
     clientSecret: requireEnv("OIDC_CLIENT_SECRET"),
     redirectUri:
       process.env["OIDC_REDIRECT_URI"] ?? "http://localhost:3001/api/auth/callback",
   } : {
+    provider: "generic" as OidcProviderId,
     issuer: "",
     clientId: "",
     clientSecret: "",

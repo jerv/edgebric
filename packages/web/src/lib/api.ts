@@ -15,6 +15,13 @@ export function getLoginUrl(): string {
   return `${window.location.protocol}//localhost:${window.location.port}/api/auth/login`;
 }
 
+/** Fetch the configured OIDC provider info (public, no auth required). */
+export async function getAuthProvider(): Promise<{ provider: string; providerName: string }> {
+  const res = await fetch("/api/auth/provider");
+  if (!res.ok) return { provider: "generic", providerName: "SSO" };
+  return res.json();
+}
+
 function getCsrfToken(): string | undefined {
   const match = document.cookie
     .split("; ")

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { setupTestApp, teardownTestApp, adminAgent, getDefaultOrgId, createAgent } from "./helpers.js";
-import { createKB } from "../services/knowledgeBaseStore.js";
+import { createDataSource } from "../services/dataSourceStore.js";
 import { upsertUser, updateUserPermissions } from "../services/userStore.js";
 
 describe("Group Chats API", () => {
@@ -8,7 +8,7 @@ describe("Group Chats API", () => {
   let creatorEmail: string;
   let memberEmail: string;
   let nonMemberEmail: string;
-  let kbId: string;
+  let dsId: string;
 
   beforeAll(() => {
     setupTestApp();
@@ -25,15 +25,15 @@ describe("Group Chats API", () => {
     // Grant group chat permission to creator
     updateUserPermissions(creator.id, { canCreateGroupChats: true });
 
-    // Create a KB for sharing tests
+    // Create a data source for sharing tests
     const admin = upsertUser({ email: "admin@test.com", name: "Admin", role: "owner", orgId });
-    const kb = createKB({
+    const ds = createDataSource({
       name: "Test Source",
       orgId,
       ownerId: admin.id,
       type: "organization",
     });
-    kbId = kb.id;
+    dsId = ds.id;
   });
   afterAll(() => { teardownTestApp(); });
 
@@ -327,11 +327,11 @@ describe("Group Chats API", () => {
       const chatId = createRes.body.id;
 
       const res = await creatorAgent()
-        .post(`/api/group-chats/${chatId}/shared-kbs`)
-        .send({ knowledgeBaseId: kbId, allowSourceViewing: true });
+        .post(`/api/group-chats/${chatId}/shared-data-sources`)
+        .send({ dataSourceId: dsId, allowSourceViewing: true });
 
       expect(res.status).toBe(201);
-      expect(res.body.knowledgeBaseId).toBe(kbId);
+      expect(res.body.dataSourceId).toBe(dsId);
     });
 
     it("rejects duplicate share", async () => {
@@ -341,12 +341,12 @@ describe("Group Chats API", () => {
       const chatId = createRes.body.id;
 
       await creatorAgent()
-        .post(`/api/group-chats/${chatId}/shared-kbs`)
-        .send({ knowledgeBaseId: kbId, allowSourceViewing: true });
+        .post(`/api/group-chats/${chatId}/shared-data-sources`)
+        .send({ dataSourceId: dsId, allowSourceViewing: true });
 
       const res = await creatorAgent()
-        .post(`/api/group-chats/${chatId}/shared-kbs`)
-        .send({ knowledgeBaseId: kbId, allowSourceViewing: true });
+        .post(`/api/group-chats/${chatId}/shared-data-sources`)
+        .send({ dataSourceId: dsId, allowSourceViewing: true });
 
       expect(res.status).toBe(409);
     });
@@ -358,8 +358,8 @@ describe("Group Chats API", () => {
       const chatId = createRes.body.id;
 
       const res = await outsiderAgent()
-        .post(`/api/group-chats/${chatId}/shared-kbs`)
-        .send({ knowledgeBaseId: kbId, allowSourceViewing: true });
+        .post(`/api/group-chats/${chatId}/shared-data-sources`)
+        .send({ dataSourceId: dsId, allowSourceViewing: true });
 
       expect(res.status).toBe(403);
     });
@@ -371,12 +371,12 @@ describe("Group Chats API", () => {
       const chatId = createRes.body.id;
 
       const shareRes = await creatorAgent()
-        .post(`/api/group-chats/${chatId}/shared-kbs`)
-        .send({ knowledgeBaseId: kbId, allowSourceViewing: true });
+        .post(`/api/group-chats/${chatId}/shared-data-sources`)
+        .send({ dataSourceId: dsId, allowSourceViewing: true });
       const shareId = shareRes.body.id;
 
       const res = await creatorAgent()
-        .delete(`/api/group-chats/${chatId}/shared-kbs/${shareId}`);
+        .delete(`/api/group-chats/${chatId}/shared-data-sources/${shareId}`);
 
       expect(res.status).toBe(200);
     });

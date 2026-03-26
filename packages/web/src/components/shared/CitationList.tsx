@@ -31,7 +31,7 @@ interface CitationListProps {
   onSourceClick: (source: SourceInfo) => void;
 }
 
-function KBMiniAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }) {
+function DSMiniAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }) {
   return (
     <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 overflow-hidden flex-shrink-0">
       {avatarUrl ? (
@@ -44,8 +44,8 @@ function KBMiniAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string })
 }
 
 interface GroupedCitation {
-  kbName: string;
-  kbAvatarUrl?: string;
+  dsName: string;
+  dsAvatarUrl?: string;
   items: { citation: Citation; displayName: string }[];
 }
 
@@ -57,19 +57,19 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
     const groupMap = new Map<string, GroupedCitation>();
 
     for (const citation of citations) {
-      const kbKey = citation.knowledgeBaseName ?? "__none__";
+      const dsKey = citation.dataSourceName ?? "__none__";
       const displayName = citation.documentName && citation.documentName !== citation.documentId
         ? citation.documentName
         : "Policy document";
 
-      let group = groupMap.get(kbKey);
+      let group = groupMap.get(dsKey);
       if (!group) {
         group = {
-          kbName: citation.knowledgeBaseName ?? "",
-          kbAvatarUrl: citation.knowledgeBaseAvatarUrl,
+          dsName: citation.dataSourceName ?? "",
+          dsAvatarUrl: citation.dataSourceAvatarUrl,
           items: [],
         };
-        groupMap.set(kbKey, group);
+        groupMap.set(dsKey, group);
         groups.push(group);
       }
       group.items.push({ citation, displayName });
@@ -81,17 +81,17 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
   return (
     <div className="space-y-1.5 px-1">
       {grouped.map((group) => (
-        <div key={group.kbName || "__none__"}>
-          {/* KB header — only shown once per KB */}
-          {group.kbName && (
+        <div key={group.dsName || "__none__"}>
+          {/* Data source header — only shown once per data source */}
+          {group.dsName && (
             <div className="flex items-center gap-1.5 mb-0.5">
-              <KBMiniAvatar avatarUrl={group.kbAvatarUrl} name={group.kbName} />
-              <span className="text-[11px] text-slate-400 dark:text-gray-500 font-medium">{group.kbName}</span>
+              <DSMiniAvatar avatarUrl={group.dsAvatarUrl} name={group.dsName} />
+              <span className="text-[11px] text-slate-400 dark:text-gray-500 font-medium">{group.dsName}</span>
             </div>
           )}
 
-          {/* Individual citations under this KB */}
-          <div className={group.kbName ? "pl-[22px] space-y-px" : "space-y-px"}>
+          {/* Individual citations under this data source */}
+          <div className={group.dsName ? "pl-[22px] space-y-px" : "space-y-px"}>
             {group.items.map(({ citation, displayName }, j) => {
               const breadcrumb = citation.sectionPath.length > 0
                 ? citation.sectionPath.join(" › ")

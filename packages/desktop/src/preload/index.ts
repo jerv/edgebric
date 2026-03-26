@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     mode: "solo" | "admin" | "member";
     dataDir: string;
     port: number;
+    oidcProvider?: string;
     oidcIssuer?: string;
     oidcClientId?: string;
     oidcClientSecret?: string;
@@ -69,6 +70,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   instanceWipe: () => ipcRenderer.invoke("instance-wipe"),
   instanceResetAuth: () => ipcRenderer.invoke("instance-reset-auth"),
   instanceReconfigureAuth: (data: {
+    oidcProvider?: string;
     oidcIssuer: string;
     oidcClientId: string;
     oidcClientSecret: string;

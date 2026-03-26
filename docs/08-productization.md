@@ -163,7 +163,7 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 
 **Option C: Tiered by Features**
 - Free: single-node, 1 network source, 3 vault sources
-- Pro ($49/month): multi-node mesh, meeting mode, unlimited KBs
+- Pro ($49/month): multi-node mesh, meeting mode, unlimited data sources
 - Enterprise ($199/month): department isolation, advanced analytics, priority support
 - Pros: freemium funnel, feature differentiation
 - Cons: free tier may be sufficient for most SMBs

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
-import type { KnowledgeBase } from "@edgebric/types";
+import type { DataSource } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { Database, Globe } from "lucide-react";
 
-/** A KB target selected from the mention picker. */
-export interface KBTarget {
+/** A data source target selected from the mention picker. */
+export interface DSTarget {
   id: string;
   name: string;
   datasetName: string;
@@ -12,26 +12,26 @@ export interface KBTarget {
 }
 
 /** Imperative handle exposed to parent for keyboard navigation. */
-export interface KBMentionPickerHandle {
+export interface DSMentionPickerHandle {
   handleKeyDown: (e: React.KeyboardEvent) => boolean;
 }
 
 /** Built-in shortcuts that appear at the top of the picker. */
-const SHORTCUTS: KBTarget[] = [
+const SHORTCUTS: DSTarget[] = [
   { id: "__org__", name: "Organization", datasetName: "", type: "shortcut" },
   { id: "__all__", name: "All data sources", datasetName: "", type: "shortcut" },
 ];
 
-interface KBMentionPickerProps {
+interface DSMentionPickerProps {
   filter: string;
-  knowledgeBases: KnowledgeBase[];
-  selected: KBTarget[];
-  onSelect: (target: KBTarget) => void;
+  dataSources: DataSource[];
+  selected: DSTarget[];
+  onSelect: (target: DSTarget) => void;
   onDismiss: () => void;
 }
 
-export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPickerProps>(
-  function KBMentionPicker({ filter, knowledgeBases, selected, onSelect, onDismiss }, ref) {
+export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPickerProps>(
+  function DSMentionPicker({ filter, dataSources, selected, onSelect, onDismiss }, ref) {
     const [activeIndex, setActiveIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
@@ -41,21 +41,21 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
     const filteredShortcuts = SHORTCUTS.filter(
       (s) => !selectedIds.has(s.id) && s.name.toLowerCase().includes(normalizedFilter),
     );
-    const filteredKBs = knowledgeBases
+    const filteredDS = dataSources
       .filter(
-        (kb) =>
-          kb.status === "active" &&
-          !selectedIds.has(kb.id) &&
-          kb.name.toLowerCase().includes(normalizedFilter),
+        (ds) =>
+          ds.status === "active" &&
+          !selectedIds.has(ds.id) &&
+          ds.name.toLowerCase().includes(normalizedFilter),
       )
-      .map((kb): KBTarget => ({
-        id: kb.id,
-        name: kb.name,
-        datasetName: kb.datasetName,
-        type: kb.type === "personal" ? "personal" : "organization",
+      .map((ds): DSTarget => ({
+        id: ds.id,
+        name: ds.name,
+        datasetName: ds.datasetName,
+        type: ds.type === "personal" ? "personal" : "organization",
       }));
 
-    const allItems = [...filteredShortcuts, ...filteredKBs];
+    const allItems = [...filteredShortcuts, ...filteredDS];
 
     useEffect(() => {
       setActiveIndex(0);
@@ -134,12 +134,12 @@ export const KBMentionPicker = forwardRef<KBMentionPickerHandle, KBMentionPicker
             </button>
           ))}
 
-          {filteredKBs.length > 0 && (
+          {filteredDS.length > 0 && (
             <div className={cn("px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider", shortcutCount > 0 && "border-t border-slate-100 dark:border-gray-800 mt-1")}>
               Data Sources
             </div>
           )}
-          {filteredKBs.map((item, rawIndex) => {
+          {filteredDS.map((item, rawIndex) => {
             const i = shortcutCount + rawIndex;
             return (
               <button

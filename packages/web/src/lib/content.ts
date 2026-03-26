@@ -26,7 +26,7 @@ export function cleanContent(text: string): string {
 export function dedupeCitations(citations: Citation[]): Citation[] {
   const seen = new Set<string>();
   return citations.filter((c) => {
-    const key = `${c.knowledgeBaseName ?? ""}|${c.documentName}|${c.sectionPath.join("/")}`;
+    const key = `${c.dataSourceName ?? ""}|${c.documentName}|${c.sectionPath.join("/")}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

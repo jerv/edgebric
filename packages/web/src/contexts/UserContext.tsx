@@ -11,7 +11,7 @@ export interface User {
   orgSlug?: string;
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
-  canCreateKBs?: boolean;
+  canCreateDataSources?: boolean;
   canCreateGroupChats?: boolean;
   defaultGroupChatNotifLevel?: "all" | "mentions" | "none";
   onboardingComplete?: boolean;

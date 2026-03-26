@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db/index.js";
 import { users } from "../db/schema.js";
-import type { User, UserRole, UserStatus } from "@edgebric/types";
+import type { User, UserRole, UserStatus, OidcProviderId } from "@edgebric/types";
 
 function rowToUser(row: typeof users.$inferSelect): User {
   const user: User = {
@@ -17,7 +17,9 @@ function rowToUser(row: typeof users.$inferSelect): User {
   if (row.picture != null) user.picture = row.picture;
   if (row.lastLoginAt != null) user.lastLoginAt = new Date(row.lastLoginAt);
   if (row.invitedBy != null) user.invitedBy = row.invitedBy;
-  if (row.canCreateKBs) user.canCreateKBs = true;
+  if (row.authProvider != null) user.authProvider = row.authProvider as OidcProviderId;
+  if (row.authProviderSub != null) user.authProviderSub = row.authProviderSub;
+  if (row.canCreateDataSources) user.canCreateDataSources = true;
   if (row.canCreateGroupChats) user.canCreateGroupChats = true;
   if (row.defaultGroupChatNotifLevel != null) user.defaultGroupChatNotifLevel = row.defaultGroupChatNotifLevel as "all" | "mentions" | "none";
   return user;
@@ -57,6 +59,8 @@ export function upsertUser(data: {
   picture?: string;
   role: UserRole;
   orgId: string;
+  authProvider?: OidcProviderId;
+  authProviderSub?: string;
 }): User {
   const db = getDb();
   const existing = db.select().from(users).where(eq(users.email, data.email)).get();
@@ -71,6 +75,9 @@ export function upsertUser(data: {
     if (data.role !== undefined) updates.role = data.role;
     // Activate invited users on login
     if (existing.status === "invited") updates.status = "active";
+    // Update provider info on every login (supports provider migration)
+    if (data.authProvider !== undefined) updates.authProvider = data.authProvider;
+    if (data.authProviderSub !== undefined) updates.authProviderSub = data.authProviderSub;
 
     db.update(users).set(updates).where(eq(users.email, data.email)).run();
     const updated = db.select().from(users).where(eq(users.email, data.email)).get();
@@ -86,7 +93,9 @@ export function upsertUser(data: {
     status: "active",
     orgId: data.orgId,
     invitedBy: null,
-    canCreateKBs: 0,
+    authProvider: data.authProvider ?? null,
+    authProviderSub: data.authProviderSub ?? null,
+    canCreateDataSources: 0,
     canCreateGroupChats: 0,
     defaultGroupChatNotifLevel: "all",
     lastLoginAt: new Date().toISOString(),
@@ -120,7 +129,9 @@ export function inviteUser(data: {
     status: "invited",
     orgId: data.orgId,
     invitedBy: data.invitedBy,
-    canCreateKBs: 0,
+    authProvider: null,
+    authProviderSub: null,
+    canCreateDataSources: 0,
     canCreateGroupChats: 0,
     defaultGroupChatNotifLevel: "all",
     lastLoginAt: null,
@@ -165,18 +176,18 @@ export function updateUserName(email: string, orgId: string, name: string): User
   return getUser(existing.id);
 }
 
-/** Update a user's permissions (e.g. canCreateKBs, canCreateGroupChats). */
+/** Update a user's permissions (e.g. canCreateDataSources, canCreateGroupChats). */
 export function updateUserPermissions(
   userId: string,
-  permissions: { canCreateKBs?: boolean | undefined; canCreateGroupChats?: boolean | undefined },
+  permissions: { canCreateDataSources?: boolean | undefined; canCreateGroupChats?: boolean | undefined },
 ): User | undefined {
   const db = getDb();
   const existing = db.select().from(users).where(eq(users.id, userId)).get();
   if (!existing) return undefined;
 
   const updates: Record<string, unknown> = {};
-  if (permissions.canCreateKBs !== undefined) {
-    updates.canCreateKBs = permissions.canCreateKBs ? 1 : 0;
+  if (permissions.canCreateDataSources !== undefined) {
+    updates.canCreateDataSources = permissions.canCreateDataSources ? 1 : 0;
   }
   if (permissions.canCreateGroupChats !== undefined) {
     updates.canCreateGroupChats = permissions.canCreateGroupChats ? 1 : 0;

@@ -10,6 +10,7 @@
  *   hostname         — How users access Edgebric in the browser (default: "edgebric.local")
  *                      Use any *.local name for zero-config mDNS (Bonjour/Avahi),
  *                      or a real domain like "hr.acme.com" if you have DNS configured.
+ *   oidcProvider     — Provider ID: "google" | "microsoft" | "okta" | "onelogin" | "ping" | "generic"
  *   oidcIssuer       — OIDC identity provider URL
  *   oidcClientId     — OAuth 2.0 client ID
  *   oidcClientSecret — OAuth 2.0 client secret
@@ -34,6 +35,8 @@ export interface EdgebricConfig {
   mode: EdgebricMode;
   dataDir: string;
   port: number;
+  /** OIDC provider ID: "google" | "microsoft" | "okta" | "onelogin" | "ping" | "generic" */
+  oidcProvider?: string;
   oidcIssuer?: string;
   oidcClientId?: string;
   oidcClientSecret?: string;

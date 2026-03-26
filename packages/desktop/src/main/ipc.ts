@@ -80,6 +80,7 @@ export function registerIpcHandlers() {
     mode: "solo" | "admin" | "member";
     dataDir: string;
     port: number;
+    oidcProvider?: string;
     oidcIssuer?: string;
     oidcClientId?: string;
     oidcClientSecret?: string;
@@ -92,6 +93,7 @@ export function registerIpcHandlers() {
       mode: setupData.mode,
       dataDir: setupData.dataDir,
       port: setupData.port,
+      ...(setupData.oidcProvider && { oidcProvider: setupData.oidcProvider }),
       ...(setupData.oidcIssuer && { oidcIssuer: setupData.oidcIssuer }),
       ...(setupData.oidcClientId && { oidcClientId: setupData.oidcClientId }),
       ...(setupData.oidcClientSecret && { oidcClientSecret: setupData.oidcClientSecret }),
@@ -144,6 +146,7 @@ export function registerIpcHandlers() {
 
     if (!isSolo) {
       envLines.push(
+        `OIDC_PROVIDER=${config.oidcProvider ?? "generic"}`,
         `OIDC_ISSUER=${config.oidcIssuer ?? ""}`,
         `OIDC_CLIENT_ID=${config.oidcClientId ?? ""}`,
         `OIDC_CLIENT_SECRET=${config.oidcClientSecret ?? ""}`,
@@ -486,11 +489,14 @@ export function registerIpcHandlers() {
   /** Open file picker for GGUF files. Returns the selected path or null. */
   ipcMain.handle("models-pick-gguf", async () => {
     const focusedWindow = BrowserWindow.getFocusedWindow();
-    const result = await dialog.showOpenDialog(focusedWindow ?? {}, {
+    const dialogOptions = {
       title: "Select a GGUF model file",
       filters: [{ name: "GGUF Models", extensions: ["gguf"] }],
-      properties: ["openFile"],
-    });
+      properties: ["openFile"] as Array<"openFile">,
+    };
+    const result = focusedWindow
+      ? await dialog.showOpenDialog(focusedWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
     if (result.canceled || result.filePaths.length === 0) return { path: null };
     return { path: result.filePaths[0] };
   });
@@ -679,6 +685,7 @@ export function registerIpcHandlers() {
 
   /** Reconfigure auth: stop server, update mode to admin, regenerate .env with new OIDC creds. Keeps all data. */
   ipcMain.handle("instance-reconfigure-auth", async (_event, authData: {
+    oidcProvider?: string;
     oidcIssuer: string;
     oidcClientId: string;
     oidcClientSecret: string;
@@ -698,6 +705,7 @@ export function registerIpcHandlers() {
       const newConfig = {
         ...config,
         mode: "admin" as const,
+        oidcProvider: authData.oidcProvider,
         oidcIssuer: authData.oidcIssuer,
         oidcClientId: authData.oidcClientId,
         oidcClientSecret: authData.oidcClientSecret,
@@ -725,6 +733,7 @@ export function registerIpcHandlers() {
         `SESSION_SECRET=${sessionSecret}`,
         `AUTH_MODE=oidc`,
         `LISTEN_HOST=0.0.0.0`,
+        ...(authData.oidcProvider ? [`OIDC_PROVIDER=${authData.oidcProvider}`] : []),
         `OIDC_ISSUER=${authData.oidcIssuer}`,
         `OIDC_CLIENT_ID=${authData.oidcClientId}`,
         `OIDC_CLIENT_SECRET=${authData.oidcClientSecret}`,

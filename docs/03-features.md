@@ -247,7 +247,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 - [ ] Incognito vault contents encrypted with device-bound key (secure enclave)
 - [ ] SSO option with identity warning in UI
 - [ ] Session timeout for incognito mode (configurable, default 30 minutes inactivity)
-- [ ] Per-KB access control lists
+- [ ] Per-data-source access control lists
 
 ---
 

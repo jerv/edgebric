@@ -82,8 +82,9 @@ Solo mode is free forever. License required only for multi-user (org) mode.
 
 - Marketing site guides customers on compatible hardware
 - Minimum specs published clearly
-- **Recommended hardware**: Mac Mini M4 16GB ($499)
-- Marketing line: "Under $1,000 total — hardware + software — for a private AI knowledge platform for your entire office"
+- **Recommended server hardware**: Mac Mini M4 24GB ($699)
+- **Minimum (local/vault)**: Any Apple Silicon Mac with 16GB RAM
+- Marketing line: "Under $1,200 total — hardware + software — for a private AI knowledge platform for your entire office"
 
 ## Overhead
 
@@ -110,22 +111,24 @@ Subscription revenue ($49/mo = ~$46.55 net per month per subscriber) compounds o
 
 ## Hardware Requirements (Published to Customers)
 
-### Minimum
+### Minimum (Local/Vault Mode)
 
-- macOS (Apple Silicon recommended)
+- macOS (Apple Silicon required)
 - 16GB RAM
 - 20GB free disk space
+- Suitable for workers running Edgebric locally on laptops, vault data sources
 
-### Recommended
+### Recommended (Server/Org Node)
 
-- Mac Mini M4 (16GB, $499 new)
+- Mac Mini M4 24GB ($699 new)
 - Dedicated to running Edgebric (not shared with other heavy workloads)
+- Supports larger models (up to 27B Q3) and longer contexts
 
 ### Also Works
 
 - Any Apple Silicon Mac with 16GB+ RAM (MacBook Air/Pro, iMac, Mac Studio)
-- Refurbished Mac Mini M1/M2 with 16GB ($300-400)
-- Intel Macs with 16GB+ (slower inference, no Neural Engine)
+- Mac Mini M4 16GB ($499) — functional server for small teams with 4B models
+- Refurbished Mac Mini M1/M2 with 16GB ($300-400) — local/vault use
 
 ## Competitive Positioning
 

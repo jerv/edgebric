@@ -10,7 +10,7 @@ import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { getDocument } from "../services/documentStore.js";
-import { listKBs } from "../services/knowledgeBaseStore.js";
+import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import {
@@ -134,11 +134,11 @@ function parseMentions(content: string, members: { userEmail: string; userName?:
   return mentioned;
 }
 
-/** Enrich citations with KB names and freshness. */
+/** Enrich citations with data source names and freshness. */
 function enrichCitations(citations: Citation[]): void {
   if (citations.length === 0) return;
-  const kbs = listKBs({ type: "organization" });
-  const kbMap = new Map(kbs.map((kb) => [kb.id, kb]));
+  const dataSources = listDataSources({ type: "organization" });
+  const dsMap = new Map(dataSources.map((ds) => [ds.id, ds]));
   for (const citation of citations) {
     const doc = getDocument(citation.documentId);
     if (doc) {
@@ -146,12 +146,12 @@ function enrichCitations(citations: Citation[]): void {
         ? doc.updatedAt.toISOString()
         : String(doc.updatedAt);
 
-      if (doc.knowledgeBaseId) {
-        const kb = kbMap.get(doc.knowledgeBaseId);
-        if (kb) {
-          citation.knowledgeBaseName = kb.name;
-          citation.knowledgeBaseId = kb.id;
-          if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+      if (doc.dataSourceId) {
+        const ds = dsMap.get(doc.dataSourceId);
+        if (ds) {
+          citation.dataSourceName = ds.name;
+          citation.dataSourceId = ds.id;
+          if (ds.avatarUrl) citation.dataSourceAvatarUrl = ds.avatarUrl;
         }
       }
     }
@@ -272,10 +272,10 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
   try {
     const query = extractQuery(content);
 
-    // Resolve datasets from shared KBs
+    // Resolve datasets from shared data sources
     const datasetNames = getSharedDatasetNames(chatId);
     if (datasetNames.length === 0) {
-      // No KBs shared — bot can't answer
+      // No data sources shared — bot can't answer
       const botMsg = addMessage({
         groupChatId: chatId,
         role: "assistant",

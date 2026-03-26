@@ -1,11 +1,81 @@
-import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
+import React, { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import logoLight from "../assets/logo-black.svg";
 import logoDark from "../assets/logo-white.svg";
 
 type ServerStatus = "stopped" | "starting" | "running" | "error";
 type View = "home" | "settings" | "models";
-type DangerAction = "wipe" | "resetAuth" | null;
+type DangerAction = "wipe" | "switchAuth" | null;
 type ModelStatus = "not_installed" | "installed" | "loaded" | "downloading";
+
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+  );
+}
+function MicrosoftIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
+function OktaIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="9" fill="#007DC1" />
+      <circle cx="10" cy="10" r="4" fill="white" />
+    </svg>
+  );
+}
+function OneLoginIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M10 1C6.5 1 3 2.5 3 5.5V9.5C3 14 6 17.5 10 19C14 17.5 17 14 17 9.5V5.5C17 2.5 13.5 1 10 1Z" fill="#232F6A" />
+    </svg>
+  );
+}
+function PingIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M4 2L16 10L4 18V2Z" fill="#B31B34" />
+    </svg>
+  );
+}
+function OidcIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      <circle cx="12" cy="16" r="1"/>
+    </svg>
+  );
+}
+
+interface AuthProviderDef {
+  id: string;
+  name: string;
+  defaultIssuer: string;
+  issuerHint: string;
+  clientIdHint: string;
+  icon: React.ReactNode;
+}
+
+const AUTH_PROVIDER_OPTIONS: AuthProviderDef[] = [
+  { id: "google", name: "Google Workspace", defaultIssuer: "https://accounts.google.com", issuerHint: "", clientIdHint: "xxxxxxxxxx.apps.googleusercontent.com", icon: <GoogleIcon /> },
+  { id: "microsoft", name: "Microsoft Entra ID", defaultIssuer: "", issuerHint: "https://login.microsoftonline.com/<tenant-id>/v2.0", clientIdHint: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", icon: <MicrosoftIcon /> },
+  { id: "okta", name: "Okta", defaultIssuer: "", issuerHint: "https://your-domain.okta.com/oauth2/default", clientIdHint: "", icon: <OktaIcon /> },
+  { id: "onelogin", name: "OneLogin", defaultIssuer: "", issuerHint: "https://your-subdomain.onelogin.com/oidc/2", clientIdHint: "", icon: <OneLoginIcon /> },
+  { id: "ping", name: "Ping Identity", defaultIssuer: "", issuerHint: "https://auth.pingone.com/<environment-id>/as", clientIdHint: "", icon: <PingIcon /> },
+  { id: "generic", name: "Custom OIDC Provider", defaultIssuer: "", issuerHint: "https://your-provider.com", clientIdHint: "", icon: <OidcIcon /> },
+];
 
 interface CatalogEntry {
   tag: string;
@@ -116,6 +186,14 @@ export default function ServerDashboard() {
   const [dangerAction, setDangerAction] = useState<DangerAction>(null);
   const [confirmText, setConfirmText] = useState("");
   const [actionInProgress, setActionInProgress] = useState(false);
+
+  // Switch Auth Provider state
+  const [switchStep, setSwitchStep] = useState<"provider" | "credentials">("provider");
+  const [switchProvider, setSwitchProvider] = useState("google");
+  const [switchIssuer, setSwitchIssuer] = useState("https://accounts.google.com");
+  const [switchClientId, setSwitchClientId] = useState("");
+  const [switchClientSecret, setSwitchClientSecret] = useState("");
+  const [switchAdminEmails, setSwitchAdminEmails] = useState("");
   const [showPortHint, setShowPortHint] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [isDark, setIsDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -137,13 +215,11 @@ export default function ServerDashboard() {
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modelsInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Active model name for home view
-  const activeModelLabel = modelsData?.activeModel
-    ? modelDisplayName(
-        modelsData.models.find((m) => m.tag === modelsData.activeModel) ??
-        { tag: modelsData.activeModel, name: modelsData.activeModel, sizeBytes: 0, digest: "", modifiedAt: "", status: "installed" }
-      )
-    : null;
+  // Active model name for home view — only show when the model is actually loaded
+  const activeModelMatch = modelsData?.activeModel
+    ? modelsData.models.find((m) => m.tag === modelsData.activeModel && m.status === "loaded")
+    : undefined;
+  const activeModelLabel = activeModelMatch ? modelDisplayName(activeModelMatch) : null;
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -249,31 +325,62 @@ export default function ServerDashboard() {
     if (!result.success) setErrorMsg(result.error ?? "Failed to start server");
   }
 
-  async function handleDangerConfirm(e: FormEvent) {
+  async function handleWipeConfirm(e: FormEvent) {
     e.preventDefault();
-    if (!dangerAction) return;
-    const requiredText = dangerAction === "wipe" ? "WIPE" : "RESET";
-    if (confirmText !== requiredText) return;
+    if (confirmText !== "WIPE") return;
 
     setActionInProgress(true);
     setErrorMsg("");
     try {
-      const result = dangerAction === "wipe"
-        ? await window.electronAPI.instanceWipe()
-        : await window.electronAPI.instanceResetAuth();
+      const result = await window.electronAPI.instanceWipe();
       if (!result.success) {
         setErrorMsg(result.error ?? "Operation failed");
         setActionInProgress(false);
         return;
       }
-      if (dangerAction === "wipe") {
-        window.location.reload();
-      } else {
-        setDangerAction(null);
-        setConfirmText("");
+      window.location.reload();
+    } catch (err) {
+      setErrorMsg(String(err));
+      setActionInProgress(false);
+    }
+  }
+
+  function handleSwitchProviderChange(providerId: string) {
+    const prov = AUTH_PROVIDER_OPTIONS.find((p) => p.id === providerId);
+    setSwitchProvider(providerId);
+    setSwitchIssuer(prov?.defaultIssuer ?? "");
+    setSwitchClientId("");
+    setSwitchClientSecret("");
+  }
+
+  async function handleSwitchAuth(e: FormEvent) {
+    e.preventDefault();
+    const issuer = switchProvider === "google" ? "https://accounts.google.com" : switchIssuer.trim();
+    if (!issuer || !switchClientId.trim() || !switchClientSecret.trim() || !switchAdminEmails.trim()) {
+      setErrorMsg("All fields are required.");
+      return;
+    }
+
+    setActionInProgress(true);
+    setErrorMsg("");
+    try {
+      const result = await window.electronAPI.instanceReconfigureAuth({
+        oidcProvider: switchProvider,
+        oidcIssuer: issuer,
+        oidcClientId: switchClientId.trim(),
+        oidcClientSecret: switchClientSecret.trim(),
+        adminEmails: switchAdminEmails.split(",").map((e) => e.trim()).filter(Boolean),
+      });
+      if (!result.success) {
+        setErrorMsg(result.error ?? "Failed to switch auth provider");
         setActionInProgress(false);
-        await handleRestart();
+        return;
       }
+      setDangerAction(null);
+      setSwitchClientId("");
+      setSwitchClientSecret("");
+      setActionInProgress(false);
+      await handleRestart();
     } catch (err) {
       setErrorMsg(String(err));
       setActionInProgress(false);
@@ -955,20 +1062,19 @@ export default function ServerDashboard() {
 
   if (view === "settings") {
     return (
-      <div className="dashboard dashboard-settings">
+      <div className={`dashboard dashboard-settings${dangerAction ? " dashboard-flow" : ""}`}>
         <div className="view-header">
-          <button className="back-btn" onClick={() => { setView("home"); setErrorMsg(""); }}>
+          <button className="back-btn" onClick={() => { setView("home"); setErrorMsg(""); setDangerAction(null); }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Back
           </button>
           <h2 className="view-title">Settings</h2>
         </div>
 
-        <div className="settings-content">
-          {!dangerAction ? (
-            <>
-              <section className="card">
-                <h3 className="card-heading">General</h3>
+        {!dangerAction ? (
+          <div className="settings-content">
+            <section className="card">
+              <h3 className="card-heading">General</h3>
                 <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <label style={{ marginBottom: 0 }}>Launch at Login</label>
@@ -1056,70 +1162,294 @@ export default function ServerDashboard() {
                 <h3 className="card-heading card-heading-danger">Danger Zone</h3>
                 <div className="danger-item">
                   <div>
-                    <p className="danger-item-title">Reset Authentication</p>
-                    <p className="danger-item-desc">Clears all sessions and switches to solo mode. Data is preserved.</p>
+                    <p className="danger-item-title">Switch Auth Provider</p>
+                    <p className="danger-item-desc">Change your identity provider. Sources, documents, and chat history are preserved. Users are matched by email.</p>
                   </div>
-                  <button className="btn btn-danger btn-sm" onClick={() => { setDangerAction("resetAuth"); setConfirmText(""); setErrorMsg(""); }}>
-                    Reset Auth
+                  <button className="btn btn-danger btn-sm" onClick={() => { setDangerAction("switchAuth"); setSwitchStep("provider"); setErrorMsg(""); }}>
+                    Switch Provider
                   </button>
                 </div>
                 <div className="danger-item">
                   <div>
-                    <p className="danger-item-title">Wipe Instance</p>
+                    <p className="danger-item-title">Factory Reset</p>
                     <p className="danger-item-desc">Deletes all data, sessions, and configuration. Cannot be undone.</p>
                   </div>
                   <button className="btn btn-danger btn-sm" onClick={() => { setDangerAction("wipe"); setConfirmText(""); setErrorMsg(""); }}>
-                    Wipe
+                    Reset
                   </button>
                 </div>
               </section>
-            </>
+          </div>
+        ) : dangerAction === "wipe" ? (
+            <form onSubmit={handleWipeConfirm} className="settings-flow">
+              <div className="settings-content">
+                <section className="card">
+                  <h3 className="card-heading card-heading-danger">Factory Reset</h3>
+                  <div className="danger-warning">
+                    This will permanently delete all data including documents, sources, conversations, and configuration. This cannot be undone.
+                  </div>
+                  <div className="field">
+                    <label>
+                      Type <strong>WIPE</strong> to confirm
+                    </label>
+                    <input
+                      type="text"
+                      value={confirmText}
+                      onChange={(e) => setConfirmText(e.target.value)}
+                      placeholder="WIPE"
+                      autoFocus
+                      disabled={actionInProgress}
+                    />
+                  </div>
+                  {errorMsg && <div className="error-msg">{errorMsg}</div>}
+                </section>
+              </div>
+              <div className="settings-footer">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setDangerAction(null); setErrorMsg(""); }}
+                  disabled={actionInProgress}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger btn-sm"
+                  disabled={confirmText !== "WIPE" || actionInProgress}
+                >
+                  {actionInProgress ? "Working..." : "Wipe Everything"}
+                </button>
+              </div>
+            </form>
+          ) : switchStep === "provider" ? (
+            <div className="settings-flow">
+              <div className="settings-content">
+                <section className="card">
+                  <h3 className="card-heading">Switch Auth Provider</h3>
+                  <p className="description" style={{ marginBottom: 12 }}>
+                    Choose the identity provider to switch to. Your sources, documents, and chat history will be preserved. Users are matched by email address.
+                  </p>
+                  <div className="provider-list">
+                    {AUTH_PROVIDER_OPTIONS.map((provider) => (
+                      <label
+                        key={provider.id}
+                        className={`provider-option ${switchProvider === provider.id ? "selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="switchProvider"
+                          value={provider.id}
+                          checked={switchProvider === provider.id}
+                          onChange={() => handleSwitchProviderChange(provider.id)}
+                        />
+                        <span className="provider-icon">{provider.icon}</span>
+                        <span className="provider-name">{provider.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              </div>
+              <div className="settings-footer">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setDangerAction(null); setErrorMsg(""); }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => { setSwitchStep("credentials"); setErrorMsg(""); }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           ) : (
-            <section className="card">
-              <form onSubmit={handleDangerConfirm}>
-                <h3 className="card-heading card-heading-danger">
-                  {dangerAction === "wipe" ? "Wipe Instance" : "Reset Authentication"}
-                </h3>
-                <div className="danger-warning">
-                  {dangerAction === "wipe"
-                    ? "This will permanently delete all data including documents, conversations, and configuration. This cannot be undone."
-                    : "This will clear all sessions and reset to solo mode (no authentication). Your documents and conversations will be preserved."}
-                </div>
-                <div className="field">
-                  <label>
-                    Type <strong>{dangerAction === "wipe" ? "WIPE" : "RESET"}</strong> to confirm
-                  </label>
-                  <input
-                    type="text"
-                    value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
-                    placeholder={dangerAction === "wipe" ? "WIPE" : "RESET"}
-                    autoFocus
-                    disabled={actionInProgress}
-                  />
-                </div>
-                {errorMsg && <div className="error-msg">{errorMsg}</div>}
-                <div className="btn-row">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => { setDangerAction(null); setErrorMsg(""); }}
-                    disabled={actionInProgress}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-danger btn-sm"
-                    disabled={confirmText !== (dangerAction === "wipe" ? "WIPE" : "RESET") || actionInProgress}
-                  >
-                    {actionInProgress ? "Working..." : dangerAction === "wipe" ? "Wipe Everything" : "Reset Auth"}
-                  </button>
-                </div>
-              </form>
-            </section>
+            <form onSubmit={handleSwitchAuth} className="settings-flow">
+              <div className="settings-content">
+                <section className="card">
+                  <h3 className="card-heading">{AUTH_PROVIDER_OPTIONS.find((p) => p.id === switchProvider)?.name} Credentials</h3>
+                  <div className={switchProvider !== "generic" ? "step3-split" : ""}>
+                    {/* ── Provider-specific setup guides ─────────────────────── */}
+                    {switchProvider === "google" && (
+                      <div className="step3-guide">
+                        <h3 className="guide-heading">Setup Guide</h3>
+                        <ol className="setup-steps">
+                          <li>Go to{" "}<a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="docs-link">Google Cloud Console &gt; Credentials</a></li>
+                          <li>If you haven't already, configure the <strong>OAuth consent screen</strong> (Internal for Workspace, or External for testing)</li>
+                          <li>Click <strong>+ CREATE CREDENTIALS</strong>, then <strong>OAuth client ID</strong></li>
+                          <li>Application type: <strong>Web application</strong></li>
+                          <li>Under <strong>Authorized redirect URIs</strong>, add the redirect URI from the form</li>
+                          <li>Click <strong>CREATE</strong></li>
+                          <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the form</li>
+                        </ol>
+                      </div>
+                    )}
+                    {switchProvider === "microsoft" && (
+                      <div className="step3-guide">
+                        <h3 className="guide-heading">Setup Guide</h3>
+                        <ol className="setup-steps">
+                          <li>Go to{" "}<a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="docs-link">Microsoft Entra admin center &gt; App registrations</a></li>
+                          <li>Click <strong>+ New registration</strong></li>
+                          <li>Name: <strong>Edgebric</strong>, account type: <strong>Single tenant</strong></li>
+                          <li>Redirect URI: select <strong>Web</strong>, paste the redirect URI from the form</li>
+                          <li>Click <strong>Register</strong></li>
+                          <li>Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong></li>
+                          <li>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>+ New client secret</strong> &gt; copy the <strong>Value</strong> immediately</li>
+                          <li>Go to <strong>API permissions</strong> &gt; add <strong>User.Read</strong> (Microsoft Graph, Delegated)</li>
+                          <li>Go to <strong>Token configuration</strong> &gt; <strong>+ Add optional claim</strong> &gt; ID token &gt; <strong>email</strong></li>
+                        </ol>
+                        <p className="hint" style={{ marginTop: 8 }}>Steps 8-9 are critical for login and profile photo sync.</p>
+                      </div>
+                    )}
+                    {switchProvider === "okta" && (
+                      <div className="step3-guide">
+                        <h3 className="guide-heading">Setup Guide</h3>
+                        <ol className="setup-steps">
+                          <li>Sign in to your{" "}<a href="https://login.okta.com/" target="_blank" rel="noopener noreferrer" className="docs-link">Okta admin console</a></li>
+                          <li>Go to <strong>Applications</strong> &gt; <strong>Create App Integration</strong></li>
+                          <li>Sign-in method: <strong>OIDC</strong>, type: <strong>Web Application</strong></li>
+                          <li>Name: <strong>Edgebric</strong></li>
+                          <li>Sign-in redirect URIs: paste the redirect URI from the form</li>
+                          <li>Under <strong>Assignments</strong>, choose who can access the app</li>
+                          <li>Click <strong>Save</strong>, then copy <strong>Client ID</strong> and <strong>Client secret</strong></li>
+                        </ol>
+                        <p className="hint" style={{ marginTop: 8 }}>Issuer URL is typically <code>https://your-company.okta.com/oauth2/default</code></p>
+                      </div>
+                    )}
+                    {switchProvider === "onelogin" && (
+                      <div className="step3-guide">
+                        <h3 className="guide-heading">Setup Guide</h3>
+                        <ol className="setup-steps">
+                          <li>Sign in to your{" "}<a href="https://app.onelogin.com/apps" target="_blank" rel="noopener noreferrer" className="docs-link">OneLogin admin portal</a></li>
+                          <li>Go to <strong>Applications</strong> &gt; <strong>Add App</strong></li>
+                          <li>Search for <strong>OpenID Connect (OIDC)</strong> and select it</li>
+                          <li>Name: <strong>Edgebric</strong> &gt; <strong>Save</strong></li>
+                          <li>Go to <strong>Configuration</strong> tab, paste the redirect URI</li>
+                          <li>Set <strong>Token Endpoint</strong> auth method to <strong>POST</strong></li>
+                          <li>Go to <strong>SSO</strong> tab, copy <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                        </ol>
+                        <p className="hint" style={{ marginTop: 8 }}>Issuer URL: <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code></p>
+                      </div>
+                    )}
+                    {switchProvider === "ping" && (
+                      <div className="step3-guide">
+                        <h3 className="guide-heading">Setup Guide</h3>
+                        <ol className="setup-steps">
+                          <li>Sign in to your{" "}<a href="https://console.pingone.com/" target="_blank" rel="noopener noreferrer" className="docs-link">PingOne admin console</a></li>
+                          <li>Go to <strong>Applications</strong> &gt; <strong>+</strong> to add an application</li>
+                          <li>Name: <strong>Edgebric</strong>, type: <strong>OIDC Web App</strong></li>
+                          <li>Redirect URIs: paste from the form</li>
+                          <li>Grant type: <strong>Authorization Code</strong></li>
+                          <li>Click <strong>Save</strong>, copy <strong>Client ID</strong> and <strong>Client Secret</strong></li>
+                          <li>Note the <strong>Issuer</strong> URL from the Configuration tab</li>
+                        </ol>
+                        <p className="hint" style={{ marginTop: 8 }}>Region domains: <code>auth.pingone.com</code> (US), <code>.eu</code>, <code>.ca</code>, <code>.asia</code></p>
+                      </div>
+                    )}
+
+                    {/* ── Credential form ─────────────────────────────────── */}
+                    <div className="step3-form">
+                      {switchProvider !== "google" && (
+                        <div className="field">
+                          <label>Issuer URL</label>
+                          <input
+                            type="text"
+                            value={switchIssuer}
+                            onChange={(e) => setSwitchIssuer(e.target.value)}
+                            placeholder={AUTH_PROVIDER_OPTIONS.find((p) => p.id === switchProvider)?.issuerHint ?? ""}
+                            disabled={actionInProgress}
+                          />
+                          {switchProvider === "microsoft" && (
+                            <p className="hint">Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code></p>
+                          )}
+                        </div>
+                      )}
+                      <div className="field">
+                        <label>Redirect URI</label>
+                        <div className="input-with-copy">
+                          <input
+                            type="text"
+                            readOnly
+                            value={`https://${hostname}:${port}/api/auth/callback`}
+                            className="readonly"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                          />
+                          <button
+                            type="button"
+                            className="copy-btn"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`https://${hostname}:${port}/api/auth/callback`);
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <p className="hint">Paste this as the redirect URI in your {AUTH_PROVIDER_OPTIONS.find((p) => p.id === switchProvider)?.name} app configuration.</p>
+                      </div>
+                      <div className="field">
+                        <label>Client ID</label>
+                        <input
+                          type="text"
+                          value={switchClientId}
+                          onChange={(e) => setSwitchClientId(e.target.value)}
+                          placeholder={AUTH_PROVIDER_OPTIONS.find((p) => p.id === switchProvider)?.clientIdHint ?? ""}
+                          disabled={actionInProgress}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Client Secret</label>
+                        <input
+                          type="password"
+                          value={switchClientSecret}
+                          onChange={(e) => setSwitchClientSecret(e.target.value)}
+                          disabled={actionInProgress}
+                        />
+                        <p className="hint">
+                          {switchProvider === "microsoft"
+                            ? "The Value (not Secret ID) from Certificates & secrets. Only shown once."
+                            : "Some providers only show this once \u2014 you may need to generate a new one."}
+                        </p>
+                      </div>
+                      <div className="field">
+                        <label>Admin Emails</label>
+                        <input
+                          type="text"
+                          value={switchAdminEmails}
+                          onChange={(e) => setSwitchAdminEmails(e.target.value)}
+                          placeholder="admin@company.com, cto@company.com"
+                          disabled={actionInProgress}
+                        />
+                        <p className="hint">Comma-separated. These users get admin access after login.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {errorMsg && <div className="error-msg">{errorMsg}</div>}
+                </section>
+              </div>
+              <div className="settings-footer">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => { setSwitchStep("provider"); setErrorMsg(""); }}
+                  disabled={actionInProgress}
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={actionInProgress}
+                >
+                  {actionInProgress ? "Switching..." : "Switch Provider"}
+                </button>
+              </div>
+            </form>
           )}
-        </div>
       </div>
     );
   }

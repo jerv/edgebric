@@ -1,6 +1,6 @@
 import type { ChunkMetadata } from "@edgebric/types";
 import { getDb, getSqlite } from "../db/index.js";
-import { chunks, documents, knowledgeBases } from "../db/schema.js";
+import { chunks, documents, dataSources } from "../db/schema.js";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
 import { encryptText, decryptText } from "../lib/crypto.js";
 
@@ -115,12 +115,12 @@ export function getAllChunksWithContent(orgId?: string): Array<{
   const db = getDb();
 
   if (orgId) {
-    // Filter chunks to those belonging to documents in KBs owned by this org
-    const orgKBIds = db.select({ id: knowledgeBases.id }).from(knowledgeBases)
-      .where(eq(knowledgeBases.orgId, orgId)).all().map((r) => r.id);
-    if (orgKBIds.length === 0) return [];
+    // Filter chunks to those belonging to documents in data sources owned by this org
+    const orgDsIds = db.select({ id: dataSources.id }).from(dataSources)
+      .where(eq(dataSources.orgId, orgId)).all().map((r) => r.id);
+    if (orgDsIds.length === 0) return [];
     const orgDocIds = db.select({ id: documents.id }).from(documents)
-      .where(sql`${documents.knowledgeBaseId} IN (${sql.join(orgKBIds.map((id) => sql`${id}`), sql`, `)})`)
+      .where(sql`${documents.dataSourceId} IN (${sql.join(orgDsIds.map((id) => sql`${id}`), sql`, `)})`)
       .all().map((r) => r.id);
     if (orgDocIds.length === 0) return [];
     const rows = db.select().from(chunks)

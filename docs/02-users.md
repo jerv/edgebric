@@ -8,7 +8,7 @@
 
 **The Employee (End User)**
 - Any staff member with access to the company's Edgebric deployment
-- Uses Edgebric in three contexts: individual queries (HR, policy, etc.), group chats (collaborative KB-sharing with threads), and meeting sessions (ephemeral cross-device)
+- Uses Edgebric in three contexts: individual queries (HR, policy, etc.), group chats (collaborative data-source-sharing with threads), and meeting sessions (ephemeral cross-device)
 - Needs: fast, private, accurate answers to policy questions; ability to collaborate with colleagues and share data sources selectively
 - Pain: slow HR response times, embarrassment asking sensitive questions, meetings that stall because nobody has the right information
 - Success: gets an accurate answer with a cited source in under 10 seconds; group chats enable async collaboration across teams

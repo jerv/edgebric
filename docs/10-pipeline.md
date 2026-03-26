@@ -26,10 +26,10 @@ main ─────────────────────── produ
 ```bash
 # Start a new feature
 git checkout dev
-git checkout -b feature/kb-permissions
+git checkout -b feature/data-source-permissions
 
 # When done, push and create a PR to dev
-git push -u origin feature/kb-permissions
+git push -u origin feature/data-source-permissions
 gh pr create --base dev
 
 # When dev is stable, create a PR to main

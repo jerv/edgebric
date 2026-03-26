@@ -18,7 +18,7 @@ import {
   updateConversationTimestamp,
 } from "../services/conversationStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { listKBs, listAccessibleKBs } from "../services/knowledgeBaseStore.js";
+import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { broadcastToUser } from "../services/notificationStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
@@ -33,8 +33,8 @@ const queryBodySchema = z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(8000),
   })).max(20).optional(),
-  /** Optional KB IDs to restrict search scope. Omit for default (all accessible org KBs). */
-  knowledgeBaseIds: z.array(z.string().uuid()).max(20).optional(),
+  /** Optional data source IDs to restrict search scope. Omit for default (all accessible). */
+  dataSourceIds: z.array(z.string().uuid()).max(20).optional(),
 });
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -90,11 +90,11 @@ const chatClient = createMILMClient(chatEdgeConfig, "");
 
 queryRouter.use(requireOrg);
 
-/** Enrich citations with the knowledge base name, ID, avatar, and freshness based on document → KB lookup. */
-function enrichCitationsWithKBName(citations: Citation[]): void {
+/** Enrich citations with the data source name, ID, avatar, and freshness based on document lookup. */
+function enrichCitationsWithDataSourceName(citations: Citation[]): void {
   if (citations.length === 0) return;
-  const kbs = listKBs({ type: "organization" });
-  const kbMap = new Map(kbs.map((kb) => [kb.id, kb]));
+  const dataSources = listDataSources({ type: "organization" });
+  const dsMap = new Map(dataSources.map((ds) => [ds.id, ds]));
   for (const citation of citations) {
     const doc = getDocument(citation.documentId);
     if (doc) {
@@ -103,12 +103,12 @@ function enrichCitationsWithKBName(citations: Citation[]): void {
         ? doc.updatedAt.toISOString()
         : String(doc.updatedAt);
 
-      if (doc.knowledgeBaseId) {
-        const kb = kbMap.get(doc.knowledgeBaseId);
-        if (kb) {
-          citation.knowledgeBaseName = kb.name;
-          citation.knowledgeBaseId = kb.id;
-          if (kb.avatarUrl) citation.knowledgeBaseAvatarUrl = kb.avatarUrl;
+      if (doc.dataSourceId) {
+        const ds = dsMap.get(doc.dataSourceId);
+        if (ds) {
+          citation.dataSourceName = ds.name;
+          citation.dataSourceId = ds.id;
+          if (ds.avatarUrl) citation.dataSourceAvatarUrl = ds.avatarUrl;
         }
       }
     }
@@ -116,33 +116,33 @@ function enrichCitationsWithKBName(citations: Citation[]): void {
 }
 
 /**
- * Resolve target dataset names from client-provided KB IDs.
- * Always intersects with the user's accessible set (security: prevents unauthorized KB access).
+ * Resolve target dataset names from client-provided data source IDs.
+ * Always intersects with the user's accessible set (security: prevents unauthorized access).
  * Falls back to all accessible datasets if no IDs provided.
  */
 function resolveTargetDatasets(
-  requestedKBIds: string[] | undefined,
+  requestedDSIds: string[] | undefined,
   email: string,
   isAdmin: boolean,
   orgId?: string,
 ): string[] {
-  const accessibleKBs = listAccessibleKBs(email, isAdmin, orgId);
-  if (accessibleKBs.length === 0) return ["knowledge-base"];
+  const accessibleDS = listAccessibleDataSources(email, isAdmin, orgId);
+  if (accessibleDS.length === 0) return ["knowledge-base"];
 
-  // No filter requested — search all accessible KBs (default behavior)
-  if (!requestedKBIds || requestedKBIds.length === 0) {
-    return accessibleKBs.map((kb) => kb.datasetName);
+  // No filter requested — search all accessible data sources (default behavior)
+  if (!requestedDSIds || requestedDSIds.length === 0) {
+    return accessibleDS.map((ds) => ds.datasetName);
   }
 
   // Intersect requested IDs with accessible set
-  const requestedSet = new Set(requestedKBIds);
-  const filtered = accessibleKBs.filter((kb) => requestedSet.has(kb.id));
+  const requestedSet = new Set(requestedDSIds);
+  const filtered = accessibleDS.filter((ds) => requestedSet.has(ds.id));
 
-  // If intersection is empty (user requested KBs they can't access), return empty
+  // If intersection is empty (user requested data sources they can't access), return empty
   // This will produce a "no results" response rather than silently searching everything
   if (filtered.length === 0) return [];
 
-  return filtered.map((kb) => kb.datasetName);
+  return filtered.map((ds) => ds.datasetName);
 }
 
 /**
@@ -186,7 +186,7 @@ queryRouter.get("/status", (req, res) => {
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, knowledgeBaseIds } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds } = req.body as z.infer<typeof queryBodySchema>;
 
   // Rate limit: 10 queries per minute per user
   const rateLimitEmail = req.session.email;
@@ -242,7 +242,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     eventType: "query.execute",
     actorEmail: req.session.email,
     actorIp: req.ip,
-    details: { kbCount: knowledgeBaseIds?.length ?? 0, hasConversation: !!existingConvId },
+    details: { dsCount: dataSourceIds?.length ?? 0, hasConversation: !!existingConvId },
   });
 
   // ─── Private Mode: process query but don't log anything ────────────────────
@@ -286,7 +286,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
     try {
       const orgId = req.session.orgId;
-      const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
       const stream = answerStream(
         query,
@@ -301,7 +301,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       for await (const chunk of stream) {
         if (chunk.delta) sendEvent("delta", { delta: chunk.delta });
         if (chunk.final) {
-          enrichCitationsWithKBName(chunk.final.citations);
+          enrichCitationsWithDataSourceName(chunk.final.citations);
           // No DB writes — just send the final response
           sendEvent("done", { ...chunk.final, private: true });
         }
@@ -380,7 +380,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   req.on("close", () => { clientDisconnected = true; });
 
   try {
-    const datasetNames = resolveTargetDatasets(knowledgeBaseIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+    const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
     const { results: searchResults, candidateCount, hybridBoost } = await searchWithHybrid(datasetNames, query);
     const stream = answerStream(
       query,
@@ -404,7 +404,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         sendEvent("delta", { delta: chunk.delta });
       }
       if (chunk.final) {
-        enrichCitationsWithKBName(chunk.final.citations);
+        enrichCitationsWithDataSourceName(chunk.final.citations);
 
         // Save assistant message to DB
         const assistantMsgId = randomUUID();

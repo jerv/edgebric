@@ -104,9 +104,9 @@ export function GroupChatList() {
                   <MessageSquare className="w-3.5 h-3.5" />
                   {chat.messageCount ?? 0} messages
                 </span>
-                {chat.sharedKBs.length > 0 && (
+                {chat.sharedDataSources.length > 0 && (
                   <span className="flex items-center gap-1">
-                    {chat.sharedKBs.length} source{chat.sharedKBs.length !== 1 ? "s" : ""} shared
+                    {chat.sharedDataSources.length} source{chat.sharedDataSources.length !== 1 ? "s" : ""} shared
                   </span>
                 )}
               </div>

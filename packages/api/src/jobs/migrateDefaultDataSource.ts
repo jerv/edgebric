@@ -1,30 +1,30 @@
-import { ensureDefaultKB, refreshDocumentCount } from "../services/knowledgeBaseStore.js";
+import { ensureDefaultDataSource, refreshDocumentCount } from "../services/dataSourceStore.js";
 import { getAllDocuments, setDocument } from "../services/documentStore.js";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
 
 /**
- * Idempotent migration: ensures a default KB exists and assigns
- * any documents that don't have a knowledgeBaseId to it.
+ * Idempotent migration: ensures a default data source exists and assigns
+ * any documents that don't have a dataSourceId to it.
  *
  * Safe to run on every startup — only modifies orphaned documents.
  */
-export function migrateOrphanedDocumentsToDefaultKB(): void {
+export function migrateOrphanedDocumentsToDefaultDataSource(): void {
   const adminEmail = config.adminEmails[0] ?? "admin@edgebric.local";
-  const defaultKB = ensureDefaultKB(adminEmail);
+  const defaultDS = ensureDefaultDataSource(adminEmail);
 
   const docs = getAllDocuments();
   let migratedCount = 0;
 
   for (const doc of docs) {
-    if (!doc.knowledgeBaseId) {
-      setDocument({ ...doc, knowledgeBaseId: defaultKB.id });
+    if (!doc.dataSourceId) {
+      setDocument({ ...doc, dataSourceId: defaultDS.id });
       migratedCount++;
     }
   }
 
   if (migratedCount > 0) {
-    refreshDocumentCount(defaultKB.id);
-    logger.info({ count: migratedCount, kbName: defaultKB.name }, "Migrated documents to default KB");
+    refreshDocumentCount(defaultDS.id);
+    logger.info({ count: migratedCount, dsName: defaultDS.name }, "Migrated documents to default data source");
   }
 }

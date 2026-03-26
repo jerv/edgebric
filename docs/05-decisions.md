@@ -25,7 +25,7 @@
 
 ### MESH-02 — Department Isolation Is Security Architecture, Not Convenience
 
-**Decision:** Distributing knowledge bases across physical devices by department is a security architecture decision, not an organizational convenience feature.
+**Decision:** Distributing data sources across physical devices by department is a security architecture decision, not an organizational convenience feature.
 
 **Why this matters:**
 - Access control lists can be misconfigured, bypassed, or escalated through privilege vulnerabilities
@@ -52,7 +52,7 @@
 
 ---
 
-### KB-01 — Data Source Types: Vault vs. Network
+### DS-01 — Data Source Types: Vault vs. Network
 
 **Decision:** Data sources come in two types. Network data sources are admin-managed and stored on the org's network. Vault data sources are personal, device-local, and encrypted.
 
@@ -76,7 +76,7 @@
 
 ---
 
-### KB-02 — Granular Sharing Controls
+### DS-02 — Granular Sharing Controls
 
 **Decision:** When sharing data sources in group chats or meeting sessions, users have per-data-source granular control with explicit confirmation.
 
@@ -166,7 +166,7 @@ Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible AP
 
 **Recommended defaults (March 2026):**
 - Coordinator / server-side: Qwen3.5-9B Q4_K_M (~5.8GB)
-- Constrained hardware / KB-only nodes: Qwen3.5-4B Q4_K_M (~2.6GB)
+- Constrained hardware / data-source-only nodes: Qwen3.5-4B Q4_K_M (~2.6GB)
 - iOS / incognito: Qwen3.5-2B Q4_K_M
 - Embedding: nomic-embed-text (768-dim)
 
@@ -221,7 +221,7 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ### UX-02 — Terminology: "Data Sources" Not "Knowledge Bases"
 
-**Decision:** User-facing terminology uses "Data Sources" (not "Knowledge Bases" or "KBs").
+**Decision:** User-facing terminology uses "Data Sources" (not "Knowledge Bases").
 
 **Data source types:**
 - **Network Data Sources** — stored on the org's network servers, admin-managed
@@ -229,7 +229,7 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 **Top-level page:** "Data Sources" (the page where you browse all data sources)
 
-**Why "Data Sources":** It's what non-technical users intuitively understand — these are the data sources the AI draws answers from. "Add a data source" is clearer than "Create a knowledge base." Industry precedent: Glean, Perplexity both use "Sources."
+**Why "Data Sources":** It's what non-technical users intuitively understand — these are the data sources the AI draws answers from. "Add a data source" is clearer than "Create a knowledge base" (legacy term). Industry precedent: Glean, Perplexity both use "Sources."
 
 **Why not other terms:**
 - "Workspace" — conflicts with org concept
@@ -305,7 +305,7 @@ mAIChain's "response synthesis" mechanism is undocumented publicly. We know it f
 
 ### OPEN-02 — Meeting Mode Session State Persistence
 
-Where does meeting session state (participant list, opted-in KBs, room code mapping) live?
+Where does meeting session state (participant list, opted-in data sources, room code mapping) live?
 - Option A: On the coordinator node (simplest, single point of failure)
 - Option B: Distributed across participants via mesh (resilient, complex)
 - Leaning toward A for MVP — session state is small and ephemeral.

@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Search, UserPlus, Users, ChevronDown, Database, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { KnowledgeBase, GroupChat } from "@edgebric/types";
+import type { DataSource, GroupChat } from "@edgebric/types";
 
 interface SearchResult {
   email: string;
@@ -42,7 +42,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
 
   // Sources
   const [showSources, setShowSources] = useState(false);
-  const [selectedKBIds, setSelectedKBIds] = useState<string[]>([]);
+  const [selectedDSIds, setSelectedKBIds] = useState<string[]>([]);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -50,16 +50,16 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
 
   const selectedEmails = new Set(selectedUsers.map((u) => u.email.toLowerCase()));
 
-  // Fetch KBs for source sharing
-  const { data: kbs } = useQuery<KnowledgeBase[]>({
-    queryKey: ["knowledge-bases"],
+  // Fetch data sources for source sharing
+  const { data: dataSources } = useQuery<DataSource[]>({
+    queryKey: ["data-sources"],
     queryFn: () =>
-      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => {
+      fetch("/api/data-sources", { credentials: "same-origin" }).then((r) => {
         if (!r.ok) return [];
-        return r.json() as Promise<KnowledgeBase[]>;
+        return r.json() as Promise<DataSource[]>;
       }),
   });
-  const activeKBs = (kbs ?? []).filter((kb) => kb.status === "active");
+  const activeDS = (dataSources ?? []).filter((ds) => ds.status === "active");
 
   // Member search with debounce
   useEffect(() => {
@@ -106,7 +106,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
     setSelectedUsers((prev) => prev.filter((u) => u.email.toLowerCase() !== email.toLowerCase()));
   }
 
-  function toggleKB(id: string) {
+  function toggleDS(id: string) {
     setSelectedKBIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -138,7 +138,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
             inviteEmails: selectedUsers.map((u) => u.email.toLowerCase()),
             expiration,
             expiresInMs,
-            shareKBIds: selectedKBIds.length > 0 ? selectedKBIds : undefined,
+            shareDSIds: selectedDSIds.length > 0 ? selectedDSIds : undefined,
           }),
         });
 
@@ -184,13 +184,13 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
           }).catch(() => {});
         }
 
-        // Share KBs
-        for (const kbId of selectedKBIds) {
-          void fetch(`/api/group-chats/${chat.id}/shared-kbs`, {
+        // Share data sources
+        for (const dsId of selectedDSIds) {
+          void fetch(`/api/group-chats/${chat.id}/shared-data-sources`, {
             method: "POST",
             credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ knowledgeBaseId: kbId, allowSourceViewing: true }),
+            body: JSON.stringify({ dataSourceId: dsId, allowSourceViewing: true }),
           });
         }
 
@@ -389,7 +389,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
           </div>
 
           {/* Source sharing — click to expand */}
-          {activeKBs.length > 0 && (
+          {activeDS.length > 0 && (
             <div>
               <button
                 onClick={() => setShowSources(!showSources)}
@@ -398,7 +398,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
                 <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
                 Share Data Sources
                 <span className="font-normal text-slate-400 dark:text-gray-500">
-                  {selectedKBIds.length > 0 ? `(${selectedKBIds.length} selected)` : "(optional)"}
+                  {selectedDSIds.length > 0 ? `(${selectedDSIds.length} selected)` : "(optional)"}
                 </span>
                 <ChevronDown className={cn("w-3 h-3 text-slate-400 dark:text-gray-500 transition-transform", showSources && "rotate-180")} />
               </button>
@@ -406,13 +406,13 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
               {showSources && (
                 <div className="mt-2 border border-slate-200 dark:border-gray-800 rounded-lg overflow-hidden">
                   <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
-                    {activeKBs.map((kb) => {
-                      const isOrgWide = kb.type === "organization" && kb.accessMode === "all";
-                      const isSelected = selectedKBIds.includes(kb.id);
+                    {activeDS.map((ds) => {
+                      const isOrgWide = ds.type === "organization" && ds.accessMode === "all";
+                      const isSelected = selectedDSIds.includes(ds.id);
                       return (
                         <button
-                          key={kb.id}
-                          onClick={() => !isOrgWide && toggleKB(kb.id)}
+                          key={ds.id}
+                          onClick={() => !isOrgWide && toggleDS(ds.id)}
                           disabled={isOrgWide}
                           className={cn(
                             "w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors",
@@ -425,7 +425,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
                         >
                           <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                           <div className="min-w-0 flex-1">
-                            <span className="text-xs truncate block">{kb.name}</span>
+                            <span className="text-xs truncate block">{ds.name}</span>
                             {isOrgWide && (
                               <span className="text-[10px] text-slate-400 dark:text-gray-500 block">Shared org-wide — always included</span>
                             )}

@@ -3,7 +3,7 @@ import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import { runtimeEdgeConfig } from "../config.js";
 import { registerChunks, clearChunksForDocument } from "../services/chunkRegistry.js";
 import { setDocument } from "../services/documentStore.js";
-import { refreshDocumentCount } from "../services/knowledgeBaseStore.js";
+import { refreshDocumentCount } from "../services/dataSourceStore.js";
 import { extractDocument } from "./extractors.js";
 import { logger } from "../lib/logger.js";
 import type { Document } from "@edgebric/types";
@@ -58,7 +58,7 @@ export async function ingestDocument(
       return; // Halt — admin must approve before ingestion continues
     }
 
-    // Use KB-scoped dataset name, or fall back to the legacy shared dataset.
+    // Use data-source-scoped dataset name, or fall back to the legacy shared dataset.
     const datasetName = options?.datasetName ?? "knowledge-base";
     await mkb.createDataset(datasetName); // no-op if already exists
 
@@ -112,9 +112,9 @@ export async function ingestDocument(
     };
     setDocument(updated);
 
-    // Update the cached document count on the KB
-    if (doc.knowledgeBaseId) {
-      refreshDocumentCount(doc.knowledgeBaseId);
+    // Update the cached document count on the data source
+    if (doc.dataSourceId) {
+      refreshDocumentCount(doc.dataSourceId);
     }
 
     logger.info({ docName: doc.name, chunkCount: chunks.length }, "Ingestion complete");

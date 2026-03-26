@@ -12,7 +12,7 @@ const STEPS = [
   { label: "Upload Document" },
 ] as const;
 
-interface ExistingKB {
+interface ExistingDS {
   id: string;
   name: string;
   description?: string;
@@ -30,21 +30,21 @@ export function OnboardingWizard() {
   const [orgAvatarUrl, setOrgAvatarUrl] = useState<string | undefined>(undefined);
 
   // Step 2: KB
-  const [kbName, setKbName] = useState("Policy Documents");
-  const [kbDescription, setKbDescription] = useState("Company-wide policies and procedures");
-  const [kbId, setKbId] = useState<string | null>(null);
-  const [existingKB, setExistingKB] = useState<ExistingKB | null>(null);
+  const [dsName, setKbName] = useState("Policy Documents");
+  const [dsDescription, setKbDescription] = useState("Company-wide policies and procedures");
+  const [dsId, setKbId] = useState<string | null>(null);
+  const [existingDS, setExistingDS] = useState<ExistingDS | null>(null);
 
-  // Check for existing KBs on mount (ensureDefaultKB may have created one at startup)
+  // Check for existing data sources on mount (ensureDefaultDS may have created one at startup)
   useEffect(() => {
-    void fetch("/api/knowledge-bases", { credentials: "same-origin" })
+    void fetch("/api/data-sources", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : []))
-      .then((kbs: ExistingKB[]) => {
-        if (kbs.length > 0) {
-          const first = kbs[0]!;
-          setExistingKB(first);
-          setKbName(first.name);
-          if (first.description) setKbDescription(first.description);
+      .then((sources: ExistingDS[]) => {
+        if (sources.length > 0) {
+          const first = sources[0]!;
+          setExistingDS(first);
+          setDsName(first.name);
+          if (first.description) setDsDescription(first.description);
         }
       })
       .catch(() => {});
@@ -68,28 +68,28 @@ export function OnboardingWizard() {
     onSuccess: () => setStep(1),
   });
 
-  const createKBMutation = useMutation({
+  const createDSMutation = useMutation({
     mutationFn: async () => {
       // If a KB already exists (from ensureDefaultKB), update it instead of creating a duplicate
-      if (existingKB) {
-        const res = await fetch(`/api/knowledge-bases/${existingKB.id}`, {
+      if (existingDS) {
+        const res = await fetch(`/api/data-sources/${existingDS.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ name: kbName.trim(), description: kbDescription.trim() }),
+          body: JSON.stringify({ name: dsName.trim(), description: dsDescription.trim() }),
         });
         if (!res.ok) {
           const err = await res.json() as { error?: string };
           throw new Error(err.error ?? "Failed to update data source");
         }
-        return { id: existingKB.id };
+        return { id: existingDS.id };
       }
 
-      const res = await fetch("/api/knowledge-bases", {
+      const res = await fetch("/api/data-sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ name: kbName.trim(), description: kbDescription.trim() }),
+        body: JSON.stringify({ name: dsName.trim(), description: dsDescription.trim() }),
       });
       if (!res.ok) {
         const err = await res.json() as { error?: string };
@@ -104,14 +104,14 @@ export function OnboardingWizard() {
   });
 
   async function handleUpload(file: File) {
-    if (!kbId) return;
+    if (!dsId) return;
     setUploadStatus("uploading");
     setUploadError("");
 
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`/api/knowledge-bases/${kbId}/documents/upload`, {
+      const res = await fetch(`/api/data-sources/${dsId}/documents/upload`, {
         method: "POST",
         credentials: "same-origin",
         body: form,
@@ -228,7 +228,7 @@ export function OnboardingWizard() {
               <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Data Source Name</label>
               <input
                 type="text"
-                value={kbName}
+                value={dsName}
                 onChange={(e) => setKbName(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="e.g., Policy Documents"
@@ -238,21 +238,21 @@ export function OnboardingWizard() {
               <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">Description (optional)</label>
               <input
                 type="text"
-                value={kbDescription}
+                value={dsDescription}
                 onChange={(e) => setKbDescription(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="What documents will this contain?"
               />
             </div>
-            {createKBMutation.error && (
-              <p className="text-sm text-red-600 dark:text-red-400">{createKBMutation.error.message}</p>
+            {createDSMutation.error && (
+              <p className="text-sm text-red-600 dark:text-red-400">{createDSMutation.error.message}</p>
             )}
             <button
-              onClick={() => createKBMutation.mutate()}
-              disabled={!kbName.trim() || createKBMutation.isPending}
+              onClick={() => createDSMutation.mutate()}
+              disabled={!dsName.trim() || createDSMutation.isPending}
               className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
-              {createKBMutation.isPending ? "Creating..." : "Create Data Source"}
+              {createDSMutation.isPending ? "Creating..." : "Create Data Source"}
             </button>
           </div>
         )}

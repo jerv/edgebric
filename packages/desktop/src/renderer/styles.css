@@ -249,6 +249,35 @@ body {
   gap: 12px;
 }
 
+/* ─── Settings flow (sticky-footer pattern for multi-step flows) ────────── */
+.dashboard-flow {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.settings-flow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.settings-flow .settings-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
 /* ─── Buttons ────────────────────────────────────────────────────────────── */
 .btn {
   padding: 8px 16px;
@@ -909,6 +938,8 @@ body {
   .wizard-footer { border-top-color: #1e293b; }
   .wizard-footer .step-indicator { color: #475569; }
 
+  .settings-footer { border-top-color: #1e293b; }
+
   .error-message {
     background: #1c0a0a;
     border-color: #450a0a;
@@ -984,7 +1015,8 @@ body {
   }
 
   .active-model-row { border-top-color: #1e293b; }
-  .active-model-name { color: #e2e8f0; }
+  .active-model-label { color: #cbd5e1; }
+  .active-model-name { color: #f1f5f9; }
 
   .resource-bar-label { color: #94a3b8; }
   .resource-bar-track { background: #1e293b; }
@@ -1026,7 +1058,8 @@ body {
   }
 
   .active-model-row { border-top-color: #1e293b; }
-  .active-model-name { color: #e2e8f0; }
+  .active-model-label { color: #cbd5e1; }
+  .active-model-name { color: #f1f5f9; }
 }
 
 /* ─── Active model row (home view) ───────────────────────────────────────── */

@@ -12,7 +12,7 @@ import {
   deleteConversation,
   archiveAllConversations,
 } from "../services/conversationStore.js";
-import { convertSoloToGroup, shareKB } from "../services/groupChatStore.js";
+import { convertSoloToGroup, shareDataSource } from "../services/groupChatStore.js";
 import { getUserInOrg } from "../services/userStore.js";
 import { getUnreadConversationIds } from "../services/notificationStore.js";
 
@@ -25,7 +25,7 @@ const convertToGroupSchema = z.object({
   inviteEmails: z.array(z.string().email()).min(1, "Invite at least one person"),
   expiration: z.enum(["24h", "1w", "1m", "never", "custom"]),
   expiresInMs: z.number().int().positive().optional(),
-  shareKBIds: z.array(z.string().uuid()).optional(),
+  shareDataSourceIds: z.array(z.string().uuid()).optional(),
 });
 
 export const conversationsRouter: IRouter = Router();
@@ -173,11 +173,11 @@ conversationsRouter.post("/:id/convert-to-group", validateBody(convertToGroupSch
 
   const groupChat = convertSoloToGroup(convertData);
 
-  // Share KBs if requested
-  if (body.shareKBIds?.length) {
-    for (const kbId of body.shareKBIds) {
+  // Share data sources if requested
+  if (body.shareDataSourceIds?.length) {
+    for (const dsId of body.shareDataSourceIds) {
       try {
-        shareKB({ groupChatId: groupChat.id, knowledgeBaseId: kbId, sharedByEmail: email, allowSourceViewing: true });
+        shareDataSource({ groupChatId: groupChat.id, dataSourceId: dsId, sharedByEmail: email, allowSourceViewing: true });
       } catch { /* best effort */ }
     }
   }

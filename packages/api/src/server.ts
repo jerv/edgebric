@@ -10,7 +10,7 @@ import { logger } from "./lib/logger.js";
 import { initEncryptionKey } from "./lib/crypto.js";
 import { initDatabase, closeDatabase } from "./db/index.js";
 import { backfillChunkContent } from "./jobs/backfillChunkContent.js";
-import { migrateOrphanedDocumentsToDefaultKB } from "./jobs/migrateDefaultKB.js";
+import { migrateOrphanedDocumentsToDefaultDataSource } from "./jobs/migrateDefaultDataSource.js";
 import { ensureDefaultOrg } from "./services/orgStore.js";
 import { config } from "./config.js";
 import { createApp } from "./app.js";
@@ -67,15 +67,15 @@ async function start() {
   initEncryptionKey();
   initDatabase();
 
-  // Ensure default org + KB exist and assign orphaned documents (idempotent)
+  // Ensure default org + data source exist and assign orphaned documents (idempotent)
   ensureDefaultOrg();
-  migrateOrphanedDocumentsToDefaultKB();
+  migrateOrphanedDocumentsToDefaultDataSource();
 
-  // Refresh all KB document counts (fixes stale cached counts)
+  // Refresh all data source document counts (fixes stale cached counts)
   {
-    const { listKBs, refreshDocumentCount } = await import("./services/knowledgeBaseStore.js");
-    for (const kb of listKBs()) {
-      refreshDocumentCount(kb.id);
+    const { listDataSources, refreshDocumentCount } = await import("./services/dataSourceStore.js");
+    for (const ds of listDataSources()) {
+      refreshDocumentCount(ds.id);
     }
   }
 

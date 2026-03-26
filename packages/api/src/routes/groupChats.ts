@@ -13,14 +13,14 @@ import {
   removeMember,
   isMember,
   isCreator,
-  shareKB,
-  unshareKB,
+  shareDataSource,
+  unshareDataSource,
   extendShare,
   getMainMessages,
   getThreadMessages,
 } from "../services/groupChatStore.js";
 import { getUserInOrg, listUsers } from "../services/userStore.js";
-import { getKB, kbBelongsToOrg } from "../services/knowledgeBaseStore.js";
+import { getDataSource, dataSourceBelongsToOrg } from "../services/dataSourceStore.js";
 import { broadcastToChat } from "./groupChatQuery.js";
 import { broadcastToUser } from "../services/notificationStore.js";
 
@@ -42,8 +42,8 @@ const addMemberSchema = z.object({
   email: z.string().email(),
 });
 
-const shareKBSchema = z.object({
-  knowledgeBaseId: z.string().uuid(),
+const shareDataSourceSchema = z.object({
+  dataSourceId: z.string().uuid(),
   allowSourceViewing: z.boolean(),
   expiresAt: z.string().datetime().optional(),
 });
@@ -252,10 +252,10 @@ groupChatsRouter.delete("/:id/members/:email", (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Shared KBs ───────────────────────────────────────────────────────────────
+// ─── Shared Data Sources ─────────────────────────────────────────────────────
 
-// POST /api/group-chats/:id/shared-kbs — share a KB (any member)
-groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res) => {
+// POST /api/group-chats/:id/shared-data-sources — share a data source (any member)
+groupChatsRouter.post("/:id/shared-data-sources", validateBody(shareDataSourceSchema), (req, res) => {
   const email = req.session.email!;
   const chatId = req.params["id"] as string;
   const orgId = req.session.orgId!;
@@ -268,15 +268,15 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
     return;
   }
 
-  // Verify KB exists and belongs to org
-  const kb = getKB(req.body.knowledgeBaseId);
-  if (!kb || !kbBelongsToOrg(req.body.knowledgeBaseId, orgId)) {
+  // Verify data source exists and belongs to org
+  const ds = getDataSource(req.body.dataSourceId);
+  if (!ds || !dataSourceBelongsToOrg(req.body.dataSourceId, orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
 
   // Check if already shared
-  const existing = chat.sharedKBs.find((s) => s.knowledgeBaseId === req.body.knowledgeBaseId);
+  const existing = chat.sharedDataSources?.find((s) => s.dataSourceId === req.body.dataSourceId);
   if (existing) {
     res.status(409).json({ error: "This data source is already shared in this group chat" });
     return;
@@ -288,21 +288,21 @@ groupChatsRouter.post("/:id/shared-kbs", validateBody(shareKBSchema), (req, res)
     return;
   }
 
-  const shareOpts: Parameters<typeof shareKB>[0] = {
+  const shareOpts: Parameters<typeof shareDataSource>[0] = {
     groupChatId: chatId,
-    knowledgeBaseId: req.body.knowledgeBaseId,
+    dataSourceId: req.body.dataSourceId,
     sharedByEmail: email,
     allowSourceViewing: req.body.allowSourceViewing,
   };
   if (req.session.name) shareOpts.sharedByName = req.session.name;
   if (req.body.expiresAt) shareOpts.expiresAt = req.body.expiresAt;
-  const shared = shareKB(shareOpts);
+  const shared = shareDataSource(shareOpts);
 
   res.status(201).json(shared);
 });
 
-// DELETE /api/group-chats/:id/shared-kbs/:shareId — unshare (sharer or creator)
-groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
+// DELETE /api/group-chats/:id/shared-data-sources/:shareId — unshare (sharer or creator)
+groupChatsRouter.delete("/:id/shared-data-sources/:shareId", (req, res) => {
   const email = req.session.email!;
   const chatId = req.params["id"] as string;
   const shareId = req.params["shareId"] as string;
@@ -311,7 +311,7 @@ groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
   if (!chat) return;
   if (!requireMembership(chatId, email, res)) return;
 
-  const share = chat.sharedKBs.find((s) => s.id === shareId);
+  const share = chat.sharedDataSources.find((s) => s.id === shareId);
   if (!share) {
     res.status(404).json({ error: "Shared data source not found" });
     return;
@@ -324,13 +324,13 @@ groupChatsRouter.delete("/:id/shared-kbs/:shareId", (req, res) => {
   }
 
   const revokerName = req.session.name ?? email;
-  const sysMsg = unshareKB(shareId, chatId, revokerName);
+  const sysMsg = unshareDataSource(shareId, chatId, revokerName);
   if (sysMsg) broadcastToChat(chatId, "message", sysMsg);
   res.json({ ok: true });
 });
 
-// PATCH /api/group-chats/:id/shared-kbs/:shareId — extend share expiration (sharer only)
-groupChatsRouter.patch("/:id/shared-kbs/:shareId", validateBody(extendShareSchema), (req, res) => {
+// PATCH /api/group-chats/:id/shared-data-sources/:shareId — extend share expiration (sharer only)
+groupChatsRouter.patch("/:id/shared-data-sources/:shareId", validateBody(extendShareSchema), (req, res) => {
   const email = req.session.email!;
   const chatId = req.params["id"] as string;
   const shareId = req.params["shareId"] as string;
@@ -339,7 +339,7 @@ groupChatsRouter.patch("/:id/shared-kbs/:shareId", validateBody(extendShareSchem
   if (!chat) return;
   if (!requireMembership(chatId, email, res)) return;
 
-  const share = chat.sharedKBs.find((s) => s.id === shareId);
+  const share = chat.sharedDataSources.find((s) => s.id === shareId);
   if (!share) {
     res.status(404).json({ error: "Shared data source not found" });
     return;

@@ -12,7 +12,7 @@ import { recordAuditEvent } from "../services/auditLog.js";
 import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { ensureDefaultKB, refreshDocumentCount, getKB } from "../services/knowledgeBaseStore.js";
+import { ensureDefaultDataSource, refreshDocumentCount, getDataSource } from "../services/dataSourceStore.js";
 import { rebuildDataset } from "../jobs/rebuildDataset.js";
 import type { Document } from "@edgebric/types";
 
@@ -86,10 +86,10 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
     return;
   }
 
-  // Enforce per-KB source viewing toggle — admins bypass this restriction
-  if (doc?.knowledgeBaseId && !req.session.isAdmin) {
-    const kb = getKB(doc.knowledgeBaseId);
-    if (kb && !kb.allowSourceViewing) {
+  // Enforce per-data-source viewing toggle — admins bypass this restriction
+  if (doc?.dataSourceId && !req.session.isAdmin) {
+    const ds = getDataSource(doc.dataSourceId);
+    if (ds && !ds.allowSourceViewing) {
       res.status(403).json({ error: "Source document viewing is disabled for this data source" });
       return;
     }
@@ -119,10 +119,10 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
     return;
   }
 
-  // Enforce per-KB source viewing toggle — admins bypass this restriction
-  if (doc.knowledgeBaseId && !req.session.isAdmin) {
-    const kb = getKB(doc.knowledgeBaseId);
-    if (kb && !kb.allowSourceViewing) {
+  // Enforce per-data-source viewing toggle — admins bypass this restriction
+  if (doc.dataSourceId && !req.session.isAdmin) {
+    const ds = getDataSource(doc.dataSourceId);
+    if (ds && !ds.allowSourceViewing) {
       res.status(403).json({ error: "Source document viewing is disabled for this data source" });
       return;
     }
@@ -203,9 +203,9 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
   // Encrypt the uploaded file at rest
   encryptFile(req.file.path);
 
-  // Assign to default KB (backward compatible — old /api/documents/upload route)
+  // Assign to default data source (backward compatible — old /api/documents/upload route)
   const adminEmail = req.session.email ?? "admin@edgebric.local";
-  const defaultKB = ensureDefaultKB(adminEmail);
+  const defaultDS = ensureDefaultDataSource(adminEmail);
 
   const doc: Document = {
     id: randomUUID(),
@@ -217,24 +217,24 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
     status: "processing",
     sectionHeadings: [],
     storageKey: req.file.path,
-    knowledgeBaseId: defaultKB.id,
+    dataSourceId: defaultDS.id,
   };
 
   setDocument(doc);
-  refreshDocumentCount(defaultKB.id);
+  refreshDocumentCount(defaultDS.id);
   recordAuditEvent({
     eventType: "document.upload",
     actorEmail: req.session.email,
     actorIp: req.ip,
     resourceType: "document",
     resourceId: doc.id,
-    details: { name: doc.name, type: doc.type, kbId: defaultKB.id },
+    details: { name: doc.name, type: doc.type, dsId: defaultDS.id },
   });
   res.status(202).json({ documentId: doc.id });
 
   // Kick off ingestion in the background (non-blocking)
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
-    ingestDocument(doc, { datasetName: defaultKB.datasetName }),
+    ingestDocument(doc, { datasetName: defaultDS.datasetName }),
   );
 });
 
@@ -285,16 +285,16 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
   const updated: Document = { ...rest, status: "processing", updatedAt: new Date() };
   setDocument(updated);
 
-  // Resolve dataset name from KB if assigned
-  let kbDatasetName: string | undefined;
-  if (updated.knowledgeBaseId) {
-    const { getKB } = await import("../services/knowledgeBaseStore.js");
-    kbDatasetName = getKB(updated.knowledgeBaseId)?.datasetName;
+  // Resolve dataset name from data source if assigned
+  let dsDatasetName: string | undefined;
+  if (updated.dataSourceId) {
+    const { getDataSource } = await import("../services/dataSourceStore.js");
+    dsDatasetName = getDataSource(updated.dataSourceId)?.datasetName;
   }
 
   // Resume the ingestion pipeline, skipping PII detection (admin already approved)
   const opts: { skipPII: boolean; datasetName?: string } = { skipPII: true };
-  if (kbDatasetName) opts.datasetName = kbDatasetName;
+  if (dsDatasetName) opts.datasetName = dsDatasetName;
 
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
     ingestDocument(updated, opts),
@@ -346,16 +346,16 @@ documentsRouter.delete("/:id", async (req, res) => {
     actorIp: req.ip,
     resourceType: "document",
     resourceId: doc.id,
-    details: { name: doc.name, kbId: doc.knowledgeBaseId },
+    details: { name: doc.name, dsId: doc.dataSourceId },
   });
 
-  const kbId = doc.knowledgeBaseId;
-  // Resolve dataset name: doc may have it if ingested, otherwise fall back to KB
-  const datasetName = doc.datasetName ?? (kbId ? getKB(kbId)?.datasetName : undefined);
+  const dsId = doc.dataSourceId;
+  // Resolve dataset name: doc may have it if ingested, otherwise fall back to data source
+  const datasetName = doc.datasetName ?? (dsId ? getDataSource(dsId)?.datasetName : undefined);
   deleteDocument(doc.id);
   clearChunksForDocument(doc.id);
 
-  if (kbId) refreshDocumentCount(kbId);
+  if (dsId) refreshDocumentCount(dsId);
 
   try {
     await fs.unlink(doc.storageKey);

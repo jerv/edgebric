@@ -4,7 +4,7 @@ import { createHash } from "crypto";
 import { requireOrg } from "../middleware/auth.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getAllChunksWithContent } from "../services/chunkRegistry.js";
-import { listAccessibleKBs } from "../services/knowledgeBaseStore.js";
+import { listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { getDb } from "../db/index.js";
 import { documents } from "../db/schema.js";
 import { sql } from "drizzle-orm";
@@ -14,40 +14,40 @@ export const syncRouter: IRouter = Router();
 syncRouter.use(requireOrg);
 
 /**
- * Get chunks filtered to only KBs the current user can access.
- * Admins see all org chunks; non-admins see chunks from "all" KBs + KBs they're on the access list for.
+ * Get chunks filtered to only data sources the current user can access.
+ * Admins see all org chunks; non-admins see chunks from "all" data sources + ones they're on the access list for.
  */
 function getAccessibleChunks(email: string, isAdmin: boolean, orgId?: string) {
   const allChunks = getAllChunksWithContent(orgId);
 
-  // Even admins are subject to vault sync restrictions — filter out chunks from KBs that block vault sync
+  // Even admins are subject to vault sync restrictions — filter out chunks from data sources that block vault sync
   if (isAdmin) {
-    const adminKBs = listAccessibleKBs(email, true, orgId);
-    const syncableKBIds = new Set(adminKBs.filter((kb) => kb.allowVaultSync).map((kb) => kb.id));
+    const adminDS = listAccessibleDataSources(email, true, orgId);
+    const syncableDSIds = new Set(adminDS.filter((ds) => ds.allowVaultSync).map((ds) => ds.id));
     const db = getDb();
     const syncableDocIds = new Set<string>();
-    for (const kbId of syncableKBIds) {
+    for (const dsId of syncableDSIds) {
       const docs = db.select({ id: documents.id }).from(documents)
-        .where(sql`${documents.knowledgeBaseId} = ${kbId}`)
+        .where(sql`${documents.dataSourceId} = ${dsId}`)
         .all();
       for (const doc of docs) syncableDocIds.add(doc.id);
     }
     return allChunks.filter((c) => syncableDocIds.has(c.metadata.sourceDocument));
   }
 
-  // Get accessible KB IDs for this user — only KBs that allow vault sync
-  const accessibleKBs = listAccessibleKBs(email, false, orgId)
-    .filter((kb) => kb.allowVaultSync);
-  if (accessibleKBs.length === 0) return [];
+  // Get accessible data source IDs for this user — only ones that allow vault sync
+  const accessibleDS = listAccessibleDataSources(email, false, orgId)
+    .filter((ds) => ds.allowVaultSync);
+  if (accessibleDS.length === 0) return [];
 
-  const accessibleKBIds = new Set(accessibleKBs.map((kb) => kb.id));
+  const accessibleDSIds = new Set(accessibleDS.map((ds) => ds.id));
 
-  // Build set of document IDs that belong to accessible KBs
+  // Build set of document IDs that belong to accessible data sources
   const db = getDb();
   const accessibleDocIds = new Set<string>();
-  for (const kbId of accessibleKBIds) {
+  for (const dsId of accessibleDSIds) {
     const docs = db.select({ id: documents.id }).from(documents)
-      .where(sql`${documents.knowledgeBaseId} = ${kbId}`)
+      .where(sql`${documents.dataSourceId} = ${dsId}`)
       .all();
     for (const doc of docs) accessibleDocIds.add(doc.id);
   }

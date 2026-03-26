@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { setupTestApp, teardownTestApp, adminAgent, memberAgent, unauthAgent, getDefaultOrgId } from "./helpers.js";
 
-describe("Knowledge Bases API", () => {
+describe("Data Sources API", () => {
   let orgId: string;
 
   beforeAll(() => {
@@ -10,15 +10,15 @@ describe("Knowledge Bases API", () => {
   });
   afterAll(() => { teardownTestApp(); });
 
-  describe("POST /api/knowledge-bases", () => {
-    it("admin can create a KB", async () => {
+  describe("POST /api/data-sources", () => {
+    it("admin can create a data source", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
-        .send({ name: "Test KB" });
+        .post("/api/data-sources")
+        .send({ name: "Test Source" });
 
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty("id");
-      expect(res.body.name).toBe("Test KB");
+      expect(res.body.name).toBe("Test Source");
       expect(res.body.status).toBe("active");
       expect(res.body.accessMode).toBe("all");
       expect(res.body.allowSourceViewing).toBe(true);
@@ -28,26 +28,26 @@ describe("Knowledge Bases API", () => {
 
     it("rejects empty name", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "" });
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error", "Validation failed");
     });
 
-    it("member without permission cannot create KB", async () => {
+    it("member without permission cannot create data source", async () => {
       const res = await memberAgent(orgId)
-        .post("/api/knowledge-bases")
-        .send({ name: "Blocked KB" });
+        .post("/api/data-sources")
+        .send({ name: "Blocked Source" });
 
       expect(res.status).toBe(403);
     });
 
-    it("creates KB with restricted access mode", async () => {
+    it("creates data source with restricted access mode", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({
-          name: "Restricted KB",
+          name: "Restricted Source",
           accessMode: "restricted",
           accessList: ["user1@test.com", "user2@test.com"],
         });
@@ -57,51 +57,51 @@ describe("Knowledge Bases API", () => {
     });
   });
 
-  describe("GET /api/knowledge-bases", () => {
-    it("admin sees all KBs", async () => {
-      const res = await adminAgent(orgId).get("/api/knowledge-bases");
+  describe("GET /api/data-sources", () => {
+    it("admin sees all data sources", async () => {
+      const res = await adminAgent(orgId).get("/api/data-sources");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      // Should include the default KB + ones we created above
+      // Should include the default data source + ones we created above
       expect(res.body.length).toBeGreaterThanOrEqual(1);
     });
 
     it("requires authentication", async () => {
-      const res = await unauthAgent().get("/api/knowledge-bases");
+      const res = await unauthAgent().get("/api/data-sources");
       expect(res.status).toBe(401);
     });
   });
 
-  describe("GET /api/knowledge-bases/:id", () => {
-    it("returns KB with documents", async () => {
-      // Create a KB first
+  describe("GET /api/data-sources/:id", () => {
+    it("returns data source with documents", async () => {
+      // Create a data source first
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
-        .send({ name: "Detail KB" });
-      const kbId = createRes.body.id;
+        .post("/api/data-sources")
+        .send({ name: "Detail Source" });
+      const dsId = createRes.body.id;
 
-      const res = await adminAgent(orgId).get(`/api/knowledge-bases/${kbId}`);
+      const res = await adminAgent(orgId).get(`/api/data-sources/${dsId}`);
       expect(res.status).toBe(200);
-      expect(res.body.name).toBe("Detail KB");
+      expect(res.body.name).toBe("Detail Source");
       expect(res.body).toHaveProperty("documents");
       expect(Array.isArray(res.body.documents)).toBe(true);
     });
 
-    it("returns 404 for non-existent KB", async () => {
-      const res = await adminAgent(orgId).get("/api/knowledge-bases/non-existent-id");
+    it("returns 404 for non-existent data source", async () => {
+      const res = await adminAgent(orgId).get("/api/data-sources/non-existent-id");
       expect(res.status).toBe(404);
     });
   });
 
-  describe("PUT /api/knowledge-bases/:id", () => {
-    it("admin can update KB name", async () => {
+  describe("PUT /api/data-sources/:id", () => {
+    it("admin can update data source name", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Original" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await adminAgent(orgId)
-        .put(`/api/knowledge-bases/${kbId}`)
+        .put(`/api/data-sources/${dsId}`)
         .send({ name: "Updated" });
 
       expect(res.status).toBe(200);
@@ -110,12 +110,12 @@ describe("Knowledge Bases API", () => {
 
     it("admin can toggle security settings", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Security Test" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await adminAgent(orgId)
-        .put(`/api/knowledge-bases/${kbId}`)
+        .put(`/api/data-sources/${dsId}`)
         .send({
           allowSourceViewing: false,
           allowVaultSync: false,
@@ -128,14 +128,14 @@ describe("Knowledge Bases API", () => {
       expect(res.body.allowExternalAccess).toBe(false);
     });
 
-    it("member cannot update KB", async () => {
+    it("member cannot update data source", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Admin Only" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await memberAgent(orgId)
-        .put(`/api/knowledge-bases/${kbId}`)
+        .put(`/api/data-sources/${dsId}`)
         .send({ name: "Hacked" });
 
       expect(res.status).toBe(403);
@@ -145,7 +145,7 @@ describe("Knowledge Bases API", () => {
   describe("Source type", () => {
     it("defaults to organization type when not specified", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Default Type" });
 
       expect(res.status).toBe(201);
@@ -154,7 +154,7 @@ describe("Knowledge Bases API", () => {
 
     it("can create personal (vault) source", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Vault Source", type: "personal" });
 
       expect(res.status).toBe(201);
@@ -163,12 +163,12 @@ describe("Knowledge Bases API", () => {
 
     it("admin can change source type", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Type Change", type: "organization" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await adminAgent(orgId)
-        .put(`/api/knowledge-bases/${kbId}`)
+        .put(`/api/data-sources/${dsId}`)
         .send({ type: "personal" });
 
       expect(res.status).toBe(200);
@@ -177,35 +177,35 @@ describe("Knowledge Bases API", () => {
 
     it("rejects invalid type value", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Bad Type", type: "invalid" });
 
       expect(res.status).toBe(400);
     });
   });
 
-  describe("DELETE /api/knowledge-bases/:id", () => {
-    it("admin can archive a KB", async () => {
+  describe("DELETE /api/data-sources/:id", () => {
+    it("admin can archive a data source", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "To Delete" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await adminAgent(orgId)
-        .delete(`/api/knowledge-bases/${kbId}`);
+        .delete(`/api/data-sources/${dsId}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ ok: true });
     });
 
-    it("member cannot delete KB", async () => {
+    it("member cannot delete data source", async () => {
       const createRes = await adminAgent(orgId)
-        .post("/api/knowledge-bases")
+        .post("/api/data-sources")
         .send({ name: "Protected" });
-      const kbId = createRes.body.id;
+      const dsId = createRes.body.id;
 
       const res = await memberAgent(orgId)
-        .delete(`/api/knowledge-bases/${kbId}`);
+        .delete(`/api/data-sources/${dsId}`);
 
       expect(res.status).toBe(403);
     });

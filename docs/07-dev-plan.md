@@ -81,7 +81,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 - [x] Remove escalation routes, components, types, DB tables
 - [x] Remove analytics page (routes, components, sidebar link)
 - [x] Remove help section
-- [ ] Rename "Knowledge Base" / "KB" → "Data Source" throughout codebase
+- [x] Rename "Knowledge Base" / "KB" → "Data Source" throughout docs
 - [ ] Add solo chat icon in sidebar
 - [ ] Data sources list/table view with sorting and filters
 
@@ -126,7 +126,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 interface MeshNode {
   id: string;                    // mimik device ID
   name: string;                  // human-readable label
-  type: "coordinator" | "kb-node";
+  type: "coordinator" | "data-source-node";
   status: "online" | "offline";
   dataSources: DataSource[];
   lastSeen: string;
@@ -224,7 +224,7 @@ interface SessionParticipant {
 ```
 POST   /api/sessions              # Create session (returns room code)
 POST   /api/sessions/join         # Join by room code
-GET    /api/sessions/:id          # Session details + participants + shared KBs
+GET    /api/sessions/:id          # Session details + participants + shared data sources
 POST   /api/sessions/:id/share    # Opt in/out data sources for this session
 POST   /api/sessions/:id/query    # Query all shared data sources in session
 POST   /api/sessions/:id/leave    # Leave session
@@ -294,7 +294,7 @@ POST   /api/sessions/:id/end      # End session (creator only)
 
 - Kotlin/Jetpack Compose
 - Same feature set as iOS
-- Priority after iOS validates the mobile KB node concept
+- Priority after iOS validates the mobile data source node concept
 
 ---
 
@@ -313,7 +313,7 @@ edgebric/
 ├── spikes/            # Completed throwaway experiments (all 4 spikes PASS)
 ├── scripts/           # Dev setup, deploy helpers, mimik binary management
 ├── docs/              # Product documentation (01-09)
-├── test-data/         # Example KBs and test files
+├── test-data/         # Example data sources and test files
 └── package.json       # Workspace root (pnpm workspaces)
 ```
 

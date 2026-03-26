@@ -137,9 +137,9 @@ export function MembersTab() {
   });
 
   const permsMutation = useMutation({
-    mutationFn: async ({ userId, canCreateKBs, canCreateGroupChats }: { userId: string; canCreateKBs?: boolean; canCreateGroupChats?: boolean }) => {
+    mutationFn: async ({ userId, canCreateDataSources, canCreateGroupChats }: { userId: string; canCreateDataSources?: boolean; canCreateGroupChats?: boolean }) => {
       const body: Record<string, boolean> = {};
-      if (canCreateKBs !== undefined) body.canCreateKBs = canCreateKBs;
+      if (canCreateDataSources !== undefined) body.canCreateDataSources = canCreateDataSources;
       if (canCreateGroupChats !== undefined) body.canCreateGroupChats = canCreateGroupChats;
       const res = await fetch(`/api/admin/org/members/${userId}/permissions`, {
         method: "PATCH",
@@ -419,17 +419,17 @@ export function MembersTab() {
                           <span className="text-xs text-slate-400 dark:text-gray-500">Always</span>
                         ) : (
                           <button
-                            onClick={() => permsMutation.mutate({ userId: m.id, canCreateKBs: !m.canCreateKBs })}
+                            onClick={() => permsMutation.mutate({ userId: m.id, canCreateDataSources: !m.canCreateDataSources })}
                             disabled={permsMutation.isPending}
                             className={cn(
                               "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                              m.canCreateKBs ? "bg-blue-500" : "bg-slate-200 dark:bg-gray-700",
+                              m.canCreateDataSources ? "bg-blue-500" : "bg-slate-200 dark:bg-gray-700",
                             )}
                           >
                             <span
                               className={cn(
                                 "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
-                                m.canCreateKBs ? "translate-x-4" : "translate-x-1",
+                                m.canCreateDataSources ? "translate-x-4" : "translate-x-1",
                               )}
                             />
                           </button>

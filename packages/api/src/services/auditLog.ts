@@ -10,10 +10,10 @@
  *   auth.login, auth.logout
  *   document.upload, document.delete, document.view, document.pii_approve, document.pii_reject
  *   query.execute
- *   kb.create, kb.archive, kb.update, kb.access_change
+ *   data_source.create, data_source.archive, data_source.update, data_source.access_change
  *   user.invite, user.remove, user.permission_change
  *   group_chat.create, group_chat.archive, group_chat.member_add, group_chat.member_remove
- *   group_chat.kb_share, group_chat.kb_unshare
+ *   group_chat.data_source_share, group_chat.data_source_unshare
  *   admin.settings_change
  *   export.audit_log
  *
@@ -34,10 +34,10 @@ export type AuditEventType =
   | "document.pii_approve"
   | "document.pii_reject"
   | "query.execute"
-  | "kb.create"
-  | "kb.archive"
-  | "kb.update"
-  | "kb.access_change"
+  | "data_source.create"
+  | "data_source.archive"
+  | "data_source.update"
+  | "data_source.access_change"
   | "user.invite"
   | "user.remove"
   | "user.permission_change"
@@ -45,8 +45,8 @@ export type AuditEventType =
   | "group_chat.archive"
   | "group_chat.member_add"
   | "group_chat.member_remove"
-  | "group_chat.kb_share"
-  | "group_chat.kb_unshare"
+  | "group_chat.data_source_share"
+  | "group_chat.data_source_unshare"
   | "admin.settings_change"
   | "export.audit_log"
   | "mesh.init"

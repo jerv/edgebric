@@ -38,6 +38,8 @@ declare global {
       discoverInstances: () => Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>;
       // Settings
       saveSettings: (data: { hostname: string; port: number }) => Promise<{ success: boolean; error?: string }>;
+      getLaunchAtLogin: () => Promise<boolean>;
+      setLaunchAtLogin: (enabled: boolean) => Promise<{ success: boolean }>;
       // Log window
       openLogWindow: () => Promise<void>;
       // Navigation from tray
@@ -46,6 +48,7 @@ declare global {
       instanceWipe: () => Promise<{ success: boolean; error?: string }>;
       instanceResetAuth: () => Promise<{ success: boolean; error?: string }>;
       instanceReconfigureAuth: (data: {
+        oidcProvider?: string;
         oidcIssuer: string;
         oidcClientId: string;
         oidcClientSecret: string;
