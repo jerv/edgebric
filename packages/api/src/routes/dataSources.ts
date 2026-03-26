@@ -83,13 +83,13 @@ dataSourcesRouter.get("/", requireOrg, (req, res) => {
   res.json(enriched);
 });
 
-// Create data source — admins or members with canCreateKBs permission
+// Create data source — admins or members with canCreateDataSources permission
 dataSourcesRouter.post("/", requireOrg, validateBody(createDataSourceSchema), (req, res) => {
   const isAdmin = req.session.isAdmin ?? false;
   const email = req.session.email ?? "";
   const orgId = req.session.orgId;
 
-  // Check permission: admin always can, members need canCreateKBs
+  // Check permission: admin always can, members need canCreateDataSources
   if (!isAdmin) {
     const userRecord = orgId ? getUserInOrg(email, orgId) : undefined;
     if (!userRecord?.canCreateDataSources) {
@@ -356,7 +356,7 @@ const avatarUpload = multer({
   },
 });
 
-// POST /:id/avatar — upload data source avatar (admin or owner with canCreateKBs)
+// POST /:id/avatar — upload data source avatar (admin or owner with canCreateDataSources)
 dataSourcesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
   const dsId = req.params["id"] as string;
   if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {

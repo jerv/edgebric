@@ -29,10 +29,10 @@ export function OnboardingWizard() {
   // Step 1 avatar
   const [orgAvatarUrl, setOrgAvatarUrl] = useState<string | undefined>(undefined);
 
-  // Step 2: KB
-  const [dsName, setKbName] = useState("Policy Documents");
-  const [dsDescription, setKbDescription] = useState("Company-wide policies and procedures");
-  const [dsId, setKbId] = useState<string | null>(null);
+  // Step 2: Data Source
+  const [dsName, setDsName] = useState("Policy Documents");
+  const [dsDescription, setDsDescription] = useState("Company-wide policies and procedures");
+  const [dsId, setDsId] = useState<string | null>(null);
   const [existingDS, setExistingDS] = useState<ExistingDS | null>(null);
 
   // Check for existing data sources on mount (ensureDefaultDS may have created one at startup)
@@ -70,7 +70,7 @@ export function OnboardingWizard() {
 
   const createDSMutation = useMutation({
     mutationFn: async () => {
-      // If a KB already exists (from ensureDefaultKB), update it instead of creating a duplicate
+      // If a data source already exists (from ensureDefaultDS), update it instead of creating a duplicate
       if (existingDS) {
         const res = await fetch(`/api/data-sources/${existingDS.id}`, {
           method: "PUT",
@@ -98,7 +98,7 @@ export function OnboardingWizard() {
       return res.json() as Promise<{ id: string }>;
     },
     onSuccess: (data) => {
-      setKbId(data.id);
+      setDsId(data.id);
       setStep(2);
     },
   });
@@ -229,7 +229,7 @@ export function OnboardingWizard() {
               <input
                 type="text"
                 value={dsName}
-                onChange={(e) => setKbName(e.target.value)}
+                onChange={(e) => setDsName(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="e.g., Policy Documents"
               />
@@ -239,7 +239,7 @@ export function OnboardingWizard() {
               <input
                 type="text"
                 value={dsDescription}
-                onChange={(e) => setKbDescription(e.target.value)}
+                onChange={(e) => setDsDescription(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-900 text-slate-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-gray-400"
                 placeholder="What documents will this contain?"
               />

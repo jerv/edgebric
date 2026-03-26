@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { SourcePanel } from "@/components/employee/SourcePanel";
-import type { Document, KnowledgeBase, PIIWarning } from "@edgebric/types";
+import type { Document, DataSource, PIIWarning } from "@edgebric/types";
 
 /** Format a full name into "First L." display format. */
 function nameToDisplay(name: string): string {
@@ -43,15 +43,15 @@ function emailToDisplayName(email: string): string {
   return nameToDisplay(local.replace(/[._]/g, " "));
 }
 
-/** Get a display-friendly owner label for a KB. Prefers ownerName over email. */
-function ownerDisplayName(kb: KnowledgeBase): string {
-  if (kb.ownerName) return nameToDisplay(kb.ownerName);
-  return emailToDisplayName(kb.ownerId);
+/** Get a display-friendly owner label for a data source. Prefers ownerName over email. */
+function ownerDisplayName(ds: DataSource): string {
+  if (ds.ownerName) return nameToDisplay(ds.ownerName);
+  return emailToDisplayName(ds.ownerId);
 }
 
-type KBOwnerFilter = "all" | "mine";
-type KBStorageFilter = "all" | "network" | "vault";
-type KBSort = "name" | "updated" | "files" | "storage" | "access" | "owner";
+type DataSourceOwnerFilter = "all" | "mine";
+type DataSourceStorageFilter = "all" | "network" | "vault";
+type DataSourceSort = "name" | "updated" | "files" | "storage" | "access" | "owner";
 type SortDir = "asc" | "desc";
 
 // ─── Shared Source Type Selector ─────────────────────────────────────────────
@@ -173,7 +173,7 @@ interface UploadingFile {
   error?: string;
 }
 
-interface KBDetailResponse extends KnowledgeBase {
+interface DataSourceDetailResponse extends DataSource {
   documents: (Document & { isStale?: boolean })[];
   accessList?: string[];
   rebuilding?: boolean;
@@ -222,11 +222,11 @@ function PIIReasonTooltip({ warnings }: { warnings: PIIWarning[] }) {
   );
 }
 
-// ─── KB List View ────────────────────────────────────────────────────────────
+// ─── Data Source List View ────────────────────────────────────────────────────
 
-function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
+function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
   const user = useUser();
-  const canCreate = user?.canCreateKBs ?? user?.isAdmin ?? false;
+  const canCreate = user?.canCreateDataSources ?? user?.isAdmin ?? false;
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -239,16 +239,16 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
-  const [ownerFilter, setOwnerFilter] = useState<KBOwnerFilter>("all");
-  const [storageFilter, setStorageFilter] = useState<KBStorageFilter>("all");
-  const [sortBy, setSortBy] = useState<KBSort>(() =>
-    (localStorage.getItem("sources-sort") as KBSort) || "name",
+  const [ownerFilter, setOwnerFilter] = useState<DataSourceOwnerFilter>("all");
+  const [storageFilter, setStorageFilter] = useState<DataSourceStorageFilter>("all");
+  const [sortBy, setSortBy] = useState<DataSourceSort>(() =>
+    (localStorage.getItem("sources-sort") as DataSourceSort) || "name",
   );
   const [sortDir, setSortDir] = useState<SortDir>(() =>
     (localStorage.getItem("sources-sort-dir") as SortDir) || "asc",
   );
 
-  function toggleSort(col: KBSort) {
+  function toggleSort(col: DataSourceSort) {
     if (sortBy === col) {
       const next: SortDir = sortDir === "asc" ? "desc" : "asc";
       setSortDir(next);
@@ -261,11 +261,11 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
     }
   }
 
-  const { data: kbs = [], isLoading } = useQuery<(KnowledgeBase & { rebuilding?: boolean })[]>({
-    queryKey: ["knowledge-bases"],
+  const { data: dataSources = [], isLoading } = useQuery<(DataSource & { rebuilding?: boolean })[]>({
+    queryKey: ["data-sources"],
     queryFn: () =>
-      fetch("/api/knowledge-bases", { credentials: "same-origin" }).then((r) => r.json() as Promise<(KnowledgeBase & { rebuilding?: boolean })[]>),
-    refetchInterval: (query) => query.state.data?.some((kb) => kb.rebuilding) ? 3000 : false,
+      fetch("/api/data-sources", { credentials: "same-origin" }).then((r) => r.json() as Promise<(DataSource & { rebuilding?: boolean })[]>),
+    refetchInterval: (query) => query.state.data?.some((ds) => ds.rebuilding) ? 3000 : false,
   });
 
   // Fetch org members for email autocomplete (only when create form is open)
@@ -316,58 +316,58 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
 
   const createMutation = useMutation({
     mutationFn: (body: { name: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[] }) =>
-      fetch("/api/knowledge-bases", {
+      fetch("/api/data-sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(body),
       }).then((r) => {
         if (!r.ok) throw new Error("Failed to create data source");
-        return r.json() as Promise<KnowledgeBase>;
+        return r.json() as Promise<DataSource>;
       }),
-    onSuccess: async (kb) => {
+    onSuccess: async (ds) => {
       // Upload pending avatar if one was selected
       if (pendingAvatar) {
         const form = new FormData();
         form.append("avatar", pendingAvatar);
-        await fetch(`/api/knowledge-bases/${kb.id}/avatar`, {
+        await fetch(`/api/data-sources/${ds.id}/avatar`, {
           method: "POST",
           credentials: "same-origin",
           body: form,
-        }).catch(() => {}); // best effort — KB is created either way
+        }).catch(() => {}); // best effort — data source is created either way
       }
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       resetCreateForm();
-      onSelect(kb);
+      onSelect(ds);
     },
   });
 
   const myEmail = user?.email?.toLowerCase() ?? "";
-  const myKBCount = kbs.filter((kb) => kb.ownerId.toLowerCase() === myEmail).length;
+  const myDSCount = dataSources.filter((ds) => ds.ownerId.toLowerCase() === myEmail).length;
 
-  const filteredKBs = useMemo(() => {
-    let list = kbs;
+  const filteredDS = useMemo(() => {
+    let list = dataSources;
     // Filter by ownership
     if (ownerFilter === "mine") {
-      list = list.filter((kb) => kb.ownerId.toLowerCase() === myEmail);
+      list = list.filter((ds) => ds.ownerId.toLowerCase() === myEmail);
     }
     // Filter by storage type
     if (storageFilter === "network") {
-      list = list.filter((kb) => kb.type === "organization");
+      list = list.filter((ds) => ds.type === "organization");
     } else if (storageFilter === "vault") {
-      list = list.filter((kb) => kb.type === "personal");
+      list = list.filter((ds) => ds.type === "personal");
     }
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
-        (kb) =>
-          kb.name.toLowerCase().includes(q) ||
-          kb.description?.toLowerCase().includes(q) ||
-          ownerDisplayName(kb).toLowerCase().includes(q),
+        (ds) =>
+          ds.name.toLowerCase().includes(q) ||
+          ds.description?.toLowerCase().includes(q) ||
+          ownerDisplayName(ds).toLowerCase().includes(q),
       );
     }
-    // Sort: user's KBs first, then by selected sort
+    // Sort: user's data sources first, then by selected sort
     const dir = sortDir === "asc" ? 1 : -1;
     return list.sort((a, b) => {
       const aIsMine = a.ownerId.toLowerCase() === myEmail ? 0 : 1;
@@ -388,7 +388,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           return dir * a.name.localeCompare(b.name);
       }
     });
-  }, [kbs, ownerFilter, storageFilter, search, myEmail, sortBy, sortDir]);
+  }, [dataSources, ownerFilter, storageFilter, search, myEmail, sortBy, sortDir]);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -398,7 +398,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Data Sources</h1>
             <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
-              {kbs.length} data source{kbs.length !== 1 ? "s" : ""} in your organization
+              {dataSources.length} data source{dataSources.length !== 1 ? "s" : ""} in your organization
             </p>
           </div>
           {canCreate && (
@@ -411,7 +411,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           )}
         </div>
 
-        {/* Create KB form */}
+        {/* Create data source form */}
         {showCreate && (
           <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4 bg-slate-50 dark:bg-gray-900">
             <div className="flex items-center gap-3">
@@ -573,7 +573,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
         )}
 
         {/* Search + filter bar */}
-        {kbs.length > 0 && (
+        {dataSources.length > 0 && (
           <div className="flex items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-sm">
@@ -605,7 +605,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
               >
-                All ({kbs.length})
+                All ({dataSources.length})
               </button>
               <button
                 onClick={() => setOwnerFilter("mine")}
@@ -616,7 +616,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300",
                 )}
               >
-                Created by me ({myKBCount})
+                Created by me ({myDSCount})
               </button>
             </div>
 
@@ -659,18 +659,18 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
           </div>
         )}
 
-        {/* KB grid */}
+        {/* Data source grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-slate-400 dark:text-gray-500">
             <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
           </div>
-        ) : kbs.length === 0 ? (
+        ) : dataSources.length === 0 ? (
           <div className="text-center py-16">
             <Database className="w-10 h-10 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500 dark:text-gray-400">No data sources yet.</p>
             <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Create one to start uploading files.</p>
           </div>
-        ) : filteredKBs.length === 0 ? (
+        ) : filteredDS.length === 0 ? (
           <div className="text-center py-12">
             <Search className="w-8 h-8 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500 dark:text-gray-400">No matching data sources.</p>
@@ -703,46 +703,46 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                 </button>
               ))}
             </div>
-            {filteredKBs.map((kb, i) => {
-              const isMine = kb.ownerId.toLowerCase() === myEmail;
+            {filteredDS.map((ds, i) => {
+              const isMine = ds.ownerId.toLowerCase() === myEmail;
               return (
                 <button
-                  key={kb.id}
-                  onClick={() => onSelect(kb)}
+                  key={ds.id}
+                  onClick={() => onSelect(ds)}
                   className={cn(
                     "w-full grid grid-cols-[1fr_100px_100px_120px_100px] gap-4 px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors items-center",
-                    i < filteredKBs.length - 1 && "border-b border-slate-100 dark:border-gray-800",
+                    i < filteredDS.length - 1 && "border-b border-slate-100 dark:border-gray-800",
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    {kb.avatarUrl ? (
+                    {ds.avatarUrl ? (
                       <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
-                        <img src={kb.avatarUrl} alt={kb.name} className="w-full h-full object-cover" />
+                        <img src={ds.avatarUrl} alt={ds.name} className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                        kb.type === "personal"
+                        ds.type === "personal"
                           ? "bg-green-50 dark:bg-green-950"
                           : isMine ? "bg-blue-50 dark:bg-blue-950" : "bg-slate-100 dark:bg-gray-800",
                       )}>
                         <Database className={cn("w-3.5 h-3.5",
-                          kb.type === "personal"
+                          ds.type === "personal"
                             ? "text-green-500 dark:text-green-400"
                             : isMine ? "text-blue-500 dark:text-blue-400" : "text-slate-500 dark:text-gray-400",
                         )} />
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{kb.name}</p>
-                      {kb.description && (
-                        <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{kb.description}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">{ds.name}</p>
+                      {ds.description && (
+                        <p className="text-xs text-slate-400 dark:text-gray-500 truncate">{ds.description}</p>
                       )}
                     </div>
                   </div>
                   <span className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
-                    {kb.documentCount} file{kb.documentCount !== 1 ? "s" : ""}
-                    {kb.rebuilding && (
+                    {ds.documentCount} file{ds.documentCount !== 1 ? "s" : ""}
+                    {ds.rebuilding && (
                       <RefreshCw className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
                     )}
                   </span>
@@ -750,19 +750,19 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
-                        kb.type === "personal"
+                        ds.type === "personal"
                           ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
                           : "bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400",
                       )}
                     >
-                      {kb.type === "personal" ? (
+                      {ds.type === "personal" ? (
                         <><Lock className="w-3 h-3" /> Vault</>
                       ) : (
                         <><Globe className="w-3 h-3" /> Network</>
                       )}
                     </span>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 transition-opacity z-10">
-                      {kb.type === "personal"
+                      {ds.type === "personal"
                         ? "Encrypted on your device — never leaves your machine"
                         : "Stored on the organization\u2019s network server"}
                     </span>
@@ -771,24 +771,24 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
                     <span
                       className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-400"
                     >
-                      {kb.type === "personal" ? (
+                      {ds.type === "personal" ? (
                         <><Lock className="w-3 h-3" /> Only me</>
-                      ) : kb.accessMode === "restricted" ? (
+                      ) : ds.accessMode === "restricted" ? (
                         <><Lock className="w-3 h-3" /> Restricted</>
                       ) : (
                         <><Globe className="w-3 h-3" /> Whole org</>
                       )}
                     </span>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/access:opacity-100 transition-opacity z-10">
-                      {kb.type === "personal"
+                      {ds.type === "personal"
                         ? "Only you can access this source"
-                        : kb.accessMode === "restricted"
+                        : ds.accessMode === "restricted"
                           ? "Only specific members have access"
                           : "All members in the organization can access this source"}
                     </span>
                   </span>
                   <span className="text-xs text-slate-500 dark:text-gray-400 truncate">
-                    {isMine ? "You" : ownerDisplayName(kb)}
+                    {isMine ? "You" : ownerDisplayName(ds)}
                   </span>
                 </button>
               );
@@ -800,7 +800,7 @@ function KBListView({ onSelect }: { onSelect: (kb: KnowledgeBase) => void }) {
   );
 }
 
-// ─── KB Detail View ──────────────────────────────────────────────────────────
+// ─── Data Source Detail View ──────────────────────────────────────────────────
 
 interface OrgMember {
   email: string;
@@ -808,29 +808,29 @@ interface OrgMember {
   role?: string;
 }
 
-function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void }) {
+function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
   const user = useUser();
-  const canEdit = user?.isAdmin || user?.canCreateKBs || false;
+  const canEdit = user?.isAdmin || user?.canCreateDataSources || false;
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleteKBConfirm, setDeleteKBConfirm] = useState(false);
+  const [deleteDSConfirm, setDeleteKBConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(kb.name);
-  const [editDesc, setEditDesc] = useState(kb.description ?? "");
-  const [editType, setEditType] = useState<"organization" | "personal">(kb.type as "organization" | "personal");
+  const [editName, setEditName] = useState(ds.name);
+  const [editDesc, setEditDesc] = useState(ds.description ?? "");
+  const [editType, setEditType] = useState<"organization" | "personal">(ds.type as "organization" | "personal");
   const [showTypeWarning, setShowTypeWarning] = useState(false);
   const [accessEmail, setAccessEmail] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<{ id: string; name: string } | null>(null);
 
-  const { data, isLoading } = useQuery<KBDetailResponse>({
-    queryKey: ["knowledge-bases", kb.id],
+  const { data, isLoading } = useQuery<DataSourceDetailResponse>({
+    queryKey: ["data-sources", ds.id],
     queryFn: () =>
-      fetch(`/api/knowledge-bases/${kb.id}`, { credentials: "same-origin" }).then(
-        (r) => r.json() as Promise<KBDetailResponse>,
+      fetch(`/api/data-sources/${ds.id}`, { credentials: "same-origin" }).then(
+        (r) => r.json() as Promise<DataSourceDetailResponse>,
       ),
     refetchInterval: (query) => uploading.some((u) => u.status === "processing") || query.state.data?.rebuilding ? 2000 : false,
   });
@@ -847,11 +847,11 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
     staleTime: 60_000,
   });
 
-  const deleteKBMutation = useMutation({
+  const deleteDSMutation = useMutation({
     mutationFn: () =>
-      fetch(`/api/knowledge-bases/${kb.id}`, { method: "DELETE", credentials: "same-origin" }),
+      fetch(`/api/data-sources/${ds.id}`, { method: "DELETE", credentials: "same-origin" }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       onBack();
     },
   });
@@ -861,26 +861,26 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
       fetch(`/api/documents/${docId}`, { method: "DELETE", credentials: "same-origin" }),
     onSuccess: () => {
       setDeleteConfirm(null);
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
-      fetch(`/api/knowledge-bases/${kb.id}`, {
+      fetch(`/api/data-sources/${ds.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
-      void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
+      void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
     },
   });
 
-  const currentAccessMode = data?.accessMode ?? kb.accessMode ?? "all";
+  const currentAccessMode = data?.accessMode ?? ds.accessMode ?? "all";
   const currentAccessList = data?.accessList ?? [];
 
   function changeAccessMode(newMode: string) {
@@ -921,7 +921,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch(`/api/knowledge-bases/${kb.id}/documents/upload`, {
+      const res = await fetch(`/api/data-sources/${ds.id}/documents/upload`, {
         method: "POST",
         credentials: "same-origin",
         body: form,
@@ -949,8 +949,8 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               setUploading((prev) =>
                 prev.map((u) => (u.docId === documentId ? { ...u, status: doc.status } : u)),
               );
-              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
-              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+              void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
+              void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
               setTimeout(() => {
                 setUploading((prev) => prev.filter((u) => u.docId !== documentId));
               }, 3000);
@@ -1016,18 +1016,18 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               />
 
               {/* Source Type (only in org mode, only for owner/admin) */}
-              {user?.authMode !== "none" && (user?.isAdmin || kb.ownerId.toLowerCase() === (user?.email ?? "").toLowerCase()) && (
+              {user?.authMode !== "none" && (user?.isAdmin || ds.ownerId.toLowerCase() === (user?.email ?? "").toLowerCase()) && (
                 <div className="space-y-1.5">
                   <SourceTypeSelector
                     value={editType}
                     onChange={(t) => {
-                      if (t === "organization" && kb.type === "personal") setShowTypeWarning(true);
+                      if (t === "organization" && ds.type === "personal") setShowTypeWarning(true);
                       setEditType(t);
                     }}
                     compact
                   />
                   {/* Migration warning: vault → org */}
-                  {showTypeWarning && editType === "organization" && kb.type === "personal" && (
+                  {showTypeWarning && editType === "organization" && ds.type === "personal" && (
                     <div className="flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                       <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <div className="text-xs text-amber-700 dark:text-amber-300">
@@ -1036,7 +1036,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                       </div>
                     </div>
                   )}
-                  {editType === "personal" && kb.type === "organization" && (
+                  {editType === "personal" && ds.type === "organization" && (
                     <p className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
                       <Lock className="w-3.5 h-3.5" />
                       Data will be moved to your encrypted vault. Other users will lose access.
@@ -1136,21 +1136,21 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   <SecurityToggle
                     label="Allow source document viewing"
                     description="Members can view raw document text via the source viewer. Turn off for sensitive procedural docs."
-                    checked={data?.allowSourceViewing ?? kb.allowSourceViewing ?? true}
+                    checked={data?.allowSourceViewing ?? ds.allowSourceViewing ?? true}
                     onChange={(v) => updateMutation.mutate({ allowSourceViewing: v })}
                     disabled={updateMutation.isPending}
                   />
                   <SecurityToggle
                     label="Allow device sync (Vault Mode)"
                     description="This data source's chunks can be synced to member devices. Turn off for compensation, legal, or investigation docs."
-                    checked={data?.allowVaultSync ?? kb.allowVaultSync ?? true}
+                    checked={data?.allowVaultSync ?? ds.allowVaultSync ?? true}
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
                   <SecurityToggle
                     label="Allow external network access"
                     description="Members can access this data source from outside the local network. Turn off for on-premises-only data."
-                    checked={data?.allowExternalAccess ?? kb.allowExternalAccess ?? true}
+                    checked={data?.allowExternalAccess ?? ds.allowExternalAccess ?? true}
                     onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
                     disabled={updateMutation.isPending}
                   />
@@ -1159,7 +1159,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => { setEditing(false); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); setEditType(kb.type as "organization" | "personal"); setShowTypeWarning(false); }}
+                  onClick={() => { setEditing(false); setEditName(data?.name ?? ds.name); setEditDesc(data?.description ?? ds.description ?? ""); setEditType(ds.type as "organization" | "personal"); setShowTypeWarning(false); }}
                   className="px-3 py-1.5 text-sm text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200"
                 >
                   Cancel
@@ -1168,7 +1168,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   onClick={() => updateMutation.mutateAsync({
                     name: editName,
                     description: editDesc,
-                    ...(editType !== kb.type && { type: editType }),
+                    ...(editType !== ds.type && { type: editType }),
                   }).then(() => { setEditing(false); setShowTypeWarning(false); })}
                   disabled={!editName.trim() || updateMutation.isPending}
                   className="px-4 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1179,36 +1179,36 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
             </div>
           ) : (
             <div className="flex items-start gap-3">
-              {(user?.isAdmin || user?.canCreateKBs) && (
+              {(user?.isAdmin || user?.canCreateDataSources) && (
                 <AvatarUpload
-                  avatarUrl={data?.avatarUrl ?? kb.avatarUrl}
+                  avatarUrl={data?.avatarUrl ?? ds.avatarUrl}
                   onUpload={async (file) => {
                     const form = new FormData();
                     form.append("avatar", file);
-                    const res = await fetch(`/api/knowledge-bases/${kb.id}/avatar`, {
+                    const res = await fetch(`/api/data-sources/${ds.id}/avatar`, {
                       method: "POST",
                       credentials: "same-origin",
                       body: form,
                     });
                     if (!res.ok) throw new Error("Upload failed");
                     const result = await res.json() as { avatarUrl: string };
-                    void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
-                    void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+                    void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
+                    void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
                     return result.avatarUrl;
                   }}
                   onRemove={async () => {
-                    await fetch(`/api/knowledge-bases/${kb.id}/avatar`, { method: "DELETE", credentials: "same-origin" });
-                    void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
-                    void queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+                    await fetch(`/api/data-sources/${ds.id}/avatar`, { method: "DELETE", credentials: "same-origin" });
+                    void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
+                    void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
                   }}
                   size={52}
-                  fallbackText={(data?.name ?? kb.name).slice(0, 2)}
+                  fallbackText={(data?.name ?? ds.name).slice(0, 2)}
                 />
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? kb.name}</h1>
-                  {kb.type === "personal" && (
+                  <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">{data?.name ?? ds.name}</h1>
+                  {ds.type === "personal" && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400">
                       <Lock className="w-3 h-3" />
                       Vault
@@ -1221,8 +1221,8 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                     </span>
                   )}
                 </div>
-                {(data?.description ?? kb.description) && (
-                  <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">{data?.description ?? kb.description}</p>
+                {(data?.description ?? ds.description) && (
+                  <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">{data?.description ?? ds.description}</p>
                 )}
                 {/* Read-only access indicator for non-editors */}
                 {!canEdit && (
@@ -1238,7 +1238,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
               {canEdit && (
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => { setEditing(true); setEditName(data?.name ?? kb.name); setEditDesc(data?.description ?? kb.description ?? ""); }}
+                    onClick={() => { setEditing(true); setEditName(data?.name ?? ds.name); setEditDesc(data?.description ?? ds.description ?? ""); }}
                     className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 border border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-600 rounded-lg px-3 py-1.5 transition-colors"
                     title="Edit"
                   >
@@ -1257,12 +1257,12 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
             </div>
           )}
 
-          {/* Delete KB confirmation */}
-          {canEdit && deleteKBConfirm && (
+          {/* Delete data source confirmation */}
+          {canEdit && deleteDSConfirm && (
             <div className="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 rounded-xl p-4 flex items-center gap-3 mt-4">
               <AlertTriangle className="w-5 h-5 text-red-500 dark:text-red-400 flex-shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-800 dark:text-red-200">Delete "{data?.name ?? kb.name}"?</p>
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">Delete "{data?.name ?? ds.name}"?</p>
                 <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">This will permanently delete this source and all its files.</p>
               </div>
               <div className="flex gap-2">
@@ -1273,11 +1273,11 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                   Cancel
                 </button>
                 <button
-                  onClick={() => deleteKBMutation.mutate()}
-                  disabled={deleteKBMutation.isPending}
+                  onClick={() => deleteDSMutation.mutate()}
+                  disabled={deleteDSMutation.isPending}
                   className="px-3 py-1.5 text-sm bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
                 >
-                  {deleteKBMutation.isPending ? "Deleting..." : "Delete"}
+                  {deleteDSMutation.isPending ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -1412,7 +1412,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                           <button
                             onClick={async () => {
                               await fetch(`/api/documents/${doc.id}/approve-pii`, { method: "POST", credentials: "same-origin" });
-                              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
+                              void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
                             }}
                             className="text-slate-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1"
                             title="Approve file"
@@ -1422,7 +1422,7 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
                           <button
                             onClick={async () => {
                               await fetch(`/api/documents/${doc.id}/reject-pii`, { method: "POST", credentials: "same-origin" });
-                              void queryClient.invalidateQueries({ queryKey: ["knowledge-bases", kb.id] });
+                              void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
                             }}
                             className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
                             title="Reject file"
@@ -1481,11 +1481,11 @@ function KBDetailView({ kb, onBack }: { kb: KnowledgeBase; onBack: () => void })
 
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
-export function KnowledgeBasePanel() {
-  const [selectedKB, setSelectedKB] = useState<KnowledgeBase | null>(null);
+export function DataSourcePanel() {
+  const [selectedDS, setSelectedDS] = useState<DataSource | null>(null);
 
-  if (selectedKB) {
-    return <KBDetailView kb={selectedKB} onBack={() => setSelectedKB(null)} />;
+  if (selectedDS) {
+    return <DSDetailView ds={selectedDS} onBack={() => setSelectedDS(null)} />;
   }
-  return <KBListView onSelect={setSelectedKB} />;
+  return <DSListView onSelect={setSelectedDS} />;
 }

@@ -42,7 +42,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
 
   // Sources
   const [showSources, setShowSources] = useState(false);
-  const [selectedDSIds, setSelectedKBIds] = useState<string[]>([]);
+  const [selectedDSIds, setSelectedDSIds] = useState<string[]>([]);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -107,7 +107,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
   }
 
   function toggleDS(id: string) {
-    setSelectedKBIds((prev) =>
+    setSelectedDSIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
@@ -138,7 +138,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
             inviteEmails: selectedUsers.map((u) => u.email.toLowerCase()),
             expiration,
             expiresInMs,
-            shareDSIds: selectedDSIds.length > 0 ? selectedDSIds : undefined,
+            shareDataSourceIds: selectedDSIds.length > 0 ? selectedDSIds : undefined,
           }),
         });
 

@@ -449,27 +449,27 @@ export function GroupChatView() {
               </span>
               <span
                 className="flex items-center gap-1 relative cursor-default"
-                onMouseEnter={() => setKbTooltipOpen(true)}
-                onMouseLeave={() => setKbTooltipOpen(false)}
+                onMouseEnter={() => setDsTooltipOpen(true)}
+                onMouseLeave={() => setDsTooltipOpen(false)}
               >
                 <Database className="w-3 h-3" />
                 {effectiveDSCount} data source{effectiveDSCount !== 1 ? "s" : ""}
                 {dsTooltipOpen && queryableDataSources.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
                     <div className="w-80 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
-                      {queryableDataSources.map((kb) => {
-                        const isOwner = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
-                        const expiresMs = kb.expiresAt ? new Date(kb.expiresAt).getTime() - Date.now() : null;
+                      {queryableDataSources.map((ds) => {
+                        const isOwner = isActive && ds.source === "shared" && ds.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
+                        const expiresMs = ds.expiresAt ? new Date(ds.expiresAt).getTime() - Date.now() : null;
                         const isExpiringSoon = expiresMs != null && expiresMs > 0 && expiresMs < 5 * 60 * 1000;
                         return (
-                          <div key={kb.id} className="px-3 py-1.5 flex items-start gap-2 group/kb">
+                          <div key={ds.id} className="px-3 py-1.5 flex items-start gap-2 group/ds">
                             <Database className="w-3 h-3 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium text-slate-700 dark:text-gray-300 truncate">{kb.name}</p>
+                              <p className="text-xs font-medium text-slate-700 dark:text-gray-300 truncate">{ds.name}</p>
                               <p className="text-[10px] text-slate-400 dark:text-gray-500 truncate">
-                                {kb.source === "org" ? "Organization-wide" : `Shared by ${kb.sharedBy}`}
+                                {ds.source === "org" ? "Organization-wide" : `Shared by ${ds.sharedBy}`}
                               </p>
-                              {kb.expiresAt && expiresMs != null && expiresMs > 0 && (
+                              {ds.expiresAt && expiresMs != null && expiresMs > 0 && (
                                 <p className={cn(
                                   "text-[10px] flex items-center gap-1 mt-0.5",
                                   isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : "text-slate-400 dark:text-gray-500",
@@ -480,13 +480,13 @@ export function GroupChatView() {
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {isOwner && kb.expiresAt && (
+                              {isOwner && ds.expiresAt && (
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (!kb.shareId || !chat) return;
+                                    if (!ds.shareId || !chat) return;
                                     const newExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                                    await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
+                                    await fetch(`/api/group-chats/${chat.id}/shared-data-sources/${ds.shareId}`, {
                                       method: "PATCH",
                                       credentials: "same-origin",
                                       headers: { "Content-Type": "application/json" },
@@ -504,8 +504,8 @@ export function GroupChatView() {
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (!kb.shareId || !chat) return;
-                                    await fetch(`/api/group-chats/${chat.id}/shared-kbs/${kb.shareId}`, {
+                                    if (!ds.shareId || !chat) return;
+                                    await fetch(`/api/group-chats/${chat.id}/shared-data-sources/${ds.shareId}`, {
                                       method: "DELETE",
                                       credentials: "same-origin",
                                     });
@@ -544,7 +544,7 @@ export function GroupChatView() {
           </button>
           {isActive && (
             <button
-              onClick={() => setShowShareKB(true)}
+              onClick={() => setShowShareDS(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               title="Share a Data Source"
             >
@@ -684,13 +684,13 @@ export function GroupChatView() {
         {isActive ? (
           <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-4">
             <div className="space-y-2">
-              {/* Controls row: KB selector (left) + model selector (right) */}
+              {/* Controls row: data source selector (left) + model selector (right) */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                  {/* KB scope selector */}
+                  {/* Data source scope selector */}
                   <div className="relative">
                     <button
-                      onClick={() => setKbSelectorOpen((o) => !o)}
+                      onClick={() => setDsSelectorOpen((o) => !o)}
                       className={cn(
                         "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
                         selectedDSIds.length > 0
@@ -705,12 +705,12 @@ export function GroupChatView() {
 
                     {dsSelectorOpen && (
                       <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
-                        {/* All KBs option */}
+                        {/* All data sources option */}
                         <button
                           onMouseDown={(e) => {
                             e.preventDefault();
-                            setSelectedKBIds([]);
-                            setKbSelectorOpen(false);
+                            setSelectedDSIds([]);
+                            setDsSelectorOpen(false);
                           }}
                           className={cn(
                             "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
@@ -727,15 +727,15 @@ export function GroupChatView() {
                             Data Sources
                           </div>
                         )}
-                        {queryableDataSources.map((kb) => {
-                          const isSelected = selectedDSIds.includes(kb.id);
+                        {queryableDataSources.map((ds) => {
+                          const isSelected = selectedDSIds.includes(ds.id);
                           return (
                             <button
-                              key={kb.id}
+                              key={ds.id}
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                setSelectedKBIds((prev) =>
-                                  isSelected ? prev.filter((x) => x !== kb.id) : [...prev, kb.id],
+                                setSelectedDSIds((prev) =>
+                                  isSelected ? prev.filter((x) => x !== ds.id) : [...prev, ds.id],
                                 );
                               }}
                               className={cn(
@@ -744,8 +744,8 @@ export function GroupChatView() {
                               )}
                             >
                               <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
-                              <span className="truncate">{kb.name}</span>
-                              {kb.source === "org" && (
+                              <span className="truncate">{ds.name}</span>
+                              {ds.source === "org" && (
                                 <span className="text-[10px] text-slate-300 dark:text-gray-600 ml-0.5">org</span>
                               )}
                               {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
@@ -795,20 +795,20 @@ export function GroupChatView() {
                 )}
               </div>
 
-              {/* KB target chips */}
+              {/* Data source target chips */}
               {selectedDSIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1">
-                  {selectedDSIds.map((kbId) => {
-                    const kb = queryableDataSources.find((k) => k.id === kbId);
+                  {selectedDSIds.map((dsId) => {
+                    const ds = queryableDataSources.find((k) => k.id === dsId);
                     return (
                       <span
-                        key={kbId}
+                        key={dsId}
                         className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:text-gray-300"
                       >
-                        @{kb?.name ?? kbId}
+                        @{ds?.name ?? dsId}
                         <button
                           type="button"
-                          onClick={() => setSelectedKBIds((prev) => prev.filter((x) => x !== kbId))}
+                          onClick={() => setSelectedDSIds((prev) => prev.filter((x) => x !== dsId))}
                           className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
                         >
                           <span className="text-xs">&times;</span>
@@ -864,12 +864,12 @@ export function GroupChatView() {
           onClose={() => setShowInvite(false)}
         />
       )}
-      {showShareKB && chat && (
-        <ShareKBDialog
+      {showShareDS && chat && (
+        <ShareDataSourceDialog
           groupChatId={chat.id}
-          existingShares={chat.sharedKBs}
+          existingShares={chat.sharedDataSources}
           chatExpiresAt={chat.expiresAt ? new Date(chat.expiresAt).toISOString() : undefined}
-          onClose={() => setShowShareKB(false)}
+          onClose={() => setShowShareDS(false)}
         />
       )}
     </div>

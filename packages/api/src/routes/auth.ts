@@ -115,7 +115,7 @@ authRouter.get("/me", (req, res) => {
       orgSlug: "solo",
       privateModeEnabled: false,
       vaultModeEnabled: true,
-      canCreateKBs: true,
+      canCreateDataSources: true,
       defaultGroupChatNotifLevel: "all",
       onboardingComplete: true,
       needsNameSetup: false,
@@ -146,7 +146,7 @@ authRouter.get("/me", (req, res) => {
   const displayName = userRecord?.name ?? req.session.name;
 
   // canCreateDataSources: admins always can; members need explicit permission
-  const canCreateKBs = isAdmin || (userRecord?.canCreateDataSources ?? false);
+  const canCreateDataSources = isAdmin || (userRecord?.canCreateDataSources ?? false);
 
   res.json({
     isAdmin,
@@ -159,7 +159,7 @@ authRouter.get("/me", (req, res) => {
     orgSlug: org?.slug,
     privateModeEnabled: orgConfig.privateModeEnabled ?? false,
     vaultModeEnabled: orgConfig.vaultModeEnabled ?? false,
-    canCreateKBs,
+    canCreateDataSources,
     defaultGroupChatNotifLevel: userRecord?.defaultGroupChatNotifLevel ?? "all",
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,

@@ -234,7 +234,7 @@ orgRouter.delete("/members/:id", (req, res) => {
 // ─── Permissions ──────────────────────────────────────────────────────────
 
 const updatePermissionsSchema = z.object({
-  canCreateKBs: z.boolean().optional(),
+  canCreateDataSources: z.boolean().optional(),
   canCreateGroupChats: z.boolean().optional(),
 });
 
