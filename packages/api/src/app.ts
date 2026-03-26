@@ -41,6 +41,7 @@ declare module "express-session" {
     orgSlug?: string; // slug of currently selected org
     oidcState?: string; // transient — cleared after callback
     codeVerifier?: string; // transient — cleared after callback
+    meshReturnTo?: string; // transient — secondary node URL to redirect after OIDC
   }
 }
 

@@ -14,6 +14,7 @@ import { validateBody } from "../middleware/validate.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { ensureDefaultOrg, getDefaultOrg, getOrg, getOrgsForUser } from "../services/orgStore.js";
 import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName, updateUserNotifPrefs } from "../services/userStore.js";
+import { getMeshConfig, listNodes } from "../services/nodeRegistry.js";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100).transform((s) => s.trim()),
@@ -172,6 +173,19 @@ authRouter.get("/me", (req, res) => {
 // Must be a browser redirect (not fetch) so the browser navigates to the IdP.
 
 authRouter.get("/login", async (req, res) => {
+  // ── Secondary node: redirect to primary for OIDC ──────────────────────────
+  // Secondary nodes don't run OIDC themselves. They redirect to the primary
+  // node's login endpoint with a meshReturnTo param so the primary knows
+  // where to send the user back after authentication.
+  const meshCfg = getMeshConfig();
+  if (meshCfg?.enabled && meshCfg.role === "secondary" && meshCfg.primaryEndpoint) {
+    const thisNodeUrl = config.frontendUrl;
+    const primaryLogin = `${meshCfg.primaryEndpoint}/api/auth/login?meshReturnTo=${encodeURIComponent(thisNodeUrl)}`;
+    res.redirect(primaryLogin);
+    return;
+  }
+
+  // ── Primary / standalone node: do OIDC ────────────────────────────────────
   try {
     const client = await getClient();
     const codeVerifier = generators.codeVerifier();
@@ -180,6 +194,26 @@ authRouter.get("/login", async (req, res) => {
 
     req.session.codeVerifier = codeVerifier;
     req.session.oidcState = state;
+
+    // If a secondary node sent a meshReturnTo param, store it in session
+    // so the callback knows where to redirect after OIDC completes.
+    const meshReturnTo = req.query["meshReturnTo"];
+    if (typeof meshReturnTo === "string" && meshReturnTo) {
+      // Validate: meshReturnTo must be a registered secondary node endpoint
+      if (meshCfg?.enabled) {
+        const nodes = listNodes({ orgId: meshCfg.orgId });
+        const isRegisteredNode = nodes.some((n) => {
+          try {
+            return new URL(n.endpoint).origin === new URL(meshReturnTo).origin;
+          } catch { return false; }
+        });
+        if (isRegisteredNode) {
+          req.session.meshReturnTo = meshReturnTo;
+        } else {
+          logger.warn({ meshReturnTo }, "Login meshReturnTo rejected — not a registered node");
+        }
+      }
+    }
 
     const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
     const scopes = ["openid", "email", "profile", ...providerDef.extraScopes].join(" ");
@@ -272,7 +306,33 @@ authRouter.get("/callback", async (req, res) => {
       details: { isAdmin, method: "oidc", provider: config.oidc.provider },
     });
 
-    if (needsCrossOriginTransfer()) {
+    // ── Mesh auth proxy: redirect back to secondary node ───────────────────
+    // If a secondary node initiated this login, send the claim token there
+    // instead of to this node's frontend.
+    const meshReturnTo = req.session.meshReturnTo;
+    delete req.session.meshReturnTo; // clean up
+
+    if (meshReturnTo) {
+      const token = randomBytes(32).toString("hex");
+      claimTokens.set(token, {
+        queryToken: req.session.queryToken,
+        isAdmin: req.session.isAdmin,
+        email: req.session.email!,
+        ...(req.session.name != null && { name: req.session.name }),
+        ...(req.session.picture != null && { picture: req.session.picture }),
+        ...(req.session.orgId != null && { orgId: req.session.orgId }),
+        ...(req.session.orgSlug != null && { orgSlug: req.session.orgSlug }),
+        createdAt: Date.now(),
+      });
+
+      logger.info(
+        { returnTo: meshReturnTo, email: req.session.email },
+        "Mesh auth: redirecting authenticated user back to secondary node",
+      );
+
+      // Redirect to the secondary node's claim endpoint
+      res.redirect(`${meshReturnTo}/api/auth/claim?token=${token}`);
+    } else if (needsCrossOriginTransfer()) {
       // OIDC callback landed on localhost, but frontend is on a different
       // origin (e.g. edgebric.local). Issue a one-time claim token and
       // redirect to the frontend origin's /api/auth/claim endpoint.
@@ -518,11 +578,36 @@ authRouter.post("/select-org", requireAuth, validateBody(selectOrgSchema), (req,
 // ─── GET /api/auth/provider ────────────────────────────────────────────────
 // Public (no auth) — tells the login page which provider icon/label to show.
 
-authRouter.get("/provider", (_req, res) => {
+authRouter.get("/provider", async (_req, res) => {
   if (config.authMode === "none") {
     res.json({ provider: "none", providerName: "Solo Mode" });
     return;
   }
+
+  // Secondary node: fetch provider info from primary
+  const meshCfg = getMeshConfig();
+  if (meshCfg?.enabled && meshCfg.role === "secondary" && meshCfg.primaryEndpoint) {
+    try {
+      const resp = await fetch(
+        `${meshCfg.primaryEndpoint}/api/mesh/peer/auth-info`,
+        {
+          headers: {
+            Authorization: `MeshToken ${meshCfg.meshToken}`,
+            "X-Mesh-Node-Id": meshCfg.nodeId,
+          },
+          signal: AbortSignal.timeout(5_000),
+        },
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        res.json(data);
+        return;
+      }
+    } catch {
+      // Fall through to local config
+    }
+  }
+
   const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
   res.json({ provider: providerDef.id, providerName: providerDef.name });
 });

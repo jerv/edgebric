@@ -21,6 +21,8 @@ import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { createMKBClient } from "@edgebric/edge";
 import { runtimeEdgeConfig } from "../config.js";
+import { config } from "../config.js";
+import { OIDC_PROVIDERS } from "../lib/oidcProviders.js";
 import { logger } from "../lib/logger.js";
 
 export const meshInterNodeRouter: IRouter = Router();
@@ -177,4 +179,22 @@ meshInterNodeRouter.get("/info", (_req, res) => {
     groupId: cfg.groupId,
     groupName,
   });
+});
+
+// ─── Auth Info ────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/mesh/peer/auth-info
+ *
+ * Returns the auth provider info for this node. Secondary nodes call this
+ * to display the correct provider (Google, Microsoft, etc.) on their login page
+ * even though they don't configure OIDC themselves.
+ */
+meshInterNodeRouter.get("/auth-info", (_req, res) => {
+  if (config.authMode === "none") {
+    res.json({ provider: "none", providerName: "Solo Mode" });
+    return;
+  }
+  const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
+  res.json({ provider: providerDef.id, providerName: providerDef.name });
 });
