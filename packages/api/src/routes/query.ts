@@ -36,6 +36,8 @@ const queryBodySchema = z.object({
   })).max(20).optional(),
   /** Optional data source IDs to restrict search scope. Omit for default (all accessible). */
   dataSourceIds: z.array(z.string().uuid()).max(20).optional(),
+  /** Optional node group ID for mesh query targeting (search only nodes in this group). */
+  nodeGroupId: z.string().uuid().optional(),
 });
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -181,12 +183,14 @@ function resolveTargetDatasets(
 async function searchWithHybrid(
   datasetNames: string[],
   queryText: string,
+  meshGroupId?: string,
 ): Promise<{ results: RoutedSearchResult[]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
   const { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await routedSearch(
     mkb,
     datasetNames,
     queryText,
     20, // Retrieve 20 candidates for reranking/adaptive-K
+    meshGroupId,
   );
 
   // Optional cross-encoder reranking (local results only — remote results already ranked)
@@ -215,7 +219,7 @@ queryRouter.get("/status", (req, res) => {
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds, nodeGroupId } = req.body as z.infer<typeof queryBodySchema>;
 
   // Rate limit: 10 queries per minute per user
   const rateLimitEmail = req.session.email;
@@ -316,7 +320,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
       const stream = answerStream(
         query,
         session,
@@ -410,7 +414,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   try {
     const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query);
+    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
     const stream = answerStream(
       query,
       session,

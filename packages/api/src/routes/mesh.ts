@@ -209,6 +209,25 @@ meshRouter.get("/status", (_req, res) => {
   });
 });
 
+/** GET /api/mesh/query-targets — node groups for query targeting (available to all users) */
+meshRouter.get("/query-targets", (req, res) => {
+  const cfg = getMeshConfig();
+  if (!cfg || !cfg.enabled) {
+    res.json({ groups: [] });
+    return;
+  }
+  const orgId = req.session.orgId ?? cfg.orgId;
+  const groups = listNodeGroups(orgId);
+  res.json({
+    groups: groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      nodeCount: g.nodeCount,
+    })),
+  });
+});
+
 // ─── Nodes (admin only) ──────────────────────────────────────────────────────
 
 meshRouter.use("/nodes", requireAdmin);
