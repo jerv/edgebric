@@ -10,7 +10,10 @@ describe("filterQuery", () => {
       "What's the process for requesting parental leave?",
     ];
     for (const query of cases) {
-      expect(filterQuery(query).allowed).toBe(true);
+      const result = filterQuery(query);
+      expect(result.allowed).toBe(true);
+      expect(result).not.toHaveProperty("reason");
+      expect(result).not.toHaveProperty("redirectMessage");
     }
   });
 
@@ -25,7 +28,8 @@ describe("filterQuery", () => {
       const result = filterQuery(query);
       expect(result.allowed).toBe(false);
       expect(result.reason).toBe("person_name_sensitive_term");
-      expect(result.redirectMessage).toBeTruthy();
+      expect(typeof result.redirectMessage).toBe("string");
+      expect(result.redirectMessage!.length).toBeGreaterThan(20);
     }
   });
 
@@ -34,6 +38,8 @@ describe("filterQuery", () => {
       "What is the company salary band policy?",
       "How does a PIP work?",
       "What are the termination procedures?",
+      "What is the disability accommodation process?",
+      "How are harassment complaints handled?",
     ];
     for (const query of cases) {
       expect(filterQuery(query).allowed).toBe(true);
@@ -42,9 +48,31 @@ describe("filterQuery", () => {
 
   it("allows person names without sensitive terms", () => {
     const result = filterQuery("Can I contact John Smith in HR about my benefits?");
-    // This is a borderline case — asking to contact someone is fine
-    // Our filter only blocks name + sensitive term combos
-    // "benefits" is not in the sensitive terms list
     expect(result.allowed).toBe(true);
+  });
+
+  it("blocks possessive name forms with sensitive terms", () => {
+    // "David's" triggers looksLikePersonName via the 's pattern
+    const result = filterQuery("What is David's compensation?");
+    expect(result.allowed).toBe(false);
+  });
+
+  it("handles empty and whitespace-only queries", () => {
+    expect(filterQuery("").allowed).toBe(true);
+    expect(filterQuery("   ").allowed).toBe(true);
+  });
+
+  it("blocks various sensitive term categories", () => {
+    // Each SENSITIVE_TERMS category with a name
+    const blocked = [
+      "Tell me about John Smith's disciplinary record",
+      "Was Sarah Lee laid off?",
+      "Is Michael Johnson under investigation?",
+      "What is Jane Doe's social security number?",
+      "When was Tom Brown's suspension?",
+    ];
+    for (const query of blocked) {
+      expect(filterQuery(query).allowed).toBe(false);
+    }
   });
 });

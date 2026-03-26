@@ -118,6 +118,67 @@ describe("answer (non-streaming)", () => {
     expect(response.searchedDatasets).toEqual(["test-dataset"]);
   });
 
+  it("deduplicates child chunks sharing the same parent content", async () => {
+    // Two children from the same parent section
+    const sharedParent = "Full section about PTO. Employees get 15 days. Accrual is monthly.";
+    const results: SearchResult[] = [
+      {
+        chunkId: "c1",
+        chunk: "Employees get 15 days",
+        similarity: 0.9,
+        metadata: {
+          sourceDocument: "doc-1",
+          documentName: "Handbook",
+          sectionPath: ["Benefits"],
+          pageNumber: 1,
+          heading: "PTO",
+          chunkIndex: 0,
+          parentContent: sharedParent,
+        },
+      },
+      {
+        chunkId: "c2",
+        chunk: "Accrual is monthly",
+        similarity: 0.85,
+        metadata: {
+          sourceDocument: "doc-1",
+          documentName: "Handbook",
+          sectionPath: ["Benefits"],
+          pageNumber: 1,
+          heading: "PTO",
+          chunkIndex: 1,
+          parentContent: sharedParent,
+        },
+      },
+    ];
+
+    let systemPromptContent = "";
+    const deps: OrchestratorDeps = {
+      search: async () => results,
+      generate: async function* (messages) {
+        systemPromptContent = messages[0]?.content ?? "";
+        yield "Answer. ";
+      },
+    };
+
+    const response = await answer("PTO policy?", makeSession(), defaultOptions, deps);
+    // Parent content should appear only once in the system prompt (dedup)
+    const parentOccurrences = systemPromptContent.split(sharedParent).length - 1;
+    expect(parentOccurrences).toBe(1);
+    // But we should still get citations for both child chunks
+    expect(response.citations).toHaveLength(2);
+  });
+
+  it("includes retrievalScore in response", async () => {
+    const results = [
+      makeSearchResult("Policy text", 0.82),
+      makeSearchResult("More policy", 0.74),
+    ];
+    const response = await answer("Policy?", makeSession(), defaultOptions, makeDeps(results));
+    // Average of 0.82 and 0.74 = 0.78
+    expect(response.retrievalScore).toBe(0.78);
+  });
+
 });
 
 describe("answerStream", () => {

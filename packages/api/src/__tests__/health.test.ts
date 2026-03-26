@@ -5,15 +5,17 @@ describe("GET /api/health", () => {
   beforeAll(() => { setupTestApp(); });
   afterAll(() => { teardownTestApp(); });
 
-  it("returns status for unauthenticated requests", async () => {
+  it("returns minimal status for unauthenticated requests", async () => {
     const agent = createAgent({ queryToken: undefined, email: undefined } as any);
     const res = await agent.get("/api/health");
-    // 503 expected when mILM/mKB are unavailable (test environment)
-    expect([200, 503]).toContain(res.status);
-    expect(res.body).toHaveProperty("status");
+    // Core checks (db + disk) are healthy in test env → 200
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("healthy");
+    expect(typeof res.body.aiReady).toBe("boolean");
     // Unauthenticated should NOT see detailed checks
     expect(res.body).not.toHaveProperty("uptime");
     expect(res.body).not.toHaveProperty("checks");
+    expect(res.body).not.toHaveProperty("activeModel");
   });
 
   it("returns detailed checks for admin users", async () => {
@@ -23,11 +25,17 @@ describe("GET /api/health", () => {
       orgId: "org-1",
     });
     const res = await agent.get("/api/health");
-    expect([200, 503]).toContain(res.status);
-    expect(res.body).toHaveProperty("status");
-    expect(res.body).toHaveProperty("uptime");
-    expect(res.body).toHaveProperty("checks");
-    expect(res.body.checks).toHaveProperty("database");
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("healthy");
+    expect(typeof res.body.uptime).toBe("number");
+    expect(res.body.uptime).toBeGreaterThanOrEqual(0);
+    expect(typeof res.body.activeModel).toBe("string");
+    // Database always ok in test env
     expect(res.body.checks.database.status).toBe("ok");
+    // AI services may or may not be running — verify structure, not state
+    expect(res.body.checks.inference).toBeDefined();
+    expect(["ok", "degraded", "unavailable"]).toContain(res.body.checks.inference.status);
+    expect(res.body.checks.vectorStore).toBeDefined();
+    expect(["ok", "degraded", "unavailable"]).toContain(res.body.checks.vectorStore.status);
   });
 });

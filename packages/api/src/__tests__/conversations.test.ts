@@ -30,11 +30,16 @@ describe("Conversations API", () => {
   afterAll(() => { teardownTestApp(); });
 
   describe("GET /api/conversations", () => {
-    it("returns user's conversations", async () => {
+    it("returns user's conversations with expected structure", async () => {
       const res = await memberAgent(orgId).get("/api/conversations");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
+      // Verify conversation structure
+      const conv = res.body.find((c: any) => c.id === convId);
+      expect(conv).toBeDefined();
+      expect(conv.userEmail).toBe("member@test.com");
+      expect(typeof conv.createdAt).toBe("string");
     });
 
     it("admin sees their own conversations (not all)", async () => {
@@ -46,11 +51,16 @@ describe("Conversations API", () => {
   });
 
   describe("GET /api/conversations/:id", () => {
-    it("owner can view their conversation", async () => {
+    it("owner can view their conversation with messages", async () => {
       const res = await memberAgent(orgId).get(`/api/conversations/${convId}`);
       expect(res.status).toBe(200);
       expect(res.body.conversation.id).toBe(convId);
       expect(res.body.messages).toHaveLength(2);
+      // Verify message ordering and content
+      expect(res.body.messages[0].role).toBe("user");
+      expect(res.body.messages[0].content).toBe("What is the PTO policy?");
+      expect(res.body.messages[1].role).toBe("assistant");
+      expect(res.body.messages[1].content).toBe("You get 15 days of PTO per year.");
     });
 
     it("admin can view any conversation", async () => {
