@@ -40,3 +40,11 @@ scripts/binaries/mim-OE-ai/mim
 # Large test PDFs/outputs — generated artifacts
 spikes/spike-docling/test-docs/*.pdf
 spikes/spike-docling/test-docs/*.md
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+# E2E temp data
+/tmp/edgebric-e2e/
+# SQLite databases (dev artifacts)
+*.db
