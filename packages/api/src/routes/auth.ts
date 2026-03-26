@@ -3,8 +3,11 @@ import type { Router as IRouter } from "express";
 import { Issuer, generators } from "openid-client";
 import { randomUUID, randomBytes } from "crypto";
 import { z } from "zod";
+import fs from "fs";
+import path from "path";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
+import { OIDC_PROVIDERS, extractClaims } from "../lib/oidcProviders.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -141,8 +144,8 @@ authRouter.get("/me", (req, res) => {
   const userRecord = (orgId && req.session.email) ? getUserInOrg(req.session.email, orgId) : undefined;
   const displayName = userRecord?.name ?? req.session.name;
 
-  // canCreateKBs: admins always can; members need explicit permission
-  const canCreateKBs = isAdmin || (userRecord?.canCreateKBs ?? false);
+  // canCreateDataSources: admins always can; members need explicit permission
+  const canCreateKBs = isAdmin || (userRecord?.canCreateDataSources ?? false);
 
   res.json({
     isAdmin,
@@ -178,8 +181,11 @@ authRouter.get("/login", async (req, res) => {
     req.session.codeVerifier = codeVerifier;
     req.session.oidcState = state;
 
+    const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
+    const scopes = ["openid", "email", "profile", ...providerDef.extraScopes].join(" ");
+
     const url = client.authorizationUrl({
-      scope: "openid email profile",
+      scope: scopes,
       state,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
@@ -215,29 +221,32 @@ authRouter.get("/callback", async (req, res) => {
       code_verifier: req.session.codeVerifier,
     });
 
-    const claims = tokenSet.claims() as { email?: string; name?: string; picture?: string };
-    const email = claims.email?.toLowerCase();
+    const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
+    const extracted = extractClaims(tokenSet.claims() as Record<string, unknown>, providerDef);
 
-    if (!email) {
-      res.status(400).send("No email in ID token. Ensure the 'email' scope is granted.");
-      return;
+    // Microsoft Entra ID: fetch profile photo from Graph API (not included in ID token)
+    let pictureUrl = extracted.picture;
+    if (config.oidc.provider === "microsoft" && tokenSet.access_token && !pictureUrl) {
+      pictureUrl = await fetchMicrosoftAvatar(extracted.sub, tokenSet.access_token as string);
     }
 
-    const isAdmin = (config.adminEmails as readonly string[]).includes(email);
+    const isAdmin = (config.adminEmails as readonly string[]).includes(extracted.email);
 
     // Upsert user record (creates org on first-ever login)
     const org = ensureDefaultOrg();
     const role = isAdmin ? "admin" as const : "member" as const;
     upsertUser({
-      email,
-      ...(claims.name && { name: claims.name }),
-      ...(claims.picture && { picture: claims.picture }),
+      email: extracted.email,
+      ...(extracted.name && { name: extracted.name }),
+      ...(pictureUrl && { picture: pictureUrl }),
       role,
       orgId: org.id,
+      authProvider: config.oidc.provider,
+      authProviderSub: extracted.sub,
     });
 
     // Find all orgs this user belongs to
-    const userOrgs = getOrgsForUser(email);
+    const userOrgs = getOrgsForUser(extracted.email);
 
     // Regenerate session to prevent session fixation attacks
     await new Promise<void>((resolve, reject) => {
@@ -246,9 +255,9 @@ authRouter.get("/callback", async (req, res) => {
 
     req.session.queryToken = randomUUID();
     req.session.isAdmin = isAdmin;
-    req.session.email = email;
-    if (claims.name) req.session.name = claims.name;
-    if (claims.picture) req.session.picture = claims.picture;
+    req.session.email = extracted.email;
+    if (extracted.name) req.session.name = extracted.name;
+    if (pictureUrl) req.session.picture = pictureUrl;
 
     // Auto-select org if user belongs to exactly one
     if (userOrgs.length === 1) {
@@ -258,9 +267,9 @@ authRouter.get("/callback", async (req, res) => {
 
     recordAuditEvent({
       eventType: "auth.login",
-      actorEmail: email,
+      actorEmail: extracted.email,
       actorIp: req.ip,
-      details: { isAdmin, method: "oidc" },
+      details: { isAdmin, method: "oidc", provider: config.oidc.provider },
     });
 
     if (needsCrossOriginTransfer()) {
@@ -506,6 +515,40 @@ authRouter.post("/select-org", requireAuth, validateBody(selectOrgSchema), (req,
   });
 });
 
+// ─── GET /api/auth/provider ────────────────────────────────────────────────
+// Public (no auth) — tells the login page which provider icon/label to show.
+
+authRouter.get("/provider", (_req, res) => {
+  if (config.authMode === "none") {
+    res.json({ provider: "none", providerName: "Solo Mode" });
+    return;
+  }
+  const providerDef = OIDC_PROVIDERS[config.oidc.provider] ?? OIDC_PROVIDERS.generic;
+  res.json({ provider: providerDef.id, providerName: providerDef.name });
+});
+
+// ─── GET /api/auth/avatar/:userId ────────────────────────────────────────────
+// Serves locally-cached profile pictures (e.g. from Microsoft Graph API).
+
+authRouter.get("/avatar/:userId", (req, res) => {
+  const avatarDir = path.join(config.dataDir, "avatars");
+  const userId = req.params["userId"];
+  if (!userId || userId.includes("..") || userId.includes("/")) {
+    res.status(400).json({ error: "Invalid user ID" });
+    return;
+  }
+
+  // Try common extensions
+  for (const ext of [".jpg", ".png", ".jpeg"]) {
+    const filePath = path.join(avatarDir, `${userId}${ext}`);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+      return;
+    }
+  }
+  res.status(404).json({ error: "Avatar not found" });
+});
+
 // ─── GET /api/auth/devices (admin only) ──────────────────────────────────────
 // Device tokens no longer exist — sessions are managed by the OIDC IdP.
 // Stub retained so the admin Devices panel doesn't receive a 404.
@@ -513,3 +556,25 @@ authRouter.post("/select-org", requireAuth, validateBody(selectOrgSchema), (req,
 authRouter.get("/devices", requireAdmin, (_req, res) => {
   res.json([]);
 });
+
+// ─── Microsoft Graph API avatar fetch ────────────────────────────────────────
+
+async function fetchMicrosoftAvatar(userId: string, accessToken: string): Promise<string | undefined> {
+  try {
+    const res = await fetch("https://graph.microsoft.com/v1.0/me/photo/$value", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return undefined;
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const avatarDir = path.join(config.dataDir, "avatars");
+    fs.mkdirSync(avatarDir, { recursive: true });
+    const filePath = path.join(avatarDir, `${userId}.jpg`);
+    fs.writeFileSync(filePath, buffer);
+
+    return `/api/auth/avatar/${userId}`;
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch Microsoft profile photo");
+    return undefined;
+  }
+}

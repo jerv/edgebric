@@ -17,12 +17,13 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { syncRouter } from "./routes/sync.js";
 import { feedbackRouter } from "./routes/feedback.js";
 import { healthRouter } from "./routes/health.js";
-import { knowledgeBasesRouter } from "./routes/knowledgeBases.js";
+import { dataSourcesRouter } from "./routes/dataSources.js";
 import { orgRouter } from "./routes/org.js";
 import { groupChatsRouter } from "./routes/groupChats.js";
 import { groupChatQueryRouter } from "./routes/groupChatQuery.js";
 import { auditRouter } from "./routes/audit.js";
 import { meshRouter } from "./routes/mesh.js";
+import { meshInterNodeRouter } from "./routes/meshInterNode.js";
 import { config } from "./config.js";
 import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
@@ -226,12 +227,13 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/sync", syncRouter);
   app.use("/api/feedback", feedbackRouter);
-  app.use("/api/knowledge-bases", knowledgeBasesRouter);
+  app.use("/api/data-sources", dataSourcesRouter);
   app.use("/api/admin/org", orgRouter);
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/mesh", meshRouter);
+  app.use("/api/mesh/peer", meshInterNodeRouter);
 
   // Serve avatar images
   app.use("/api/avatars", express.static(path.join(config.dataDir, "avatars"), {

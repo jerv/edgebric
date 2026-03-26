@@ -8,26 +8,26 @@ import multer from "multer";
 import { requireOrg, requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import {
-  createKB,
-  getKB,
-  kbBelongsToOrg,
-  listAccessibleKBs,
-  updateKB,
-  archiveKB,
+  createDataSource,
+  getDataSource,
+  dataSourceBelongsToOrg,
+  listAccessibleDataSources,
+  updateDataSource,
+  archiveDataSource,
   refreshDocumentCount,
-  getKBAccessList,
-  setKBAccessList,
-} from "../services/knowledgeBaseStore.js";
-import { getDocumentsByKB, setDocument } from "../services/documentStore.js";
+  getDataSourceAccessList,
+  setDataSourceAccessList,
+} from "../services/dataSourceStore.js";
+import { getDocumentsByDataSource, setDocument } from "../services/documentStore.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { clearChunksForDataset, getChunksForDataset } from "../services/chunkRegistry.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
-import { revokeSharesForKB, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
+import { revokeSharesForDataSource, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
 import { config, runtimeEdgeConfig } from "../config.js";
 import { encryptFile } from "../lib/crypto.js";
 import { recordAuditEvent } from "../services/auditLog.js";
-import type { Document, KBAccessMode } from "@edgebric/types";
+import type { Document, DataSourceAccessMode } from "@edgebric/types";
 import { createMKBClient } from "@edgebric/edge";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
@@ -35,7 +35,7 @@ import sharp from "sharp";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
-const createKBSchema = z.object({
+const createDataSourceSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   description: z.string().max(1000).optional(),
   type: z.enum(["organization", "personal"]).optional().default("organization"),
@@ -43,7 +43,7 @@ const createKBSchema = z.object({
   accessList: z.array(z.string().email()).optional(),
 });
 
-const updateKBSchema = z.object({
+const updateDataSourceSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional(),
   type: z.enum(["organization", "personal"]).optional(),
@@ -54,37 +54,37 @@ const updateKBSchema = z.object({
   allowExternalAccess: z.boolean().optional(),
 });
 
-// ─── KB Routes ──────────────────────────────────────────────────────────────
+// ─── Data Source Routes ──────────────────────────────────────────────────────
 
-export const knowledgeBasesRouter: IRouter = Router();
+export const dataSourcesRouter: IRouter = Router();
 
-// List KBs — filters by access for non-admin users
-knowledgeBasesRouter.get("/", requireOrg, (req, res) => {
+// List data sources — filters by access for non-admin users
+dataSourcesRouter.get("/", requireOrg, (req, res) => {
   const email = req.session.email ?? "";
   const isAdmin = req.session.isAdmin ?? false;
-  const kbs = listAccessibleKBs(email, isAdmin, req.session.orgId);
+  const dataSources = listAccessibleDataSources(email, isAdmin, req.session.orgId);
 
   // Enrich with owner display names + rebuild status
   const ownerCache = new Map<string, string>();
   const rebuilds = getRebuildsInProgress();
-  const enriched = kbs.map((kb) => {
-    if (!ownerCache.has(kb.ownerId)) {
-      const ownerUser = getUserByEmail(kb.ownerId);
-      ownerCache.set(kb.ownerId, ownerUser?.name ?? "");
+  const enriched = dataSources.map((ds) => {
+    if (!ownerCache.has(ds.ownerId)) {
+      const ownerUser = getUserByEmail(ds.ownerId);
+      ownerCache.set(ds.ownerId, ownerUser?.name ?? "");
     }
-    const ownerName = ownerCache.get(kb.ownerId);
+    const ownerName = ownerCache.get(ds.ownerId);
     return {
-      ...kb,
+      ...ds,
       ...(ownerName && { ownerName }),
-      rebuilding: rebuilds.has(kb.datasetName),
+      rebuilding: rebuilds.has(ds.datasetName),
     };
   });
 
   res.json(enriched);
 });
 
-// Create KB — admins or members with canCreateKBs permission
-knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, res) => {
+// Create data source — admins or members with canCreateKBs permission
+dataSourcesRouter.post("/", requireOrg, validateBody(createDataSourceSchema), (req, res) => {
   const isAdmin = req.session.isAdmin ?? false;
   const email = req.session.email ?? "";
   const orgId = req.session.orgId;
@@ -92,15 +92,15 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
   // Check permission: admin always can, members need canCreateKBs
   if (!isAdmin) {
     const userRecord = orgId ? getUserInOrg(email, orgId) : undefined;
-    if (!userRecord?.canCreateKBs) {
+    if (!userRecord?.canCreateDataSources) {
       res.status(403).json({ error: "You do not have permission to create sources" });
       return;
     }
   }
 
-  const { name, description, type, accessMode, accessList } = req.body as z.infer<typeof createKBSchema>;
+  const { name, description, type, accessMode, accessList } = req.body as z.infer<typeof createDataSourceSchema>;
   const desc = description?.trim();
-  const kb = createKB({
+  const ds = createDataSource({
     name: name.trim(),
     ...(desc && { description: desc }),
     type,
@@ -110,38 +110,38 @@ knowledgeBasesRouter.post("/", requireOrg, validateBody(createKBSchema), (req, r
 
   // Apply access settings if provided
   if (accessMode && accessMode !== "all") {
-    updateKB(kb.id, { accessMode: accessMode as KBAccessMode });
+    updateDataSource(ds.id, { accessMode: accessMode as DataSourceAccessMode });
   }
   if (accessList && accessList.length > 0) {
-    setKBAccessList(kb.id, accessList);
+    setDataSourceAccessList(ds.id, accessList);
   }
 
   recordAuditEvent({
-    eventType: "kb.create",
+    eventType: "data_source.create",
     actorEmail: email,
     actorIp: req.ip,
-    resourceType: "kb",
-    resourceId: kb.id,
-    details: { name: kb.name, accessMode: accessMode ?? "all" },
+    resourceType: "data_source",
+    resourceId: ds.id,
+    details: { name: ds.name, accessMode: accessMode ?? "all" },
   });
 
-  const final = getKB(kb.id)!;
+  const final = getDataSource(ds.id)!;
   res.status(201).json({ ...final, accessList: accessList ?? [] });
 });
 
-// GET /:id — any org member can view KB details (read-only)
-knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+// GET /:id — any org member can view data source details (read-only)
+dataSourcesRouter.get("/:id", requireOrg, (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const docs = getDocumentsByKB(kb.id);
+  const docs = getDocumentsByDataSource(ds.id);
 
   // Compute staleness
   const cfg = getIntegrationConfig();
@@ -154,39 +154,39 @@ knowledgeBasesRouter.get("/:id", requireOrg, (req, res) => {
     isStale: now - new Date(doc.updatedAt).getTime() > thresholdMs,
   }));
 
-  // Include access list for restricted KBs (admin only)
+  // Include access list for restricted data sources (admin only)
   const isAdmin = req.session.isAdmin ?? false;
-  const accessList = isAdmin && kb.accessMode === "restricted" ? getKBAccessList(kb.id) : [];
+  const accessList = isAdmin && ds.accessMode === "restricted" ? getDataSourceAccessList(ds.id) : [];
 
   const rebuilds = getRebuildsInProgress();
-  res.json({ ...kb, documents: enrichedDocs, accessList, rebuilding: rebuilds.has(kb.datasetName) });
+  res.json({ ...ds, documents: enrichedDocs, accessList, rebuilding: rebuilds.has(ds.datasetName) });
 });
 
 // Everything below is admin-only
-knowledgeBasesRouter.use(requireAdmin);
+dataSourcesRouter.use(requireAdmin);
 
-knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+dataSourcesRouter.put("/:id", validateBody(updateDataSourceSchema), (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateKBSchema>;
+  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateDataSourceSchema>;
 
   // Only the owner or an admin can change source type
   if (type !== undefined) {
-    const existing = getKB(kbId);
+    const existing = getDataSource(dsId);
     if (existing && !req.session.isAdmin && existing.ownerId.toLowerCase() !== (req.session.email ?? "").toLowerCase()) {
       res.status(403).json({ error: "Only the source owner or an admin can change source type" });
       return;
     }
   }
 
-  const updated = updateKB(kbId, {
+  const updated = updateDataSource(dsId, {
     ...(name !== undefined && { name: name.trim() }),
     ...(description !== undefined && { description: description.trim() }),
     ...(type !== undefined && { type }),
-    ...(accessMode !== undefined && { accessMode: accessMode as KBAccessMode }),
+    ...(accessMode !== undefined && { accessMode: accessMode as DataSourceAccessMode }),
     ...(allowSourceViewing !== undefined && { allowSourceViewing }),
     ...(allowVaultSync !== undefined && { allowVaultSync }),
     ...(allowExternalAccess !== undefined && { allowExternalAccess }),
@@ -198,56 +198,56 @@ knowledgeBasesRouter.put("/:id", validateBody(updateKBSchema), (req, res) => {
 
   // Update access list if provided
   if (accessList !== undefined) {
-    setKBAccessList(updated.id, accessList);
+    setDataSourceAccessList(updated.id, accessList);
   }
 
   // Revoke group chat shares when access changes
   if (accessMode === "restricted") {
     // Only sharers on the access list can keep their shares
-    const currentList = getKBAccessList(updated.id);
+    const currentList = getDataSourceAccessList(updated.id);
     const allowedEmails = new Set(currentList.map((e) => e.toLowerCase()));
     revokeSharesForRemovedUsers(updated.id, allowedEmails);
   }
 
-  res.json({ ...updated, accessList: getKBAccessList(updated.id) });
+  res.json({ ...updated, accessList: getDataSourceAccessList(updated.id) });
 });
 
-knowledgeBasesRouter.delete("/:id", async (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+dataSourcesRouter.delete("/:id", async (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
 
   recordAuditEvent({
-    eventType: "kb.archive",
+    eventType: "data_source.archive",
     actorEmail: req.session.email,
     actorIp: req.ip,
-    resourceType: "kb",
-    resourceId: kb.id,
-    details: { name: kb.name },
+    resourceType: "data_source",
+    resourceId: ds.id,
+    details: { name: ds.name },
   });
-  archiveKB(kb.id);
+  archiveDataSource(ds.id);
 
-  // Revoke all group chat shares for this KB
-  revokeSharesForKB(kb.id, "the data source was deleted");
+  // Revoke all group chat shares for this data source
+  revokeSharesForDataSource(ds.id, "the data source was deleted");
 
   // Nuke the mKB dataset and all registry entries — no stale data survives
-  clearChunksForDataset(kb.datasetName);
+  clearChunksForDataset(ds.datasetName);
   const mkb = createMKBClient(runtimeEdgeConfig);
-  void mkb.deleteDataset(kb.datasetName).catch(() => {
+  void mkb.deleteDataset(ds.datasetName).catch(() => {
     // Dataset may not exist if no documents were ever ingested
   });
 
   res.json({ ok: true });
 });
 
-// ─── Upload document to specific KB ─────────────────────────────────────────
+// ─── Upload document to specific data source ────────────────────────────────
 
 const MAGIC_EXT_MAP: Record<string, Document["type"]> = { pdf: "pdf", docx: "docx" };
 const TEXT_EXTENSIONS = new Set(["txt", "md"]);
@@ -266,14 +266,14 @@ const upload = multer({
   },
 });
 
-knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+dataSourcesRouter.post("/:id/documents/upload", upload.single("file"), async (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
@@ -322,28 +322,28 @@ knowledgeBasesRouter.post("/:id/documents/upload", upload.single("file"), async 
     status: "processing",
     sectionHeadings: [],
     storageKey: req.file.path,
-    knowledgeBaseId: kb.id,
+    dataSourceId: ds.id,
   };
 
   setDocument(doc);
-  refreshDocumentCount(kb.id);
+  refreshDocumentCount(ds.id);
   recordAuditEvent({
     eventType: "document.upload",
     actorEmail: req.session.email,
     actorIp: req.ip,
     resourceType: "document",
     resourceId: doc.id,
-    details: { name: doc.name, type: doc.type, kbId: kb.id, kbName: kb.name },
+    details: { name: doc.name, type: doc.type, dsId: ds.id, dsName: ds.name },
   });
-  res.status(202).json({ documentId: doc.id, knowledgeBaseId: kb.id });
+  res.status(202).json({ documentId: doc.id, dataSourceId: ds.id });
 
-  // Kick off ingestion with KB-scoped dataset name
+  // Kick off ingestion with data source-scoped dataset name
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
-    ingestDocument(doc, { datasetName: kb.datasetName }),
+    ingestDocument(doc, { datasetName: ds.datasetName }),
   );
 });
 
-// ─── KB Avatar Upload ──────────────────────────────────────────────────────
+// ─── Data Source Avatar Upload ───────────────────────────────────────────────
 
 const avatarUpload = multer({
   dest: path.join(config.dataDir, "uploads"),
@@ -356,15 +356,15 @@ const avatarUpload = multer({
   },
 });
 
-// POST /:id/avatar — upload KB avatar (admin or KB owner with canCreateKBs)
-knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+// POST /:id/avatar — upload data source avatar (admin or owner with canCreateKBs)
+dataSourcesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
@@ -376,7 +376,7 @@ knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (r
   try {
     const avatarDir = path.join(config.dataDir, "avatars");
     await fs.mkdir(avatarDir, { recursive: true });
-    const filename = `kb-${kb.id}.png`;
+    const filename = `ds-${ds.id}.png`;
     const destPath = path.join(avatarDir, filename);
 
     await sharp(req.file.path)
@@ -387,7 +387,7 @@ knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (r
     await fs.unlink(req.file.path).catch(() => {});
 
     const avatarUrl = `/api/avatars/${filename}`;
-    updateKB(kb.id, { avatarUrl });
+    updateDataSource(ds.id, { avatarUrl });
 
     res.json({ avatarUrl });
   } catch {
@@ -396,43 +396,43 @@ knowledgeBasesRouter.post("/:id/avatar", avatarUpload.single("avatar"), async (r
   }
 });
 
-// DELETE /:id/avatar — remove KB avatar
-knowledgeBasesRouter.delete("/:id/avatar", async (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+// DELETE /:id/avatar — remove data source avatar
+dataSourcesRouter.delete("/:id/avatar", async (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
 
-  if (kb.avatarUrl) {
-    const filename = kb.avatarUrl.split("/").pop();
+  if (ds.avatarUrl) {
+    const filename = ds.avatarUrl.split("/").pop();
     if (filename) await fs.unlink(path.join(config.dataDir, "avatars", filename)).catch(() => {});
   }
-  updateKB(kb.id, { avatarUrl: "" });
+  updateDataSource(ds.id, { avatarUrl: "" });
   res.json({ ok: true });
 });
 
 // GET /:id/health — source health metrics (admin)
-knowledgeBasesRouter.get("/:id/health", requireOrg, (req, res) => {
-  const kbId = req.params["id"] as string;
-  if (req.session.orgId && !kbBelongsToOrg(kbId, req.session.orgId)) {
+dataSourcesRouter.get("/:id/health", requireOrg, (req, res) => {
+  const dsId = req.params["id"] as string;
+  if (req.session.orgId && !dataSourceBelongsToOrg(dsId, req.session.orgId)) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const kb = getKB(kbId);
-  if (!kb) {
+  const ds = getDataSource(dsId);
+  if (!ds) {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
 
-  const docs = getDocumentsByKB(kbId);
+  const docs = getDocumentsByDataSource(dsId);
   const readyDocs = docs.filter((d) => d.status === "ready");
-  const chunks = getChunksForDataset(kb.datasetName);
+  const chunks = getChunksForDataset(ds.datasetName);
 
   const integrationConfig = getIntegrationConfig();
   const stalenessThresholdDays = integrationConfig.stalenessThresholdDays ?? 180;
