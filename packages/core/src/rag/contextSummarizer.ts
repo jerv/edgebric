@@ -66,7 +66,7 @@ export async function summarizeMessages(
 - Key questions asked and answers given
 - Important facts, decisions, or conclusions reached
 - Any unresolved questions or ongoing discussions
-- Knowledge base content that was discussed
+- Data source content that was discussed
 
 Do NOT include greetings, small talk, or redundant information. Write in third person past tense.`;
 

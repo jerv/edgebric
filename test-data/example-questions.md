@@ -1,6 +1,6 @@
 # Example Questions for Testing
 
-## Multi-KB Questions (pull from multiple knowledge bases)
+## Multi-Source Questions (pull from multiple data sources)
 
 1. "What security measures should I follow when working remotely?"
    - HR Policies (remote work policy) + IT & Security (VPN, device security)
@@ -17,7 +17,7 @@
 5. "What happens to my 401k and benefits if I leave the company?"
    - Benefits & Compensation (vesting, COBRA) + HR Policies (resignation/offboarding)
 
-## Single-KB Questions
+## Single-Source Questions
 
 ### HR Policies
 - "How many vacation days do I get per year?"

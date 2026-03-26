@@ -10,7 +10,7 @@ Private knowledge platform for organizations. Upload sensitive documents, ask qu
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
 - **Privacy modes**: Standard (anonymous analytics), Private (no identity tracking), Vault (on-device only).
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
-- **Knowledge base management**: Organize documents into KBs with per-KB access control (whole org or restricted by user).
+- **Data source management**: Organize documents into data sources with per-source access control (whole org or restricted by user).
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
 
 ## Architecture
