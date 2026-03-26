@@ -37,7 +37,7 @@ describe("Documents API", () => {
 
   afterAll(async () => {
     // Wait for fire-and-forget background jobs (upload → ingestDocument) to settle
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 500));
     teardownTestApp();
   });
 
