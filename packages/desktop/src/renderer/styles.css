@@ -22,7 +22,8 @@ body {
   right: 0;
   height: 38px;
   -webkit-app-region: drag;
-  z-index: 10;
+  z-index: 50;
+  background: #fafafa;
 }
 
 /* ─── Loading / Complete states ──────────────────────────────────────────── */
@@ -56,6 +57,7 @@ body {
 
 .dashboard-settings {
   max-width: none;
+  padding-top: 38px;
 }
 
 .dashboard-main {
@@ -211,36 +213,59 @@ body {
   color: #1e293b;
 }
 
-/* ─── View header (settings) ─────────────────────────────────────────────── */
+/* ─── View header (macOS-style navigation bar) ──────────────────────────── */
 .view-header {
-  display: flex;
+  position: sticky;
+  top: 38px;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  height: 44px;
+  padding: 0 32px;
+  margin-left: -32px;
+  margin-right: -32px;
+  margin-bottom: 20px;
+  background: #fafafa;
+  border-bottom: 0.5px solid #e9ecef;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.view-header.scrolled {
+  border-bottom-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .back-btn {
+  justify-self: start;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
   font-family: inherit;
   color: #64748b;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .back-btn:hover {
-  color: #1e293b;
+  background: rgba(0, 0, 0, 0.05);
+  color: #334155;
 }
 
 .view-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
+  justify-self: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 
 .settings-content {
@@ -858,9 +883,17 @@ body {
   .bottom-link { color: #64748b; }
   .bottom-link:hover { color: #e2e8f0; }
 
+  .wizard::before,
+  .dashboard::before { background: #0a0a0a; }
+  .view-header { background: #0a0a0a; border-bottom-color: #1a1a1a; }
+  .view-header.scrolled {
+    border-bottom-color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
   .view-title { color: #f1f5f9; }
-  .back-btn { color: #64748b; }
-  .back-btn:hover { color: #e2e8f0; }
+  .back-btn { color: #94a3b8; }
+  .back-btn:hover { color: #e2e8f0; background: rgba(255, 255, 255, 0.06); }
 
   .btn-primary {
     background: #f1f5f9;

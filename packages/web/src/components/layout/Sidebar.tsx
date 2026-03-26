@@ -332,7 +332,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             {showNewChatMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNewChatMenu(false)} />
-                <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 w-full min-w-[180px]">
+                <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 w-full min-w-[180px] overflow-hidden">
                   <button
                     onClick={() => {
                       setShowNewChatMenu(false);

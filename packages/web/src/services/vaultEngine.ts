@@ -379,7 +379,7 @@ export async function* vaultQuery(
   conversationMessages: Array<{ role: string; content: string }>,
 ): AsyncGenerator<
   | { type: "delta"; delta: string }
-  | { type: "done"; answer: string; citations: Citation[]; hasConfidentAnswer: boolean; retrievalScore?: number }
+  | { type: "done"; answer: string; citations: Citation[]; hasConfidentAnswer: boolean; retrievalScore?: number; contextUsage?: { usedTokens: number; maxTokens: number; contextTokens: number; historyTokens: number; truncated: boolean } }
 > {
   // 0. Query safety filter (mirrors server-side filterQuery)
   if (looksLikePersonName(query) && containsSensitiveTerm(query)) {

@@ -129,7 +129,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
                 activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
               )}
             >
-              <Globe className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+              <Globe className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
               <span className="truncate">@{item.name}</span>
             </button>
           ))}
@@ -154,7 +154,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
                   activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                 )}
               >
-                <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+                <Database className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
                 <span className="truncate">@{item.name}</span>
                 <span className="ml-auto text-[10px] text-slate-300 dark:text-gray-600">{item.type === "personal" ? "Personal" : "Org"}</span>
               </button>

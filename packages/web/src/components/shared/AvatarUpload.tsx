@@ -87,7 +87,7 @@ export function AvatarUpload({
       <div className="relative inline-block group">
         <div
           className={cn(
-            "rounded-full overflow-hidden bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-gray-700",
+            "rounded-full overflow-hidden bg-blue-50 dark:bg-blue-950 flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800",
             editable && "cursor-pointer",
           )}
           style={{ width: size, height: size }}
@@ -101,7 +101,7 @@ export function AvatarUpload({
             />
           ) : (
             <span
-              className="text-slate-400 dark:text-gray-500 font-semibold select-none"
+              className="text-blue-500 dark:text-blue-400 font-semibold select-none"
               style={{ fontSize: size * 0.35 }}
             >
               {fallbackText.slice(0, 2).toUpperCase()}
@@ -175,7 +175,7 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "rounded-full overflow-hidden bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-slate-200 dark:border-gray-700",
+        "rounded-full overflow-hidden bg-blue-50 dark:bg-blue-950 flex items-center justify-center flex-shrink-0 border border-blue-200 dark:border-blue-800",
         className,
       )}
       style={{ width: size, height: size }}
@@ -184,7 +184,7 @@ export function Avatar({
         <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
       ) : (
         <span
-          className="text-slate-400 dark:text-gray-500 font-semibold select-none"
+          className="text-blue-500 dark:text-blue-400 font-semibold select-none"
           style={{ fontSize: size * 0.35 }}
         >
           {fallbackText.slice(0, 2).toUpperCase()}

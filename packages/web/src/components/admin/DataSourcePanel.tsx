@@ -725,12 +725,12 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                         "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
                         ds.type === "personal"
                           ? "bg-green-50 dark:bg-green-950"
-                          : isMine ? "bg-blue-50 dark:bg-blue-950" : "bg-slate-100 dark:bg-gray-800",
+                          : "bg-blue-50 dark:bg-blue-950",
                       )}>
                         <Database className={cn("w-3.5 h-3.5",
                           ds.type === "personal"
                             ? "text-green-500 dark:text-green-400"
-                            : isMine ? "text-blue-500 dark:text-blue-400" : "text-slate-500 dark:text-gray-400",
+                            : "text-blue-500 dark:text-blue-400",
                         )} />
                       </div>
                     )}
@@ -1361,7 +1361,11 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
           <div className="text-center py-16">
             <FileText className="w-10 h-10 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500 dark:text-gray-400">No files in this source.</p>
-            <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Drop files above to get started.</p>
+            {canEdit ? (
+              <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Drop files above to get started.</p>
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">No documents have been added yet.</p>
+            )}
           </div>
         ) : (
           <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">

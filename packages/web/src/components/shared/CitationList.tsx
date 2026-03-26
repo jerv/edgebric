@@ -33,11 +33,11 @@ interface CitationListProps {
 
 function DSMiniAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }) {
   return (
-    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 overflow-hidden flex-shrink-0">
+    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 overflow-hidden flex-shrink-0">
       {avatarUrl ? (
         <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
       ) : (
-        <Database className="w-2.5 h-2.5 text-slate-400 dark:text-gray-500" />
+        <Database className="w-2.5 h-2.5 text-blue-500 dark:text-blue-400" />
       )}
     </span>
   );

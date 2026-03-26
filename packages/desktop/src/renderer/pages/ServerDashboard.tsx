@@ -197,6 +197,7 @@ export default function ServerDashboard() {
   const [showPortHint, setShowPortHint] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [isDark, setIsDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
 
   // Models state
   const [modelsData, setModelsData] = useState<ModelsData | null>(null);
@@ -226,6 +227,13 @@ export default function ServerDashboard() {
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Track scroll for sticky header border
+  useEffect(() => {
+    const onScroll = () => setHeaderScrolled(window.scrollY > 4);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   // Listen for tray navigation requests
@@ -603,12 +611,13 @@ export default function ServerDashboard() {
 
     return (
       <div className="dashboard dashboard-settings">
-        <div className="view-header">
+        <div className={`view-header${headerScrolled ? " scrolled" : ""}`}>
           <button className="back-btn" onClick={() => { setView("home"); setModelError(""); }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Back
           </button>
           <h2 className="view-title">Models</h2>
+          <span />
         </div>
 
         {!isRunning ? (
@@ -1063,12 +1072,13 @@ export default function ServerDashboard() {
   if (view === "settings") {
     return (
       <div className={`dashboard dashboard-settings${dangerAction ? " dashboard-flow" : ""}`}>
-        <div className="view-header">
+        <div className={`view-header${headerScrolled ? " scrolled" : ""}`}>
           <button className="back-btn" onClick={() => { setView("home"); setErrorMsg(""); setDangerAction(null); }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Back
           </button>
           <h2 className="view-title">Settings</h2>
+          <span />
         </div>
 
         {!dangerAction ? (
