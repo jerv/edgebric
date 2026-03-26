@@ -454,10 +454,10 @@ export function GroupChatView() {
               >
                 <Database className="w-3 h-3" />
                 {effectiveDSCount} data source{effectiveDSCount !== 1 ? "s" : ""}
-                {kbTooltipOpen && queryableKBs.length > 0 && (
+                {dsTooltipOpen && queryableDataSources.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
                     <div className="w-80 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
-                      {queryableKBs.map((kb) => {
+                      {queryableDataSources.map((kb) => {
                         const isOwner = isActive && kb.source === "shared" && kb.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
                         const expiresMs = kb.expiresAt ? new Date(kb.expiresAt).getTime() - Date.now() : null;
                         const isExpiringSoon = expiresMs != null && expiresMs > 0 && expiresMs < 5 * 60 * 1000;
@@ -699,11 +699,11 @@ export function GroupChatView() {
                       )}
                     >
                       <Database className="w-3.5 h-3.5" />
-                      {kbSelectorLabel}
-                      <ChevronDown className={cn("w-3 h-3 transition-transform", kbSelectorOpen && "rotate-180")} />
+                      {dsSelectorLabel}
+                      <ChevronDown className={cn("w-3 h-3 transition-transform", dsSelectorOpen && "rotate-180")} />
                     </button>
 
-                    {kbSelectorOpen && (
+                    {dsSelectorOpen && (
                       <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
                         {/* All KBs option */}
                         <button
@@ -722,12 +722,12 @@ export function GroupChatView() {
                           {selectedDSIds.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                         </button>
 
-                        {queryableKBs.length > 0 && (
+                        {queryableDataSources.length > 0 && (
                           <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider border-t border-slate-100 dark:border-gray-800 mt-1">
                             Data Sources
                           </div>
                         )}
-                        {queryableKBs.map((kb) => {
+                        {queryableDataSources.map((kb) => {
                           const isSelected = selectedDSIds.includes(kb.id);
                           return (
                             <button
@@ -799,7 +799,7 @@ export function GroupChatView() {
               {selectedDSIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1">
                   {selectedDSIds.map((kbId) => {
-                    const kb = queryableKBs.find((k) => k.id === kbId);
+                    const kb = queryableDataSources.find((k) => k.id === kbId);
                     return (
                       <span
                         key={kbId}
