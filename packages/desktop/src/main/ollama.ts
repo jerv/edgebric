@@ -178,6 +178,11 @@ export async function startOllama(dataDir?: string): Promise<{ started: boolean;
       ...process.env,
       OLLAMA_HOST: `${OLLAMA_HOST}:${OLLAMA_PORT}`,
       OLLAMA_MODELS: modelsDir,
+      // Allow 2 concurrent inferences (default is 1 — sequential).
+      // RAM cost: 2x KV-cache. Fine for <=8B models on 16GB+ Macs.
+      OLLAMA_NUM_PARALLEL: process.env.OLLAMA_NUM_PARALLEL ?? "2",
+      // Enable multi-user prompt cache optimization
+      OLLAMA_MULTIUSER_CACHE: "1",
       // Disable Ollama's built-in update check since we manage updates
       OLLAMA_NOPRUNE: "1",
     },

@@ -51,6 +51,20 @@ export interface RAGOptions {
   retrievalScore?: number;
   /** When true, restrict to context-only answers (admin toggle off). */
   strict?: boolean;
+  /** Max context window size in tokens for the active model. Default 8192. */
+  maxContextTokens?: number;
+}
+
+// ─── Token estimation ─────────────────────────────────────────────────────────
+
+/** Rough token estimate: ~4 chars per token. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+function estimateMessagesTokens(messages: Message[]): number {
+  // Each message has ~4 token overhead (role, formatting)
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0);
 }
 
 // ─── Orchestrator ──────────────────────────────────────────────────────────────
@@ -120,12 +134,25 @@ export async function* answerStream(
 
     // Permissive mode: answer from general knowledge
     const generalPrompt = buildGeneralPrompt();
+    const genContextTokens = estimateTokens(generalPrompt);
+    const genMaxContext = options.maxContextTokens ?? 8192;
+    const genBudget = genMaxContext - genContextTokens - 1500;
+
+    let genHistory: Message[] = session.messages.map((m) => ({
+      role: m.role as "user" | "assistant" | "system",
+      content: m.content,
+    }));
+    let genHistoryTokens = estimateMessagesTokens(genHistory);
+    let genTruncated = false;
+    while (genHistoryTokens > genBudget && genHistory.length > 1) {
+      genHistory = genHistory.slice(1);
+      genHistoryTokens = estimateMessagesTokens(genHistory);
+      genTruncated = true;
+    }
+
     const messages: Message[] = [
       { role: "system", content: generalPrompt },
-      ...session.messages.map((m) => ({
-        role: m.role as "user" | "assistant" | "system",
-        content: m.content,
-      })),
+      ...genHistory,
     ];
 
     let fullAnswer = "";
@@ -142,6 +169,13 @@ export async function* answerStream(
       sessionId: session.id,
       searchedDatasets: options.datasetNames ?? [options.datasetName],
       candidateCount: options.candidateCount ?? 0,
+      contextUsage: {
+        usedTokens: genContextTokens + genHistoryTokens,
+        maxTokens: genMaxContext,
+        contextTokens: genContextTokens,
+        historyTokens: genHistoryTokens,
+        truncated: genTruncated,
+      },
     };
     yield { final: response };
     return;
@@ -182,16 +216,39 @@ export async function* answerStream(
     }
   }
 
+  // Map similarity scores to match contextChunks ordering
+  const chunkScores = contextChunks.map((c) => {
+    const result = relevantResults.find((r) => r.chunkId === c.id);
+    return result?.similarity ?? 0;
+  });
+
   // Build messages for generation
-  const systemPrompt = buildSystemPrompt(contextChunks, { strict });
-  const messages: Message[] = [
-    { role: "system", content: systemPrompt },
-    // Callers manage context window (solo chat: last 4, group chat: summarized + last 10)
-    ...session.messages.map((m) => ({
-      role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    })),
-  ];
+  const systemPrompt = buildSystemPrompt(contextChunks, { strict, scores: chunkScores });
+  const systemMsg: Message = { role: "system", content: systemPrompt };
+  const contextTokens = estimateTokens(systemPrompt);
+
+  // Reserve tokens for the model's response (~1500 tokens)
+  const maxContext = options.maxContextTokens ?? 8192;
+  const reserveForResponse = 1500;
+  const budgetForHistory = maxContext - contextTokens - reserveForResponse;
+
+  // Fit conversation history within the token budget, truncating oldest first
+  let historyMessages: Message[] = session.messages.map((m) => ({
+    role: m.role as "user" | "assistant" | "system",
+    content: m.content,
+  }));
+
+  let historyTokens = estimateMessagesTokens(historyMessages);
+  let truncated = false;
+
+  while (historyTokens > budgetForHistory && historyMessages.length > 1) {
+    historyMessages = historyMessages.slice(1);
+    historyTokens = estimateMessagesTokens(historyMessages);
+    truncated = true;
+  }
+
+  const messages: Message[] = [systemMsg, ...historyMessages];
+  const usedTokens = contextTokens + historyTokens;
 
   // Stream the answer
   let fullAnswer = "";
@@ -245,6 +302,13 @@ export async function* answerStream(
     retrievalScore: Math.round(avgSimilarity * 100) / 100,
     ...(options.candidateCount != null && { candidateCount: options.candidateCount }),
     ...(options.hybridBoost != null && { hybridBoost: options.hybridBoost }),
+    contextUsage: {
+      usedTokens,
+      maxTokens: maxContext,
+      contextTokens,
+      historyTokens,
+      truncated,
+    },
   };
 
   yield { final: response };

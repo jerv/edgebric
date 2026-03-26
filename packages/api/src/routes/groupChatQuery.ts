@@ -8,6 +8,7 @@ import type { Session, SessionMessage, Citation } from "@edgebric/types";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
+import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
 import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getDocument } from "../services/documentStore.js";
@@ -399,46 +400,70 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       searchResults.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
     }
 
-    const stream = answerStream(
-      query,
-      session,
-      {
-        datasetName: datasetNames[0]!,
-        datasetNames,
-        topK: 10,
-        similarityThreshold: 0.3,
-        candidateCount,
-        hybridBoost,
-        strict,
-      },
-      {
-        search: async () => searchResults,
-        generate: (messages) => chatClient.chatStream(messages),
-      },
-    );
-
-    for await (const chunk of stream) {
-      if (chunk.delta) {
-        sendEvent("delta", { delta: chunk.delta });
+    // Acquire inference slot — waits if all slots busy
+    const abortController = new AbortController();
+    req.on("close", () => abortController.abort());
+    let releaseSlotFn: (() => void) | undefined;
+    try {
+      releaseSlotFn = await acquireSlot(
+        chatId,
+        "high",
+        (position) => sendEvent("queued", { position }),
+        abortController.signal,
+      );
+    } catch (err) {
+      if (err instanceof QueueFullError) {
+        sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+        try { res.end(); } catch { /* already closed */ }
+        return;
       }
-      if (chunk.final) {
-        enrichCitations(chunk.final.citations);
+      throw err;
+    }
 
-        // Persist bot message
-        const botMsgOpts: Parameters<typeof addMessage>[0] = {
-          groupChatId: chatId,
-          role: "assistant",
-          content: chunk.final.answer,
-          hasConfidentAnswer: chunk.final.hasConfidentAnswer,
-          ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
-        };
-        if (threadParentId) botMsgOpts.threadParentId = threadParentId;
-        if (chunk.final.citations.length > 0) botMsgOpts.citations = chunk.final.citations;
-        const botMsg = addMessage(botMsgOpts);
+    try {
+      const stream = answerStream(
+        query,
+        session,
+        {
+          datasetName: datasetNames[0]!,
+          datasetNames,
+          topK: 10,
+          similarityThreshold: 0.3,
+          candidateCount,
+          hybridBoost,
+          strict,
+        },
+        {
+          search: async () => searchResults,
+          generate: (messages) => chatClient.chatStream(messages),
+        },
+      );
 
-        sendEvent("done", botMsg);
-        broadcastToChat(chatId, "message", botMsg);
+      for await (const chunk of stream) {
+        if (chunk.delta) {
+          sendEvent("delta", { delta: chunk.delta });
+        }
+        if (chunk.final) {
+          enrichCitations(chunk.final.citations);
+
+          // Persist bot message
+          const botMsgOpts: Parameters<typeof addMessage>[0] = {
+            groupChatId: chatId,
+            role: "assistant",
+            content: chunk.final.answer,
+            hasConfidentAnswer: chunk.final.hasConfidentAnswer,
+            ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
+          };
+          if (threadParentId) botMsgOpts.threadParentId = threadParentId;
+          if (chunk.final.citations.length > 0) botMsgOpts.citations = chunk.final.citations;
+          const botMsg = addMessage(botMsgOpts);
+
+          sendEvent("done", { ...botMsg, contextUsage: chunk.final.contextUsage });
+          broadcastToChat(chatId, "message", botMsg);
+        }
       }
+    } finally {
+      releaseSlotFn?.();
     }
   } catch (err) {
     sendEvent("error", { message: "An error occurred. Please try again." });

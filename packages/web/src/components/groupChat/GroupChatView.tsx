@@ -23,6 +23,7 @@ import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
+import { ContextRing } from "@/components/shared/ContextRing";
 import { ThreadPanel } from "./ThreadPanel";
 import { InviteMemberDialog } from "./InviteMemberDialog";
 import { ShareDataSourceDialog } from "./ShareDataSourceDialog";
@@ -64,13 +65,19 @@ function formatCountdown(ms: number): string {
 
 // ─── Thinking Indicator ─────────────────────────────────────────────────────
 
-function ThinkingDots() {
+function ThinkingDots({ queuePosition }: { queuePosition?: number | null }) {
   return (
     <div className="flex items-center gap-1 py-1 px-2">
       <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
       <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
       <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
-      <span className="text-xs text-slate-400 dark:text-gray-500 ml-1">Thinking...</span>
+      {queuePosition != null && queuePosition > 0 ? (
+        <span className="text-xs text-amber-500 dark:text-amber-400 ml-1">
+          Queued ({queuePosition} {queuePosition === 1 ? "request" : "requests"} ahead)
+        </span>
+      ) : (
+        <span className="text-xs text-slate-400 dark:text-gray-500 ml-1">Thinking...</span>
+      )}
     </div>
   );
 }
@@ -98,6 +105,14 @@ export function GroupChatView() {
   const [dsTooltipOpen, setDsTooltipOpen] = useState(false);
   const [sendMode, setSendMode] = useState<"chat" | "ai">("chat");
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
+  const [contextUsage, setContextUsage] = useState<{
+    usedTokens: number;
+    maxTokens: number;
+    contextTokens: number;
+    historyTokens: number;
+    truncated: boolean;
+  } | null>(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -367,12 +382,15 @@ export function GroupChatView() {
             const data = line.slice(6);
             try {
               const parsed = JSON.parse(data);
-              if (eventType === "user_message") {
+              if (eventType === "queued") {
+                setQueuePosition(parsed.position as number);
+              } else if (eventType === "user_message") {
                 setLocalMessages((prev) => {
                   if (prev.some((m) => m.id === parsed.id)) return prev;
                   return [...prev, parsed as GroupChatMessage];
                 });
               } else if (eventType === "delta") {
+                setQueuePosition(null);
                 setStreamContent((prev) => {
                   const newContent = prev + (parsed.delta ?? "");
                   const cleaned = cleanContent(newContent);
@@ -392,6 +410,11 @@ export function GroupChatView() {
                   if (prev.some((m) => m.id === (parsed as GroupChatMessage).id)) return prev;
                   return [...prev, parsed as GroupChatMessage];
                 });
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const doneData = parsed as any;
+                if (doneData.contextUsage) {
+                  setContextUsage(doneData.contextUsage);
+                }
               } else if (eventType === "error") {
                 setStreamContent("");
               }
@@ -403,6 +426,7 @@ export function GroupChatView() {
 
     setStreaming(false);
     setSending(false);
+    setQueuePosition(null);
     void queryClient.invalidateQueries({ queryKey: ["group-chat-messages", id] });
   }, [input, sending, id, queryClient, selectedDSIds]);
 
@@ -671,7 +695,7 @@ export function GroupChatView() {
                     </div>
                   );
                 })() : (
-                  <ThinkingDots />
+                  <ThinkingDots queuePosition={queuePosition} />
                 )}
               </div>
             </div>
@@ -793,6 +817,7 @@ export function GroupChatView() {
                     )}
                   </div>
                 )}
+                <ContextRing usage={contextUsage} />
               </div>
 
               {/* Data source target chips */}

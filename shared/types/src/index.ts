@@ -190,6 +190,19 @@ export interface AnswerResponse {
   meshNodesUnavailable?: number;
   /** Classification of the answer source — grounded (docs), blended, general (LLM knowledge), or blocked. */
   answerType?: AnswerType;
+  /** Context window usage info for the frontend indicator. */
+  contextUsage?: {
+    /** Estimated tokens used by the full prompt (system + context + history + query). */
+    usedTokens: number;
+    /** Maximum context window size for the active model. */
+    maxTokens: number;
+    /** Breakdown: tokens used by document context. */
+    contextTokens: number;
+    /** Breakdown: tokens used by conversation history (including summary). */
+    historyTokens: number;
+    /** Whether conversation history was truncated to fit. */
+    truncated: boolean;
+  };
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────

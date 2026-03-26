@@ -10,6 +10,7 @@ import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
 import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon, Network } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
+import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
@@ -52,7 +53,7 @@ const THINKING_WORDS = [
   "Synthesizing",
 ];
 
-function ThinkingIndicator() {
+function ThinkingIndicator({ queuePosition }: { queuePosition?: number | null }) {
   const [index, setIndex] = useState(0);
   const [fade, setFade] = useState(true);
 
@@ -74,14 +75,20 @@ function ThinkingIndicator() {
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
         <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
       </div>
-      <span
-        className={cn(
-          "text-xs text-slate-400 dark:text-gray-500 transition-opacity duration-200",
-          fade ? "opacity-100" : "opacity-0",
-        )}
-      >
-        {THINKING_WORDS[index]}
-      </span>
+      {queuePosition != null && queuePosition > 0 ? (
+        <span className="text-xs text-amber-500 dark:text-amber-400">
+          Queued ({queuePosition} {queuePosition === 1 ? "request" : "requests"} ahead)
+        </span>
+      ) : (
+        <span
+          className={cn(
+            "text-xs text-slate-400 dark:text-gray-500 transition-opacity duration-200",
+            fade ? "opacity-100" : "opacity-0",
+          )}
+        >
+          {THINKING_WORDS[index]}
+        </span>
+      )}
     </div>
   );
 }
@@ -199,6 +206,14 @@ export function ChatPanel() {
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState<number>(-1);
+  const [contextUsage, setContextUsage] = useState<{
+    usedTokens: number;
+    maxTokens: number;
+    contextTokens: number;
+    historyTokens: number;
+    truncated: boolean;
+  } | null>(null);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const mentionPickerRef = useRef<DSMentionPickerHandle>(null);
   const dsSelectorRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -215,6 +230,7 @@ export function ChatPanel() {
       setMessages([]);
       setHydrated(false);
       setIsLoading(false);
+      setContextUsage(null);
       abortRef.current?.abort();
       abortRef.current = null;
     }
@@ -592,6 +608,9 @@ export function ChatPanel() {
               }
               return updated;
             });
+            if (chunk.contextUsage) {
+              setContextUsage(chunk.contextUsage);
+            }
           }
         }
       } catch (err) {
@@ -695,8 +714,15 @@ export function ChatPanel() {
           if (line.startsWith("data: ")) {
             const payload = line.slice(6);
             try {
-              const parsed = JSON.parse(payload) as { delta: string } | AnswerResponse;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const parsed = JSON.parse(payload) as any;
+              if ("position" in parsed) {
+                // Queue position update — user is waiting for an inference slot
+                setQueuePosition(parsed.position as number);
+                continue;
+              }
               if ("delta" in parsed) {
+                setQueuePosition(null); // First token arrived — no longer queued
                 setMessages((prev) => {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
@@ -749,6 +775,10 @@ export function ChatPanel() {
                   }
                   return updated;
                 });
+                // Update context usage indicator
+                if (parsed.contextUsage) {
+                  setContextUsage(parsed.contextUsage);
+                }
               }
             } catch {
               // Malformed SSE data
@@ -776,6 +806,7 @@ export function ChatPanel() {
     } finally {
       abortRef.current = null;
       setIsLoading(false);
+      setQueuePosition(null);
       inputRef.current?.focus();
     }
   }
@@ -969,7 +1000,7 @@ export function ChatPanel() {
                       : "bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800",
                   )}>
                     {message.isStreaming && !displayContent ? (
-                      <ThinkingIndicator />
+                      <ThinkingIndicator queuePosition={queuePosition} />
                     ) : (
                       <>
                         <div className={cn(...PROSE_CLASSES, "dark:prose-invert")}>
@@ -1164,7 +1195,7 @@ export function ChatPanel() {
                         targetDataSources.length === 0 ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                       )}
                     >
-                      <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+                      <Database className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
                       <span className="truncate">All sources</span>
                       {targetDataSources.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                     </button>
@@ -1196,7 +1227,7 @@ export function ChatPanel() {
                               isSelected ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                             )}
                           >
-                            <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+                            <Database className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
                             <span className="truncate">{ds.name}</span>
                             {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                           </button>
@@ -1207,8 +1238,11 @@ export function ChatPanel() {
               </div>
              </div>
 
-              {/* Model selector — visible to all users */}
-              <ModelPicker onModelLoading={setModelLoading} />
+              {/* Model selector + context usage — visible to all users */}
+              <div className="flex items-center gap-2">
+                <ModelPicker onModelLoading={setModelLoading} />
+                <ContextRing usage={contextUsage} />
+              </div>
             </div>
 
             {/* Model loading overlay */}

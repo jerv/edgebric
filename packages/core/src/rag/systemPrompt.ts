@@ -7,13 +7,14 @@ const DISCLAIMER =
 
 // ─── Context block builder ──────────────────────────────────────────────────
 
-function buildContextBlock(chunks: Chunk[]): string {
+function buildContextBlock(chunks: Chunk[], scores?: number[]): string {
   return chunks
     .map((chunk, i) => {
       const docLabel = chunk.metadata.documentName ?? "Policy Document";
       const path = chunk.metadata.sectionPath.join(" > ");
+      const scoreLabel = scores?.[i] != null ? ` | Relevance: ${(scores[i]! * 100).toFixed(0)}%` : "";
       return [
-        `[Source ${i + 1}: ${docLabel} | ${path} | Page ${chunk.metadata.pageNumber}]`,
+        `[Source ${i + 1}: ${docLabel} | ${path} | Page ${chunk.metadata.pageNumber}${scoreLabel}]`,
         chunk.content,
       ].join("\n");
     })
@@ -33,9 +34,9 @@ function buildContextBlock(chunks: Chunk[]): string {
  */
 export function buildSystemPrompt(
   chunks: Chunk[],
-  opts?: { strict?: boolean },
+  opts?: { strict?: boolean; scores?: number[] },
 ): string {
-  const contextBlock = buildContextBlock(chunks);
+  const contextBlock = buildContextBlock(chunks, opts?.scores);
 
   if (opts?.strict) {
     return `You are a company knowledge assistant. Your job is to answer questions accurately using only the documents provided below. Identify the organization and context from the documents themselves.

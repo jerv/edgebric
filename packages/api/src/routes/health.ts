@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { execSync } from "child_process";
 import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
+import { getQueueStats } from "../services/inferenceQueue.js";
 
 export const healthRouter: IRouter = Router();
 
@@ -93,12 +94,14 @@ healthRouter.get("/", async (req, res) => {
   // Unauthenticated callers get a simple status (useful for load balancers).
   const isAdmin = !!(req.session?.queryToken && req.session?.isAdmin);
   if (isAdmin) {
+    const inferenceQueue = getQueueStats();
     res.status(coreCritical ? 503 : 200).json({
       status: overallStatus,
       aiReady,
       activeModel: runtimeChatConfig.model,
       uptime: Math.floor((Date.now() - startTime) / 1000),
       checks,
+      inferenceQueue,
     });
   } else {
     res.status(coreCritical ? 503 : 200).json({ status: overallStatus, aiReady });

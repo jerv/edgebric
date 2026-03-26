@@ -1,7 +1,8 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { z } from "zod";
-import { answerStream, filterQuery } from "@edgebric/core/rag";
+import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
+import type { ChatMessage } from "@edgebric/core/rag";
 import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -24,6 +25,7 @@ import { routedSearch, type RoutedSearchResult } from "../services/queryRouter.j
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
+import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
 
 const queryBodySchema = z.object({
   query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
@@ -56,6 +58,23 @@ setInterval(() => {
     else queryTimestamps.set(key, fresh);
   }
 }, 5 * 60_000).unref();
+
+// ─── Solo Conversation Summary Cache ─────────────────────────────────────────
+// In-memory cache — persists across queries within the same server session.
+// Keyed by conversationId → { summary, upToMessageId }.
+
+const soloSummaryCache = new Map<string, { summary: string; upTo: string; oldCount: number }>();
+
+/** Prune solo summary cache entries every 30 minutes. */
+setInterval(() => {
+  // Keep cache bounded — remove oldest entries if cache exceeds 500
+  if (soloSummaryCache.size > 500) {
+    const keys = [...soloSummaryCache.keys()];
+    for (let i = 0; i < keys.length - 500; i++) {
+      soloSummaryCache.delete(keys[i]!);
+    }
+  }
+}, 30 * 60_000).unref();
 
 function checkQueryRateLimit(email: string): { allowed: boolean; retryAfterMs?: number } {
   const now = Date.now();
@@ -319,10 +338,31 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     };
     req.on("close", () => { clientDisconnected = true; });
 
+    let releaseSlotFn: (() => void) | undefined;
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
+
+      // Acquire inference slot
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+      try {
+        releaseSlotFn = await acquireSlot(
+          session.id,
+          "high",
+          (position) => sendEvent("queued", { position }),
+          abortController.signal,
+        );
+      } catch (err) {
+        if (err instanceof QueueFullError) {
+          sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+          try { res.end(); } catch { /* already closed */ }
+          return;
+        }
+        throw err;
+      }
+
       const stream = answerStream(
         query,
         session,
@@ -346,6 +386,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       // Intentionally suppress error details — private mode must leave no trace in logs
       logger.error("Private query error");
     } finally {
+      releaseSlotFn?.();
       try { res.end(); } catch { /* already closed */ }
     }
     return;
@@ -382,16 +423,44 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   };
   addMessage(userMsg);
 
-  // Build session from last N persisted messages for multi-turn RAG context
-  const recentMessages = getMessages(conversation.id).slice(-4);
+  // Build session with conversation summarization (same pipeline as group chat)
+  const allMessages = getMessages(conversation.id);
+  const chatMsgs: ChatMessage[] = allMessages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const { old, recent } = splitForSummary(chatMsgs, 3000);
+
+  let summary = "";
+  if (old.length > 0) {
+    const cached = soloSummaryCache.get(conversation.id);
+    if (cached && cached.oldCount === old.length) {
+      summary = cached.summary;
+    } else {
+      try {
+        summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
+        if (summary && allMessages.length > 0) {
+          soloSummaryCache.set(conversation.id, {
+            summary,
+            upTo: allMessages[allMessages.length - 1]!.id,
+            oldCount: old.length,
+          });
+        }
+      } catch (err) {
+        logger.warn({ err }, "Solo conversation summarization failed, using recent messages only");
+      }
+    }
+  }
+
+  const summarizedContext = buildSummarizedContext(summary, recent);
+  const sessionMessages: SessionMessage[] = summarizedContext
+    .slice(-12)
+    .map((m) => ({ role: m.role as SessionMessage["role"], content: m.content }));
+
   const session: Session = {
     id: conversation.id,
     createdAt: conversation.createdAt,
-    messages: recentMessages.map((m) => {
-      const sm: SessionMessage = { role: m.role, content: m.content };
-      if (m.citations) sm.citations = m.citations;
-      return sm;
-    }),
+    messages: sessionMessages,
   };
 
   // Broadcast thinking state to sidebar
@@ -414,9 +483,31 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   };
   req.on("close", () => { clientDisconnected = true; });
 
+  // Search runs outside the inference queue — doesn't need the LLM
+  let releaseSlotFn: (() => void) | undefined;
   try {
     const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
     const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
+
+    // Acquire inference slot — waits if all slots busy, sends queue position via SSE
+    const abortController = new AbortController();
+    req.on("close", () => abortController.abort());
+    try {
+      releaseSlotFn = await acquireSlot(
+        conversation.id,
+        "high",
+        (position) => sendEvent("queued", { position }),
+        abortController.signal,
+      );
+    } catch (err) {
+      if (err instanceof QueueFullError) {
+        sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+        try { res.end(); } catch { /* already closed */ }
+        return;
+      }
+      throw err;
+    }
+
     const stream = answerStream(
       query,
       session,
@@ -471,6 +562,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     sendEvent("error", { message: "An error occurred. Please try again." });
     logger.error({ err }, "Query error");
   } finally {
+    releaseSlotFn?.();
     broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: false });
     try { res.end(); } catch { /* already closed */ }
   }
