@@ -57,7 +57,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id);
 
-    CREATE TABLE IF NOT EXISTS knowledge_bases (
+    CREATE TABLE IF NOT EXISTS data_sources (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
@@ -173,11 +173,11 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE conversations ADD COLUMN org_id TEXT",
     "ALTER TABLE knowledge_bases ADD COLUMN org_id TEXT",
     "ALTER TABLE feedback ADD COLUMN org_id TEXT",
-    // Per-user KB creation permission
+    // Per-user data source creation permission
     "ALTER TABLE users ADD COLUMN can_create_kbs INTEGER DEFAULT 0",
-    // KB avatar
+    // Data source avatar
     "ALTER TABLE knowledge_bases ADD COLUMN avatar_url TEXT",
-    // Per-KB security toggles (default: all allowed)
+    // Per-source security toggles (default: all allowed)
     "ALTER TABLE knowledge_bases ADD COLUMN allow_source_viewing INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE knowledge_bases ADD COLUMN allow_vault_sync INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE knowledge_bases ADD COLUMN allow_external_access INTEGER NOT NULL DEFAULT 1",
@@ -194,6 +194,16 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE group_chat_shared_kbs ADD COLUMN expires_at TEXT",
     // Parent chunk content for parent-child retrieval (larger context for LLM)
     "ALTER TABLE chunks ADD COLUMN parent_content TEXT",
+    // ── KB → Data Source rename migrations ──────────────────────────────────
+    // Table renames MUST come before column renames on the renamed tables
+    "ALTER TABLE knowledge_bases RENAME TO data_sources",
+    "ALTER TABLE kb_access RENAME TO data_source_access",
+    "ALTER TABLE group_chat_shared_kbs RENAME TO group_chat_shared_data_sources",
+    // Column renames (use new table names since tables were just renamed above)
+    "ALTER TABLE documents RENAME COLUMN knowledge_base_id TO data_source_id",
+    "ALTER TABLE data_source_access RENAME COLUMN kb_id TO data_source_id",
+    "ALTER TABLE group_chat_shared_data_sources RENAME COLUMN knowledge_base_id TO data_source_id",
+    "ALTER TABLE users RENAME COLUMN can_create_kbs TO can_create_data_sources",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
@@ -201,14 +211,14 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
 
   // New tables added after initial schema
   sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS kb_access (
+    CREATE TABLE IF NOT EXISTS data_source_access (
       id TEXT PRIMARY KEY,
-      kb_id TEXT NOT NULL,
+      data_source_id TEXT NOT NULL,
       email TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_kb_access_kb_id ON kb_access(kb_id);
-    CREATE INDEX IF NOT EXISTS idx_kb_access_email ON kb_access(email);
+    CREATE INDEX IF NOT EXISTS idx_data_source_access_ds_id ON data_source_access(data_source_id);
+    CREATE INDEX IF NOT EXISTS idx_data_source_access_email ON data_source_access(email);
   `);
 
   // Group chat tables
@@ -235,10 +245,10 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       PRIMARY KEY (group_chat_id, user_email)
     );
 
-    CREATE TABLE IF NOT EXISTS group_chat_shared_kbs (
+    CREATE TABLE IF NOT EXISTS group_chat_shared_data_sources (
       id TEXT PRIMARY KEY,
       group_chat_id TEXT NOT NULL,
-      knowledge_base_id TEXT NOT NULL,
+      data_source_id TEXT NOT NULL,
       shared_by_email TEXT NOT NULL,
       allow_source_viewing INTEGER NOT NULL DEFAULT 1,
       shared_at TEXT NOT NULL
@@ -272,11 +282,53 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_group_chat_members_email ON group_chat_members(user_email);
     CREATE INDEX IF NOT EXISTS idx_group_chat_messages_chat_id ON group_chat_messages(group_chat_id);
     CREATE INDEX IF NOT EXISTS idx_group_chat_messages_thread ON group_chat_messages(thread_parent_id);
-    CREATE INDEX IF NOT EXISTS idx_group_chat_shared_kbs_chat_id ON group_chat_shared_kbs(group_chat_id);
+    CREATE INDEX IF NOT EXISTS idx_group_chat_shared_ds_chat_id ON group_chat_shared_data_sources(group_chat_id);
     CREATE INDEX IF NOT EXISTS idx_group_chats_org_id ON group_chats(org_id);
     CREATE INDEX IF NOT EXISTS idx_group_chats_status ON group_chats(status);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_last_read_pk ON group_chat_last_read(group_chat_id, user_email);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_group_chat_notif_prefs_pk ON group_chat_notif_prefs(group_chat_id, user_email);
+  `);
+
+  // Mesh networking tables
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS mesh_config (
+      key TEXT PRIMARY KEY DEFAULT 'main',
+      enabled INTEGER NOT NULL DEFAULT 0,
+      role TEXT NOT NULL DEFAULT 'primary',
+      primary_endpoint TEXT,
+      mesh_token TEXT NOT NULL,
+      node_id TEXT NOT NULL,
+      node_name TEXT NOT NULL,
+      group_id TEXT,
+      org_id TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS mesh_nodes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'secondary',
+      status TEXT NOT NULL DEFAULT 'offline',
+      endpoint TEXT NOT NULL,
+      group_id TEXT,
+      source_count INTEGER NOT NULL DEFAULT 0,
+      last_seen TEXT NOT NULL,
+      version TEXT NOT NULL DEFAULT '0.0.0',
+      org_id TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS node_groups (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT '#3b82f6',
+      org_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mesh_nodes_org_id ON mesh_nodes(org_id);
+    CREATE INDEX IF NOT EXISTS idx_mesh_nodes_group_id ON mesh_nodes(group_id);
+    CREATE INDEX IF NOT EXISTS idx_node_groups_org_id ON node_groups(org_id);
   `);
 
   // FTS5 full-text search index for hybrid BM25+vector retrieval
@@ -312,7 +364,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   try {
     sqlite.exec(`
       CREATE INDEX IF NOT EXISTS idx_conversations_org_id ON conversations(org_id);
-      CREATE INDEX IF NOT EXISTS idx_knowledge_bases_org_id ON knowledge_bases(org_id);
+      CREATE INDEX IF NOT EXISTS idx_data_sources_org_id ON data_sources(org_id);
       CREATE INDEX IF NOT EXISTS idx_feedback_org_id ON feedback(org_id);
     `);
   } catch { /* indexes already exist */ }
@@ -321,7 +373,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   try {
     const defaultOrg = sqlite.prepare("SELECT id FROM organizations LIMIT 1").get() as { id: string } | undefined;
     if (defaultOrg) {
-      const tables = ["conversations", "knowledge_bases", "feedback"] as const;
+      const tables = ["conversations", "data_sources", "feedback"] as const;
       for (const table of tables) {
         sqlite.prepare(`UPDATE ${table} SET org_id = ? WHERE org_id IS NULL`).run(defaultOrg.id);
       }

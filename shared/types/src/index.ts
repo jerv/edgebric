@@ -38,8 +38,8 @@ export interface User {
   authProvider?: OidcProviderId;
   /** The provider's unique subject ID (sub claim). */
   authProviderSub?: string;
-  /** Whether this member can create org-shared knowledge bases. Admins always can. */
-  canCreateKBs?: boolean;
+  /** Whether this member can create org-shared data sources. Admins always can. */
+  canCreateDataSources?: boolean;
   /** Whether this member can create group chats. Admins always can. */
   canCreateGroupChats?: boolean;
   /** Default notification level for new group chats. */
@@ -47,36 +47,36 @@ export interface User {
   createdAt: Date;
 }
 
-// ─── Knowledge Bases ──────────────────────────────────────────────────────────
+// ─── Data Sources ─────────────────────────────────────────────────────────────
 
-export type KnowledgeBaseType = "organization" | "personal";
-export type KnowledgeBaseStatus = "active" | "archived";
+export type DataSourceType = "organization" | "personal";
+export type DataSourceStatus = "active" | "archived";
 
-export type KBAccessMode = "all" | "restricted";
+export type DataSourceAccessMode = "all" | "restricted";
 
-export interface KnowledgeBase {
+export interface DataSource {
   id: string;
   name: string;
   description?: string;
-  type: KnowledgeBaseType;
-  /** Admin email (org KB) or user email (personal KB). */
+  type: DataSourceType;
+  /** Admin email (org source) or user email (personal source). */
   ownerId: string;
   /** Resolved display name of the owner (populated by API, not stored). */
   ownerName?: string;
-  /** The mKB dataset name for this knowledge base. */
+  /** The mKB dataset name for this data source. */
   datasetName: string;
   documentCount: number;
-  status: KnowledgeBaseStatus;
-  accessMode: KBAccessMode;
-  /** URL path to the KB avatar image (shown as mini icon in citations). */
+  status: DataSourceStatus;
+  accessMode: DataSourceAccessMode;
+  /** URL path to the data source avatar image (shown as mini icon in citations). */
   avatarUrl?: string;
 
-  // ─── Per-KB security toggles ──────────────────────────────────────────────
+  // ─── Per-source security toggles ───────────────────────────────────────────
   /** Can members view raw source document text? (default: true) */
   allowSourceViewing: boolean;
-  /** Can this KB's chunks be synced to member devices for Vault Mode? (default: true) */
+  /** Can this source's chunks be synced to member devices for Vault Mode? (default: true) */
   allowVaultSync: boolean;
-  /** Can members access this KB from outside the local network? (default: true) */
+  /** Can members access this source from outside the local network? (default: true) */
   allowExternalAccess: boolean;
 
   /** True when the underlying mKB dataset is being rebuilt (populated by API, not stored). */
@@ -108,8 +108,8 @@ export interface Document {
   datasetName?: string;
   /** PII warnings detected during ingestion — admin must approve before proceeding. */
   piiWarnings?: PIIWarning[];
-  /** FK to knowledge_bases.id — which KB this document belongs to. */
-  knowledgeBaseId?: string;
+  /** FK to data_sources.id — which data source this document belongs to. */
+  dataSourceId?: string;
 }
 
 // ─── Chunks ───────────────────────────────────────────────────────────────────
@@ -145,12 +145,12 @@ export interface Citation {
   pageNumber: number;
   /** The relevant passage from the chunk, shown inline. */
   excerpt: string;
-  /** Which knowledge base this citation came from (populated by query route). */
-  knowledgeBaseName?: string;
-  /** KB ID for avatar lookup (populated by query route). */
-  knowledgeBaseId?: string;
-  /** KB avatar URL (populated by query route, shown as mini icon in citations). */
-  knowledgeBaseAvatarUrl?: string;
+  /** Which data source this citation came from (populated by query route). */
+  dataSourceName?: string;
+  /** Data source ID for avatar lookup (populated by query route). */
+  dataSourceId?: string;
+  /** Data source avatar URL (populated by query route, shown as mini icon in citations). */
+  dataSourceAvatarUrl?: string;
   /** When the source document was last updated (ISO string, for freshness display). */
   documentUpdatedAt?: string;
 }
@@ -164,7 +164,7 @@ export interface AnswerResponse {
    */
   hasConfidentAnswer: boolean;
   sessionId: string;
-  /** Which datasets were searched (for multi-KB transparency). */
+  /** Which datasets were searched (for multi-source transparency). */
   searchedDatasets?: string[];
   /** Populated by the API route layer, not the orchestrator. */
   conversationId?: string;
@@ -309,7 +309,7 @@ export interface GroupChat {
   expiresAt?: Date;
   status: GroupChatStatus;
   members: GroupChatMember[];
-  sharedKBs: GroupChatSharedKB[];
+  sharedDataSources: GroupChatSharedDataSource[];
   threadCount?: number;
   messageCount?: number;
   createdAt: Date;
@@ -324,10 +324,10 @@ export interface GroupChatMember {
   joinedAt: Date;
 }
 
-export interface GroupChatSharedKB {
+export interface GroupChatSharedDataSource {
   id: string;
-  knowledgeBaseId: string;
-  knowledgeBaseName: string;
+  dataSourceId: string;
+  dataSourceName: string;
   sharedByEmail: string;
   sharedByName?: string;
   allowSourceViewing: boolean;
@@ -357,6 +357,10 @@ export interface GroupChatMessage {
 
 export type { ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult } from "./models.js";
 export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG, checkModelRAMFit } from "./models.js";
+
+// ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────
+
+export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshStatus } from "./mesh.js";
 
 // ─── mimik / Edge Config ──────────────────────────────────────────────────────
 

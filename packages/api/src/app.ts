@@ -22,7 +22,9 @@ import { orgRouter } from "./routes/org.js";
 import { groupChatsRouter } from "./routes/groupChats.js";
 import { groupChatQueryRouter } from "./routes/groupChatQuery.js";
 import { auditRouter } from "./routes/audit.js";
+import { meshRouter } from "./routes/mesh.js";
 import { config } from "./config.js";
+import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
 
 // ─── Session type augmentation ────────────────────────────────────────────────
@@ -67,7 +69,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:", "https://lh3.googleusercontent.com"],
+        imgSrc: ["'self'", "data:", "blob:", ...(OIDC_PROVIDERS[config.oidc.provider]?.imgSrcDomains ?? [])],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
@@ -229,6 +231,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
+  app.use("/api/mesh", meshRouter);
 
   // Serve avatar images
   app.use("/api/avatars", express.static(path.join(config.dataDir, "avatars"), {

@@ -48,7 +48,17 @@ export type AuditEventType =
   | "group_chat.kb_share"
   | "group_chat.kb_unshare"
   | "admin.settings_change"
-  | "export.audit_log";
+  | "export.audit_log"
+  | "mesh.init"
+  | "mesh.update"
+  | "mesh.leave"
+  | "mesh.token_regenerated"
+  | "mesh.node_registered"
+  | "mesh.node_updated"
+  | "mesh.node_removed"
+  | "mesh.group_created"
+  | "mesh.group_updated"
+  | "mesh.group_deleted";
 
 interface AuditEntry {
   id: string;

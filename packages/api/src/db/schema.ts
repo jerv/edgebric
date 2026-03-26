@@ -26,15 +26,15 @@ export const users = sqliteTable("users", {
   lastLoginAt: text("last_login_at"),
   authProvider: text("auth_provider"), // "google" | "microsoft" | "okta" | "onelogin" | "ping" | "generic"
   authProviderSub: text("auth_provider_sub"), // provider's unique sub claim
-  canCreateKBs: integer("can_create_kbs").default(0), // 0 = no, 1 = yes
+  canCreateDataSources: integer("can_create_data_sources").default(0), // 0 = no, 1 = yes
   canCreateGroupChats: integer("can_create_group_chats").default(0), // 0 = no, 1 = yes
   defaultGroupChatNotifLevel: text("default_group_chat_notif_level").default("all"), // "all" | "mentions" | "none"
   createdAt: text("created_at").notNull(),
 });
 
-// ─── Knowledge Bases ──────────────────────────────────────────────────────────
+// ─── Data Sources ──────────────────────────────────────────────────────────
 
-export const knowledgeBases = sqliteTable("knowledge_bases", {
+export const dataSources = sqliteTable("data_sources", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
@@ -46,7 +46,7 @@ export const knowledgeBases = sqliteTable("knowledge_bases", {
   status: text("status").notNull().default("active"), // active | archived
   accessMode: text("access_mode").notNull().default("all"), // all | restricted
   avatarUrl: text("avatar_url"),
-  // Per-KB security toggles (1 = allowed, 0 = blocked; default: all allowed)
+  // Per-source security toggles (1 = allowed, 0 = blocked; default: all allowed)
   allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
   allowVaultSync: integer("allow_vault_sync").notNull().default(1),
   allowExternalAccess: integer("allow_external_access").notNull().default(1),
@@ -54,11 +54,11 @@ export const knowledgeBases = sqliteTable("knowledge_bases", {
   updatedAt: text("updated_at").notNull(),
 });
 
-// ─── KB Access (for restricted KBs) ────────────────────────────────────────
+// ─── Data Source Access (for restricted sources) ────────────────────────────
 
-export const kbAccess = sqliteTable("kb_access", {
+export const dataSourceAccess = sqliteTable("data_source_access", {
   id: text("id").primaryKey(),
-  kbId: text("kb_id").notNull(),
+  dataSourceId: text("data_source_id").notNull(),
   email: text("email").notNull(),
   createdAt: text("created_at").notNull(),
 });
@@ -78,7 +78,7 @@ export const documents = sqliteTable("documents", {
   storageKey: text("storage_key").notNull(),
   datasetName: text("dataset_name"),
   piiWarnings: text("pii_warnings"), // JSON array of PIIWarning, null = none detected
-  knowledgeBaseId: text("knowledge_base_id"), // FK to knowledge_bases.id
+  dataSourceId: text("data_source_id"), // FK to data_sources.id
 });
 
 // ─── Chunk Registry ──────────────────────────────────────────────────────────
@@ -181,10 +181,10 @@ export const groupChatMembers = sqliteTable("group_chat_members", {
   joinedAt: text("joined_at").notNull(),
 });
 
-export const groupChatSharedKBs = sqliteTable("group_chat_shared_kbs", {
+export const groupChatSharedDataSources = sqliteTable("group_chat_shared_data_sources", {
   id: text("id").primaryKey(),
   groupChatId: text("group_chat_id").notNull(),
-  knowledgeBaseId: text("knowledge_base_id").notNull(),
+  dataSourceId: text("data_source_id").notNull(),
   sharedByEmail: text("shared_by_email").notNull(),
   allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
   expiresAt: text("expires_at"), // ISO string; NULL = permanent (no expiration)
@@ -234,6 +234,43 @@ export const auditLog = sqliteTable("audit_log", {
   details: text("details"), // JSON object with event-specific data
   prevHash: text("prev_hash").notNull(), // SHA-256 of previous entry (chain)
   hash: text("hash").notNull(), // SHA-256 of this entry
+});
+
+// ─── Mesh Networking ─────────────────────────────────────────────────────────
+
+export const meshConfig = sqliteTable("mesh_config", {
+  key: text("key").primaryKey().default("main"), // single-row table
+  enabled: integer("enabled").notNull().default(0), // 0 = disabled, 1 = enabled
+  role: text("role").notNull().default("primary"), // primary | secondary
+  primaryEndpoint: text("primary_endpoint"), // null if this IS the primary
+  meshToken: text("mesh_token").notNull(),
+  nodeId: text("node_id").notNull(),
+  nodeName: text("node_name").notNull(),
+  groupId: text("group_id"), // FK to node_groups.id
+  orgId: text("org_id").notNull(),
+});
+
+export const meshNodes = sqliteTable("mesh_nodes", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("secondary"), // primary | secondary
+  status: text("status").notNull().default("offline"), // online | offline | connecting
+  endpoint: text("endpoint").notNull(),
+  groupId: text("group_id"), // FK to node_groups.id
+  sourceCount: integer("source_count").notNull().default(0),
+  lastSeen: text("last_seen").notNull(),
+  version: text("version").notNull().default("0.0.0"),
+  orgId: text("org_id").notNull(),
+});
+
+export const nodeGroups = sqliteTable("node_groups", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  color: text("color").notNull().default("#3b82f6"), // blue default
+  orgId: text("org_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 // ─── Integration Config ──────────────────────────────────────────────────────
