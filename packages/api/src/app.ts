@@ -233,8 +233,8 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
+  app.use("/api/mesh/peer", meshInterNodeRouter); // before /api/mesh — peer routes use MeshToken auth, not session
   app.use("/api/mesh", meshRouter);
-  app.use("/api/mesh/peer", meshInterNodeRouter);
 
   // Serve avatar images
   app.use("/api/avatars", express.static(path.join(config.dataDir, "avatars"), {
