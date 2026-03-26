@@ -173,6 +173,7 @@ describe("Mesh API", () => {
       const res = await adminAgent(orgId).get("/api/mesh/nodes");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const node = res.body.find((n: any) => n.id === nodeId);
       expect(node).toBeDefined();
       expect(node.name).toBe("Branch Office");

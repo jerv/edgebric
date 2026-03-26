@@ -6,7 +6,7 @@ import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
-import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
+import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
@@ -20,7 +20,6 @@ import {
 } from "../services/conversationStore.js";
 import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { broadcastToUser } from "../services/notificationStore.js";
-import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { routedSearch, type RoutedSearchResult } from "../services/queryRouter.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";

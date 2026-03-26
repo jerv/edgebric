@@ -63,7 +63,8 @@ export function createAgent(sessionData: SessionData = {}) {
   // Create a wrapper app that injects session before delegating to the real app
   const wrapper = express();
 
-  wrapper.use((req: any, _res: any, next: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  wrapper.use((req: any, _res: express.Response, next: express.NextFunction) => {
     req.session = {
       queryToken: "queryToken" in sessionData ? sessionData.queryToken : "test-token",
       isAdmin: sessionData.isAdmin ?? false,
@@ -71,7 +72,9 @@ export function createAgent(sessionData: SessionData = {}) {
       name: sessionData.name ?? "Test User",
       orgId: sessionData.orgId,
       orgSlug: sessionData.orgSlug,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       save: (cb: any) => cb?.(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       destroy: (cb: any) => cb?.(),
     };
     next();
@@ -109,10 +112,8 @@ export function memberAgent(orgId: string, email = "member@test.com") {
  * Get a supertest agent with no authentication.
  */
 export function unauthAgent() {
-  return createAgent({
-    queryToken: undefined,
-    email: undefined,
-  } as any);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createAgent({ queryToken: undefined, email: undefined } as any);
 }
 
 /**

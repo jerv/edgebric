@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { setupTestApp, teardownTestApp, adminAgent, memberAgent, getDefaultOrgId } from "./helpers.js";
+import { setupTestApp, teardownTestApp, memberAgent, getDefaultOrgId } from "./helpers.js";
 import {
   createGroupChat,
   addMember,

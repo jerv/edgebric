@@ -36,6 +36,7 @@ describe("Conversations API", () => {
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
       // Verify conversation structure
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conv = res.body.find((c: any) => c.id === convId);
       expect(conv).toBeDefined();
       expect(conv.userEmail).toBe("member@test.com");

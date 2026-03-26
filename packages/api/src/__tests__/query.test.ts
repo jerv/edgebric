@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomUUID } from "crypto";
-import { setupTestApp, teardownTestApp, adminAgent, memberAgent, getDefaultOrgId } from "./helpers.js";
+import { setupTestApp, teardownTestApp, memberAgent, getDefaultOrgId } from "./helpers.js";
 import { setDocument } from "../services/documentStore.js";
 import { ensureDefaultDataSource } from "../services/dataSourceStore.js";
 import type { Document } from "@edgebric/types";

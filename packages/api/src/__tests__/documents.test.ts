@@ -48,6 +48,7 @@ describe("Documents API", () => {
       const res = await adminAgent(orgId).get("/api/documents");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const doc = res.body.find((d: any) => d.id === docId);
       expect(doc).toBeDefined();
       expect(doc.name).toBe("test-policy.md");
@@ -138,7 +139,7 @@ describe("Documents API", () => {
         sectionHeadings: [],
         storageKey: "/tmp/nonexistent-pii.md",
         dataSourceId: dsId,
-        piiWarnings: [{ type: "SSN", text: "123-45-6789", location: "page 1" }],
+        piiWarnings: [{ chunkIndex: 0, excerpt: "123-45-6789", pattern: "SSN" }],
       });
 
       const res = await adminAgent(orgId)
@@ -178,7 +179,7 @@ describe("Documents API", () => {
         sectionHeadings: [],
         storageKey: "/tmp/nonexistent-reject.md",
         dataSourceId: dsId,
-        piiWarnings: [{ type: "SSN", text: "999-99-9999", location: "page 2" }],
+        piiWarnings: [{ chunkIndex: 1, excerpt: "999-99-9999", pattern: "SSN" }],
       });
 
       const res = await adminAgent(orgId)

@@ -6,6 +6,7 @@ describe("GET /api/health", () => {
   afterAll(() => { teardownTestApp(); });
 
   it("returns minimal status for unauthenticated requests", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const agent = createAgent({ queryToken: undefined, email: undefined } as any);
     const res = await agent.get("/api/health");
     // Core checks (db + disk) are healthy in test env → 200
