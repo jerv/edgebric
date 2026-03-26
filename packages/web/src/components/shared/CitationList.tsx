@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Database, AlertTriangle } from "lucide-react";
+import { Database, AlertTriangle, Server } from "lucide-react";
 import type { Citation } from "@edgebric/types";
 
 /** Returns a relative time string like "3 months ago". */
@@ -46,6 +46,7 @@ function DSMiniAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string })
 interface GroupedCitation {
   dsName: string;
   dsAvatarUrl?: string;
+  sourceNodeName?: string;
   items: { citation: Citation; displayName: string }[];
 }
 
@@ -67,6 +68,7 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
         group = {
           dsName: citation.dataSourceName ?? "",
           dsAvatarUrl: citation.dataSourceAvatarUrl,
+          sourceNodeName: citation.sourceNodeName,
           items: [],
         };
         groupMap.set(dsKey, group);
@@ -87,6 +89,12 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
             <div className="flex items-center gap-1.5 mb-0.5">
               <DSMiniAvatar avatarUrl={group.dsAvatarUrl} name={group.dsName} />
               <span className="text-[11px] text-slate-400 dark:text-gray-500 font-medium">{group.dsName}</span>
+              {group.sourceNodeName && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0 text-[10px] text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-full">
+                  <Server className="w-2.5 h-2.5" />
+                  {group.sourceNodeName}
+                </span>
+              )}
             </div>
           )}
 
