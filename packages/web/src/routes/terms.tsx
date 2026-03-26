@@ -24,9 +24,11 @@ function TermsOfService() {
         <div className="mt-8 space-y-8 text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
           <Section title="1. Software license">
             <p>
-              Edgebric is licensed software provided to your organization under a commercial
-              license agreement. These terms govern your use of the Edgebric software and any
-              updates or documentation provided with it.
+              Edgebric is available in two modes. <strong>Solo mode</strong> is free for individual
+              use with no time limit, license key, or account required. <strong>Org mode</strong> (multi-user
+              with SSO authentication) requires a commercial license — either a perpetual license or
+              a monthly subscription. These terms govern your use of the Edgebric software in either
+              mode, along with any updates or documentation provided with it.
             </p>
           </Section>
 

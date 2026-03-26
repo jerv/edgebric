@@ -1,19 +1,93 @@
-import { useEffect, useRef, useCallback } from "react";
-import { getLoginUrl } from "@/lib/api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "@tanstack/react-router";
+import { getLoginUrl, getAuthProvider } from "@/lib/api";
 import Logo from "./shared/Logo";
 
-interface Ripple {
-  originX: number;
-  originY: number;
-  startTime: number;
-  speed: number; // px per frame
-  amplitude: number;
-  wavelength: number;
-  decay: number; // amplitude decay per px of radius
-  maxRadius: number;
+// ─── Provider Icons ────────────────────────────────────────────────────────
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
+      <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" />
+    </svg>
+  );
 }
 
+function MicrosoftIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  );
+}
+
+function OktaIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="11" stroke="#007DC1" strokeWidth="2" />
+      <circle cx="12" cy="12" r="5" fill="#007DC1" />
+    </svg>
+  );
+}
+
+function OneLoginIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#2C3E50" />
+      <text x="12" y="16.5" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold" fontFamily="system-ui">1</text>
+    </svg>
+  );
+}
+
+function PingIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="#B4202A" strokeWidth="2.5" />
+      <circle cx="12" cy="12" r="4" fill="#B4202A" />
+    </svg>
+  );
+}
+
+function GenericSSOIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      <circle cx="12" cy="16" r="1" />
+    </svg>
+  );
+}
+
+const PROVIDER_ICONS: Record<string, () => JSX.Element> = {
+  google: GoogleIcon,
+  microsoft: MicrosoftIcon,
+  okta: OktaIcon,
+  onelogin: OneLoginIcon,
+  ping: PingIcon,
+  generic: GenericSSOIcon,
+};
+
+// ─── Login Page ──────────────────────────────────────────────────────────────
+
 export function LoginPage() {
+  const [providerName, setProviderName] = useState("SSO");
+  const [providerId, setProviderId] = useState("generic");
+
+  useEffect(() => {
+    getAuthProvider().then(({ provider, providerName: name }) => {
+      setProviderId(provider);
+      setProviderName(name);
+    });
+  }, []);
+
+  const Icon = PROVIDER_ICONS[providerId] ?? GenericSSOIcon;
+
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-white dark:bg-gray-950">
       <DotGrid />
@@ -30,15 +104,15 @@ export function LoginPage() {
             href={getLoginUrl()}
             className="inline-flex items-center gap-3 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl px-5 py-3 text-sm font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 hover:border-slate-300 dark:hover:border-gray-600 transition-all shadow-sm"
           >
-            <GoogleIcon />
-            Sign in with Google
+            <Icon />
+            Sign in with {providerName}
           </a>
           <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-gray-500">
-            <a href="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</a>
+            <Link to="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</Link>
             <span>·</span>
-            <a href="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</a>
+            <Link to="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</Link>
             <span>·</span>
-            <a href="/acknowledgments" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Acknowledgments</a>
+            <Link to="/acknowledgments" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Acknowledgments</Link>
           </div>
         </div>
       </div>
@@ -46,18 +120,18 @@ export function LoginPage() {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4" />
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853" />
-      <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05" />
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335" />
-    </svg>
-  );
-}
-
 // ─── Animated Dot Grid with Ripple Physics ──────────────────────────────────
+
+interface Ripple {
+  originX: number;
+  originY: number;
+  startTime: number;
+  speed: number; // px per frame
+  amplitude: number;
+  wavelength: number;
+  decay: number; // amplitude decay per px of radius
+  maxRadius: number;
+}
 
 interface Dot {
   originX: number;

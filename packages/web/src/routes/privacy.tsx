@@ -58,7 +58,7 @@ function PrivacyPolicy() {
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
               <li>SQLite database (users, conversations, source metadata)</li>
               <li>Uploaded document files</li>
-              <li>Embedded vector data (via local mKB service)</li>
+              <li>Embedded vector data (via local vector database)</li>
               <li>Session files</li>
             </ul>
             <p className="mt-2">
@@ -70,9 +70,10 @@ function PrivacyPolicy() {
           <Section title="Third-party services">
             <p>
               By default, Edgebric uses <strong>no third-party services</strong>. All AI inference
-              runs on a local model (mILM). If your administrator configures a custom LLM endpoint
-              (e.g., an internal API gateway), queries will be sent to that endpoint — but this is
-              an explicit opt-in configuration controlled by your organization.
+              runs locally via Ollama, an open-source model runtime bundled with the application.
+              If your administrator configures a custom LLM endpoint (e.g., an internal API gateway),
+              queries will be sent to that endpoint — but this is an explicit opt-in configuration
+              controlled by your organization.
             </p>
           </Section>
 

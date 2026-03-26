@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { createRootRoute, Outlet, useRouter } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserContext } from "@/contexts/UserContext";
 import type { User } from "@/contexts/UserContext";
@@ -108,8 +108,11 @@ function OfflineBanner() {
   );
 }
 
+const PUBLIC_ROUTES = ["/privacy", "/terms", "/acknowledgments"];
+
 function RootInner() {
   const queryClient = useQueryClient();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: user, isLoading, isError } = useQuery<User | null>({
     queryKey: ["me"],
     queryFn: async () => {
@@ -122,6 +125,8 @@ function RootInner() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
   if (isLoading) {
     return (
@@ -142,6 +147,7 @@ function RootInner() {
   }
 
   if (!user) {
+    if (isPublicRoute) return <Outlet />;
     return <LoginPage />;
   }
 

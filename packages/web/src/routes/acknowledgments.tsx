@@ -35,7 +35,7 @@ function Acknowledgments() {
             name="mimik edgeEngine"
             license="MIT"
             url="https://github.com/mimikgit"
-            description="Edge computing platform providing mILM (inference), mKB (vector storage), and mAIChain (orchestration) microservices that form Edgebric's distributed AI backbone."
+            description="Edge computing platform providing mKB (vector storage) and mAIChain (orchestration) microservices for Edgebric's distributed knowledge retrieval."
           />
 
           <ProjectCard
@@ -85,6 +85,48 @@ function Acknowledgments() {
             license="MIT"
             url="https://github.com/tailwindlabs/tailwindcss"
             description="Utility-first CSS framework used for all Edgebric UI styling."
+          />
+
+          <ProjectCard
+            name="Radix UI"
+            license="MIT"
+            url="https://github.com/radix-ui/primitives"
+            description="Unstyled, accessible UI primitives powering Edgebric's dialogs, dropdowns, switches, and other interactive components."
+          />
+
+          <ProjectCard
+            name="TanStack Query"
+            license="MIT"
+            url="https://github.com/TanStack/query"
+            description="Data fetching and server state management for the web application."
+          />
+
+          <ProjectCard
+            name="Vite"
+            license="MIT"
+            url="https://github.com/vitejs/vite"
+            description="Build tool and development server for the web and desktop applications."
+          />
+
+          <ProjectCard
+            name="Zod"
+            license="MIT"
+            url="https://github.com/colinhacks/zod"
+            description="TypeScript-first schema validation used for input validation across the API."
+          />
+
+          <ProjectCard
+            name="Pino"
+            license="MIT"
+            url="https://github.com/pinojs/pino"
+            description="Low-overhead structured logging for the API server."
+          />
+
+          <ProjectCard
+            name="Mammoth"
+            license="BSD-2-Clause"
+            url="https://github.com/mwilliamson/mammoth.js"
+            description="Converts Word documents (.docx) to text for document ingestion."
           />
 
           <ProjectCard
