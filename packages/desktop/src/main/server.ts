@@ -65,7 +65,10 @@ function publishMdns(hostname: string, port: number) {
   if (!hostname.endsWith(".local")) return;
 
   try {
-    bonjourInstance = new Bonjour();
+    bonjourInstance = new Bonjour(undefined, (err: Error) => {
+      // Swallow mDNS errors (e.g. EADDRNOTAVAIL after sleep/wake)
+      console.warn("mDNS error (non-fatal):", err.message);
+    });
     const name = hostname.replace(/\.local$/, "");
     bonjourInstance.publish({
       name,
@@ -395,7 +398,9 @@ export function readLogs(lines = 100): string {
 export function discoverInstances(timeoutMs = 5000): Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>> {
   return new Promise((resolve) => {
     const found: Array<{ name: string; host: string; port: number; addresses: string[] }> = [];
-    const browser = new Bonjour();
+    const browser = new Bonjour(undefined, (err: Error) => {
+      console.warn("mDNS discovery error (non-fatal):", err.message);
+    });
 
     const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
       found.push({

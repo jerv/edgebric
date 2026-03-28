@@ -10,6 +10,21 @@ function getAppIcon(): Electron.NativeImage {
   return nativeImage.createFromPath(iconPath);
 }
 
+// Catch unhandled errors so mDNS/network glitches don't crash the app
+process.on("uncaughtException", (err) => {
+  // EADDRNOTAVAIL = network interface unavailable (sleep/wake, disconnected wifi)
+  // These are transient and safe to swallow.
+  if (err.message?.includes("EADDRNOTAVAIL") || err.message?.includes("ENETUNREACH")) {
+    console.warn("Transient network error (ignored):", err.message);
+    return;
+  }
+  console.error("Uncaught exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.warn("Unhandled rejection:", reason);
+});
+
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
