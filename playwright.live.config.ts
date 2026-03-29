@@ -14,6 +14,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e-live",
+  globalSetup: "./e2e-live/global-setup.ts",
   fullyParallel: false, // sequential — tests build on each other
   retries: 0,
   workers: 1,
@@ -24,10 +25,8 @@ export default defineConfig({
     baseURL: process.env["EDGEBRIC_URL"] ?? "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    // Extra headers for solo mode (AUTH_MODE=none auto-authenticates)
-    extraHTTPHeaders: {
-      "Content-Type": "application/json",
-    },
+    // No global Content-Type — multipart uploads need their own content type.
+    // JSON requests set Content-Type per-call via helpers.
   },
 
   projects: [

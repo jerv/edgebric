@@ -60,13 +60,13 @@ export function parseSSE(body: string): SSEEvent[] {
 /** Extract the final answer from SSE events. */
 export function extractAnswer(events: SSEEvent[]): QueryResult {
   const deltas = events.filter((e) => e.type === "delta" || ("delta" in e.data));
-  const doneEvent = events.find((e) => e.type === "done" || "sessionId" in e.data);
+  const doneEvent = events.find((e) => e.type === "done");
 
   const streamedAnswer = deltas.map((e) => e.data.delta as string).join("");
   const finalData = doneEvent?.data ?? {};
 
   return {
-    answer: (finalData.answer as string) ?? streamedAnswer,
+    answer: (finalData.answer as string) ?? (finalData.content as string) ?? streamedAnswer,
     citations: (finalData.citations as QueryResult["citations"]) ?? [],
     hasConfidentAnswer: (finalData.hasConfidentAnswer as boolean) ?? false,
     conversationId: finalData.conversationId as string | undefined,
@@ -178,10 +178,10 @@ export async function groupChatQuery(
   chatId: string,
   text: string,
 ): Promise<QueryResult> {
-  const res = await request.fetch(`/api/group-chats/${chatId}/query`, {
+  const res = await request.fetch(`/api/group-chats/${chatId}/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    data: JSON.stringify({ query: text }),
+    data: JSON.stringify({ content: `@bot ${text}` }),
     timeout: 120_000,
   });
 
