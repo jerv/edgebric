@@ -48,3 +48,4 @@ spikes/spike-docling/test-docs/*.md
 /tmp/edgebric-e2e/
 # SQLite databases (dev artifacts)
 *.db
+e2e-live/benchmark/results/
