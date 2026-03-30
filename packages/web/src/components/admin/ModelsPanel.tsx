@@ -15,7 +15,7 @@ import {
   useUnloadModel,
   useSwitchModel,
 } from "@/hooks/useModels";
-import { RAMBar, DiskBar, formatBytes } from "@/components/shared/ResourceBars";
+import { RAMBar, formatBytes } from "@/components/shared/ResourceBars";
 import type { InstalledModel, RAMFitResult } from "@edgebric/types";
 import { EMBEDDING_MODEL_TAG, checkModelRAMFit } from "@edgebric/types";
 
@@ -176,7 +176,6 @@ export function ModelsPanel() {
         <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-gray-800 px-5 py-4">
           <h2 className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-gray-500">System Resources</h2>
           <RAMBar models={loadedModels} embeddingModel={embeddingModel} system={system} />
-          <DiskBar system={system} />
         </div>
 
         {/* Your Models — single list like desktop */}
