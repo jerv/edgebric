@@ -45,7 +45,7 @@
 - Legal teams (contract playbooks, regulatory guidance on dedicated legal node)
 - IT helpdesk teams (internal runbooks, system documentation)
 - Finance teams (expense policy, procurement guidelines on finance node)
-- Multi-office organizations (federated knowledge across locations via mimik mesh)
+- Multi-office organizations (federated knowledge across locations via peer-to-peer mesh)
 
 ---
 
@@ -150,7 +150,7 @@
 
 > As an administrator, I want to manage which data sources run on which devices, so I can enforce department-level data isolation.
 
-- I see all Edgebric nodes discovered on the network via the mimik mesh
+- I see all Edgebric nodes discovered on the network via mDNS
 - Each node shows its device info, status, and which data sources it hosts
 - I assign data sources to nodes: "Legal data source runs on the legal department's Mac Mini"
 - The mesh handles discovery and routing — I don't configure IP addresses or network routes
@@ -176,10 +176,11 @@
 
 > As an IT administrator, I want to deploy Edgebric nodes on our infrastructure with minimal configuration and no external dependencies.
 
-- I install the mimik mim OE runtime on each device that will host data sources
-- Employee devices on the network discover Edgebric nodes automatically via the mimik edge service mesh — no IP configuration required
-- For a single-node deployment: one command, one device, done
-- For a multi-node deployment: install on additional devices, they auto-discover via mesh
+- I install the Edgebric desktop app on each device that will host data sources
+- The app auto-manages Ollama (download, start, stop) for local AI inference
+- Employee devices on the network discover Edgebric nodes automatically via mDNS — no IP configuration required
+- For a single-node deployment: one app install, one device, done
+- For a multi-node deployment: install on additional devices, they auto-discover via mDNS
 - I can view device health, resource usage, and uptime from the admin panel
 - I can revoke individual device tokens if a device is lost or an employee leaves
 

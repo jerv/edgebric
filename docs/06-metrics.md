@@ -75,10 +75,9 @@
 
 | Metric | Target | Notes |
 |---|---|---|
-| Three-device demo | MacBook + 2 iPhones, cross-device query with citations | Core demo moment |
-| Auto-discovery demo | Device joins mesh, advertises source, queryable in < 10 seconds | mimik platform showcase |
-| Graceful degradation demo | Pull one phone off network → query returns "unavailable" for that source → reconnect → auto-rediscovers | Resilience showcase |
+| Multi-device demo | Multiple devices, cross-device query with citations | Core demo moment |
+| Auto-discovery demo | Device joins mesh, advertises source, queryable in < 10 seconds | Platform showcase |
+| Graceful degradation demo | Pull one device off network → query returns "unavailable" for that source → reconnect → auto-rediscovers | Resilience showcase |
 | Meeting mode demo | Create session → share code → join → cross-domain query → session end | Daily-use value demo |
 | Architecture explanation | Zero external dependency demonstrated in 60 seconds | For compliance/security audience |
-| "Why mimik" explanation | "This product literally cannot exist without the mesh" in 30 seconds | For mimik leadership |
 | Competitive differentiation | "No competitor offers distributed physical isolation + meeting mode" in 30 seconds | For investors/partners |

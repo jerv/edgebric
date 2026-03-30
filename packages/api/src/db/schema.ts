@@ -84,7 +84,7 @@ export const documents = sqliteTable("documents", {
 // ─── Chunk Registry ──────────────────────────────────────────────────────────
 
 export const chunks = sqliteTable("chunks", {
-  // mKB-assigned chunkId, e.g. "knowledge-base-0"
+  // Sequential chunkId, e.g. "knowledge-base-0"
   chunkId: text("chunk_id").primaryKey(),
   sourceDocument: text("source_document").notNull(),
   documentName: text("document_name"),

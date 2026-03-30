@@ -119,7 +119,6 @@ pnpm dev
 - Web runs on `http://localhost:5173` (Vite dev server with hot reload)
 - Config: `packages/api/.env` (copy from `.env.example`)
 - Database: local SQLite in `packages/api/data/`
-- Edge runtime: mimik mim OE on `localhost:8083`
 - Chat model: Ollama on `localhost:11434` (auto-managed by desktop app)
 
 ### Development (Docker)

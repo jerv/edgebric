@@ -19,8 +19,6 @@ import {
 } from "../services/nodeRegistry.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
-import { createMKBClient } from "@edgebric/edge";
-import { runtimeEdgeConfig } from "../config.js";
 import { config } from "../config.js";
 import { OIDC_PROVIDERS } from "../lib/oidcProviders.js";
 import { logger } from "../lib/logger.js";
@@ -86,8 +84,7 @@ meshInterNodeRouter.post("/search", validateBody(searchSchema), async (req, res)
     }
 
     // Run the hybrid search
-    const mkb = createMKBClient(runtimeEdgeConfig);
-    const { results } = await hybridMultiDatasetSearch(mkb, targetDatasets, query, topN);
+    const { results } = await hybridMultiDatasetSearch(targetDatasets, query, topN);
 
     // Map to mesh response format — never include raw content beyond the chunk text
     // Derive dataset name from chunkId (format: "{datasetName}-{index}")

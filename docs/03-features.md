@@ -2,7 +2,7 @@
 
 Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
-**Demo** is the minimum required to demonstrate the distributed architecture to mimik. **MVP** is a shippable product. **V2** is the growth roadmap.
+**Demo** is the minimum required to demonstrate the distributed architecture. **MVP** is a shippable product. **V2** is the growth roadmap.
 
 ---
 
@@ -65,7 +65,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 **Demo**
 - [ ] Natural language question input
-- [ ] RAG pipeline: embed query → retrieve top-k chunks → generate grounded answer
+- [ ] RAG pipeline: embed query → hybrid search (BM25 + vector via sqlite-vec) → generate grounded answer
 - [ ] Answer displayed with inline source citation: document name, section, page number
 - [ ] Streaming response via SSE
 - [x] Conversation context maintained across sessions (persistent multi-turn via SQLite)
@@ -92,23 +92,23 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ### Device Discovery & Mesh
 
 **Demo**
-- [ ] mimik mDNS-based auto-discovery of Edgebric nodes on local network
+- [ ] mDNS-based auto-discovery of Edgebric nodes on local network
 - [ ] Node registry: each node advertises its available data sources
 - [ ] Health status per node (online / offline / degraded)
 - [ ] Graceful degradation: queries to offline nodes return "unavailable" with explanation
 
 **MVP**
-- [ ] Supernode election (mimik handles this) — coordinator node for query routing
+- [ ] Coordinator election — coordinator node for query routing
 - [ ] Cross-device query routing: query travels to relevant data source node(s), results return to requester
 - [ ] Multi-node response synthesis: answers drawn from multiple data sources are merged with per-data-source citations
 - [ ] Node auto-reconnection: returning device re-joins mesh automatically
 - [ ] Admin node management dashboard: view all nodes, their data sources, and status
 
 **V2**
-- [ ] Multi-office federation via mimik account-based clustering (same account, different networks)
+- [ ] Multi-office federation via account-based clustering (same account, different networks)
 - [ ] Data source replication for high-availability (same data source on multiple nodes)
 - [ ] Load balancing across nodes with same data source
-- [ ] Cross-network mesh via mimik proximity clustering
+- [ ] Cross-network mesh via proximity clustering
 
 ### Department / Security Isolation
 
@@ -254,10 +254,10 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ## 3.9 iOS Companion App
 
 **Demo**
-- [ ] iOS app with mimik mim OE runtime embedded (CocoaPods: EdgeCore + mim-OE-ai-SE-iOS-developer)
-- [ ] App hosts mKB locally — functions as a data source node in the mesh
+- [ ] iOS app with Ollama-compatible local inference
+- [ ] App hosts sqlite-vec locally — functions as a data source node in the mesh
 - [ ] Upload documents to on-device data source from iOS Files / Photos
-- [ ] Auto-discovery: app joins the mesh and advertises its data sources
+- [ ] Auto-discovery: app joins the mesh via mDNS and advertises its data sources
 - [ ] Join meeting sessions via room code
 - [ ] Opt in device-local data sources to meeting session
 
@@ -276,14 +276,14 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ## 3.10 Deployment & Infrastructure
 
 **Demo**
-- [ ] Runs on mimik mim OE runtime on macOS
+- [ ] Runs on macOS with Ollama for inference and sqlite-vec for vector storage
 - [ ] Single-device setup: one command to start
-- [ ] Multi-device demo: MacBook coordinator + iPhone knowledge nodes
+- [ ] Multi-device demo: MacBook coordinator + additional knowledge nodes
 - [ ] Configuration via environment file
 
 **MVP**
 - [ ] Admin setup wizard: organization name, admin credentials, first data source creation
-- [ ] Automatic device discovery via mimik edge service mesh
+- [ ] Automatic device discovery via mDNS
 - [ ] Works fully offline after initial setup
 - [ ] macOS, Linux support
 - [ ] Docker Compose for single-node deployment
@@ -291,7 +291,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **V2**
 - [ ] Windows support
 - [ ] Health dashboard: node status, resource usage, uptime across all mesh devices
-- [ ] Automatic mim OE runtime updates
+- [ ] Automatic Ollama updates (with rollback)
 - [ ] Pre-configured appliance image (flash to Mac Mini, plug in, done)
 
 ---

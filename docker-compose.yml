@@ -27,9 +27,9 @@ services:
       - PORT=3001
       - DATA_DIR=/app/data
       - FRONTEND_URL=http://localhost:3001
-      # mimik edge runtime runs on the HOST, not in the container.
-      - MIMIK_BASE_URL=${MIMIK_BASE_URL:-http://host.docker.internal:8083}
-      - CHAT_BASE_URL=${CHAT_BASE_URL:-http://host.docker.internal:8080/v1}
+      # Ollama runs on the HOST, not in the container.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - CHAT_BASE_URL=${CHAT_BASE_URL:-http://host.docker.internal:11434/v1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

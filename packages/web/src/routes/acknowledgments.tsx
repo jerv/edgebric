@@ -32,13 +32,6 @@ function Acknowledgments() {
           />
 
           <ProjectCard
-            name="mimik edgeEngine"
-            license="MIT"
-            url="https://github.com/mimikgit"
-            description="Edge computing platform providing mKB (vector storage) and mAIChain (orchestration) microservices for Edgebric's distributed knowledge retrieval."
-          />
-
-          <ProjectCard
             name="React"
             license="MIT"
             url="https://github.com/facebook/react"

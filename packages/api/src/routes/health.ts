@@ -1,8 +1,9 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { execSync } from "child_process";
-import { runtimeEdgeConfig, runtimeChatConfig, config } from "../config.js";
+import { runtimeChatConfig, config } from "../config.js";
 import { getQueueStats } from "../services/inferenceQueue.js";
+import { getSqlite } from "../db/index.js";
 
 export const healthRouter: IRouter = Router();
 
@@ -32,7 +33,7 @@ healthRouter.get("/", async (req, res) => {
   // Database check — if we got here, express is running and DB was initialized
   checks.database = { status: "ok" };
 
-  // mILM / chat inference check
+  // Ollama inference check
   try {
     const t = Date.now();
     const resp = await fetch(`${runtimeChatConfig.baseUrl}/models`, {
@@ -49,21 +50,20 @@ healthRouter.get("/", async (req, res) => {
     };
   }
 
-  // mKB check
+  // Vector store check (sqlite-vec)
   try {
     const t = Date.now();
-    const resp = await fetch(`${runtimeEdgeConfig.baseUrl}/api/mkb/v1/datasets`, {
-      headers: { authorization: `bearer ${runtimeEdgeConfig.apiKey}` },
-      signal: AbortSignal.timeout(5000),
-    });
+    const sqlite = getSqlite();
+    const row = sqlite.prepare("SELECT COUNT(*) as cnt FROM chunks_vec").get() as { cnt: number };
     checks.vectorStore = {
-      status: resp.ok ? "ok" : "degraded",
+      status: "ok",
       latencyMs: Date.now() - t,
+      detail: `${row.cnt} vectors`,
     };
   } catch (err) {
     checks.vectorStore = {
       status: "unavailable",
-      error: err instanceof Error ? err.message : "Connection failed",
+      error: err instanceof Error ? err.message : "sqlite-vec check failed",
     };
   }
 

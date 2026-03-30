@@ -1,29 +1,25 @@
-# Demo Plan — mimik Leadership
+# Demo Plan — Edgebric
 
 ---
 
 ## Context
 
-**Who:** mimik leadership team — demonstrating that the mimik edge platform enables products that couldn't exist any other way.
+**Core message:** Edgebric demonstrates that a distributed, privacy-first knowledge platform can work entirely on local hardware using Ollama for AI inference and sqlite-vec for vector search — with no cloud dependencies.
 
-**Core message:** mimik has impressive technology — device discovery, edge microservices, local AI, cross-device routing — but thin developer ecosystem and no reference applications. This demo shows why the platform matters to real users.
-
-**What NOT to claim:** Don't overstate platform discoveries. Focus on what was built and why it requires mimik. Let the product speak for itself.
-
-**Language that resonates with mimik:** "device-first," "agentic," "data sovereignty," "zero-config," "autonomous nodes," "mesh-native," "privacy by architecture."
+**What NOT to claim:** Don't overstate capabilities. Focus on what was built and why the distributed architecture matters. Let the product speak for itself.
 
 ---
 
 ## Demo Setup
 
 ### Hardware
-- **MacBook** — Coordinator node. Runs: mim OE Runtime, mILM (Qwen3.5-4B), mKB, API server, web app
-- **iPhone A** — Source node. Runs: iOS app with mim OE Runtime, mKB with "Marketing Campaign" source
-- **iPhone B** — Source node. Runs: iOS app with mim OE Runtime, mKB with "Legal Compliance" source
+- **MacBook** — Coordinator node. Runs: Ollama (Qwen3.5-4B), sqlite-vec, API server, web app
+- **Device A** — Source node. Runs: Edgebric with Ollama, sqlite-vec with "Marketing Campaign" source
+- **Device B** — Source node. Runs: Edgebric with Ollama, sqlite-vec with "Legal Compliance" source
 
 ### Network
-- WiFi hotspot from one device (MacBook or iPhone)
-- All 3 devices on same network for mDNS discovery
+- WiFi hotspot from one device (MacBook or phone)
+- All devices on same network for mDNS discovery
 - No corporate network or internet required for the demo itself
 
 ### Pre-Loaded Data
@@ -34,14 +30,14 @@
 - Technical specifications and API changes
 - ~15-20 chunks, realistic content
 
-**iPhone A Source: "Marketing — Campaign Brief"**
+**Device A Source: "Marketing — Campaign Brief"**
 - Campaign messaging and positioning for the Q3 launch
 - Target audience descriptions
 - Marketing claims and value propositions
 - Social media copy drafts
 - ~10-15 chunks
 
-**iPhone B Source: "Legal — Compliance Checklist"**
+**Device B Source: "Legal — Compliance Checklist"**
 - Regulatory requirements for product claims
 - Advertising compliance rules
 - Data privacy requirements for marketing materials
@@ -67,33 +63,33 @@ Current solutions force a choice: centralize everything in one place (security r
 1. Open admin dashboard, show the "Engineering — Release Notes" source
 2. Switch to employee view, ask: "What features are shipping in Q3?"
 3. Show the answer streaming in with citations (document name, section, page)
-4. Point out: "Everything here — the AI model, the vector database, the documents — is running on this MacBook. No cloud. No API calls to OpenAI. Fully local."
+4. Point out: "Everything here — the AI model running on Ollama, the vector database in sqlite-vec, the documents — is running on this MacBook. No cloud. No API calls to OpenAI. Fully local."
 
 "This is the foundation. A single device running local AI over local sources. Privacy by architecture — the data literally can't leave because there's nowhere for it to go. But this is just one device with one team's source."
 
 ### Act 3: The Mesh — Devices Discover Each Other (2 minutes)
 
-**Show:** Turn on iPhone A, launch the Edgebric iOS app.
+**Show:** Turn on Device A, launch Edgebric.
 
-1. iPhone A starts mimik runtime, joins the mesh
+1. Device A starts Ollama, joins the mesh via mDNS
 2. On MacBook admin dashboard: show the new node appearing automatically
-3. "No IP addresses configured. No setup wizard. The phone found the MacBook through mimik's mDNS mesh — the same kind of zero-config discovery that makes AirDrop work."
-4. Show iPhone A's "Marketing Campaign" source in the node dashboard
+3. "No IP addresses configured. No setup wizard. The device found the MacBook through mDNS — the same kind of zero-config discovery that makes AirDrop work."
+4. Show Device A's "Marketing Campaign" source in the node dashboard
 
-**Show:** Turn on iPhone B, launch the app.
+**Show:** Turn on Device B, launch Edgebric.
 
-5. Second phone appears in the mesh
+5. Second device appears in the mesh
 6. "Now we have three autonomous source nodes, each with their own data, each discovered automatically."
 
-"This is mimik's edge mesh in action. Each device is an autonomous node running its own AI services. They found each other without any configuration. The Marketing source lives on Alice's phone. The Legal source lives on Carol's phone. The Engineering source lives on this MacBook. Nothing has been copied anywhere."
+"Each device is an autonomous node running its own Ollama instance and sqlite-vec database. They found each other without any configuration. The Marketing source lives on Device A. The Legal source lives on Device B. The Engineering source lives on this MacBook. Nothing has been copied anywhere."
 
 ### Act 4: Meeting Mode — The Magic Moment (3-4 minutes)
 
 **Show:** Create a meeting session on the MacBook.
 
 1. Click "Create Session" — room code appears: "LAUNCH-Q3"
-2. On iPhone A: enter room code "LAUNCH-Q3" → joins session
-3. On iPhone B: enter room code "LAUNCH-Q3" → joins session
+2. On Device A: enter room code "LAUNCH-Q3" → joins session
+3. On Device B: enter room code "LAUNCH-Q3" → joins session
 4. Show participant list with their data sources
 5. Each participant opts in their data sources (show the granular toggles)
 
@@ -107,33 +103,33 @@ Current solutions force a choice: centralize everything in one place (security r
    - Engineering source: "Feature Y is actually launching in Q4, not Q3..."
 9. Citations show which source each piece of information came from
 
-"One question. Three devices. Three different departments' sources. The answer synthesizes information that no single team had alone. And here's the key: **no data moved**. The marketing documents are still only on Alice's phone. The legal documents are still only on Carol's phone. The question traveled to each device, each device searched its own source locally, and only the relevant answer fragments came back to be synthesized.
+"One question. Three devices. Three different departments' sources. The answer synthesizes information that no single team had alone. And here's the key: **no data moved**. The marketing documents are still only on Device A. The legal documents are still only on Device B. The question traveled to each device, each device searched its own source locally, and only the relevant answer fragments came back to be synthesized.
 
-This is what mimik's mesh makes possible. Without the mesh, you'd need a central server holding all three teams' documents. Which means one compromised server exposes everything. With the mesh, a compromised phone only exposes that one team's source — because the other teams' data was never there."
+Without the mesh, you'd need a central server holding all three teams' documents. Which means one compromised server exposes everything. With the mesh, a compromised device only exposes that one team's source — because the other teams' data was never there."
 
 ### Act 5: Resilience (1-2 minutes)
 
-**Show:** Pull iPhone B off the network (turn off WiFi or Airplane mode).
+**Show:** Pull Device B off the network (turn off WiFi or Airplane mode).
 
 1. Ask another question: "What are the key dates for the Q3 launch?"
-2. Answer comes back from MacBook + iPhone A only
+2. Answer comes back from MacBook + Device A only
 3. Show the graceful message: "Legal Compliance source is currently unavailable"
 4. "The system didn't crash. It didn't hang. It told you exactly what's missing and gave you the best answer it could from the available nodes."
 
-**Show:** Bring iPhone B back online.
+**Show:** Bring Device B back online.
 
-5. Phone reconnects to mesh automatically
+5. Device reconnects to mesh automatically
 6. "And it's back. No restart needed. No re-configuration. The mesh healed itself."
 
-### Act 6: Why mimik (1-2 minutes)
+### Act 6: Why This Architecture Matters (1-2 minutes)
 
-"Let me be direct about why this matters for mimik.
+"Let me be direct about why this architecture matters.
 
-mimik has incredible technology — device discovery, edge microservices, local AI, cross-device routing. But the developer ecosystem is thin and there are no reference applications that show why any of this matters to a real user.
+Edgebric runs entirely on local hardware. Ollama handles AI inference. sqlite-vec handles vector search. mDNS handles device discovery. HTTP handles cross-device communication. No cloud, no proprietary runtime, no vendor lock-in.
 
-This product is that reference application. It's not a chatbot with mimik bolted on. Without mimik's mesh, this product requires a central server that defeats its own privacy promise. The mesh IS the product architecture. Device discovery, cross-device queries, session-scoped sharing — these are mimik primitives that enable something no competitor offers.
+The mesh architecture IS the product's privacy guarantee. Device discovery, cross-device queries, session-scoped sharing — these are what enable something no competitor offers.
 
-No one in the market — not Glean, not Moveworks, not Leena AI — offers distributed physical data isolation with cross-device knowledge synthesis. Because none of them have a mesh platform."
+No one in the market — not Glean, not Moveworks, not Leena AI — offers distributed physical data isolation with cross-device knowledge synthesis."
 
 ### Act 7: End Session + Close (1 minute)
 
@@ -141,7 +137,7 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 2. Show: ephemeral sharing dissolved. Data sources are private again.
 3. "The meeting's over. The sharing is gone. No data was ever copied. Each device still has exactly what it started with."
 
-"Data never moves. Queries move. That's the product. And that's what mimik makes possible."
+"Data never moves. Queries move. That's the product."
 
 ---
 
@@ -165,15 +161,15 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 
 ## Pre-Demo Checklist
 
-- [ ] All 3 devices charged and on same WiFi network
-- [ ] MacBook: mim OE runtime running, API server started, web app accessible
+- [ ] All devices charged and on same WiFi network
+- [ ] MacBook: Ollama running, API server started, web app accessible
 - [ ] MacBook: "Engineering — Release Notes" source uploaded and indexed
-- [ ] iPhone A: iOS app installed, mim OE runtime starts cleanly
-- [ ] iPhone A: "Marketing Campaign" source pre-loaded and indexed
-- [ ] iPhone B: iOS app installed, mim OE runtime starts cleanly
-- [ ] iPhone B: "Legal Compliance" source pre-loaded and indexed
+- [ ] Device A: Edgebric installed, Ollama running
+- [ ] Device A: "Marketing Campaign" source pre-loaded and indexed
+- [ ] Device B: Edgebric installed, Ollama running
+- [ ] Device B: "Legal Compliance" source pre-loaded and indexed
 - [ ] Test all 5 demo questions — verify they produce good cross-source answers
-- [ ] Test graceful degradation (pull one phone, query, reconnect)
+- [ ] Test graceful degradation (pull one device, query, reconnect)
 - [ ] Test session create/join/end flow end-to-end
 - [ ] Browser DevTools network tab ready (to show zero external calls)
 - [ ] Clean browser state (no distracting tabs/bookmarks)
@@ -185,10 +181,10 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 | Risk | Mitigation |
 |---|---|
 | WiFi hotspot drops | Have a backup hotspot ready. Demo works on any shared network. |
-| iPhone app crashes on launch | Pre-launch apps before meeting. Have a video recording of the demo as backup. |
-| mILM inference is slow | Use Qwen3.5-4B not 9B. Pre-warm the model before demo (ask one question beforehand). |
+| App crashes on launch | Pre-launch apps before meeting. Have a video recording of the demo as backup. |
+| Ollama inference is slow | Use Qwen3.5-4B not 9B. Pre-warm the model before demo (ask one question beforehand). |
 | Cross-device query timeout | Set generous timeout (30s). Have a fallback question that only queries 2 nodes. |
-| mKB returns no results | Pre-test every demo question. Keep backup questions that are known-good. |
+| sqlite-vec returns no results | Pre-test every demo question. Keep backup questions that are known-good. |
 | Mesh discovery takes too long | Pre-join mesh before demo starts. The "auto-discovery" moment can be shown via the admin dashboard node list refreshing. |
 
 ---
@@ -196,21 +192,8 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 ## What to Bring to the Meeting
 
 1. MacBook (fully charged, demo ready)
-2. iPhone A (fully charged, app installed, source loaded)
-3. iPhone B (fully charged, app installed, source loaded)
+2. Device A (fully charged, app installed, source loaded)
+3. Device B (fully charged, app installed, source loaded)
 4. Charger for MacBook
 5. One-page product overview (printed or PDF) — not a slide deck
-6. Business card
-7. Architecture diagram (the three-mode diagram from 04-technical.md, printed)
-
----
-
-## Post-Demo Conversation Points
-
-If mimik leadership is interested, be ready to discuss:
-
-1. **What mimik APIs were used:** mILM, mKB, MCM, mDNS discovery, iOS SDK (CocoaPods)
-2. **What worked well:** device discovery, mKB vector search, mILM OpenAI compatibility
-3. **What could be improved:** mAIChain documentation, mKB chunk deletion API, developer onboarding
-4. **Product vision:** distributed source platform for any industry — HR is the flagship, but the architecture serves any sensitive knowledge domain
-5. **Market opportunity:** zero competitors offer distributed mesh + physical data isolation + meeting mode. mimik's "so what" problem is a product problem, not a technology problem. This product answers "so what."
+6. Architecture diagram (the three-mode diagram from 04-technical.md, printed)

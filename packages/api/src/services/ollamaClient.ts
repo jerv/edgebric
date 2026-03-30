@@ -234,6 +234,33 @@ export function getSystemResources(): SystemResources {
   return { ramTotalBytes, ramAvailableBytes, diskFreeBytes, diskTotalBytes };
 }
 
+// ─── Embeddings ──────────────────────────────────────────────────────────────
+
+/** Generate an embedding vector for the given text using Ollama. */
+export async function embed(text: string, model?: string): Promise<number[]> {
+  const resp = await fetch(`${baseUrl()}/api/embeddings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model ?? config.ollama.embeddingModel,
+      prompt: text,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new OllamaError(`Failed to generate embedding: ${body}`, resp.status);
+  }
+
+  const data = (await resp.json()) as { embedding: number[] };
+  if (!data.embedding || data.embedding.length === 0) {
+    throw new OllamaError("Empty embedding response from Ollama", 500);
+  }
+
+  return data.embedding;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**

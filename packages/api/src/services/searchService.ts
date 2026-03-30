@@ -1,6 +1,6 @@
 import type { SearchResult } from "@edgebric/core/rag";
-import type { MKBClient } from "@edgebric/edge";
-import { lookupChunk } from "./chunkRegistry.js";
+import { lookupChunk, vectorSearch } from "./chunkRegistry.js";
+import { embed } from "./ollamaClient.js";
 import { getSqlite } from "../db/index.js";
 import { logger } from "../lib/logger.js";
 
@@ -149,46 +149,28 @@ export interface HybridSearchResult extends SearchResult {
 }
 
 /**
- * Search across multiple mKB datasets with hybrid BM25+vector retrieval.
+ * Search across multiple datasets with hybrid BM25+vector retrieval.
  *
  * Pipeline:
- * 1. Fan out vector search to all datasets in parallel
- * 2. Run BM25 keyword search via FTS5 in parallel
- * 3. Merge with Reciprocal Rank Fusion
- * 4. Enrich with chunk metadata from registry
+ * 1. Embed the query via Ollama
+ * 2. Run vector search via sqlite-vec across all datasets
+ * 3. Run BM25 keyword search via FTS5 in parallel
+ * 4. Merge with Reciprocal Rank Fusion
  * 5. Apply adaptive top-K
  */
 export async function hybridMultiDatasetSearch(
-  mkb: MKBClient,
   datasetNames: string[],
   queryText: string,
   maxCandidates = 20,
 ): Promise<{ results: HybridSearchResult[]; candidateCount: number; hybridBoost: boolean }> {
-  // 1. Vector search across all datasets (in parallel)
-  const vectorPromise = Promise.all(
-    datasetNames.map(async (ds) => {
-      try {
-        return await mkb.search(ds, queryText, maxCandidates);
-      } catch {
-        return [];
-      }
-    }),
-  );
+  // 1. Embed the query
+  const queryEmbedding = await embed(queryText);
 
-  // 2. BM25 search (synchronous, sub-millisecond)
+  // 2. Vector search via sqlite-vec (searches all datasets at once)
+  const vectorResults = vectorSearch(queryEmbedding, datasetNames, maxCandidates);
+
+  // 3. BM25 search (synchronous, sub-millisecond)
   const bm25Results = bm25Search(queryText, maxCandidates);
-
-  const vectorResultSets = await vectorPromise;
-
-  // Flatten and enrich vector results with metadata
-  const vectorResults = vectorResultSets.flat().flatMap((r) => {
-    const stored = lookupChunk(r.chunkId);
-    if (stored) return [{ ...r, metadata: stored }];
-    return []; // Orphaned chunk — skip
-  });
-
-  // Sort vector results by similarity
-  vectorResults.sort((a, b) => b.similarity - a.similarity);
 
   // Build a map of chunk texts for BM25-only results
   const chunkTexts = new Map<string, string>();
@@ -196,7 +178,7 @@ export async function hybridMultiDatasetSearch(
     chunkTexts.set(r.chunkId, r.chunk);
   }
 
-  // 3. Merge with RRF
+  // 4. Merge with RRF
   let finalResults: HybridSearchResult[];
   let hybridBoost = false;
 
@@ -218,7 +200,7 @@ export async function hybridMultiDatasetSearch(
 
   const candidateCount = finalResults.length;
 
-  // 4. Apply adaptive top-K based on score distribution
+  // 5. Apply adaptive top-K based on score distribution
   const scores = finalResults.map((r) => r.rrfScore ?? r.similarity);
   const k = adaptiveTopK(scores);
   finalResults = finalResults.slice(0, k);

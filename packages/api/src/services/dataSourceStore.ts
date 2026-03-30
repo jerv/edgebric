@@ -37,7 +37,7 @@ export function createDataSource(opts: {
   const db = getDb();
   const id = randomUUID();
   const now = new Date().toISOString();
-  // Generate a unique mKB dataset name from the data source name
+  // Generate a unique dataset name prefix for chunk IDs
   const datasetName = opts.datasetName ?? `ds-${id.slice(0, 8)}`;
 
   db.insert(dataSources)
@@ -194,7 +194,7 @@ export function archiveDataSource(id: string): DataSource | undefined {
   return getDataSource(id);
 }
 
-/** Hard delete a data source. Does NOT delete the mKB dataset or files — caller must handle that. */
+/** Hard delete a data source. Does NOT delete chunks or files — caller must handle that. */
 export function deleteDataSource(id: string): void {
   const db = getDb();
   db.delete(dataSourceAccess).where(eq(dataSourceAccess.dataSourceId, id)).run();

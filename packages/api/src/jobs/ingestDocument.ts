@@ -1,30 +1,23 @@
 import { chunkMarkdown, detectPII } from "@edgebric/core/ingestion";
-import { createMILMClient, createMKBClient } from "@edgebric/edge";
-import { runtimeEdgeConfig } from "../config.js";
-import { registerChunks, clearChunksForDocument } from "../services/chunkRegistry.js";
+import { embed } from "../services/ollamaClient.js";
+import { registerChunks, clearChunksForDocument, getChunkCountForDataset } from "../services/chunkRegistry.js";
 import { setDocument } from "../services/documentStore.js";
 import { refreshDocumentCount } from "../services/dataSourceStore.js";
 import { extractDocument } from "./extractors.js";
 import { logger } from "../lib/logger.js";
 import type { Document } from "@edgebric/types";
 
-const milm = createMILMClient(runtimeEdgeConfig);
-const mkb = createMKBClient(runtimeEdgeConfig);
-
 /**
  * Background ingestion job.
  *
  * Flow:
  * 1. Read file from disk
- * 2. Extract text (Docling/Mammoth/pass-through — TODO: full extraction in spike)
+ * 2. Extract text (Mammoth for docx, pass-through for txt/md)
  * 3. Chunk the extracted markdown
  * 4. Run PII detection
- * 5. Embed each chunk via mILM
- * 6. Upload embedded chunks to mKB
+ * 5. Embed each chunk via Ollama
+ * 6. Store chunks with embeddings in SQLite (metadata + FTS5 + sqlite-vec)
  * 7. Update document status
- *
- * For MVP, text extraction is a placeholder — the spike will determine
- * the exact Docling integration (Python subprocess or JS wrapper).
  */
 export async function ingestDocument(
   doc: Document,
@@ -60,44 +53,34 @@ export async function ingestDocument(
 
     // Use data-source-scoped dataset name, or fall back to the legacy shared dataset.
     const datasetName = options?.datasetName ?? "knowledge-base";
-    await mkb.createDataset(datasetName); // no-op if already exists
 
     // Clear any previous registry entries for this document (handles re-ingestion)
     clearChunksForDocument(doc.id);
 
-    // Snapshot chunk count before upload so we can compute the mKB-assigned chunkIds.
-    // mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially
-    // across all uploads to the dataset.
-    const startIndex = await mkb.getDatasetChunkCount(datasetName);
+    // Get current chunk count for this dataset to compute sequential chunkIds.
+    // ChunkIds are assigned as "{datasetName}-{index}" sequentially.
+    const startIndex = getChunkCountForDataset(datasetName);
     logger.info({ docName: doc.name, startIndex, chunkCount: chunks.length }, "Ingesting document");
 
-    // Embed each chunk
-    const embeddedChunks: Array<{ text: string; embedding: number[] }> = [];
+    // Embed each chunk via Ollama
+    const embeddings: number[][] = [];
     for (const chunk of chunks) {
-      const embedding = await milm.embed(chunk.content);
-      embeddedChunks.push({ text: chunk.content, embedding });
-    }
-    await mkb.uploadChunks(datasetName, embeddedChunks);
-
-    // Verify post-upload count matches expectations
-    const postCount = await mkb.getDatasetChunkCount(datasetName);
-    const actualStartIndex = postCount - chunks.length;
-    if (actualStartIndex !== startIndex) {
-      logger.warn(
-        { expected: startIndex, actual: actualStartIndex },
-        "Chunk ID offset mismatch — using actual",
-      );
+      const embedding = await embed(chunk.content);
+      embeddings.push(embedding);
     }
 
-    // Register chunkId → metadata so the query route can build accurate citations.
-    // mKB v1.3.0 does not persist custom metadata, so we maintain this in SQLite.
-    // Also stores parent content for parent-child retrieval and populates FTS5 for BM25 search.
+    // Store chunks with metadata, content, and embeddings in SQLite.
+    // This populates three tables atomically:
+    //   - chunks (metadata + encrypted content)
+    //   - chunks_fts (FTS5 full-text index for BM25)
+    //   - chunks_vec (sqlite-vec embeddings for semantic search)
     registerChunks(
       datasetName,
-      actualStartIndex,
+      startIndex,
       chunks.map((c) => ({ ...c.metadata, documentName: doc.name })),
       chunks.map((c) => c.content),
       chunks.map((c) => c.metadata.parentContent ?? c.content),
+      embeddings,
     );
 
     // Update document record

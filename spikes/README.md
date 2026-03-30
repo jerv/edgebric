@@ -6,36 +6,36 @@ Throwaway experiments that answer specific technical questions. Each spike is se
 
 ---
 
-## Spike 1 — mILM (`spike-milm/`)
+## Spike 1 — Ollama Inference
 
 **Question:** Does Qwen3-4B run on available hardware? What's the actual throughput? Does streaming match OpenAI format?
 
 **Do this first.** If the model is too slow, we need to know before building anything else.
 
-**Status:** Not started
+**Status:** PASS
 
 ---
 
-## Spike 2 — mKB (`spike-mkb/`)
+## Spike 2 — sqlite-vec
 
-**Question:** Exactly what JSON structure does mKB expect? Does similarity search return useful scores?
+**Question:** Does sqlite-vec handle our vector storage needs? What's the query latency on 50K chunks? How does it integrate with the existing SQLite database?
 
-**Status:** Not started
+**Status:** PASS
 
 ---
 
-## Spike 3 — Docling (`spike-docling/`)
+## Spike 3 — Docling
 
 **Question:** Does Docling actually handle complex HR PDFs? Tables, multi-column layouts, scanned pages?
 
-**Status:** Not started
+**Status:** PASS
 
 ---
 
-## Spike 4 — End-to-End RAG (`spike-rag/`)
+## Spike 4 — End-to-End RAG
 
-**Question:** Does the full pipeline produce correct, cited answers from a real policy document?
+**Question:** Does the full pipeline (Ollama embeddings → sqlite-vec storage → hybrid search with FTS5 → Ollama generation) produce correct, cited answers from a real policy document?
 
 **This is the most important spike.** Run it before building any UI.
 
-**Status:** Not started
+**Status:** PASS

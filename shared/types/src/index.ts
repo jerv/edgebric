@@ -63,7 +63,7 @@ export interface DataSource {
   ownerId: string;
   /** Resolved display name of the owner (populated by API, not stored). */
   ownerName?: string;
-  /** The mKB dataset name for this data source. */
+  /** The dataset name prefix for chunk IDs in this data source. */
   datasetName: string;
   documentCount: number;
   status: DataSourceStatus;
@@ -79,7 +79,7 @@ export interface DataSource {
   /** Can members access this source from outside the local network? (default: true) */
   allowExternalAccess: boolean;
 
-  /** True when the underlying mKB dataset is being rebuilt (populated by API, not stored). */
+  /** True when the dataset is being rebuilt (populated by API, not stored). */
   rebuilding?: boolean;
 
   createdAt: Date;
@@ -104,7 +104,7 @@ export interface Document {
   sectionHeadings: string[];
   /** Path on disk relative to the data directory. */
   storageKey: string;
-  /** Populated after processing; the mKB dataset name for this document. */
+  /** Populated after processing; the dataset name for this document's chunks. */
   datasetName?: string;
   /** PII warnings detected during ingestion — admin must approve before proceeding. */
   piiWarnings?: PIIWarning[];
@@ -116,7 +116,7 @@ export interface Document {
 
 export interface ChunkMetadata {
   sourceDocument: string;
-  /** Human-readable filename, populated during ingest and stored in mKB chunk metadata. */
+  /** Human-readable filename, populated during ingest and stored in chunk metadata. */
   documentName?: string;
   /** Breadcrumb path, e.g. ["Benefits", "Health Insurance", "Deductibles"] */
   sectionPath: string[];
@@ -132,7 +132,7 @@ export interface Chunk {
   documentId: string;
   content: string;
   metadata: ChunkMetadata;
-  /** Reference to the stored vector in mKB after embedding. */
+  /** Reference to the stored vector after embedding. */
   embeddingId?: string;
 }
 
@@ -393,11 +393,3 @@ export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisible
 
 export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshStatus } from "./mesh.js";
 
-// ─── mimik / Edge Config ──────────────────────────────────────────────────────
-
-export interface EdgeConfig {
-  baseUrl: string;
-  apiKey: string;
-  milmModel: string;
-  embeddingModel: string;
-}

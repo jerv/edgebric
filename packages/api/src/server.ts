@@ -96,7 +96,7 @@ async function start() {
     }
   }
 
-  // Purge orphaned chunk registry entries (documents deleted while mKB retains chunks)
+  // Purge orphaned chunk registry entries (source document deleted)
   {
     const { purgeOrphanedChunks } = await import("./services/chunkRegistry.js");
     const purged = purgeOrphanedChunks();
@@ -158,7 +158,7 @@ async function start() {
           port: config.port,
           host: config.listenHost,
           corsOrigin: config.frontendUrl,
-          edgeBaseUrl: config.edge.baseUrl,
+
           adminEmails: config.adminEmails,
         }, `Edgebric API running on https://${config.listenHost}:${config.port}`);
       })
@@ -167,7 +167,7 @@ async function start() {
           port: config.port,
           host: config.listenHost,
           corsOrigin: config.frontendUrl,
-          edgeBaseUrl: config.edge.baseUrl,
+
           adminEmails: config.adminEmails,
         }, `Edgebric API running on http://${config.listenHost}:${config.port}`);
       });

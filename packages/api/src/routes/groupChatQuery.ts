@@ -2,19 +2,18 @@ import { Router } from "express";
 import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
 import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
-import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import type { ChatMessage } from "@edgebric/core/rag";
 import type { Session, SessionMessage, Citation } from "@edgebric/types";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
-import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getDocument } from "../services/documentStore.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
+import { createChatClient } from "../services/ollamaChatClient.js";
 import {
   getGroupChat,
   isMember,
@@ -31,16 +30,9 @@ import {
   getGroupChatNotifLevel,
 } from "../services/notificationStore.js";
 
-// ─── Clients ──────────────────────────────────────────────────────────────────
+// ─── Chat Client ──────────────────────────────────────────────────────────────
 
-const mkb = createMKBClient(runtimeEdgeConfig);
-const chatEdgeConfig = {
-  get baseUrl() { return runtimeChatConfig.baseUrl; },
-  get apiKey() { return runtimeChatConfig.apiKey; },
-  get milmModel() { return runtimeChatConfig.model; },
-  embeddingModel: runtimeEdgeConfig.embeddingModel,
-};
-const chatClient = createMILMClient(chatEdgeConfig, "");
+const chatClient = createChatClient();
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -380,7 +372,6 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
 
     // Hybrid BM25+vector search with optional reranking
     const { results: searchResults, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
-      mkb,
       datasetNames,
       query,
       20,

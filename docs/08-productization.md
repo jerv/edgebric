@@ -8,7 +8,7 @@ What separates the current working demo from a shippable product.
 
 ### What Works Today
 - OIDC/SSO authentication (Google dev IdP)
-- Document upload → Docling extraction → chunking → embedding → mKB storage
+- Document upload → Docling extraction → chunking → embedding via Ollama → sqlite-vec storage
 - RAG query pipeline with SSE streaming and citations
 - Admin dashboard with source management, user management
 - Employee query interface with conversation persistence
@@ -67,7 +67,7 @@ What separates the current working demo from a shippable product.
 
 **9. Health Check Endpoint**
 - Currently: none
-- Needed: `GET /api/health` returns status of API, mILM, mKB connectivity
+- Needed: `GET /api/health` returns status of API, Ollama connectivity
 - Effort: Small
 
 **10. Docker Deployment**

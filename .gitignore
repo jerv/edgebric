@@ -19,24 +19,12 @@ shared/*/src/**/*.d.ts.map
 *.tar
 *.zip
 *.gguf
-# mimik model files (large binaries)
+# Model files (large binaries)
 spikes/*/models/
-# Local mimik config
-scripts/mimik.local.env
 # Runtime data (DB, sessions, uploads)
 packages/api/data/
 # TanStack Router build cache
 packages/web/.tanstack/
-# Developer licenses (personal credentials, not for repo)
-scripts/binaries/edgeEngine/mimikEdge.lic
-scripts/binaries/mim-OE-ai/mimikEdge.lic
-# edgeEngine binary (large, download from GitHub releases)
-scripts/binaries/edgeEngine/edge
-# mim OE AI runtime artifacts (binaries, tokens, credentials)
-scripts/binaries/mim-OE-ai/.access_token
-scripts/binaries/mim-OE-ai/.edge/
-scripts/binaries/mim-OE-ai/.milm_api_key
-scripts/binaries/mim-OE-ai/mim
 # Large test PDFs/outputs — generated artifacts
 spikes/spike-docling/test-docs/*.pdf
 spikes/spike-docling/test-docs/*.md

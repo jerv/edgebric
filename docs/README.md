@@ -2,7 +2,7 @@
 
 **Name:** Edgebric
 **Status:** Active development — v0.5 beta
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-29
 
 ---
 
@@ -27,9 +27,8 @@
 
 ## Quick Summary
 
-Edgebric is a privacy-first, on-premise AI assistant that answers questions from a company's own policy and knowledge documents — running entirely on company infrastructure via mimik's edge platform. Zero data leaves the building.
+Edgebric is a privacy-first, on-premise AI knowledge platform that answers questions from a company's own policy and knowledge documents — running entirely on company hardware using Ollama for local AI inference and sqlite-vec for vector search. Zero data leaves the building.
 
-**Hero use case:** HR — the highest-stakes trust environment in any company.
-**Platform:** Anything sensitive enough to need it.
+**Platform:** Any sensitive knowledge domain — HR, legal, compliance, finance, IT, and beyond.
 
-> *"If it's private enough for HR, it's private enough for anything."*
+> *"Data never moves. Queries move."*

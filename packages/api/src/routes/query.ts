@@ -3,11 +3,9 @@ import type { Router as IRouter } from "express";
 import { z } from "zod";
 import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
-import { createMILMClient, createMKBClient } from "@edgebric/edge";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
-import { runtimeEdgeConfig, runtimeChatConfig } from "../config.js";
 import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
@@ -93,21 +91,9 @@ function checkQueryRateLimit(email: string): { allowed: boolean; retryAfterMs?: 
 
 export const queryRouter: IRouter = Router();
 
-// mkb + embeddings always use mILM
-const mkb = createMKBClient(runtimeEdgeConfig);
-
-// Chat uses llama-server (or mILM fallback) via runtimeChatConfig.
-// Build an EdgeConfig-compatible proxy so the MILM client reads the right endpoint.
-// llama-server uses standard OpenAI paths (/v1/chat/completions) — not mILM's /api/mim/v1.
-// CHAT_BASE_URL includes the full base path (e.g. http://127.0.0.1:8080/v1),
-// so we pass an empty basePath to avoid doubling it.
-const chatEdgeConfig = {
-  get baseUrl() { return runtimeChatConfig.baseUrl; },
-  get apiKey() { return runtimeChatConfig.apiKey; },
-  get milmModel() { return runtimeChatConfig.model; },
-  embeddingModel: runtimeEdgeConfig.embeddingModel,
-};
-const chatClient = createMILMClient(chatEdgeConfig, "");
+// Chat client — uses Ollama's OpenAI-compatible API for streaming inference.
+import { createChatClient } from "../services/ollamaChatClient.js";
+const chatClient = createChatClient();
 
 queryRouter.use(requireOrg);
 
@@ -192,11 +178,8 @@ function resolveTargetDatasets(
 }
 
 /**
- * Search across multiple mKB datasets with hybrid BM25+vector retrieval,
- * optional cross-encoder reranking, adaptive top-K, and mesh fan-out.
- *
- * When mesh is enabled, queries also fan out to remote nodes and results
- * are merged by similarity score.
+ * Search with hybrid BM25+vector retrieval, optional cross-encoder
+ * reranking, adaptive top-K, and mesh fan-out.
  */
 async function searchWithHybrid(
   datasetNames: string[],
@@ -204,7 +187,6 @@ async function searchWithHybrid(
   meshGroupId?: string,
 ): Promise<{ results: RoutedSearchResult[]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
   const { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await routedSearch(
-    mkb,
     datasetNames,
     queryText,
     20, // Retrieve 20 candidates for reranking/adaptive-K

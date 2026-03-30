@@ -70,7 +70,7 @@ export async function setupCommand() {
   console.log();
 
   // Optional: Chat model config
-  const configureLLM = await confirm("Configure a custom LLM endpoint? (default: use local mILM)", false);
+  const configureLLM = await confirm("Configure a custom LLM endpoint? (default: use local Ollama)", false);
   let chatBaseUrl: string | undefined;
   let chatModel: string | undefined;
   if (configureLLM) {

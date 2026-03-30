@@ -17,7 +17,7 @@ import {
   updateDataSource,
 } from "../services/dataSourceStore.js";
 
-// Mock the search service — we don't want real mKB calls
+// Mock the search service — we don't want real Ollama/sqlite-vec calls
 vi.mock("../services/searchService.js", () => ({
   hybridMultiDatasetSearch: vi.fn().mockResolvedValue({
     results: [
@@ -38,11 +38,6 @@ vi.mock("../services/searchService.js", () => ({
   }),
 }));
 
-// Mock the edge client factory (must include all exports used transitively)
-vi.mock("@edgebric/edge", () => ({
-  createMKBClient: vi.fn(() => ({})),
-  createMILMClient: vi.fn(() => ({})),
-}));
 
 /**
  * Create a supertest agent for mesh peer requests.

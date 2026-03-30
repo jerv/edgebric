@@ -15,14 +15,13 @@ Private knowledge platform for organizations. Upload sensitive documents, ask qu
 
 ## Architecture
 
-Monorepo with five packages:
+Monorepo with four packages:
 
 | Package | Description |
 |---------|-------------|
 | `packages/api` | Express API server (TypeScript, SQLite via Drizzle ORM) |
 | `packages/web` | Vite + React + TanStack Router frontend |
 | `packages/core` | RAG orchestrator, system prompt, PII detection |
-| `packages/edge` | mimik edge platform clients (mILM, mKB) |
 | `packages/desktop` | Electron menu bar app — server manager, setup wizard, tray icon |
 | `shared/types` | Shared TypeScript types (including model catalog) |
 
@@ -31,8 +30,9 @@ Monorepo with five packages:
 - **Auth**: OIDC/SSO (Google for dev, any OIDC provider for prod)
 - **Sessions**: httpOnly cookies with session-file-store
 - **AI**: Ollama-managed models (Qwen 3 4B default, supports any Ollama model). OpenAI-compatible API.
-- **Embeddings**: nomic-embed-text (768-dim) via Ollama or mimik mKB
-- **Storage**: SQLite (Drizzle ORM) for metadata, mKB for vector search
+- **Embeddings**: nomic-embed-text (768-dim) via Ollama
+- **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval
+- **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and FTS5 in one file
 - **Frontend**: Vite, React 18, TailwindCSS, shadcn/ui components
 
 ## Getting Started
@@ -44,7 +44,6 @@ Monorepo with five packages:
 - Python 3.10+ with `docling` (for PDF extraction)
 - An OIDC provider (Google OAuth for dev) — not needed for Solo mode
 - Ollama (auto-managed by desktop app, or install manually)
-- mimik edgeEngine with mKB + mILM (optional — can use Ollama alone)
 
 ### Setup (Desktop App — recommended)
 
@@ -92,11 +91,10 @@ pnpm dev
 | `FRONTEND_URL` | Frontend URL for redirects (e.g., `http://localhost:5173`) |
 | `ADMIN_EMAILS` | Comma-separated admin email addresses |
 | `SESSION_SECRET` | Secret for signing session cookies |
+| `OLLAMA_BASE_URL` | Ollama API endpoint (default: `http://localhost:11434`) |
 | `CHAT_BASE_URL` | LLM endpoint (default: `http://localhost:11434/v1` for Ollama) |
 | `CHAT_MODEL` | Model name for chat completions (default: `qwen3:4b`) |
-| `OLLAMA_BASE_URL` | Ollama API endpoint (default: `http://localhost:11434`) |
-| `MIMIK_BASE_URL` | mimik edgeEngine URL (default: `http://localhost:8083`) |
-| `MIMIK_API_KEY` | mimik API key for mILM/mKB |
+| `EMBEDDING_MODEL` | Embedding model (default: `nomic-embed-text`) |
 
 ## Project Structure
 
@@ -104,10 +102,10 @@ pnpm dev
 packages/
   api/
     src/
-      db/           # SQLite schema and connection (Drizzle ORM)
+      db/           # SQLite schema and connection (Drizzle ORM + sqlite-vec)
       middleware/    # Auth guards (requireAuth, requireOrg, requireAdmin)
       routes/       # Express route handlers
-      services/     # Data access layer (stores), including ollamaClient
+      services/     # Data access layer (stores), Ollama client, search
       jobs/         # Background jobs (document ingestion)
       lib/          # Logger, utilities
   web/
@@ -119,8 +117,6 @@ packages/
   core/
     src/
       rag/          # RAG orchestrator, system prompt, query filter
-  edge/
-    src/            # mimik mILM and mKB HTTP clients
   desktop/
     src/
       main/         # Electron main process (tray, server, ollama, config, IPC)
@@ -136,4 +132,4 @@ scripts/            # Dev utilities (restart-desktop.sh)
 
 ## License
 
-Proprietary. All rights reserved.
+MIT

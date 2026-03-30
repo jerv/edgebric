@@ -5,7 +5,6 @@
  * the local search. Results are merged by similarity score and deduplicated.
  * When mesh is disabled, this is a passthrough to the local search.
  */
-import type { MKBClient } from "@edgebric/edge";
 import { isMeshEnabled, getMeshConfig } from "./nodeRegistry.js";
 import { searchAllNodes } from "./meshClient.js";
 import { hybridMultiDatasetSearch, type HybridSearchResult } from "./searchService.js";
@@ -31,14 +30,12 @@ export interface RoutedSearchResponse {
 /**
  * Search local data sources and, if mesh is enabled, remote nodes too.
  *
- * @param mkb - mKB client for local searches
  * @param localDatasetNames - dataset names to search locally
  * @param queryText - the user's query
  * @param maxCandidates - max results per source (local + each remote node)
  * @param meshGroupId - optional: restrict remote search to a specific node group
  */
 export async function routedSearch(
-  mkb: MKBClient,
   localDatasetNames: string[],
   queryText: string,
   maxCandidates = 20,
@@ -49,7 +46,7 @@ export async function routedSearch(
 
   // Always run local search
   const localPromise = localDatasetNames.length > 0
-    ? hybridMultiDatasetSearch(mkb, localDatasetNames, queryText, maxCandidates)
+    ? hybridMultiDatasetSearch(localDatasetNames, queryText, maxCandidates)
     : Promise.resolve({ results: [] as HybridSearchResult[], candidateCount: 0, hybridBoost: false });
 
   // If mesh is enabled, fan out to remote nodes in parallel

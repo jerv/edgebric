@@ -8,9 +8,9 @@ Phase 1 and Phase 2 (productization) are complete. The single-node product is fu
 - **packages/api/** — Express backend with OIDC auth, SQLite + Drizzle, multi-data-source management, group chat routes, SSE streaming, document upload + Docling extraction + ingestion
 - **packages/web/** — Vite + React + TanStack Router, admin dashboard (Data Sources, user management), employee query interface, group chats with threads, conversation management, onboarding wizard, privacy modes
 - **packages/core/** — Chunker, PII detector, query filter, system prompt, RAG orchestrator
-- **packages/edge/** — mimik API wrappers (mILM, mKB)
+- **packages/edge/** — Ollama API client, sqlite-vec integration
 - **shared/types/** — TypeScript interfaces
-- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via mILM → store in mKB → multi-data-source query → SSE stream → citations with data source attribution
+- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via Ollama → store in sqlite-vec → hybrid search (BM25 + vector) → SSE stream → citations with data source attribution
 - **Security:** 4 passes of hardening, rate limiting, structured logging (pino), org-scoping, input validation (Zod), CSRF, CSP, helmet
 - **Privacy:** Private mode (anonymous queries) + Vault mode (fully on-device with AES-256-GCM, Ollama)
 - **Org model:** Multi-org scoping, user/admin roles, OIDC/SSO, invite flow, onboarding wizard
@@ -23,11 +23,11 @@ Phase 1 and Phase 2 (productization) are complete. The single-node product is fu
 ## Phase Sequencing
 
 ```
-Phase 1: Foundation — Multi-data-source, auth, org model, security, privacy  ✅ COMPLETE
-Phase 2: Productization — Hardening, testing, validation, deployment         ✅ COMPLETE
-Phase 3: Group Chats — Collaborative data source sharing + threads           ✅ COMPLETE
+Phase 1: Foundation — Multi-data-source, auth, org model, security, privacy  COMPLETE
+Phase 2: Productization — Hardening, testing, validation, deployment         COMPLETE
+Phase 3: Group Chats — Collaborative data source sharing + threads           COMPLETE
 Phase 4: Integrations — Slack bot, email notifications                   NEXT
-Phase 5: Distributed — Mesh networking + cross-node queries              ✅ COMPLETE (M1-M5, M7)
+Phase 5: Distributed — Mesh networking + cross-node queries              COMPLETE (M1-M5, M7)
 Phase 6: Meeting Mode — Ephemeral sessions + room codes                  (the daily-use hook)
 ```
 
@@ -35,7 +35,7 @@ V1/beta is macOS-only. Mobile apps, Android, and cross-platform are V2+.
 
 ---
 
-## Phase 2 — Productization ✅ COMPLETE
+## Phase 2 — Productization COMPLETE
 
 See [08-productization.md](08-productization.md) for details. Summary of what shipped:
 - CLI (`edgebric`) with setup wizard, start/stop/status/logs commands
@@ -50,7 +50,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 
 ---
 
-## Phase 3 — Group Chats: Collaborative Data Source Sharing ✅ COMPLETE
+## Phase 3 — Group Chats: Collaborative Data Source Sharing COMPLETE
 
 **Goal:** Enable collaborative knowledge work where multiple people share data sources, discuss, and query the bot together. Replaces the old escalation system with a natural collaboration model.
 
@@ -124,7 +124,7 @@ See [08-productization.md](08-productization.md) for details. Summary of what sh
 
 ```typescript
 interface MeshNode {
-  id: string;                    // mimik device ID
+  id: string;                    // device ID
   name: string;                  // human-readable label
   type: "coordinator" | "data-source-node";
   status: "online" | "offline";
@@ -134,7 +134,7 @@ interface MeshNode {
 }
 ```
 
-- Uses mimik mDNS for automatic device discovery on local network
+- Uses mDNS for automatic device discovery on local network
 - Tracks which data sources are on which nodes
 - Updates status on heartbeat/timeout
 - Exposes `GET /api/nodes` for admin dashboard
@@ -144,11 +144,11 @@ interface MeshNode {
 **`packages/api/src/services/queryRouter.ts`:**
 
 - Looks up which nodes host the target data sources
-- For local data sources: direct mKB search
-- For remote data sources: HTTP request through mimik mesh to the remote node's search endpoint
+- For local data sources: direct sqlite-vec + FTS5 hybrid search
+- For remote data sources: HTTP request to the remote node's search endpoint
 - Parallel fan-out to all relevant nodes
 - Collects results, tags with source node + data source name
-- Passes merged results to mILM on coordinator for synthesis
+- Passes merged results to Ollama on coordinator for synthesis
 - Graceful degradation: if a node is unreachable, query proceeds with available nodes
 
 ### 5.3 — Remote Search Endpoint
@@ -176,15 +176,15 @@ These claims MUST be verified before Phase 5 ships. Each is a pass/fail test.
 - [ ] A query on Node A that searches a data source on Node B never copies chunk data to Node A's disk or database
 - [ ] After a cross-device query, Node A holds only the synthesized answer and citation metadata — not the raw chunks
 - [ ] Disconnecting Node B from the network makes its data sources immediately unsearchable from Node A (no cached data served)
-- [ ] Node B's mKB search endpoint is only reachable through the mimik mesh — not exposed on a public port
+- [ ] Node B's search endpoint is only reachable through the mesh — not exposed on a public port
 
 **Discovery & availability:**
-- [ ] Two Macs on the same LAN running mim OE discover each other within 30 seconds without manual configuration
+- [ ] Two Macs on the same LAN discover each other within 30 seconds without manual configuration
 - [ ] A node going offline is detected (heartbeat timeout) and marked offline in the registry within 60 seconds
 - [ ] A query targeting an offline node returns results from available nodes with a clear indication that some data sources were unavailable
 
 **Query correctness:**
-- [ ] A cross-device query returns the same chunks as querying each node's mKB directly (no results lost in fan-out/merge)
+- [ ] A cross-device query returns the same chunks as querying each node's sqlite-vec directly (no results lost in fan-out/merge)
 - [ ] Citations from cross-device queries include the source node and data source name
 - [ ] Parallel fan-out does not duplicate results when the same document exists on multiple nodes
 
@@ -237,7 +237,7 @@ POST   /api/sessions/:id/end      # End session (creator only)
 2. Server identifies all shared data sources across all participants
 3. Router fans out query to each node hosting a shared data source
 4. Results collected and merged with per-data-source citations
-5. mILM generates synthesized answer on coordinator
+5. Ollama generates synthesized answer on coordinator
 6. Answer streamed to all session participants via SSE
 7. Session transcript optionally saved
 
@@ -277,18 +277,17 @@ POST   /api/sessions/:id/end      # End session (creator only)
 
 ## Phase 7 — Mobile: iOS & Android Companion Apps
 
-**Goal:** Native mobile apps that run mimik mim OE Runtime, host local data sources, and function as data source nodes in the mesh.
+**Goal:** Native mobile apps that host local data sources and function as data source nodes in the mesh.
 
 ### 7.1 — iOS App
 
 - Swift/SwiftUI, iOS 16.0+
-- CocoaPods: `EdgeCore` + `mim-OE-ai-SE-iOS-developer`
-- Start/stop mimik runtime on app launch
+- Local Ollama-compatible inference or data-source-only mode
 - Create vault data source, upload documents from Files app
-- mKB search endpoint accessible to mesh peers
+- sqlite-vec search endpoint accessible to mesh peers
 - Join meeting session via room code
 - Data source sharing toggle per session
-- No local inference — phone is a data source node, not an inference node
+- No local inference required — phone is a data source node, not necessarily an inference node
 
 ### 7.2 — Android App (V2)
 
@@ -306,13 +305,13 @@ edgebric/
 │   ├── core/          # Business logic — ingestion, RAG, PII detection. Zero deps.
 │   ├── api/           # Express server — REST endpoints, SSE, group chats, integrations
 │   ├── web/           # React (Vite + TanStack Router + shadcn/ui) — all UIs
-│   ├── edge/          # mimik API client — mILM, mKB, mAIChain, mesh discovery
-│   └── desktop/       # macOS installer app (Electron/Tauri menu bar + setup wizard)
+│   ├── edge/          # Ollama API client, sqlite-vec integration, mesh discovery
+│   └── desktop/       # macOS installer app (Electron menu bar + setup wizard)
 ├── shared/
 │   └── types/         # TypeScript interfaces shared across packages
 ├── spikes/            # Completed throwaway experiments (all 4 spikes PASS)
-├── scripts/           # Dev setup, deploy helpers, mimik binary management
-├── docs/              # Product documentation (01-09)
+├── scripts/           # Dev setup helpers
+├── docs/              # Product documentation (01-12)
 ├── test-data/         # Example data sources and test files
 └── package.json       # Workspace root (pnpm workspaces)
 ```
@@ -323,11 +322,10 @@ edgebric/
 
 | Temptation | Why Skip |
 |---|---|
-| mAIChain integration | Implement our own fan-out first; mAIChain API undocumented |
 | Billing / subscriptions | Not needed until post-launch |
 | CI/CD pipeline | GitHub Actions in Phase 2 covers this simply |
 | Multi-office federation | Same-network mesh first, cross-network later |
-| Mobile apps | Phase 5 — desktop product ships first |
+| Mobile apps | Phase 7 — desktop product ships first |
 | Custom AI model training | Out of scope — use off-the-shelf models |
 
 ---
@@ -335,11 +333,11 @@ edgebric/
 ## Order of Work
 
 ```
-Phase 1:  Multi-data-source, auth, org model, security, privacy, UI    ✅ COMPLETE
-Phase 2:  Productization — validation, testing, hardening              ✅ COMPLETE
-Phase 3:  Group chats — collaborative data source sharing + threads     ✅ COMPLETE
+Phase 1:  Multi-data-source, auth, org model, security, privacy, UI    COMPLETE
+Phase 2:  Productization — validation, testing, hardening              COMPLETE
+Phase 3:  Group chats — collaborative data source sharing + threads     COMPLETE
 Phase 4:  Integrations — Slack bot, email notifications                NEXT
-Phase 5:  Mesh networking, cross-node query routing                    ✅ COMPLETE (M1-M5, M7)
+Phase 5:  Mesh networking, cross-node query routing                    COMPLETE (M1-M5, M7)
 Phase 6:  Meeting mode, session management, session UI                 AFTER INTEGRATIONS
 Phase 7:  iOS app, Android app                                         POST-LAUNCH
 ```

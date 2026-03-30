@@ -363,7 +363,7 @@ documentsRouter.delete("/:id", async (req, res) => {
     // File may already be gone
   }
 
-  // Rebuild the mKB dataset to purge stale vectors (fire-and-forget)
+  // Rebuild the dataset to purge stale vectors (fire-and-forget)
   if (datasetName) {
     void rebuildDataset(datasetName);
   }

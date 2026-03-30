@@ -33,13 +33,13 @@ function rowToMeta(row: typeof chunks.$inferSelect): ChunkMetadata {
 }
 
 /**
- * Register chunks after mKB upload.
+ * Register chunks with metadata, content, and embeddings.
  *
- * mKB assigns chunkIds as "{datasetName}-{0-indexed-position}" sequentially.
- * We store our own metadata here since mKB v1.3.0 doesn't persist it.
+ * ChunkIds are assigned as "{datasetName}-{0-indexed-position}" sequentially.
+ * Stores metadata in the chunks table, plaintext in FTS5 for BM25 search,
+ * and embedding vectors in sqlite-vec for semantic similarity search.
  *
  * Wrapped in a transaction for performance (1 disk sync instead of N).
- * Also populates the FTS5 index for hybrid BM25+vector search.
  */
 export function registerChunks(
   datasetName: string,
@@ -47,12 +47,16 @@ export function registerChunks(
   metadataList: ChunkMetadata[],
   contentList?: string[],
   parentContentList?: string[],
+  embeddings?: number[][],
 ): void {
   const db = getDb();
   const sqlite = getSqlite();
 
   const ftsInsert = sqlite.prepare(
     "INSERT OR REPLACE INTO chunks_fts(chunk_id, content) VALUES (?, ?)",
+  );
+  const vecInsert = sqlite.prepare(
+    "INSERT OR REPLACE INTO chunks_vec(chunk_id, embedding) VALUES (?, ?)",
   );
 
   db.transaction(() => {
@@ -95,11 +99,95 @@ export function registerChunks(
       if (raw) {
         ftsInsert.run(chunkId, raw);
       }
+
+      // Store embedding vector for semantic search
+      if (embeddings?.[i]) {
+        const vecBuf = new Float32Array(embeddings[i]!);
+        vecInsert.run(chunkId, Buffer.from(vecBuf.buffer));
+      }
     }
   });
 }
 
-/** Look up metadata for a single mKB chunk. */
+// ─── Vector Search ──────────────────────────────────────────────────────────
+
+interface VecSearchRow {
+  chunk_id: string;
+  distance: number;
+}
+
+/**
+ * Semantic vector search using sqlite-vec.
+ * Searches chunks whose IDs match the given dataset name prefixes.
+ * Returns results sorted by similarity (highest first).
+ */
+export function vectorSearch(
+  queryEmbedding: number[],
+  datasetNames: string[],
+  topN: number,
+): Array<{ chunkId: string; chunk: string; similarity: number; metadata: ChunkMetadata }> {
+  const sqlite = getSqlite();
+  const vecBuf = new Float32Array(queryEmbedding);
+  const queryBlob = Buffer.from(vecBuf.buffer);
+
+  // Search all vectors, then filter by dataset prefix.
+  // sqlite-vec doesn't support WHERE clauses on vec0 tables directly,
+  // so we fetch more candidates and filter in JS.
+  const candidateLimit = topN * datasetNames.length * 3;
+  const stmt = sqlite.prepare(`
+    SELECT chunk_id, distance
+    FROM chunks_vec
+    WHERE embedding MATCH ?
+    ORDER BY distance
+    LIMIT ?
+  `);
+
+  const rows = stmt.all(queryBlob, candidateLimit) as VecSearchRow[];
+
+  // Filter to only chunks belonging to the requested datasets
+  const prefixes = datasetNames.map((ds) => `${ds}-`);
+  const filtered = rows.filter((r) =>
+    prefixes.some((p) => r.chunk_id.startsWith(p)),
+  );
+
+  // Convert distance to similarity (cosine distance → similarity)
+  // sqlite-vec returns L2 distance by default for float[] columns
+  return filtered.slice(0, topN).map((r) => {
+    const meta = lookupChunk(r.chunk_id);
+    const content = getChunkContent(r.chunk_id);
+    return {
+      chunkId: r.chunk_id,
+      chunk: content ?? "",
+      similarity: 1 / (1 + r.distance), // Convert distance to 0-1 similarity
+      metadata: meta ?? {
+        sourceDocument: "",
+        sectionPath: [],
+        pageNumber: 0,
+        heading: "",
+        chunkIndex: 0,
+      },
+    };
+  });
+}
+
+/** Get decrypted content for a single chunk. */
+function getChunkContent(chunkId: string): string | null {
+  const db = getDb();
+  const row = db.select({ content: chunks.content }).from(chunks).where(eq(chunks.chunkId, chunkId)).get();
+  if (!row?.content) return null;
+  return decryptContentSafe(row.content);
+}
+
+/** Get the number of chunks in a dataset (by prefix match on chunkId). */
+export function getChunkCountForDataset(datasetName: string): number {
+  const sqlite = getSqlite();
+  const row = sqlite.prepare(
+    "SELECT COUNT(*) as cnt FROM chunks WHERE chunk_id LIKE ?",
+  ).get(`${datasetName}-%`) as { cnt: number };
+  return row.cnt;
+}
+
+/** Look up metadata for a single chunk. */
 export function lookupChunk(chunkId: string): ChunkMetadata | undefined {
   const db = getDb();
   const row = db.select().from(chunks).where(eq(chunks.chunkId, chunkId)).get();
@@ -178,7 +266,7 @@ export function clearChunksForDocument(documentId: string): void {
   const db = getDb();
   const sqlite = getSqlite();
 
-  // Get chunk IDs before deleting so we can clean FTS5
+  // Get chunk IDs before deleting so we can clean FTS5 + vec
   const rows = db.select({ chunkId: chunks.chunkId })
     .from(chunks)
     .where(eq(chunks.sourceDocument, documentId))
@@ -186,19 +274,23 @@ export function clearChunksForDocument(documentId: string): void {
 
   db.delete(chunks).where(eq(chunks.sourceDocument, documentId)).run();
 
-  // Clean FTS5 index
+  // Clean FTS5 and vector indexes
   if (rows.length > 0) {
-    const deleteStmt = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const deleteFts = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const deleteVec = sqlite.prepare("DELETE FROM chunks_vec WHERE chunk_id = ?");
     const tx = sqlite.transaction((ids: string[]) => {
-      for (const id of ids) deleteStmt.run(id);
+      for (const id of ids) {
+        deleteFts.run(id);
+        deleteVec.run(id);
+      }
     });
     tx(rows.map((r) => r.chunkId));
   }
 }
 
 /**
- * Get all chunks belonging to a specific mKB dataset, with content.
- * Used by rebuildDataset to re-upload remaining chunks after deletion.
+ * Get all chunks belonging to a specific dataset, with content.
+ * Used by rebuildDataset to re-embed remaining chunks after deletion.
  */
 export function getChunksForDataset(datasetName: string): Array<{
   chunkId: string;
@@ -230,7 +322,7 @@ export function clearChunksForDataset(datasetName: string): void {
   const db = getDb();
   const sqlite = getSqlite();
 
-  // Get chunk IDs before deleting so we can clean FTS5
+  // Get chunk IDs before deleting so we can clean FTS5 + vec
   const rows = db.select({ chunkId: chunks.chunkId })
     .from(chunks)
     .where(sql`${chunks.chunkId} LIKE ${datasetName + "-%"}`)
@@ -238,11 +330,15 @@ export function clearChunksForDataset(datasetName: string): void {
 
   db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${datasetName + "-%"}`);
 
-  // Clean FTS5 index
+  // Clean FTS5 and vector indexes
   if (rows.length > 0) {
-    const deleteStmt = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const deleteFts = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+    const deleteVec = sqlite.prepare("DELETE FROM chunks_vec WHERE chunk_id = ?");
     const tx = sqlite.transaction((ids: string[]) => {
-      for (const id of ids) deleteStmt.run(id);
+      for (const id of ids) {
+        deleteFts.run(id);
+        deleteVec.run(id);
+      }
     });
     tx(rows.map((r) => r.chunkId));
   }
@@ -251,8 +347,8 @@ export function clearChunksForDataset(datasetName: string): void {
 /**
  * Remove orphaned chunk registry entries whose source document no longer exists.
  * Called at startup to keep the registry in sync with the documents table.
- * Note: mKB datasets are now rebuilt on document deletion, so orphaned mKB chunks
- * should not accumulate. This is a safety net for edge cases.
+ * Datasets are rebuilt on document deletion, so orphaned chunks should not
+ * accumulate. This is a safety net for edge cases.
  */
 export function purgeOrphanedChunks(): number {
   const db = getDb();

@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import * as sqliteVec from "sqlite-vec";
 import * as schema from "./schema.js";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
@@ -27,6 +28,9 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   // WAL mode for better concurrent read performance
   _sqlite.pragma("journal_mode = WAL");
   _sqlite.pragma("foreign_keys = ON");
+
+  // Load sqlite-vec extension for vector similarity search
+  sqliteVec.load(_sqlite);
 
   _db = drizzle(_sqlite, { schema });
   const sqlite = _sqlite;
@@ -372,6 +376,14 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       chunk_id UNINDEXED,
       content,
       tokenize='porter unicode61'
+    );
+  `);
+
+  // sqlite-vec virtual table for vector similarity search
+  sqlite.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
+      chunk_id TEXT PRIMARY KEY,
+      embedding float[${config.ollama.embeddingDim}]
     );
   `);
 

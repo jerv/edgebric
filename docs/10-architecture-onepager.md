@@ -13,38 +13,39 @@ Edgebric is **on-premise software** that enables organizations to build private,
 ## Data Flow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                YOUR ORGANIZATION'S HARDWARE                 │
-│                  (Mac Mini, server, VM)                      │
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐  │
-│  │   Web UI      │    │   API Server │    │   AI Engine   │  │
-│  │  (Browser)    │───▶│  (Express)   │───▶│  (Local LLM)  │  │
-│  │              │    │              │    │              │  │
-│  │  React app   │◀───│  Auth, CRUD, │◀───│  Embedding,  │  │
-│  │  served from │    │  RAG pipeline│    │  Generation  │  │
-│  │  same server │    │              │    │              │  │
-│  └──────────────┘    └──────┬───────┘    └──────────────┘  │
-│                             │                               │
-│                      ┌──────▼───────┐                       │
-│                      │   Data Store  │                       │
-│                      │              │                       │
-│                      │  SQLite DB   │                       │
-│                      │  Vector Store│                       │
-│                      │  Documents   │                       │
-│                      │  Sessions    │                       │
-│                      └──────────────┘                       │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  EXTERNAL CONNECTION (outbound only, auth only)       │  │
-│  │                                                        │  │
-│  │  Identity Provider (Google/Okta/Azure AD)              │  │
-│  │  Purpose: Verify employee identity at login            │  │
-│  │  Data sent: OAuth redirect (no org data transmitted)   │  │
-│  │  Data received: Email address, name                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+|                YOUR ORGANIZATION'S HARDWARE               |
+|                  (Mac Mini, server, VM)                    |
+|                                                           |
+|  +--------------+    +--------------+    +--------------+ |
+|  |   Web UI      |    |   API Server |    |   AI Engine   | |
+|  |  (Browser)    |--->|  (Express)   |--->|  (Ollama)     | |
+|  |              |    |              |    |              | |
+|  |  React app   |<---|  Auth, CRUD, |<---|  Embedding,  | |
+|  |  served from |    |  RAG pipeline|    |  Generation  | |
+|  |  same server |    |              |    |              | |
+|  +--------------+    +------+-------+    +--------------+ |
+|                             |                             |
+|                      +------v-------+                     |
+|                      |   Data Store  |                     |
+|                      |              |                     |
+|                      |  SQLite DB   |                     |
+|                      |  sqlite-vec  |                     |
+|                      |  FTS5 index  |                     |
+|                      |  Documents   |                     |
+|                      |  Sessions    |                     |
+|                      +--------------+                     |
+|                                                           |
+|  +------------------------------------------------------+ |
+|  |  EXTERNAL CONNECTION (outbound only, auth only)       | |
+|  |                                                        | |
+|  |  Identity Provider (Google/Okta/Azure AD)              | |
+|  |  Purpose: Verify employee identity at login            | |
+|  |  Data sent: OAuth redirect (no org data transmitted)   | |
+|  |  Data received: Email address, name                    | |
+|  +------------------------------------------------------+ |
+|                                                           |
++---------------------------------------------------------+
 ```
 
 ---
@@ -54,7 +55,9 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Property | Implementation |
 |---|---|
 | **Data residency** | All data stored in a single directory on your filesystem. Never transmitted externally. |
-| **AI processing** | Language model runs locally on your hardware. No cloud AI APIs used by default. |
+| **AI processing** | Language model runs locally via Ollama on your hardware. No cloud AI APIs used by default. |
+| **Vector search** | sqlite-vec embedded in SQLite. No separate database or external service. |
+| **Keyword search** | FTS5 (BM25) built into SQLite. Combined with vector search via Reciprocal Rank Fusion. |
 | **Authentication** | OIDC/SSO via your existing identity provider. Session cookies (httpOnly, secure). |
 | **Anonymity** | After login, queries use anonymous UUIDs. Individual query activity cannot be traced to users. |
 | **PII protection** | 4-layer defense: upload policy, PII detection scan, system prompt guardrails, query-time filter. |
@@ -69,7 +72,8 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Data Type | Location | Encrypted | Deletable |
 |---|---|---|---|
 | Uploaded documents (PDF, DOCX) | `{DATA_DIR}/uploads/` | OS-level | Yes, via admin UI |
-| Document embeddings (vectors) | Local mKB vector store | No (in-memory/disk) | Yes, with data source deletion |
+| Document embeddings (vectors) | SQLite database (sqlite-vec) | No (on-disk) | Yes, with data source deletion |
+| Full-text search index | SQLite database (FTS5) | No (on-disk) | Yes, with data source deletion |
 | Conversations | SQLite database | No (standard) / AES-256 (vault) | Yes, via UI |
 | User accounts | SQLite database | No | Yes, via admin |
 | Session data | `{DATA_DIR}/sessions/` | No | Auto-expires |
@@ -84,7 +88,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Identity provider (Google, Okta, etc.) | Outbound | User authentication | OAuth tokens (no org data) | No (required for login) |
 | Custom LLM endpoint (if configured) | Outbound | AI inference | Query text + context chunks | Yes (disabled by default) |
 
-**By default, Edgebric makes zero external API calls for AI processing.** All inference runs on the local language model.
+**By default, Edgebric makes zero external API calls for AI processing.** All inference runs on Ollama locally. All vector search runs on sqlite-vec locally.
 
 ---
 
@@ -93,7 +97,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 - **GDPR**: Data never leaves customer infrastructure. Customer is both controller and processor. DPA template available.
 - **HIPAA**: No ePHI transmitted externally. Software vendor model — no BAA required for the software itself.
 - **SOC 2**: Not applicable — vendor does not access, process, or store customer data.
-- **EU AI Act**: Employment-related AI use. Human-in-the-loop via escalation workflow. AI responses include source citations and accuracy disclaimers.
+- **EU AI Act**: Employment-related AI use. Human-in-the-loop via group chat workflow. AI responses include source citations and accuracy disclaimers.
 
 ---
 

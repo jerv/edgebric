@@ -4,22 +4,21 @@
 
 ## Resolved Decisions
 
-### MESH-01 — Why Distributed Architecture Requires mimik
+### MESH-01 — Distributed Architecture Design
 
-**Decision:** The distributed knowledge architecture is built on mimik's edge mesh because no alternative provides the same combination of capabilities without introducing a central aggregation point that defeats the privacy model.
+**Decision:** The distributed knowledge architecture uses mDNS for device discovery and direct HTTP for cross-device communication. Each node runs Ollama for inference and sqlite-vec for local vector storage.
 
-**What mimik provides that alternatives don't:**
+**What the architecture provides:**
 
-| Capability | mimik | Without mimik |
-|---|---|---|
-| Device discovery | mDNS auto-discovery, zero config | Manual IP config or central registry server |
-| Cross-device queries | HTTP routing through mesh | Central API gateway aggregating all data |
-| Local AI inference | mILM on each device | Cloud API or single-server inference |
-| Local vector storage | mKB on each device | Central vector database |
-| iOS/Android nodes | Native SDKs (CocoaPods/Maven) | Custom P2P networking from scratch |
-| Multi-node coordination | mAIChain fan-out + synthesis | Custom orchestration layer |
+| Capability | Implementation |
+|---|---|
+| Device discovery | mDNS auto-discovery, zero config |
+| Cross-device queries | Direct HTTP routing between nodes |
+| Local AI inference | Ollama on each device |
+| Local vector storage | sqlite-vec embedded in SQLite on each device |
+| Multi-node coordination | Custom query router with fan-out + synthesis |
 
-**The key test:** "Could we build this without mimik?" Yes — but only by routing all data through a central server, which means all knowledge is in one place, which means the physical isolation guarantee is gone. At that point, you're just building another cloud AI with on-prem hosting.
+**The key principle:** Data stays on each device. Queries travel to sources, and only answer fragments return. No central server aggregates all knowledge.
 
 ---
 
@@ -45,7 +44,7 @@
 - Network proximity includes everyone on the network — intern Bob sitting outside the conference room shouldn't auto-join the board strategy meeting
 - Room codes provide explicit opt-in: you only join if you have the code
 - Codes can be shared via any channel (Slack, email, verbally, on a whiteboard)
-- Codes work across network boundaries if needed (via mimik account-based clustering)
+- Codes work across network boundaries if needed
 - Simple UX: "enter this code to join" is universally understood
 
 **Code format:** 6-character alphanumeric or organizer-chosen label (e.g., "LAUNCH-Q3"). Auto-generated codes avoid collisions via timestamp + random suffix.
@@ -155,7 +154,7 @@ Employees can download their own personal records for private querying.
 
 ### MODEL-01 — Model Strategy
 
-Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec. **Ollama** is the inference backend, auto-managed by the desktop app (download, start, stop, auto-update with rollback). This replaces the previous llama-server approach.
+Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec. **Ollama** is the inference backend, auto-managed by the desktop app (download, start, stop, auto-update with rollback).
 
 **Ollama management:**
 - Desktop app downloads and manages Ollama automatically — users never interact with Ollama directly
@@ -279,17 +278,15 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ---
 
-### DEMO-01 — Three-Device Demo Strategy
+### DEMO-01 — Demo Strategy
 
-**Decision:** The primary demo uses 3 devices: MacBook (coordinator + mILM + mKB) + 2 iPhones (mKB knowledge nodes).
+**Decision:** The primary demo uses multiple devices on the same network to demonstrate cross-device query routing.
 
 **Why this setup:**
-- MacBook runs the coordinator node, API server, web UI, and has the most compute for mILM
-- Each iPhone runs the mimik iOS SDK, hosts a local mKB with different knowledge
+- One device runs the coordinator node, API server, web UI, and has the most compute for Ollama
+- Additional devices act as data source nodes, each with sqlite-vec hosting different knowledge
 - Demonstrates: auto-discovery, cross-device query, meeting mode, physical data isolation
-- Works over WiFi hotspot (no corporate network needed)
-
-**Target audience:** mimik leadership. Language to use: "device-first," "data sovereignty," "agentic," "zero-config," "autonomous nodes."
+- Works over WiFi (no corporate network needed)
 
 See [09-demo-plan.md](09-demo-plan.md) for detailed demo script.
 
@@ -297,31 +294,21 @@ See [09-demo-plan.md](09-demo-plan.md) for detailed demo script.
 
 ## Open Questions
 
-### OPEN-01 — mAIChain API Specification
-
-mAIChain's "response synthesis" mechanism is undocumented publicly. We know it fans out queries to multiple Agent Machines and synthesizes responses, but the exact API spec (request format, how synthesis works, configuration) needs to be confirmed with mimik or reverse-engineered from the .tar container.
-
-**Fallback:** If mAIChain doesn't meet our needs, we can implement fan-out and synthesis in our own coordinator service using raw HTTP calls to each node's mKB + a single mILM call for synthesis. This is more work but gives us full control.
-
-### OPEN-02 — Meeting Mode Session State Persistence
+### OPEN-01 — Meeting Mode Session State Persistence
 
 Where does meeting session state (participant list, opted-in data sources, room code mapping) live?
 - Option A: On the coordinator node (simplest, single point of failure)
 - Option B: Distributed across participants via mesh (resilient, complex)
 - Leaning toward A for MVP — session state is small and ephemeral.
 
-### OPEN-03 — Model Update Cadence
+### OPEN-02 — Model Update Cadence
 
 How does an admin get notified that a better recommended model is available? Needs a lightweight notification mechanism that doesn't require external connectivity.
 
-### OPEN-04 — Post-Termination Personal Records
+### OPEN-03 — Post-Termination Personal Records
 
 When an employee leaves, should their personal records package be deleted? Configurable retention policy needed. Legal question varies by jurisdiction.
 
-### OPEN-05 — iOS App Distribution
+### OPEN-04 — iOS App Distribution
 
 For demo: TestFlight (free, up to 100 testers). For production: App Store or enterprise distribution? Enterprise distribution ($299/year) avoids App Store review but limits to organizations. Decision depends on go-to-market strategy.
-
-### OPEN-06 — mKB Chunk Deletion
-
-mKB currently has no per-chunk delete API. Deleting a document doesn't remove its chunks. Current workaround: delete and recreate the entire dataset. This is acceptable for MVP but needs a better solution for production.

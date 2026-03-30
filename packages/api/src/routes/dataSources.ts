@@ -24,11 +24,10 @@ import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { clearChunksForDataset, getChunksForDataset } from "../services/chunkRegistry.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
 import { revokeSharesForDataSource, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
-import { config, runtimeEdgeConfig } from "../config.js";
+import { config } from "../config.js";
 import { encryptFile } from "../lib/crypto.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import type { Document, DataSourceAccessMode } from "@edgebric/types";
-import { createMKBClient } from "@edgebric/edge";
 import { fileTypeFromBuffer } from "file-type";
 import sharp from "sharp";
 
@@ -237,12 +236,8 @@ dataSourcesRouter.delete("/:id", async (req, res) => {
   // Revoke all group chat shares for this data source
   revokeSharesForDataSource(ds.id, "the data source was deleted");
 
-  // Nuke the mKB dataset and all registry entries — no stale data survives
+  // Clear all chunk registry entries (metadata + FTS5 + vectors)
   clearChunksForDataset(ds.datasetName);
-  const mkb = createMKBClient(runtimeEdgeConfig);
-  void mkb.deleteDataset(ds.datasetName).catch(() => {
-    // Dataset may not exist if no documents were ever ingested
-  });
 
   res.json({ ok: true });
 });

@@ -1,6 +1,6 @@
 # Desktop GUI App — Development Plan
 
-Last updated: 2026-03-24
+Last updated: 2026-03-29
 
 ---
 
@@ -51,7 +51,7 @@ packages/desktop/
 │       │   ├── SetupWizard.tsx     # First-run: mode select, data dir, OIDC (admin only), model download
 │       │   ├── Models.tsx          # Install/load/unload models, RAM/disk usage, model picker
 │       │   ├── Activate.tsx        # Enter license key (admin mode only)
-│       │   ├── Acknowledgments.tsx # Open-source credits (Ollama, mimik, etc.)
+│       │   ├── Acknowledgments.tsx # Open-source credits (Ollama, etc.)
 │       │   └── Settings.tsx        # Change config, view logs, about
 │       └── components/
 │           └── ...                 # Shared UI components (minimal — this is a small app)
@@ -135,7 +135,7 @@ Quit Edgebric             → stops server + Ollama + quits app
 
 ## Development Phases
 
-### Phase D1 — Skeleton + Tray + Server Management ✅ COMPLETE
+### Phase D1 — Skeleton + Tray + Server Management COMPLETE
 
 **Goal:** Menu bar app that starts/stops Ollama + API server. No wizard, no licensing.
 
@@ -153,7 +153,7 @@ Quit Edgebric             → stops server + Ollama + quits app
 - [x] Single-instance lock (prevents duplicate launches)
 - [x] Concurrent operation guard (prevents multiple start/stop/restart from racing)
 
-### Phase D2 — Setup Wizard + Ollama Management ⚡ MOSTLY COMPLETE
+### Phase D2 — Setup Wizard + Ollama Management MOSTLY COMPLETE
 
 **Goal:** First-run GUI setup replaces CLI `edgebric setup`. Ollama auto-managed.
 
@@ -171,7 +171,7 @@ Quit Edgebric             → stops server + Ollama + quits app
 - [x] Ollama auto-update on app launch (check for newer version, download, rollback on failure)
 - [x] Self-signed TLS certificate generation (HTTPS by default)
 - [x] Settings page with hostname/port editing, danger zone (wipe/reset auth)
-- [ ] System requirements check (RAM ≥ 8GB, disk space ≥ 10GB free)
+- [ ] System requirements check (RAM >= 8GB, disk space >= 10GB free)
 - [ ] License activation (Admin mode only) — enter key or start subscription
 
 ### Phase D3 — Licensing (Admin Mode Only)
@@ -299,11 +299,11 @@ Minimal dependencies. The renderer uses the same React + Tailwind + shadcn stack
 ## Order of Work
 
 ```
-D1: Tray + server management         ← start here (core functionality)
-D2: Setup wizard + Ollama management  ← makes it usable by non-technical people
-D3: Licensing (admin mode only)       ← required before org mode distribution
-D4: Auto-update                       ← required before public launch
-D5: Polish + DMG packaging            ← required before public launch
+D1: Tray + server management         <- start here (core functionality)
+D2: Setup wizard + Ollama management  <- makes it usable by non-technical people
+D3: Licensing (admin mode only)       <- required before org mode distribution
+D4: Auto-update                       <- required before public launch
+D5: Polish + DMG packaging            <- required before public launch
 ```
 
 D1 and D2 are needed for v0.5 beta (Solo mode works without D3). D3-D5 are needed before any paid distribution.
@@ -315,7 +315,7 @@ D1 and D2 are needed for v0.5 beta (Solo mode works without D3). D3-D5 are neede
 The app includes an Acknowledgments page crediting open-source dependencies:
 
 - **Ollama** (MIT License) — local AI inference backend
-- **mimik edgeEngine** (MIT License) — edge computing platform
+- **sqlite-vec** (MIT License) — vector similarity search extension for SQLite
 - Other significant dependencies listed with their licenses
 
 This page is accessible from the menu bar (Acknowledgments...) and from the About/Settings UI.
@@ -326,5 +326,4 @@ This page is accessible from the menu bar (Acknowledgments...) and from the Abou
 
 - **Extract shared lib?** CLI and desktop both need config/path logic. Extract `packages/cli/src/lib/` to a shared package, or just import across workspace packages?
 - **Bundled Node.js?** Electron ships with Node.js, but the API server currently runs via `tsx/esm`. Need to either: (a) pre-compile the API server to plain JS, or (b) bundle tsx as a dependency in the desktop app. Pre-compilation is cleaner.
-- **mimik runtime bundling?** Currently mim OE is in `scripts/binaries/`. The desktop app needs to either bundle it or download it during setup. Licensing implications with mimik need clarification.
 - **Member mode UX?** How does a Member discover and connect to an Admin instance on the network? mDNS auto-discovery, manual IP entry, or QR code/invite link? Decision needed before Member mode implementation.
