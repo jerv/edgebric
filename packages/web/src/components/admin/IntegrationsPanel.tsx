@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ArrowLeft,
-  Plus,
   RefreshCw,
   Trash2,
   Loader2,
@@ -13,7 +12,6 @@ import {
   Play,
   AlertTriangle,
   FileText,
-  Cloud,
 } from "lucide-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
@@ -30,18 +28,79 @@ import {
 } from "@/hooks/useCloudConnections";
 import type { CloudConnection, CloudFolder, CloudProvider } from "@edgebric/types";
 
-// ─── Provider Icons ──────────────────────────────────────────────────────────
+// ─── Brand Logos (inline SVG) ────────────────────────────────────────────────
 
-const PROVIDER_ICONS: Record<string, string> = {
+function GoogleDriveLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/>
+      <path d="M43.65 25.15L29.9 1.35c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5l16.15-28z" fill="#00AC47"/>
+      <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.7c.8-1.4 1.2-2.95 1.2-4.5H59.8l6.1 11.8 7.65 11.8z" fill="#EA4335"/>
+      <path d="M43.65 25.15L57.4 1.35a9.39 9.39 0 0 0-4.5-1.35H34.4c-1.6 0-3.15.45-4.5 1.35l13.75 23.8z" fill="#00832D"/>
+      <path d="M59.8 53.15h-32.3L13.75 76.95c1.35.8 2.9 1.25 4.5 1.25h22.5c1.6 0 3.15-.45 4.5-1.25l14.55-23.8z" fill="#2684FC"/>
+      <path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25.15l16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/>
+    </svg>
+  );
+}
+
+function OneDriveLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14.22 9.59c.46-.79 1.17-1.4 2.03-1.73a3.98 3.98 0 0 1 2.66-.05A5.49 5.49 0 0 0 9.4 6.1a4.46 4.46 0 0 1 4.82 3.49z" fill="#0364B8"/>
+      <path d="M14.22 9.59A4.46 4.46 0 0 0 9.4 6.1a4.47 4.47 0 0 0-3.99 2.47A3.97 3.97 0 0 0 1 12.48a3.97 3.97 0 0 0 3.97 3.97h8.46l.79-6.86z" fill="#0078D4"/>
+      <path d="M18.91 7.81a3.98 3.98 0 0 0-2.66.05 3.98 3.98 0 0 0-2.03 1.73l.79 6.86h5.96A3.01 3.01 0 0 0 24 13.44a3.01 3.01 0 0 0-3.01-3.01 2.96 2.96 0 0 0-.76.1l-.14-.04a3.98 3.98 0 0 0-1.18-2.68z" fill="#1490DF"/>
+      <path d="M13.43 16.45H4.97A3.97 3.97 0 0 0 8.94 20.42h10.03A3.01 3.01 0 0 0 22 17.41a3.01 3.01 0 0 0-1.03-2.27l-7.54 1.31z" fill="#28A8EA"/>
+    </svg>
+  );
+}
+
+function DropboxLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 2l6 3.75L6 9.5 0 5.75zm12 0l6 3.75-6 3.75-6-3.75zM0 13.25L6 9.5l6 3.75L6 17zm18-3.75l6 3.75-6 3.75-6-3.75zM6 18.25l6-3.75 6 3.75-6 3.75z" fill="#0061FF"/>
+    </svg>
+  );
+}
+
+function NotionLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4.46 2.33l10.17-.75c1.25-.1 1.57.03 2.36.58l3.25 2.27c.53.38.7.48.7 1.02v14.8c0 .82-.3 1.37-1.35 1.45l-12.17.72c-.78.05-1.16-.08-1.57-.58L3.03 18.1c-.45-.6-.64-.99-.64-1.65V3.82c0-.83.3-1.38 1.07-1.49zm10.57 2.25c.08.43 0 .84 0 .84l-6.87.42v11.26c0 .6-.26.89-.84.93-.6.04-.83-.32-.83-.32l-1.78-2.36c-.24-.33-.37-.72-.37-1.16V5.41c0-.7.27-1.08.85-1.12l9.84-.71zm-.17 1.64l-5.93.36v9.81l4.26-.26c.47-.03.84-.28.84-.85V6.6c0-.2-.07-.34-.17-.38z" className="fill-slate-900 dark:fill-gray-100"/>
+    </svg>
+  );
+}
+
+function ConfluenceLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M1.26 16.8c-.28.46-.6 1-.8 1.36a.62.62 0 0 0 .2.84l3.37 2.1a.62.62 0 0 0 .85-.19c.17-.3.42-.73.72-1.24 2.07-3.5 4.13-3.07 7.88-1.5l3.44 1.44a.62.62 0 0 0 .82-.33l1.66-3.72a.62.62 0 0 0-.31-.8c-.92-.4-2.76-1.18-3.47-1.48-5.2-2.22-9.64-2.61-14.36 3.52z" fill="#2684FF"/>
+      <path d="M22.74 7.2c.28-.46.6-1 .8-1.36a.62.62 0 0 0-.2-.84l-3.37-2.1a.62.62 0 0 0-.85.19c-.17.3-.42.73-.72 1.24-2.07 3.5-4.13 3.07-7.88 1.5L7.08 4.39a.62.62 0 0 0-.82.33L4.6 8.44a.62.62 0 0 0 .31.8c.92.4 2.76 1.18 3.47 1.48 5.2 2.22 9.64 2.61 14.36-3.52z" fill="#2684FF"/>
+    </svg>
+  );
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
   google_drive: "Google Drive",
-  onedrive: "OneDrive",
+  onedrive: "OneDrive / SharePoint",
   dropbox: "Dropbox",
   notion: "Notion",
   confluence: "Confluence",
 };
 
 function providerLabel(provider: string): string {
-  return PROVIDER_ICONS[provider] ?? provider;
+  return PROVIDER_LABELS[provider] ?? provider;
+}
+
+function ProviderLogo({ provider, className }: { provider: string; className?: string }) {
+  const size = className ?? "w-5 h-5";
+  switch (provider) {
+    case "google_drive": return <GoogleDriveLogo className={size} />;
+    case "onedrive": return <OneDriveLogo className={size} />;
+    case "dropbox": return <DropboxLogo className={size} />;
+    case "notion": return <NotionLogo className={size} />;
+    case "confluence": return <ConfluenceLogo className={size} />;
+    default: return <div className={cn(size, "rounded bg-slate-200 dark:bg-gray-700")} />;
+  }
 }
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
@@ -529,7 +588,7 @@ export function IntegrationsPanel() {
                       onClick={() => setSelectedConnectionId(conn.id)}
                       className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors text-left"
                     >
-                      <Cloud className="w-5 h-5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
+                      <ProviderLogo provider={conn.provider} className="w-5 h-5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">
@@ -581,7 +640,7 @@ export function IntegrationsPanel() {
                       )}
                     >
                       <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                        <Cloud className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+                        <ProviderLogo provider={provider.id} className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">

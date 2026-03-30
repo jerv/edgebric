@@ -78,7 +78,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:", ...(OIDC_PROVIDERS[config.oidc.provider]?.imgSrcDomains ?? [])],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "http://localhost:11434", "http://127.0.0.1:11434"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],

@@ -41,9 +41,13 @@ cloudConnectionsRouter.use(requireAdmin);
 
 cloudConnectionsRouter.get("/providers", (_req, res) => {
   const registered = new Set(getRegisteredProviders());
+  // A provider is only "enabled" if the connector is registered AND credentials are configured
+  const credentialsConfigured: Record<string, boolean> = {
+    google_drive: !!(config.cloud.google.clientId && config.cloud.google.clientSecret),
+  };
   const providers = CLOUD_PROVIDERS.map((p) => ({
     ...p,
-    enabled: registered.has(p.id),
+    enabled: registered.has(p.id) && (credentialsConfigured[p.id] ?? false),
   }));
   res.json({ providers });
 });
@@ -85,18 +89,24 @@ cloudConnectionsRouter.post("/oauth/authorize", validateBody(authorizeSchema), (
     return;
   }
 
-  // Generate CSRF state token — stored in session, verified on callback
-  const stateNonce = randomBytes(32).toString("hex");
-  const statePayload = JSON.stringify({ provider, nonce: stateNonce });
-  const state = Buffer.from(statePayload).toString("base64url");
+  try {
+    // Generate CSRF state token — stored in session, verified on callback
+    const stateNonce = randomBytes(32).toString("hex");
+    const statePayload = JSON.stringify({ provider, nonce: stateNonce });
+    const state = Buffer.from(statePayload).toString("base64url");
 
-  // Store nonce in session for verification
-  req.session.cloudOAuthNonce = stateNonce;
+    // Store nonce in session for verification
+    req.session.cloudOAuthNonce = stateNonce;
 
-  const redirectUri = `${getBaseUrl(req)}/api/admin/cloud-connections/oauth/callback`;
-  const authUrl = connector.getAuthUrl(state, redirectUri);
+    const redirectUri = `${getBaseUrl(req)}/api/admin/cloud-connections/oauth/callback`;
+    const authUrl = connector.getAuthUrl(state, redirectUri);
 
-  res.json({ authUrl });
+    res.json({ authUrl });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: errMsg }, "OAuth authorize failed");
+    res.status(400).json({ error: errMsg });
+  }
 });
 
 // ─── OAuth: Callback ────────────────────────────────────────────────────────
