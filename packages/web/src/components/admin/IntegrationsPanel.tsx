@@ -624,7 +624,7 @@ export function IntegrationsPanel() {
               <h2 className="text-sm font-medium text-slate-900 dark:text-gray-100">
                 {connections.length > 0 ? "Add another connection" : "Connect a service"}
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-2">
                 {providers.map((provider) => {
                   const isConnecting = connectMutation.isPending && connectMutation.variables === provider.id;
                   return (
