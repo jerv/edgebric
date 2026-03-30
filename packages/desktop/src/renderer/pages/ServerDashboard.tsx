@@ -1514,17 +1514,71 @@ export default function ServerDashboard() {
           {errorMsg && <div className="error-msg">{errorMsg}</div>}
         </div>
 
-        {isRunning && (
-          <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
-            Open Edgebric Web UI
-          </button>
-        )}
+        {isRunning && (() => {
+          const sys = modelsData?.system;
+          const ramTotal = sys?.ramTotalBytes ?? 0;
+          const ramAvailable = sys?.ramAvailableBytes ?? 0;
+          const ramUsed = ramTotal - ramAvailable;
+          const diskTotal = sys?.diskTotalBytes ?? 0;
+          const diskUsed = diskTotal - (sys?.diskFreeBytes ?? 0);
+          const diskPercent = diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 100) : 0;
+          const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_TAG);
+          const embeddingModel = (modelsData?.models ?? []).find((m) => m.tag === EMBEDDING_TAG && m.status === "loaded");
+          const modelRam = loadedModels.filter((m) => m.ramUsageBytes).reduce((sum, m) => sum + (m.ramUsageBytes ?? 0), 0);
+          const embeddingRam = embeddingModel?.ramUsageBytes ?? 0;
+          const edgebricRam = sys?.edgebricRamBytes ?? 0;
+          const otherUsed = Math.max(0, ramUsed - modelRam - embeddingRam - edgebricRam);
+          const pctOf = (bytes: number) => ramTotal > 0 ? Math.max(0, (bytes / ramTotal) * 100) : 0;
+          const diskBarColor = diskPercent > 90 ? "#ef4444" : diskPercent > 70 ? "#f59e0b" : "#22c55e";
+
+          return (
+            <>
+              {sys && (
+                <div className="card" style={{ width: "100%", padding: "12px 16px" }}>
+                  {/* RAM bar */}
+                  <div className="resource-bar-item" style={{ marginBottom: 10 }}>
+                    <div className="resource-bar-label">
+                      <span>Memory</span>
+                      <span className="resource-bar-value">{formatGB(ramAvailable)} available / {formatGB(ramTotal)} total</span>
+                    </div>
+                    <div className="resource-bar-track">
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
+                      {edgebricRam > 0 && (
+                        <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
+                      )}
+                      {embeddingRam > 0 && (
+                        <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
+                      )}
+                      {modelRam > 0 && (
+                        <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
+                      )}
+                    </div>
+                  </div>
+                  {/* Disk bar */}
+                  <div className="resource-bar-item">
+                    <div className="resource-bar-label">
+                      <span>Disk</span>
+                      <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
+                    </div>
+                    <div className="resource-bar-track">
+                      <div className="resource-bar-fill" style={{ width: `${Math.min(diskPercent, 100)}%`, background: diskBarColor, borderRadius: "3px" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
+                Open Edgebric
+              </button>
+            </>
+          );
+        })()}
       </div>
 
       <div className="bottom-actions">
         <button className="bottom-link" onClick={() => setView("models")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/><path d="M5 17l.6 1.4L7 19l-1.4.6L5 21l-.6-1.4L3 19l1.4-.6L5 17z"/></svg>
-          Models
+          Manage Models
         </button>
         <button className="bottom-link" onClick={openSettings}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6.5 1.5L6.8 3.1C6.1 3.4 5.5 3.8 4.9 4.3L3.4 3.7L1.9 6.3L3.2 7.3C3.1 7.5 3.1 7.8 3.1 8C3.1 8.2 3.1 8.5 3.2 8.7L1.9 9.7L3.4 12.3L4.9 11.7C5.5 12.2 6.1 12.6 6.8 12.9L7.1 14.5H9.5L9.8 12.9C10.5 12.6 11.1 12.2 11.7 11.7L13.2 12.3L14.7 9.7L13.4 8.7C13.5 8.5 13.5 8.2 13.5 8C13.5 7.8 13.5 7.5 13.4 7.3L14.7 6.3L13.2 3.7L11.7 4.3C11.1 3.8 10.5 3.4 9.8 3.1L9.5 1.5H6.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="8.3" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
