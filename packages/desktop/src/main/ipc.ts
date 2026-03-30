@@ -1,5 +1,5 @@
 import { app, ipcMain, BrowserWindow, dialog } from "electron";
-import { readLogs, getStatus, getErrorMsg, getPort, getHostname, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
+import { readLogs, getStatus, getErrorMsg, getPort, getHostname, getUptime, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
 import { openLogWindow } from "./index.js";
@@ -29,6 +29,44 @@ export function registerIpcHandlers() {
   // Server status
   ipcMain.handle("get-status", () => {
     return { status: getStatus(), port: getPort(), hostname: getHostname(), errorMsg: getErrorMsg() };
+  });
+
+  // Health check (mirrors /api/health for the desktop home view)
+  ipcMain.handle("get-health", async () => {
+    if (getStatus() !== "running") return null;
+    const checks: Record<string, { status: string; latencyMs?: number; error?: string }> = {};
+
+    // Database: if server is running, DB initialized successfully
+    checks.database = { status: "ok" };
+
+    // Inference (direct Ollama ping)
+    try {
+      const t = Date.now();
+      const resp = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      checks.inference = { status: resp.ok ? "ok" : "degraded", latencyMs: Date.now() - t };
+    } catch (err) {
+      checks.inference = { status: "unavailable", error: err instanceof Error ? err.message : "Connection failed" };
+    }
+
+    // Vector store: assume ok if server is running (sqlite-vec initializes at startup)
+    checks.vectorStore = { status: "ok" };
+
+    // Disk
+    try {
+      const config = loadConfig();
+      const dir = config?.dataDir ?? os.homedir();
+      const output = execSync(`df -k "${dir}" 2>/dev/null`, { encoding: "utf8" });
+      const lines = output.trim().split("\n");
+      if (lines.length >= 2) {
+        const parts = lines[1]!.split(/\s+/);
+        const usedPercent = parseInt(parts[4]!.replace("%", ""), 10);
+        checks.disk = { status: usedPercent >= 95 ? "critical" : usedPercent >= 85 ? "warning" : "ok" };
+      }
+    } catch {
+      checks.disk = { status: "ok" };
+    }
+
+    return { uptime: getUptime(), checks };
   });
 
   // Server control

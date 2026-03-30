@@ -171,6 +171,21 @@ function modelDisplayName(m: InstalledModel): string {
   return m.tag;
 }
 
+function formatUptime(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
+const HEALTH_CHECK_TOOLTIPS: Record<string, string> = {
+  database: "SQLite database used for documents, users, conversations, and metadata.",
+  inference: "Ollama AI engine that runs language models for chat and analysis.",
+  vectorStore: "sqlite-vec embedding index used for semantic search over documents.",
+  disk: "Available storage on the volume where Edgebric data is stored.",
+};
+
 
 export default function ServerDashboard() {
   const [status, setStatus] = useState<ServerStatus>("stopped");
@@ -213,8 +228,11 @@ export default function ServerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<RegistryModel[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [healthData, setHealthData] = useState<{ uptime: number | null; checks: Record<string, { status: string; latencyMs?: number; error?: string }> } | null>(null);
+  const [checksOpen, setChecksOpen] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modelsInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const healthInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Active model name for home view — only show when the model is actually loaded
   const activeModelMatch = modelsData?.activeModel
@@ -297,6 +315,22 @@ export default function ServerDashboard() {
       if (modelsInterval.current) clearInterval(modelsInterval.current);
     };
   }, [status, view, fetchModels]);
+
+  // Fetch health data (uptime + service checks) when server is running
+  useEffect(() => {
+    if (status !== "running") { setHealthData(null); return; }
+    const fetchHealth = async () => {
+      try {
+        const data = await window.electronAPI.getHealth();
+        setHealthData(data);
+      } catch { /* not ready */ }
+    };
+    fetchHealth();
+    healthInterval.current = setInterval(fetchHealth, 10000);
+    return () => {
+      if (healthInterval.current) clearInterval(healthInterval.current);
+    };
+  }, [status]);
 
   // Listen for pull progress from main process
   useEffect(() => {
@@ -1476,24 +1510,32 @@ export default function ServerDashboard() {
         </div>
 
         <div className="card" style={{ width: "100%" }}>
+          {/* Status + uptime + controls */}
           <div className="status-row">
             <div className="status-left">
               <span className="status-dot" style={{ background: statusConf.dot }} />
               <span className="status-label">{statusConf.label}</span>
             </div>
-            <div className="btn-row">
-              {isStopped && (
-                <button className="btn btn-primary btn-sm" onClick={handleStart}>Start</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {isRunning && healthData?.uptime != null && (
+                <span className="resource-bar-value" style={{ fontSize: 11 }}>
+                  Uptime: {formatUptime(healthData.uptime)}
+                </span>
               )}
-              {status === "starting" && (
-                <button className="btn btn-ghost btn-sm" disabled>Starting...</button>
-              )}
-              {isRunning && (
-                <>
-                  <button className="btn btn-ghost btn-sm" onClick={handleRestart}>Restart</button>
-                  <button className="btn btn-danger-ghost btn-sm" onClick={handleStop}>Stop</button>
-                </>
-              )}
+              <div className="btn-row">
+                {isStopped && (
+                  <button className="btn btn-primary btn-sm" onClick={handleStart}>Start</button>
+                )}
+                {status === "starting" && (
+                  <button className="btn btn-ghost btn-sm" disabled>Starting...</button>
+                )}
+                {isRunning && (
+                  <>
+                    <button className="btn btn-ghost btn-sm" onClick={handleRestart}>Restart</button>
+                    <button className="btn btn-danger-ghost btn-sm" onClick={handleStop}>Stop</button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1510,6 +1552,44 @@ export default function ServerDashboard() {
               <a className="url-link" href={accessUrl} target="_blank" rel="noopener noreferrer">{accessUrl}</a>
             </div>
           )}
+
+          {/* Health checks — collapsed behind toggle */}
+          {isRunning && healthData?.checks && (() => {
+            const allOk = Object.values(healthData.checks).every((c) => c.status === "ok");
+            return (
+              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 10, marginTop: 10 }}>
+                <button
+                  onClick={() => setChecksOpen(!checksOpen)}
+                  className="checks-toggle"
+                >
+                  <span className="status-dot" style={{ width: 6, height: 6, background: allOk ? "#22c55e" : "#ef4444" }} />
+                  <span>{allOk ? "All services healthy" : "Service issue detected"}</span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ marginLeft: "auto", transform: checksOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+                    <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                {checksOpen && (
+                  <div style={{ marginTop: 6 }}>
+                    {Object.entries(healthData.checks).map(([name, check]) => {
+                      const tooltip = HEALTH_CHECK_TOOLTIPS[name] ?? "";
+                      const displayName = name.replace(/([A-Z])/g, " $1").trim();
+                      return (
+                        <div key={name} className="url-row" style={{ marginTop: 4, paddingTop: 0, borderTop: "none" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span className="status-dot" style={{ width: 5, height: 5, background: check.status === "ok" ? "#22c55e" : "#ef4444" }} />
+                            <span className="url-label" style={{ textTransform: "capitalize" }} title={tooltip}>{displayName}</span>
+                          </div>
+                          <span className="resource-bar-value" style={{ fontFamily: "monospace" }}>
+                            {check.status === "ok" ? `${check.latencyMs ?? 0}ms` : check.error ?? "error"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {errorMsg && <div className="error-msg">{errorMsg}</div>}
         </div>

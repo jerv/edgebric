@@ -178,6 +178,24 @@ body {
   text-decoration: underline;
 }
 
+/* ─── Health checks toggle ───────────────────────────────────────────────── */
+.checks-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 11px;
+  color: #64748b;
+  transition: color 0.15s;
+}
+.checks-toggle:hover {
+  color: #334155;
+}
+
 /* ─── Action button ──────────────────────────────────────────────────────── */
 .action-btn {
   width: 100%;
@@ -879,6 +897,8 @@ body {
 
   .url-row { border-top-color: #1e293b; }
   .url-link { color: #e2e8f0; }
+  .checks-toggle { color: #94a3b8; }
+  .checks-toggle:hover { color: #e2e8f0; }
 
   .bottom-link { color: #64748b; }
   .bottom-link:hover { color: #e2e8f0; }

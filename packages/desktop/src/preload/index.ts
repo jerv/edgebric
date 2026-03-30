@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Server status & control
   getStatus: () => ipcRenderer.invoke("get-status"),
+  getHealth: () => ipcRenderer.invoke("get-health") as Promise<{ uptime: number | null; checks: Record<string, { status: string; latencyMs?: number; error?: string }> } | null>,
   startServer: () => ipcRenderer.invoke("start-server"),
   stopServer: () => ipcRenderer.invoke("stop-server"),
   onStatusChange: (callback: (status: string, errorMsg?: string) => void) => {

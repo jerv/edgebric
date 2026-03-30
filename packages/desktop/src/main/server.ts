@@ -19,6 +19,7 @@ let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 let bonjourInstance: InstanceType<typeof Bonjour> | null = null;
 let operationInProgress = false;
+let serverStartedAt: number | null = null;
 
 export type ServerStatus = "stopped" | "starting" | "running" | "error";
 
@@ -30,6 +31,8 @@ let currentErrorMsg: string | undefined;
 function setStatus(status: ServerStatus, errorMsg?: string) {
   currentStatus = status;
   currentErrorMsg = status === "error" ? errorMsg : undefined;
+  if (status === "running" && !serverStartedAt) serverStartedAt = Date.now();
+  if (status === "stopped" || status === "error") serverStartedAt = null;
   for (const cb of listeners) cb(status, currentErrorMsg);
 }
 
@@ -55,6 +58,11 @@ export function getPort(): number {
 
 export function getHostname(): string {
   return loadConfig()?.hostname ?? "edgebric.local";
+}
+
+export function getUptime(): number | null {
+  if (!serverStartedAt) return null;
+  return Math.floor((Date.now() - serverStartedAt) / 1000);
 }
 
 /** Publish mDNS service so edgebric.local (or custom .local name) resolves on the LAN */

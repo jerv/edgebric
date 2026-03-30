@@ -5,12 +5,15 @@ import {
   Loader2, ShieldCheck,
   Trash2, ChevronDown,
   Search, Upload, X, AlertTriangle,
-  ChevronLeft, ChevronRight, Monitor,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import type { User } from "@edgebric/types";
+import { EMBEDDING_MODEL_TAG } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { adminLabel } from "@/lib/models";
 import { useUser } from "@/contexts/UserContext";
+import { useModels } from "@/hooks/useModels";
+import { RAMBar, DiskBar } from "@/components/shared/ResourceBars";
 
 const PAGE_SIZE = 15;
 
@@ -781,7 +784,7 @@ export function MembersTab() {
   );
 }
 
-// ─── Service tab (formerly Models tab) ───────────────────────────────────────
+// ─── Service tab — unified with desktop dashboard ────────────────────────────
 
 interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
@@ -800,7 +803,24 @@ function deriveStatus(health: HealthResponse | undefined): { status: ServiceStat
   return { status: "error", label: "Error", dot: "#ef4444" };
 }
 
+const HEALTH_CHECK_TOOLTIPS: Record<string, string> = {
+  database: "SQLite database used for documents, users, conversations, and metadata.",
+  inference: "Ollama AI engine that runs language models for chat and analysis.",
+  vectorStore: "sqlite-vec embedding index used for semantic search over documents.",
+  disk: "Available storage on the volume where Edgebric data is stored.",
+};
+
+function formatUptime(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
 export function ServiceTab() {
+  const [checksOpen, setChecksOpen] = useState(false);
+
   const { data: health } = useQuery<HealthResponse>({
     queryKey: ["health"],
     queryFn: () =>
@@ -810,23 +830,26 @@ export function ServiceTab() {
     refetchInterval: 10_000,
   });
 
+  const { data: modelsData } = useModels();
+
   const statusConf = deriveStatus(health);
-
-  function formatUptime(seconds: number) {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    return `${h}h ${m}m`;
-  }
-
   const activeModelLabel = health?.activeModel ? adminLabel(health.activeModel) : undefined;
   const accessUrl = window.location.origin;
 
+  // Derive models for resource bars
+  const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_MODEL_TAG);
+  const embeddingModel = (modelsData?.models ?? []).find((m) => m.tag === EMBEDDING_MODEL_TAG && m.status === "loaded");
+
+  // All health checks passing?
+  const allChecksOk = health?.checks
+    ? Object.values(health.checks).every((c) => c.status === "ok")
+    : true;
+
   return (
-    <div className="space-y-6">
-      {/* Service status card — mirrors desktop dashboard */}
+    <div className="space-y-4">
+      {/* Service status card */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+        {/* Status + uptime */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span
@@ -844,6 +867,7 @@ export function ServiceTab() {
           )}
         </div>
 
+        {/* Active model */}
         {activeModelLabel && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 dark:text-gray-500">Active model</span>
@@ -851,6 +875,7 @@ export function ServiceTab() {
           </div>
         )}
 
+        {/* Access URL */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400 dark:text-gray-500">Access URL</span>
           <a
@@ -863,66 +888,87 @@ export function ServiceTab() {
           </a>
         </div>
 
-        {/* Individual service checks */}
+        {/* Health checks — collapsed behind toggle */}
         {health?.checks && (
-          <div className="border-t border-slate-100 dark:border-gray-800 pt-3 space-y-2">
-            {Object.entries(health.checks).map(([name, check]) => (
-              <div key={name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: check.status === "ok" ? "#22c55e" : "#ef4444" }}
-                  />
-                  <span className="text-slate-600 dark:text-gray-400 capitalize">{name.replace(/([A-Z])/g, " $1").trim()}</span>
-                </div>
-                <span className="text-slate-400 dark:text-gray-500 font-mono">
-                  {check.status === "ok" ? `${check.latencyMs ?? 0}ms` : check.error ?? "error"}
-                </span>
+          <div className="border-t border-slate-100 dark:border-gray-800 pt-3">
+            <button
+              onClick={() => setChecksOpen(!checksOpen)}
+              className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 transition-colors w-full"
+            >
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                  allChecksOk ? "bg-emerald-500" : "bg-red-500",
+                )}
+              />
+              <span>
+                {allChecksOk ? "All services healthy" : "Service issue detected"}
+              </span>
+              <ChevronDown className={cn(
+                "w-3 h-3 ml-auto transition-transform",
+                checksOpen && "rotate-180",
+              )} />
+            </button>
+            {checksOpen && (
+              <div className="mt-2 space-y-2">
+                {Object.entries(health.checks).map(([name, check]) => {
+                  const tooltip = HEALTH_CHECK_TOOLTIPS[name] ?? "";
+                  const displayName = name.replace(/([A-Z])/g, " $1").trim();
+                  return (
+                    <div key={name} className="flex items-center justify-between text-xs group relative">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ background: check.status === "ok" ? "#22c55e" : "#ef4444" }}
+                        />
+                        <span className="text-slate-600 dark:text-gray-400 capitalize cursor-help" title={tooltip}>
+                          {displayName}
+                        </span>
+                      </div>
+                      <span className="text-slate-400 dark:text-gray-500 font-mono">
+                        {check.status === "ok" ? `${check.latencyMs ?? 0}ms` : check.error ?? "error"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
+
+      {/* System Resources — RAM & Disk bars */}
+      {modelsData?.system && (
+        <div className="border border-slate-200 dark:border-gray-800 rounded-2xl px-5 py-4 space-y-3">
+          <RAMBar models={loadedModels} embeddingModel={embeddingModel} system={modelsData.system} />
+          <DiskBar system={modelsData.system} />
+        </div>
+      )}
 
       {/* Open Edgebric button */}
       <a
         href="/"
         className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors"
       >
-        Open Edgebric Web UI
+        Open Edgebric
       </a>
 
-      {/* Model management — desktop app only */}
-      <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5">
-        <div className="flex items-start gap-3">
-          <Monitor className="w-5 h-5 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
-          <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Models</h3>
-            <p className="text-xs text-slate-500 dark:text-gray-400">
-              Models are managed from the desktop app.
-            </p>
-            <div className="flex items-center gap-3 pt-1">
-              <a
-                href="edgebric://models"
-                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Open Edgebric Desktop
-              </a>
-              <span className="text-slate-300 dark:text-gray-700">|</span>
-              <a
-                href="https://edgebric.com/download"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:underline"
-              >
-                Download Edgebric
-              </a>
-            </div>
-          </div>
-        </div>
+      {/* Manage Models + Desktop links */}
+      <div className="flex items-center justify-center gap-4 text-xs">
+        <a
+          href="/models"
+          className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Manage Models
+        </a>
+        <span className="text-slate-300 dark:text-gray-700">|</span>
+        <a
+          href="edgebric://models"
+          className="font-medium text-slate-500 dark:text-gray-400 hover:underline"
+        >
+          Open Edgebric Desktop
+        </a>
       </div>
     </div>
   );
 }
-
-// IntegrationsTab removed — Slack/Email/Teams integrations deferred to Phase 4

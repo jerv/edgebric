@@ -8,6 +8,7 @@ declare global {
     electronAPI: {
       readLogs: (lines?: number) => Promise<string>;
       getStatus: () => Promise<{ status: string; port: number; hostname?: string; errorMsg?: string }>;
+      getHealth: () => Promise<{ uptime: number | null; checks: Record<string, { status: string; latencyMs?: number; error?: string }> } | null>;
       startServer: () => Promise<{ success: boolean; error?: string }>;
       stopServer: () => Promise<{ success: boolean; error?: string }>;
       onStatusChange: (callback: (status: string, errorMsg?: string) => void) => () => void;
