@@ -753,7 +753,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                         "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full w-fit",
                         ds.type === "personal"
                           ? "bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400"
-                          : "bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400",
+                          : "bg-blue-50 dark:bg-blue-950 text-blue-500 dark:text-blue-400",
                       )}
                     >
                       {ds.type === "personal" ? (

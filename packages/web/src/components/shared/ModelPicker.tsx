@@ -15,7 +15,8 @@ function formatBytes(bytes: number): string {
   return `${mb.toFixed(0)} MB`;
 }
 
-function MiniResourceBar({ used, total }: { used: number; total: number }) {
+function MiniResourceBar({ available, total }: { available: number; total: number }) {
+  const used = total - available;
   const percent = total > 0 ? Math.round((used / total) * 100) : 0;
   const barColor = percent > 90 ? "bg-red-500" : percent > 70 ? "bg-amber-500" : "bg-emerald-500";
   return (
@@ -25,7 +26,7 @@ function MiniResourceBar({ used, total }: { used: number; total: number }) {
         <div className={cn("h-full rounded-full", barColor)} style={{ width: `${Math.min(percent, 100)}%` }} />
       </div>
       <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono tabular-nums">
-        {formatBytes(used)}/{formatBytes(total)}
+        {formatBytes(available)} free
       </span>
     </div>
   );
@@ -174,7 +175,7 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
           {isAdmin && (
             <div className="px-3 py-2 border-b border-slate-100 dark:border-gray-800">
               <MiniResourceBar
-                used={system.ramTotalBytes - system.ramAvailableBytes}
+                available={system.ramAvailableBytes}
                 total={system.ramTotalBytes}
               />
             </div>

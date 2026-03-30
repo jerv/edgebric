@@ -143,23 +143,23 @@ function ModelCard({ model, isActive, onLoad, onUnload, onSetDefault, loading, r
     <div className={cn(
       "rounded-2xl border px-5 py-4 transition-colors",
       isActive
-        ? "border-slate-900 dark:border-gray-100 bg-slate-900 dark:bg-gray-100"
+        ? "border-emerald-400 dark:border-emerald-500 border-l-4"
         : "border-slate-200 dark:border-gray-800",
     )}>
       <div className="flex items-center gap-3">
         {isLoaded ? (
-          <CheckCircle className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-white dark:text-gray-900" : "text-emerald-500")} />
+          <CheckCircle className="w-4 h-4 flex-shrink-0 text-emerald-500" />
         ) : (
           <Circle className="w-4 h-4 flex-shrink-0 text-slate-300 dark:text-gray-600" />
         )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn("font-medium text-sm", isActive ? "text-white dark:text-gray-900" : "text-slate-900 dark:text-gray-100")}>
+            <span className="font-medium text-sm text-slate-900 dark:text-gray-100">
               {label}
             </span>
             {isActive && (
-              <span className="text-xs bg-white/20 dark:bg-gray-900/20 text-white dark:text-gray-900 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full font-medium">
                 Active
               </span>
             )}
@@ -170,7 +170,7 @@ function ModelCard({ model, isActive, onLoad, onUnload, onSetDefault, loading, r
             )}
           </div>
 
-          <div className={cn("flex items-center gap-3 text-xs mt-1", isActive ? "text-white/60 dark:text-gray-900/60" : "text-slate-500 dark:text-gray-400")}>
+          <div className="flex items-center gap-3 text-xs mt-1 text-slate-500 dark:text-gray-400">
             <span>{formatBytes(model.sizeBytes)} on disk</span>
             {isLoaded && model.ramUsageBytes && (
               <span>{formatBytes(model.ramUsageBytes)} RAM</span>
