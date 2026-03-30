@@ -17,6 +17,7 @@ import {
   Loader2,
   Network,
   Plug,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -250,9 +251,36 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     staleTime: Infinity,
   });
 
+  // Health status for Service nav icon
+  const { data: healthStatus } = useQuery<{ status: string; aiReady: boolean }>({
+    queryKey: ["health-sidebar"],
+    queryFn: () =>
+      fetch("/api/health", { credentials: "same-origin" }).then((r) => r.json() as Promise<{ status: string; aiReady: boolean }>),
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+    enabled: isAdmin,
+  });
+
+  const ServiceIcon = ({ className }: { className?: string }) => {
+    const dotColor = !healthStatus
+      ? "bg-gray-400"
+      : healthStatus.status === "healthy" && healthStatus.aiReady
+        ? "bg-emerald-500"
+        : healthStatus.status === "healthy" || healthStatus.status === "degraded"
+          ? "bg-amber-500"
+          : "bg-red-500";
+    return (
+      <div className={cn("relative", className)}>
+        <Activity className="w-4 h-4" />
+        <span className={cn("absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-white dark:border-gray-950", dotColor)} />
+      </div>
+    );
+  };
+
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Data Sources", icon: Database },
     { href: "/integrations", label: "Integrations", icon: Plug },
+    { href: "/service", label: "Service", icon: ServiceIcon, adminOnly: true },
   ];
 
   const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);

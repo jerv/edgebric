@@ -935,38 +935,32 @@ export function ServiceTab() {
             )}
           </div>
         )}
+
+        {/* System Resources — RAM & Disk bars */}
+        {modelsData?.system && (
+          <div className="border-t border-slate-100 dark:border-gray-800 pt-3 space-y-3">
+            <RAMBar models={loadedModels} embeddingModel={embeddingModel} system={modelsData.system} />
+            <DiskBar system={modelsData.system} />
+          </div>
+        )}
       </div>
 
-      {/* System Resources — RAM & Disk bars */}
-      {modelsData?.system && (
-        <div className="border border-slate-200 dark:border-gray-800 rounded-2xl px-5 py-4 space-y-3">
-          <RAMBar models={loadedModels} embeddingModel={embeddingModel} system={modelsData.system} />
-          <DiskBar system={modelsData.system} />
-        </div>
-      )}
-
-      {/* Open Edgebric button */}
+      {/* Open Edgebric Desktop button */}
       <a
-        href="/"
+        href="edgebric://open"
         className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors"
       >
-        Open Edgebric
+        Open Edgebric Desktop
       </a>
 
-      {/* Manage Models + Desktop links */}
-      <div className="flex items-center justify-center gap-4 text-xs">
+      {/* Manage Models link */}
+      <div className="flex items-center justify-center text-xs">
         <a
           href="/models"
-          className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          className="inline-flex items-center gap-1.5 font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-gray-100 transition-colors"
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/><path d="M5 17l.6 1.4L7 19l-1.4.6L5 21l-.6-1.4L3 19l1.4-.6L5 17z"/></svg>
           Manage Models
-        </a>
-        <span className="text-slate-300 dark:text-gray-700">|</span>
-        <a
-          href="edgebric://models"
-          className="font-medium text-slate-500 dark:text-gray-400 hover:underline"
-        >
-          Open Edgebric Desktop
         </a>
       </div>
     </div>

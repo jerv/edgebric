@@ -1592,67 +1592,67 @@ export default function ServerDashboard() {
           })()}
 
           {errorMsg && <div className="error-msg">{errorMsg}</div>}
-        </div>
 
-        {isRunning && (() => {
-          const sys = modelsData?.system;
-          const ramTotal = sys?.ramTotalBytes ?? 0;
-          const ramAvailable = sys?.ramAvailableBytes ?? 0;
-          const ramUsed = ramTotal - ramAvailable;
-          const diskTotal = sys?.diskTotalBytes ?? 0;
-          const diskUsed = diskTotal - (sys?.diskFreeBytes ?? 0);
-          const diskPercent = diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 100) : 0;
-          const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_TAG);
-          const embeddingModel = (modelsData?.models ?? []).find((m) => m.tag === EMBEDDING_TAG && m.status === "loaded");
-          const modelRam = loadedModels.filter((m) => m.ramUsageBytes).reduce((sum, m) => sum + (m.ramUsageBytes ?? 0), 0);
-          const embeddingRam = embeddingModel?.ramUsageBytes ?? 0;
-          const edgebricRam = sys?.edgebricRamBytes ?? 0;
-          const otherUsed = Math.max(0, ramUsed - modelRam - embeddingRam - edgebricRam);
-          const pctOf = (bytes: number) => ramTotal > 0 ? Math.max(0, (bytes / ramTotal) * 100) : 0;
-          const diskBarColor = diskPercent > 90 ? "#ef4444" : diskPercent > 70 ? "#f59e0b" : "#22c55e";
+          {/* System Resources — merged into status card */}
+          {isRunning && (() => {
+            const sys = modelsData?.system;
+            if (!sys) return null;
+            const ramTotal = sys.ramTotalBytes ?? 0;
+            const ramAvailable = sys.ramAvailableBytes ?? 0;
+            const ramUsed = ramTotal - ramAvailable;
+            const diskTotal = sys.diskTotalBytes ?? 0;
+            const diskUsed = diskTotal - (sys.diskFreeBytes ?? 0);
+            const diskPercent = diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 100) : 0;
+            const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_TAG);
+            const embeddingModel = (modelsData?.models ?? []).find((m) => m.tag === EMBEDDING_TAG && m.status === "loaded");
+            const modelRam = loadedModels.filter((m) => m.ramUsageBytes).reduce((sum, m) => sum + (m.ramUsageBytes ?? 0), 0);
+            const embeddingRam = embeddingModel?.ramUsageBytes ?? 0;
+            const edgebricRam = sys.edgebricRamBytes ?? 0;
+            const otherUsed = Math.max(0, ramUsed - modelRam - embeddingRam - edgebricRam);
+            const pctOf = (bytes: number) => ramTotal > 0 ? Math.max(0, (bytes / ramTotal) * 100) : 0;
+            const diskBarColor = diskPercent > 90 ? "#ef4444" : diskPercent > 70 ? "#f59e0b" : "#22c55e";
 
-          return (
-            <>
-              {sys && (
-                <div className="card" style={{ width: "100%", padding: "12px 16px" }}>
-                  {/* RAM bar */}
-                  <div className="resource-bar-item" style={{ marginBottom: 10 }}>
-                    <div className="resource-bar-label">
-                      <span>Memory</span>
-                      <span className="resource-bar-value">{formatGB(ramAvailable)} available / {formatGB(ramTotal)} total</span>
-                    </div>
-                    <div className="resource-bar-track">
-                      <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
-                      {edgebricRam > 0 && (
-                        <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
-                      )}
-                      {embeddingRam > 0 && (
-                        <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
-                      )}
-                      {modelRam > 0 && (
-                        <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
-                      )}
-                    </div>
+            return (
+              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 10, marginTop: 10 }}>
+                {/* RAM bar */}
+                <div className="resource-bar-item" style={{ marginBottom: 10 }}>
+                  <div className="resource-bar-label">
+                    <span>Memory</span>
+                    <span className="resource-bar-value">{formatGB(ramAvailable)} available / {formatGB(ramTotal)} total</span>
                   </div>
-                  {/* Disk bar */}
-                  <div className="resource-bar-item">
-                    <div className="resource-bar-label">
-                      <span>Disk</span>
-                      <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
-                    </div>
-                    <div className="resource-bar-track">
-                      <div className="resource-bar-fill" style={{ width: `${Math.min(diskPercent, 100)}%`, background: diskBarColor, borderRadius: "3px" }} />
-                    </div>
+                  <div className="resource-bar-track">
+                    <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
+                    {edgebricRam > 0 && (
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
+                    )}
+                    {embeddingRam > 0 && (
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
+                    )}
+                    {modelRam > 0 && (
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
+                    )}
                   </div>
                 </div>
-              )}
+                {/* Disk bar */}
+                <div className="resource-bar-item">
+                  <div className="resource-bar-label">
+                    <span>Disk</span>
+                    <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
+                  </div>
+                  <div className="resource-bar-track">
+                    <div className="resource-bar-fill" style={{ width: `${Math.min(diskPercent, 100)}%`, background: diskBarColor, borderRadius: "3px" }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
 
-              <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
-                Open Edgebric
-              </button>
-            </>
-          );
-        })()}
+        {isRunning && (
+          <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
+            Open Edgebric
+          </button>
+        )}
       </div>
 
       <div className="bottom-actions">

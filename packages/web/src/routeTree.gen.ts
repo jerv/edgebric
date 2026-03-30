@@ -17,6 +17,7 @@ import { Route as ShellRouteImport } from './routes/_shell'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ShellIndexRouteImport } from './routes/_shell/index'
 import { Route as ShellSettingsRouteImport } from './routes/_shell/settings'
+import { Route as ShellServiceRouteImport } from './routes/_shell/service'
 import { Route as ShellOrganizationRouteImport } from './routes/_shell/organization'
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
 import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
@@ -64,6 +65,11 @@ const ShellIndexRoute = ShellIndexRouteImport.update({
 const ShellSettingsRoute = ShellSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => ShellRoute,
+} as any)
+const ShellServiceRoute = ShellServiceRouteImport.update({
+  id: '/service',
+  path: '/service',
   getParentRoute: () => ShellRoute,
 } as any)
 const ShellOrganizationRoute = ShellOrganizationRouteImport.update({
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
+  '/service': typeof ShellServiceRoute
   '/settings': typeof ShellSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/conversations/$id': typeof ShellConversationsIdRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
+  '/service': typeof ShellServiceRoute
   '/settings': typeof ShellSettingsRoute
   '/': typeof ShellIndexRoute
   '/admin': typeof AdminIndexRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
   '/_shell/organization': typeof ShellOrganizationRoute
+  '/_shell/service': typeof ShellServiceRoute
   '/_shell/settings': typeof ShellSettingsRoute
   '/_shell/': typeof ShellIndexRoute
   '/admin/': typeof AdminIndexRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/models'
     | '/organization'
+    | '/service'
     | '/settings'
     | '/admin/'
     | '/conversations/$id'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/models'
     | '/organization'
+    | '/service'
     | '/settings'
     | '/'
     | '/admin'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/_shell/library'
     | '/_shell/models'
     | '/_shell/organization'
+    | '/_shell/service'
     | '/_shell/settings'
     | '/_shell/'
     | '/admin/'
@@ -291,6 +303,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof ShellSettingsRouteImport
+      parentRoute: typeof ShellRoute
+    }
+    '/_shell/service': {
+      id: '/_shell/service'
+      path: '/service'
+      fullPath: '/service'
+      preLoaderRoute: typeof ShellServiceRouteImport
       parentRoute: typeof ShellRoute
     }
     '/_shell/organization': {
@@ -379,6 +398,7 @@ interface ShellRouteChildren {
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
   ShellOrganizationRoute: typeof ShellOrganizationRoute
+  ShellServiceRoute: typeof ShellServiceRoute
   ShellSettingsRoute: typeof ShellSettingsRoute
   ShellIndexRoute: typeof ShellIndexRoute
   ShellConversationsIdRoute: typeof ShellConversationsIdRoute
@@ -392,6 +412,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,
   ShellOrganizationRoute: ShellOrganizationRoute,
+  ShellServiceRoute: ShellServiceRoute,
   ShellSettingsRoute: ShellSettingsRoute,
   ShellIndexRoute: ShellIndexRoute,
   ShellConversationsIdRoute: ShellConversationsIdRoute,

@@ -16,13 +16,12 @@ import { AvatarUpload } from "@/components/shared/AvatarUpload";
 // We import them from the barrel — they'll be extracted into their own files in a follow-up
 import {
   MembersTab,
-  ServiceTab,
 } from "@/components/settings/orgTabs";
 import { NetworkTab } from "@/components/settings/NetworkTab";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type OrgTab = "general" | "privacy" | "members" | "service" | "network";
+export type OrgTab = "general" | "privacy" | "members" | "network";
 
 interface TabDef {
   id: OrgTab;
@@ -36,7 +35,6 @@ const TABS: TabDef[] = [
   { id: "general", label: "General" },
   { id: "privacy", label: "Privacy", memberLabel: "Vault Mode" },
   { id: "members", label: "Permissions", adminOnly: true },
-  { id: "service", label: "Service", adminOnly: true },
   { id: "network", label: "Network", adminOnly: true },
 ];
 
@@ -264,7 +262,6 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
         {tab === "general" && <OrgGeneralTab />}
         {tab === "privacy" && <PrivacyTab />}
         {tab === "members" && isAdmin && <MembersTab />}
-        {tab === "service" && isAdmin && <ServiceTab />}
         {tab === "network" && isAdmin && <NetworkTab />}
       </div>
     </div>
