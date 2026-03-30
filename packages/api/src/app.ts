@@ -24,6 +24,7 @@ import { groupChatQueryRouter } from "./routes/groupChatQuery.js";
 import { auditRouter } from "./routes/audit.js";
 import { meshRouter } from "./routes/mesh.js";
 import { meshInterNodeRouter } from "./routes/meshInterNode.js";
+import { integrationsRouter } from "./routes/integrations.js";
 import { config } from "./config.js";
 import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
@@ -230,6 +231,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/feedback", feedbackRouter);
   app.use("/api/data-sources", dataSourcesRouter);
   app.use("/api/admin/org", orgRouter);
+  app.use("/api/admin/integrations", integrationsRouter);
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
