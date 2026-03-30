@@ -821,10 +821,11 @@ export function ServiceTab() {
   }
 
   const activeModelLabel = health?.activeModel ? adminLabel(health.activeModel) : undefined;
+  const accessUrl = window.location.origin;
 
   return (
     <div className="space-y-6">
-      {/* Service status — matches desktop dashboard style */}
+      {/* Service status card — mirrors desktop dashboard */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -844,12 +845,52 @@ export function ServiceTab() {
         </div>
 
         {activeModelLabel && (
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
-            <span className="text-slate-400 dark:text-gray-500">Active model:</span>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400 dark:text-gray-500">Active model</span>
             <span className="font-medium text-slate-700 dark:text-gray-300">{activeModelLabel}</span>
           </div>
         )}
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-400 dark:text-gray-500">Access URL</span>
+          <a
+            href={accessUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {accessUrl}
+          </a>
+        </div>
+
+        {/* Individual service checks */}
+        {health?.checks && (
+          <div className="border-t border-slate-100 dark:border-gray-800 pt-3 space-y-2">
+            {Object.entries(health.checks).map(([name, check]) => (
+              <div key={name} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                    style={{ background: check.status === "ok" ? "#22c55e" : "#ef4444" }}
+                  />
+                  <span className="text-slate-600 dark:text-gray-400 capitalize">{name.replace(/([A-Z])/g, " $1").trim()}</span>
+                </div>
+                <span className="text-slate-400 dark:text-gray-500 font-mono">
+                  {check.status === "ok" ? `${check.latencyMs ?? 0}ms` : check.error ?? "error"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Open Edgebric button */}
+      <a
+        href="/"
+        className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors"
+      >
+        Open Edgebric
+      </a>
 
       {/* Model management — desktop app only */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5">

@@ -73,7 +73,7 @@ function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabl
       {/* Load/unload button (admin only) */}
       {isAdmin && (
         <>
-          {isLoaded && !isActive ? (
+          {isLoaded ? (
             <button
               onClick={onUnload}
               disabled={disabled}
@@ -82,7 +82,7 @@ function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabl
             >
               <PowerOff className="w-3 h-3" />
             </button>
-          ) : !isLoaded ? (
+          ) : (
             <button
               onClick={onLoad}
               disabled={disabled}
@@ -91,7 +91,7 @@ function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabl
             >
               <Power className="w-3 h-3" />
             </button>
-          ) : null}
+          )}
         </>
       )}
     </div>

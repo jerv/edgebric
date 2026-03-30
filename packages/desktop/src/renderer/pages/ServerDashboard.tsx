@@ -1516,7 +1516,7 @@ export default function ServerDashboard() {
 
         {isRunning && (
           <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
-            Launch Edgebric
+            Open Edgebric
           </button>
         )}
       </div>
