@@ -393,3 +393,8 @@ export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisible
 
 export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshStatus } from "./mesh.js";
 
+// ─── Cloud Storage Integrations (re-exported from cloud.ts) ──────────────────
+
+export type { CloudProvider, CloudConnectionStatus, CloudSyncFileStatus, CloudConnection, CloudSyncFile, CloudFolder, CloudProviderInfo } from "./cloud.js";
+export { CLOUD_PROVIDERS } from "./cloud.js";
+

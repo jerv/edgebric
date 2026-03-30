@@ -25,9 +25,13 @@ import { auditRouter } from "./routes/audit.js";
 import { meshRouter } from "./routes/mesh.js";
 import { meshInterNodeRouter } from "./routes/meshInterNode.js";
 import { integrationsRouter } from "./routes/integrations.js";
+import { cloudConnectionsRouter } from "./routes/cloudConnections.js";
 import { config } from "./config.js";
 import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
+
+// Register cloud connectors (side-effect imports)
+import "./connectors/googleDrive.js";
 
 // ─── Session type augmentation ────────────────────────────────────────────────
 
@@ -43,6 +47,7 @@ declare module "express-session" {
     oidcState?: string; // transient — cleared after callback
     codeVerifier?: string; // transient — cleared after callback
     meshReturnTo?: string; // transient — secondary node URL to redirect after OIDC
+    cloudOAuthNonce?: string; // transient — cleared after cloud OAuth callback
   }
 }
 
@@ -232,6 +237,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/data-sources", dataSourcesRouter);
   app.use("/api/admin/org", orgRouter);
   app.use("/api/admin/integrations", integrationsRouter);
+  app.use("/api/admin/cloud-connections", cloudConnectionsRouter);
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);

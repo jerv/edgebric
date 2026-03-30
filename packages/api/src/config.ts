@@ -59,6 +59,14 @@ export const config = {
     embeddingDim: parseInt(process.env["EMBEDDING_DIM"] ?? "768", 10),
   },
 
+  // Cloud storage integrations (OAuth clients — separate from OIDC login)
+  cloud: {
+    google: {
+      clientId: process.env["GOOGLE_DRIVE_CLIENT_ID"] ?? "",
+      clientSecret: process.env["GOOGLE_DRIVE_CLIENT_SECRET"] ?? "",
+    },
+  },
+
   // Chat inference endpoint — points to Ollama's OpenAI-compatible API by default.
   // Can be overridden to use llama-server, vLLM, or any OpenAI-compatible endpoint.
   chat: {

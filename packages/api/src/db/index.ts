@@ -370,6 +370,58 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_node_groups_org_id ON node_groups(org_id);
   `);
 
+  // Cloud storage integration tables
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS cloud_connections (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      data_source_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      account_email TEXT,
+      folder_id TEXT,
+      folder_name TEXT,
+      sync_interval_min INTEGER NOT NULL DEFAULT 60,
+      status TEXT NOT NULL DEFAULT 'active',
+      last_sync_at TEXT,
+      last_error TEXT,
+      sync_cursor TEXT,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cloud_oauth_tokens (
+      connection_id TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      token_type TEXT NOT NULL DEFAULT 'Bearer',
+      expires_at TEXT,
+      scopes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cloud_sync_files (
+      id TEXT PRIMARY KEY,
+      connection_id TEXT NOT NULL,
+      external_file_id TEXT NOT NULL,
+      external_name TEXT NOT NULL,
+      external_modified TEXT,
+      document_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_error TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cloud_connections_org_id ON cloud_connections(org_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_connections_status ON cloud_connections(status);
+    CREATE INDEX IF NOT EXISTS idx_cloud_sync_files_connection_id ON cloud_sync_files(connection_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_sync_files_external_file_id ON cloud_sync_files(external_file_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_sync_files_conn_ext ON cloud_sync_files(connection_id, external_file_id);
+  `);
+
   // FTS5 full-text search index for hybrid BM25+vector retrieval
   sqlite.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

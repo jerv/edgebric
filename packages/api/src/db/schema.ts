@@ -282,3 +282,48 @@ export const integrationConfig = sqliteTable("integration_config", {
   key: text("key").primaryKey().default("main"),
   config: text("config").notNull().default("{}"), // JSON blob
 });
+
+// ─── Cloud Storage Integrations ─────────────────────────────────────────────
+
+export const cloudConnections = sqliteTable("cloud_connections", {
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(), // google_drive | onedrive | dropbox | notion | confluence
+  displayName: text("display_name").notNull(),
+  dataSourceId: text("data_source_id").notNull(), // FK to data_sources.id (1:1)
+  orgId: text("org_id").notNull(),
+  accountEmail: text("account_email"),
+  folderId: text("folder_id"),
+  folderName: text("folder_name"),
+  syncIntervalMin: integer("sync_interval_min").notNull().default(60),
+  status: text("status").notNull().default("active"), // active | paused | error | disconnected
+  lastSyncAt: text("last_sync_at"),
+  lastError: text("last_error"),
+  syncCursor: text("sync_cursor"), // provider-specific opaque cursor
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const cloudOauthTokens = sqliteTable("cloud_oauth_tokens", {
+  connectionId: text("connection_id").primaryKey(), // FK to cloud_connections.id
+  accessToken: text("access_token").notNull(), // encrypted via encryptText()
+  refreshToken: text("refresh_token"), // encrypted via encryptText()
+  tokenType: text("token_type").notNull().default("Bearer"),
+  expiresAt: text("expires_at"),
+  scopes: text("scopes"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const cloudSyncFiles = sqliteTable("cloud_sync_files", {
+  id: text("id").primaryKey(),
+  connectionId: text("connection_id").notNull(), // FK to cloud_connections.id
+  externalFileId: text("external_file_id").notNull(),
+  externalName: text("external_name").notNull(),
+  externalModified: text("external_modified"),
+  documentId: text("document_id"), // FK to documents.id (null until first successful ingest)
+  status: text("status").notNull().default("pending"), // pending | synced | error | deleted
+  lastError: text("last_error"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

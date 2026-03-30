@@ -121,6 +121,12 @@ async function start() {
     if (count > 0) logger.info({ count }, "Expired stale shared sources");
   }, 60 * 1000);
 
+  // Start cloud sync scheduler (polls active connections on their configured interval)
+  {
+    const { startSyncScheduler } = await import("./jobs/syncScheduler.js");
+    startSyncScheduler();
+  }
+
   // Auto-install embedding model if Ollama is running but nomic-embed-text is missing
   (async () => {
     try {
@@ -181,8 +187,13 @@ async function start() {
     shuttingDown = true;
     logger.info({ signal }, "Shutting down gracefully...");
 
-    server.close(() => {
+    server.close(async () => {
       logger.info("HTTP server closed");
+
+      try {
+        const { stopSyncScheduler } = await import("./jobs/syncScheduler.js");
+        stopSyncScheduler();
+      } catch { /* safe to ignore */ }
 
       try {
         closeDatabase();
