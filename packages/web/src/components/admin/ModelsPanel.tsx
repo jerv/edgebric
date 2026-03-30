@@ -331,7 +331,7 @@ export function ModelsPanel() {
                   href="edgebric://models"
                   className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  Open Desktop App
+                  Open Edgebric Desktop
                 </a>
                 <span className="text-slate-300 dark:text-gray-700">|</span>
                 <a

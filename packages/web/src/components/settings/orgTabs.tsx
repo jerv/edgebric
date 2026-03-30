@@ -889,7 +889,7 @@ export function ServiceTab() {
         href="/"
         className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors"
       >
-        Open Edgebric
+        Open Edgebric Web UI
       </a>
 
       {/* Model management — desktop app only */}
@@ -906,7 +906,7 @@ export function ServiceTab() {
                 href="edgebric://models"
                 className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
               >
-                Open Desktop App
+                Open Edgebric Desktop
               </a>
               <span className="text-slate-300 dark:text-gray-700">|</span>
               <a
