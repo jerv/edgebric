@@ -249,8 +249,8 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
   try {
     await ollama.unloadModel(tag);
 
-    // If we just unloaded the active model, auto-switch to another loaded model
-    let newActive: string | undefined;
+    // If we just unloaded the active model, switch to another loaded model or clear it
+    let newActive: string | null | undefined;
     if (tag === runtimeChatConfig.model) {
       const running = await ollama.listRunning();
       const otherTag = [...running.keys()].find((t) => t !== tag && t !== EMBEDDING_MODEL_TAG);
@@ -259,18 +259,14 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
         newActive = otherTag;
         logger.info({ newActive }, "Auto-switched active model after unload");
       } else {
-        // No other loaded model — pick first installed as fallback
-        const installed = await ollama.listInstalled();
-        const fallback = installed.find((m) => m.tag !== tag && m.tag !== EMBEDDING_MODEL_TAG);
-        if (fallback) {
-          runtimeChatConfig.model = fallback.tag;
-          newActive = fallback.tag;
-          logger.info({ newActive }, "Fallback active model set after unload (not loaded in RAM)");
-        }
+        // No models loaded — clear active so user can free all RAM
+        runtimeChatConfig.model = "";
+        newActive = null;
+        logger.info("All chat models unloaded, active model cleared");
       }
     }
 
-    res.json({ unloaded: true, tag, ...(newActive && { activeModel: newActive }) });
+    res.json({ unloaded: true, tag, ...(newActive !== undefined && { activeModel: newActive }) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to unload model";
     logger.error({ tag, err }, "Failed to unload model");
