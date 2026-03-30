@@ -63,8 +63,8 @@ export function ContextRing({ usage }: { usage: ContextUsage | null }) {
           className={cn("stroke-current transition-all duration-500", ringColor)}
         />
       </svg>
-      {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+      {/* Tooltip — anchored right to avoid bleeding off screen edge */}
+      <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50">
         <div className="bg-slate-900 dark:bg-gray-800 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
           <div className="font-medium mb-1">
             Context: {Math.round(pct)}% used
@@ -85,7 +85,7 @@ export function ContextRing({ usage }: { usage: ContextUsage | null }) {
             </div>
           </div>
         </div>
-        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-gray-800" />
+        <div className="absolute top-full right-2 -mt-1 border-4 border-transparent border-t-slate-900 dark:border-t-gray-800" />
       </div>
     </div>
   );
