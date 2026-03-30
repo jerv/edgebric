@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Loader2,
   Network,
+  Cloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -251,6 +252,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Data Sources", icon: Database },
+    { href: "/integrations", label: "Integrations", icon: Cloud },
   ];
 
   const filteredAdminItems = adminNavItems.filter((item) => !item.adminOnly || isAdmin);

@@ -208,7 +208,7 @@ const updateSchema = z.object({
   displayName: z.string().min(1).max(200).optional(),
   folderId: z.string().min(1).optional(),
   folderName: z.string().min(1).max(500).optional(),
-  syncIntervalMin: z.number().int().min(15).max(1440).optional(),
+  syncIntervalMin: z.number().int().min(5).max(1440).optional(),
   status: z.enum(["active", "paused"]).optional(),
 });
 

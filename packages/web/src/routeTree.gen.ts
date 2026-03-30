@@ -20,6 +20,7 @@ import { Route as ShellSettingsRouteImport } from './routes/_shell/settings'
 import { Route as ShellOrganizationRouteImport } from './routes/_shell/organization'
 import { Route as ShellModelsRouteImport } from './routes/_shell/models'
 import { Route as ShellLibraryRouteImport } from './routes/_shell/library'
+import { Route as ShellIntegrationsRouteImport } from './routes/_shell/integrations'
 import { Route as ShellGroupChatsRouteImport } from './routes/_shell/group-chats'
 import { Route as ShellDocumentsRouteImport } from './routes/_shell/documents'
 import { Route as ShellAccountRouteImport } from './routes/_shell/account'
@@ -80,6 +81,11 @@ const ShellLibraryRoute = ShellLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => ShellRoute,
 } as any)
+const ShellIntegrationsRoute = ShellIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => ShellRoute,
+} as any)
 const ShellGroupChatsRoute = ShellGroupChatsRouteImport.update({
   id: '/group-chats',
   path: '/group-chats',
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof ShellAccountRoute
   '/documents': typeof ShellDocumentsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
+  '/integrations': typeof ShellIntegrationsRoute
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/account': typeof ShellAccountRoute
   '/documents': typeof ShellDocumentsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
+  '/integrations': typeof ShellIntegrationsRoute
   '/library': typeof ShellLibraryRoute
   '/models': typeof ShellModelsRoute
   '/organization': typeof ShellOrganizationRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/_shell/account': typeof ShellAccountRoute
   '/_shell/documents': typeof ShellDocumentsRoute
   '/_shell/group-chats': typeof ShellGroupChatsRouteWithChildren
+  '/_shell/integrations': typeof ShellIntegrationsRoute
   '/_shell/library': typeof ShellLibraryRoute
   '/_shell/models': typeof ShellModelsRoute
   '/_shell/organization': typeof ShellOrganizationRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/documents'
     | '/group-chats'
+    | '/integrations'
     | '/library'
     | '/models'
     | '/organization'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/documents'
     | '/group-chats'
+    | '/integrations'
     | '/library'
     | '/models'
     | '/organization'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/_shell/account'
     | '/_shell/documents'
     | '/_shell/group-chats'
+    | '/_shell/integrations'
     | '/_shell/library'
     | '/_shell/models'
     | '/_shell/organization'
@@ -302,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShellLibraryRouteImport
       parentRoute: typeof ShellRoute
     }
+    '/_shell/integrations': {
+      id: '/_shell/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof ShellIntegrationsRouteImport
+      parentRoute: typeof ShellRoute
+    }
     '/_shell/group-chats': {
       id: '/_shell/group-chats'
       path: '/group-chats'
@@ -356,6 +375,7 @@ interface ShellRouteChildren {
   ShellAccountRoute: typeof ShellAccountRoute
   ShellDocumentsRoute: typeof ShellDocumentsRoute
   ShellGroupChatsRoute: typeof ShellGroupChatsRouteWithChildren
+  ShellIntegrationsRoute: typeof ShellIntegrationsRoute
   ShellLibraryRoute: typeof ShellLibraryRoute
   ShellModelsRoute: typeof ShellModelsRoute
   ShellOrganizationRoute: typeof ShellOrganizationRoute
@@ -368,6 +388,7 @@ const ShellRouteChildren: ShellRouteChildren = {
   ShellAccountRoute: ShellAccountRoute,
   ShellDocumentsRoute: ShellDocumentsRoute,
   ShellGroupChatsRoute: ShellGroupChatsRouteWithChildren,
+  ShellIntegrationsRoute: ShellIntegrationsRoute,
   ShellLibraryRoute: ShellLibraryRoute,
   ShellModelsRoute: ShellModelsRoute,
   ShellOrganizationRoute: ShellOrganizationRoute,
