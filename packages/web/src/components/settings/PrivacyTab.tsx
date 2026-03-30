@@ -158,7 +158,7 @@ function ToggleCard({
       >
         <SwitchPrimitive.Thumb
           className={cn(
-            "block w-5 h-5 rounded-full bg-white shadow transition-transform",
+            "block w-5 h-5 rounded-full bg-white dark:data-[state=checked]:bg-gray-900 dark:data-[state=unchecked]:bg-gray-300 shadow transition-transform",
             "data-[state=checked]:translate-x-[18px] data-[state=unchecked]:translate-x-0.5",
           )}
         />
