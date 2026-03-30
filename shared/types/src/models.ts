@@ -52,6 +52,8 @@ export interface SystemResources {
   ramAvailableBytes: number;
   diskFreeBytes: number;
   diskTotalBytes: number;
+  /** API server process RSS in bytes (Electron adds its own overhead on top). */
+  serverRamBytes?: number;
 }
 
 export interface ModelsResponse {

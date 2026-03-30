@@ -20,8 +20,8 @@ export function useModels(options?: { enabled?: boolean }) {
     refetchInterval: (query) => {
       const data = query.state.data;
       if (!data) return false;
-      // Poll while any model is downloading
-      return data.models.some((m) => m.status === "downloading") ? 3000 : false;
+      // Fast poll during downloads, slow poll for resource freshness
+      return data.models.some((m) => m.status === "downloading") ? 3000 : 30000;
     },
     enabled: options?.enabled,
   });

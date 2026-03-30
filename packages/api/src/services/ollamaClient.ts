@@ -213,7 +213,23 @@ export async function unloadModel(tag: string): Promise<void> {
 /** Get system RAM and disk usage. */
 export function getSystemResources(): SystemResources {
   const ramTotalBytes = os.totalmem();
-  const ramAvailableBytes = os.freemem();
+  let ramAvailableBytes = os.freemem();
+
+  // macOS: os.freemem() only reports "free" pages, not "free + inactive + purgeable"
+  // which is what's actually available. Use vm_stat for realistic numbers.
+  if (process.platform === "darwin") {
+    try {
+      const vmstat = execSync("vm_stat 2>/dev/null", { encoding: "utf8" });
+      const pageSize = parseInt(vmstat.match(/page size of (\d+)/)?.[1] ?? "16384", 10);
+      const free = parseInt(vmstat.match(/Pages free:\s+(\d+)/)?.[1] ?? "0", 10);
+      const inactive = parseInt(vmstat.match(/Pages inactive:\s+(\d+)/)?.[1] ?? "0", 10);
+      const purgeable = parseInt(vmstat.match(/Pages purgeable:\s+(\d+)/)?.[1] ?? "0", 10);
+      ramAvailableBytes = (free + inactive + purgeable) * pageSize;
+    } catch { /* fall back to os.freemem() */ }
+  }
+
+  // API server process memory
+  const serverRamBytes = process.memoryUsage().rss;
 
   let diskFreeBytes = 0;
   let diskTotalBytes = 0;
@@ -231,7 +247,7 @@ export function getSystemResources(): SystemResources {
     // Can't read disk info — leave as 0
   }
 
-  return { ramTotalBytes, ramAvailableBytes, diskFreeBytes, diskTotalBytes };
+  return { ramTotalBytes, ramAvailableBytes, diskFreeBytes, diskTotalBytes, serverRamBytes };
 }
 
 // ─── Embeddings ──────────────────────────────────────────────────────────────

@@ -1,36 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Loader2, Power, PowerOff, MemoryStick, Settings } from "lucide-react";
+import { ChevronDown, Loader2, Power, PowerOff, Settings } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { employeeLabel, adminLabel } from "@/lib/models";
 import { useModels, useLoadModel, useUnloadModel, useSwitchModel } from "@/hooks/useModels";
 import { useUser } from "@/contexts/UserContext";
+import { MiniRAMBar, formatBytes } from "@/components/shared/ResourceBars";
 import type { InstalledModel } from "@edgebric/types";
 import { EMBEDDING_MODEL_TAG } from "@edgebric/types";
-
-function formatBytes(bytes: number): string {
-  const gb = bytes / (1024 ** 3);
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / (1024 ** 2);
-  return `${mb.toFixed(0)} MB`;
-}
-
-function MiniResourceBar({ available, total }: { available: number; total: number }) {
-  const used = total - available;
-  const percent = total > 0 ? Math.round((used / total) * 100) : 0;
-  const barColor = percent > 90 ? "bg-red-500" : percent > 70 ? "bg-amber-500" : "bg-emerald-500";
-  return (
-    <div className="flex items-center gap-2">
-      <MemoryStick className="w-3 h-3 text-slate-400 dark:text-gray-500" />
-      <div className="flex-1 h-1 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden">
-        <div className={cn("h-full rounded-full", barColor)} style={{ width: `${Math.min(percent, 100)}%` }} />
-      </div>
-      <span className="text-[10px] text-slate-400 dark:text-gray-500 font-mono tabular-nums">
-        {formatBytes(available)} free
-      </span>
-    </div>
-  );
-}
 
 function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabled }: {
   model: InstalledModel;
@@ -174,9 +151,10 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
           {/* System RAM bar (admin only) */}
           {isAdmin && (
             <div className="px-3 py-2 border-b border-slate-100 dark:border-gray-800">
-              <MiniResourceBar
-                available={system.ramAvailableBytes}
-                total={system.ramTotalBytes}
+              <MiniRAMBar
+                system={system}
+                models={loadedModels}
+                embeddingModel={models.find((m) => m.tag === EMBEDDING_MODEL_TAG && m.status === "loaded")}
               />
             </div>
           )}
