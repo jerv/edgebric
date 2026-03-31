@@ -14,11 +14,11 @@ Whether you're a solo consultant managing client files, a small law firm with co
 
 ## Free to use. Pay if you want to support development.
 
-Edgebric is source-available under the [Business Source License 1.1](#license). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
+Edgebric is source-available under the [Business Source License 1.1](LICENSE). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
 
 If you find it useful, consider downloading from [edgebric.com](https://edgebric.com) — it's pay-what-you-want and directly supports continued development. But it's not required.
 
-**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [license section](#license) for full details.
+**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [full license](LICENSE) for details.
 
 ## What It Does
 
