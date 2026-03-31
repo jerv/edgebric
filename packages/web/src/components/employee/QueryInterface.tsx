@@ -444,12 +444,12 @@ export function ChatPanel() {
     prevUrlConvIdRef.current = newConvId;
   }, []);
 
-  const { data: status } = useQuery<{ ready: boolean }>({
+  const { data: status } = useQuery<{ ready: boolean; modelLoaded: boolean }>({
     queryKey: ["query-status"],
     queryFn: async () => {
       const r = await fetch("/api/query/status", { credentials: "same-origin" });
-      if (!r.ok) return { ready: false };
-      return r.json() as Promise<{ ready: boolean }>;
+      if (!r.ok) return { ready: false, modelLoaded: false };
+      return r.json() as Promise<{ ready: boolean; modelLoaded: boolean }>;
     },
     refetchInterval: 8000,
     staleTime: 0,
@@ -466,6 +466,7 @@ export function ChatPanel() {
   });
 
   const systemReady = status?.ready ?? true;
+  const modelLoaded = status?.modelLoaded ?? true;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -546,7 +547,7 @@ export function ChatPanel() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const query = input.trim();
-    if (!query || isLoading || (!systemReady && privacyLevel !== "vault")) return;
+    if (!query || isLoading || (!systemReady && privacyLevel !== "vault") || (!modelLoaded && privacyLevel !== "vault")) return;
 
     setInput("");
     setIsLoading(true);
@@ -558,7 +559,7 @@ export function ChatPanel() {
     const assistantMessage: Message = { role: "assistant", content: "", isStreaming: true };
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
-    // ─── Vault Mode: query locally via Ollama ──────────────────────────────
+    // ─── Vault Mode: query locally via Edgebric AI engine ──────────────────
     if (privacyLevel === "vault") {
       try {
         const { vaultQuery } = await import("@/services/vaultEngine");
@@ -615,15 +616,15 @@ export function ChatPanel() {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Vault query failed";
-        const isOllamaDown = msg.includes("Failed to fetch") || msg.includes("NetworkError");
+        const isEngineDown = msg.includes("Failed to fetch") || msg.includes("NetworkError");
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last?.role === "assistant") {
             updated[updated.length - 1] = {
               ...last,
-              content: isOllamaDown
-                ? "Ollama is not running. Restart it or switch to Private Mode."
+              content: isEngineDown
+                ? "The Edgebric AI engine is not running. Make sure the desktop app is open, or switch to Private Mode."
                 : msg,
               revealedContent: undefined,
               isStreaming: false,
@@ -922,20 +923,29 @@ export function ChatPanel() {
                   Queries are still processed on the organization's servers.
                 </p>
               </>
-            ) : systemReady ? (
-              <>
-                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Ask a question</p>
-                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  Your questions are private. Only aggregate, anonymized topic trends are visible to administrators.
-                </p>
-              </>
-            ) : (
+            ) : !systemReady ? (
               <>
                 <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">No sources yet</p>
                 <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
                   {user?.isAdmin
                     ? "Upload documents from Data Sources to get started."
                     : "No documents have been loaded yet. Check back soon."}
+                </p>
+              </>
+            ) : !modelLoaded ? (
+              <>
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">No model loaded</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
+                  {user?.isAdmin
+                    ? "Go to Settings > Models to load a model before chatting."
+                    : "An administrator needs to load an AI model. Check back soon."}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Ask a question</p>
+                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
+                  Your questions are private. Conversations are only visible to you.
                 </p>
               </>
             )}
@@ -1086,6 +1096,13 @@ export function ChatPanel() {
         {!systemReady ? (
           <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
             Chat unavailable — no documents loaded.
+          </div>
+        ) : !modelLoaded ? (
+          <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
+            No AI model is loaded.{" "}
+            {user?.isAdmin
+              ? "Go to Settings > Models to load one."
+              : "Ask your administrator to load a model."}
           </div>
         ) : (
           <div className="space-y-2">

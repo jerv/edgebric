@@ -211,11 +211,24 @@ async function searchWithHybrid(
   return { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable };
 }
 
-// Returns whether the system has at least one ready document to query against.
-queryRouter.get("/status", (req, res) => {
+// Returns whether the system has at least one ready document to query against
+// and whether a chat model is loaded in memory.
+queryRouter.get("/status", async (req, res) => {
   const docs = req.session.orgId ? getDocumentsByOrg(req.session.orgId) : getAllDocuments();
   const hasDocuments = docs.some((d) => d.status === "ready");
-  res.json({ ready: hasDocuments });
+
+  let modelLoaded = false;
+  try {
+    const ollamaUp = await isOllamaRunning();
+    if (ollamaUp) {
+      const running = await listRunningModels();
+      modelLoaded = running.size > 0;
+    }
+  } catch {
+    // If we can't check, assume not loaded
+  }
+
+  res.json({ ready: hasDocuments, modelLoaded });
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {

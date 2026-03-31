@@ -135,6 +135,7 @@ export function useLoadModel() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...MODELS_KEY] });
+      void queryClient.invalidateQueries({ queryKey: ["query-status"] });
     },
   });
 }
@@ -158,6 +159,7 @@ export function useUnloadModel() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...MODELS_KEY] });
+      void queryClient.invalidateQueries({ queryKey: ["query-status"] });
     },
   });
 }
