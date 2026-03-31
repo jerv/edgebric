@@ -62,8 +62,8 @@ export const config = {
   // Cloud storage integrations (OAuth clients — separate from OIDC login)
   cloud: {
     google: {
-      clientId: process.env["GOOGLE_DRIVE_CLIENT_ID"] ?? "",
-      clientSecret: process.env["GOOGLE_DRIVE_CLIENT_SECRET"] ?? "",
+      clientId: process.env["GOOGLE_DRIVE_CLIENT_ID"] ?? "362624227663-kqbtiuen6jgmtsv2ua41v64kl058nk98.apps.googleusercontent.com",
+      clientSecret: process.env["GOOGLE_DRIVE_CLIENT_SECRET"] ?? "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",
     },
   },
 

@@ -362,12 +362,14 @@ cloudConnectionsRouter.get("/:id/files", (req, res) => {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Get the base URL for OAuth redirects. */
-function getBaseUrl(req: { protocol: string; get: (name: string) => string | undefined }): string {
-  // In dev, API runs on a different port than the frontend
+/** Get the base URL for OAuth redirects — uses static config, never trusts Host header. */
+function getBaseUrl(_req: { protocol: string; get: (name: string) => string | undefined }): string {
+  // Always derive from config to prevent Host header injection.
+  // In production, frontendUrl and API share the same origin.
   if (process.env["NODE_ENV"] !== "production") {
     return `http://localhost:${config.port}`;
   }
-  const host = req.get("host") ?? `localhost:${config.port}`;
-  return `${req.protocol}://${host}`;
+  // Production: use the configured frontend URL's origin (same-origin deployment)
+  const url = new URL(config.frontendUrl);
+  return url.origin;
 }

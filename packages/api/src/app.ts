@@ -238,6 +238,15 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/data-sources", dataSourcesRouter);
   app.use("/api/admin/org", orgRouter);
   app.use("/api/admin/integrations", integrationsRouter);
+  // Strict rate limit on OAuth endpoints — prevents abuse of embedded credentials
+  const oauthLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 5,
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    message: { error: "Too many OAuth requests, please try again later" },
+  });
+  app.use("/api/admin/cloud-connections/oauth", oauthLimiter);
   app.use("/api/admin/cloud-connections", cloudConnectionsRouter);
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
