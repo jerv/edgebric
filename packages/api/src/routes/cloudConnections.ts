@@ -44,6 +44,7 @@ cloudConnectionsRouter.get("/providers", (_req, res) => {
   // A provider is only "enabled" if the connector is registered AND credentials are configured
   const credentialsConfigured: Record<string, boolean> = {
     google_drive: !!(config.cloud.google.clientId && config.cloud.google.clientSecret),
+    onedrive: !!(config.cloud.onedrive.clientId && config.cloud.onedrive.clientSecret),
   };
   const providers = CLOUD_PROVIDERS.map((p) => ({
     ...p,

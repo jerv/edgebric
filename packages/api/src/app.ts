@@ -33,6 +33,7 @@ import path from "path";
 
 // Register cloud connectors (side-effect imports)
 import "./connectors/googleDrive.js";
+import "./connectors/oneDrive.js";
 
 // ─── Session type augmentation ────────────────────────────────────────────────
 

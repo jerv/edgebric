@@ -65,6 +65,10 @@ export const config = {
       clientId: process.env["GOOGLE_DRIVE_CLIENT_ID"] ?? "362624227663-kqbtiuen6jgmtsv2ua41v64kl058nk98.apps.googleusercontent.com",
       clientSecret: process.env["GOOGLE_DRIVE_CLIENT_SECRET"] ?? "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",
     },
+    onedrive: {
+      clientId: process.env["ONEDRIVE_CLIENT_ID"] ?? "",
+      clientSecret: process.env["ONEDRIVE_CLIENT_SECRET"] ?? "",
+    },
   },
 
   // Chat inference endpoint — points to Ollama's OpenAI-compatible API by default.
