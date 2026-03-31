@@ -23,7 +23,7 @@ describe("Data Sources API", () => {
       expect(res.body.accessMode).toBe("all");
       expect(res.body.allowSourceViewing).toBe(true);
       expect(res.body.allowVaultSync).toBe(true);
-      expect(res.body.allowExternalAccess).toBe(true);
+      expect(res.body.allowExternalAccess).toBe(false);
     });
 
     it("rejects empty name", async () => {

@@ -191,8 +191,7 @@ describe("Mesh Inter-Node API", () => {
         ownerId: "admin@test.com",
         orgId,
       });
-      // Default is allowExternalAccess=true, so explicitly disable it
-      updateDataSource(ds2.id, { allowExternalAccess: false });
+      // Default is allowExternalAccess=false, so ds2 is already private
 
       const res = await authedGet("/api/mesh/peer/info");
       expect(res.status).toBe(200);
