@@ -1,8 +1,22 @@
 # Edgebric
 
-Private knowledge platform for organizations. Upload sensitive documents, ask questions with AI, and get cited answers — all with privacy controls built in.
+**Private knowledge platform for organizations.** Upload sensitive documents, ask questions with AI, and get cited answers — all running on your own hardware. Zero data leaves the building.
 
-**Private knowledge. Quick access.**
+> *"Data never moves. Queries move."*
+
+---
+
+**Just want to install it?** You don't need any of what's below. Head to [edgebric.com](https://edgebric.com) to download a ready-to-use installer for macOS. No terminal, no setup — just download and run.
+
+---
+
+## Free to use. Pay if you want to support development.
+
+Edgebric is source-available under the [Business Source License 1.1](LICENSE). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
+
+If you find it useful, consider downloading from [edgebric.com](https://edgebric.com) — it's pay-what-you-want and directly supports continued development. But it's not required.
+
+**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [license](LICENSE) for full details.
 
 ## What It Does
 
@@ -10,8 +24,10 @@ Private knowledge platform for organizations. Upload sensitive documents, ask qu
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
 - **Privacy modes**: Standard (anonymous analytics), Private (no identity tracking), Vault (on-device only).
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
-- **Data source management**: Organize documents into data sources with per-source access control (whole org or restricted by user).
+- **Data source management**: Organize documents into data sources with per-source access control.
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
+- **Group chats**: Collaborative conversations with @bot querying, threads, and source sharing.
+- **Desktop app**: macOS menu bar app that manages Ollama, the API server, and setup — all from the tray.
 
 ## Architecture
 
@@ -25,57 +41,65 @@ Monorepo with four packages:
 | `packages/desktop` | Electron menu bar app — server manager, setup wizard, tray icon |
 | `shared/types` | Shared TypeScript types (including model catalog) |
 
-### Key tech choices
+### Key tech
 
-- **Auth**: OIDC/SSO (Google for dev, any OIDC provider for prod)
-- **Sessions**: httpOnly cookies with session-file-store
-- **AI**: Ollama-managed models (Qwen 3 4B default, supports any Ollama model). OpenAI-compatible API.
+- **AI**: Ollama for local inference (Qwen 3 4B default, supports any Ollama model)
 - **Embeddings**: nomic-embed-text (768-dim) via Ollama
-- **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval
-- **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and FTS5 in one file
-- **Frontend**: Vite, React 18, TailwindCSS, shadcn/ui components
+- **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval (FTS5 + Reciprocal Rank Fusion)
+- **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and full-text search in one file
+- **Auth**: OIDC/SSO (any provider — Google, Okta, Auth0, etc.). Not needed for Solo mode.
+- **Frontend**: Vite, React 18, TailwindCSS, shadcn/ui
 
-## Getting Started
+## Hardware Requirements
+
+| | Minimum | Recommended |
+|---|---|---|
+| **OS** | macOS (Apple Silicon) | macOS (Apple Silicon) |
+| **RAM** | 16GB | 24GB |
+| **Disk** | 20GB free | 50GB free |
+| **Hardware** | Any Apple Silicon Mac | Mac Mini M4 24GB ($699) |
+| **Use case** | Personal / vault use | Org server (100-200 daily users) |
+
+## Building from Source
 
 ### Prerequisites
 
 - Node.js 20+
 - pnpm 9+
 - Python 3.10+ with `docling` (for PDF extraction)
-- An OIDC provider (Google OAuth for dev) — not needed for Solo mode
 - Ollama (auto-managed by desktop app, or install manually)
+- An OIDC provider (e.g., Google OAuth) — not needed for Solo mode
 
-### Setup (Desktop App — recommended)
+### Desktop App (recommended)
 
 ```bash
-# Install dependencies
+git clone https://github.com/edgebric/edgebric.git
+cd edgebric
 pnpm install
 
-# Start the desktop app (manages Ollama + API server automatically)
 cd packages/desktop
 pnpm dev
 ```
 
-The desktop app handles setup, Ollama lifecycle, and server management. Open the web UI from the tray menu or navigate to `https://localhost:3001`.
+The desktop app handles Ollama lifecycle, server management, and setup. Open the web UI from the tray menu.
 
-### Setup (Manual)
+### Manual Setup
 
 ```bash
-# Install dependencies
 pnpm install
 
 # Configure environment
 cp packages/api/.env.example packages/api/.env
-# Edit .env with your OIDC credentials, model paths, etc.
+# Edit .env with your OIDC credentials
 
-# Start Ollama (if not using desktop app)
+# Start Ollama
 ollama serve
 
 # Start the API server
 cd packages/api
 node --import=tsx/esm src/server.ts
 
-# Start the web frontend (separate terminal, for development)
+# Start the web frontend (separate terminal)
 cd packages/web
 pnpm dev
 ```
@@ -92,44 +116,23 @@ pnpm dev
 | `ADMIN_EMAILS` | Comma-separated admin email addresses |
 | `SESSION_SECRET` | Secret for signing session cookies |
 | `OLLAMA_BASE_URL` | Ollama API endpoint (default: `http://localhost:11434`) |
-| `CHAT_BASE_URL` | LLM endpoint (default: `http://localhost:11434/v1` for Ollama) |
 | `CHAT_MODEL` | Model name for chat completions (default: `qwen3:4b`) |
 | `EMBEDDING_MODEL` | Embedding model (default: `nomic-embed-text`) |
 
-## Project Structure
+## Contributing
 
-```
-packages/
-  api/
-    src/
-      db/           # SQLite schema and connection (Drizzle ORM + sqlite-vec)
-      middleware/    # Auth guards (requireAuth, requireOrg, requireAdmin)
-      routes/       # Express route handlers
-      services/     # Data access layer (stores), Ollama client, search
-      jobs/         # Background jobs (document ingestion)
-      lib/          # Logger, utilities
-  web/
-    src/
-      components/   # React components (admin/, employee/, layout/, shared/)
-      contexts/     # React contexts (UserContext, PrivacyContext)
-      routes/       # TanStack Router file-based routes
-      lib/          # Utilities, content helpers
-  core/
-    src/
-      rag/          # RAG orchestrator, system prompt, query filter
-  desktop/
-    src/
-      main/         # Electron main process (tray, server, ollama, config, IPC)
-      preload/      # Context bridge (secure IPC)
-      renderer/     # Setup wizard + server dashboard (React)
-    resources/      # App icon (icns), tray icons (Template PNGs)
-shared/
-  types/
-    src/            # Shared TypeScript interfaces + model catalog
-docs/               # Product documentation
-scripts/            # Dev utilities (restart-desktop.sh)
-```
+Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/edgebric/edgebric/issues).
+
+Community-supported software. No SLA or guaranteed response times.
+
+For enterprise support contracts, contact support@edgebric.com.
 
 ## License
 
-MIT
+[Business Source License 1.1](LICENSE)
+
+- **Use:** Free for personal and internal business use. No user limits, no feature restrictions.
+- **Restriction:** No commercial redistribution. You may not repackage, rebrand, or sell Edgebric or derivative works. You may not offer Edgebric as a hosted or managed service.
+- **Change Date:** 4 years from each release. On the change date, that release converts to Apache License 2.0.
+
+The name "Edgebric" and associated logos are trademarks. Forks must use a different name and branding.

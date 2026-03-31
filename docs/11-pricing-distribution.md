@@ -1,162 +1,204 @@
 # Pricing & Distribution Plan
 
-Last updated: 2026-03-20
+Last updated: 2026-03-30
 
 ---
 
 ## Business Context
 
 - Solo founder, no employees, no sales team
-- All distribution is self-service (website + download)
+- All distribution is self-service (marketing website + GitHub)
 - No cloud infrastructure costs — product runs on customer hardware
-- Target market: non-technical small orgs (medical practices, law firms, accounting firms, small startups) with sensitive documents and no IT staff
+- Primary goal: portfolio/resume value and community adoption
+- Secondary goal: supplemental income to cover costs
 - macOS only at launch
 
-## Pricing Model
+## License
 
-Solo mode is free forever. License required only for multi-user (org) mode.
+### Business Source License 1.1 (BSL)
 
-### Solo Mode (Free)
+Edgebric is **source-available** under the BSL 1.1.
 
-- **Full product**, single user, no auth, no time limit
-- No license key, no payment info, no account required
-- Replaces the old 30-day trial concept — Solo mode IS the trial
-- The paywall is the OIDC/SSO setup step: configuring multi-user auth requires a license
-- Solo mode is the sales team — users experience the full product, then pay when they need multi-user
+- **Usage Grant:** Free for personal use and internal business use (no user limits, no feature restrictions)
+- **Additional Use Grant:** Non-production use (evaluation, testing, development)
+- **Restriction:** No commercial redistribution — you cannot repackage, rebrand, or sell Edgebric or derivative works. You cannot offer Edgebric as a hosted/managed service.
+- **Change Date:** 4 years from each release. On the change date, that release's code automatically converts to Apache 2.0.
+- **Change License:** Apache License 2.0
 
-### Option 1: Perpetual License (Org Mode)
+Each release gets its own change date. The latest release is always under BSL. Only old versions eventually become fully open source.
 
-- **$499 one-time** for current major version (v1.x)
-- Free updates within major version
-- **Upgrade to next major version**: discounted for existing license holders (amount TBD per release)
-- New customers buying v2+: full price (may adjust per version)
+### Why BSL
 
-### Versioning & Release Plan
+- Source code is publicly readable, auditable, and forkable for personal/internal use
+- Developers can clone, build, and run it themselves
+- Prevents commercial theft — nobody can rebrand and sell it
+- Simpler than open-core (no feature gating, no dual codebases)
+- Used by MariaDB, Sentry, CockroachDB — well-understood in the industry
 
-- **v0.5 beta**: soft launch. Single-node only (no mesh). GUI installer, full feature set minus mesh/meeting mode.
-- **v1.0**: includes mesh networking + meeting mode (Phases 5-6). This is the "full product."
-- Beta pricing TBD — may offer v0.5 at a discount or use beta period as extended trial.
+### Trademark
 
-### Option 2: Subscription (Org Mode)
-
-- **$49/mo** (monthly only — lower entry price, higher total cost)
-- Always on the latest version, all updates included
-- Cancel anytime, reverts to Solo mode (no data loss, just loses multi-user auth)
-- After 12 months: subscriber has paid $588 vs $499 for the license
-- Before annual renewal: offer to convert to perpetual license (saves them money long-term, gives us upfront cash)
-
-### Why These Numbers
-
-- **$499 license**: below the "need committee approval" threshold for most small businesses. Office managers can expense this on a company card.
-- **$49/mo subscription**: exists for buyers who can't or won't commit to $499 up front. They pay more over time ($588/yr vs $499 one-time). License pays for itself in ~10 months. This incentivizes the license for anyone who can afford it, while still capturing buyers who prefer low monthly OpEx.
-- Both options dramatically undercut alternatives:
-  - Notion AI for 15 users: ~$3,600/yr
-  - Glean for 15 users: ~$9,000+/yr
-  - Guru for 15 users: ~$4,500/yr
-  - GoSearch for 15 users: ~$4,500/yr
-
-### What's NOT in the Model
-
-- No per-user pricing. Ever. Unlimited users on the node.
-- No time-limited trial. Solo mode is free forever — it IS the free tier (single user, no auth).
-- No annual subscription option — monthly only. The license IS the annual option. If you're committing for a year, just buy the license and save money.
-- No separate support subscription at launch. Email support included with purchase. Re-evaluate if support volume becomes unmanageable.
-- No tiered pricing (Pro/Enterprise/etc.) at launch. One product, one price. Mesh features (Phase 5) may warrant a separate tier later.
+The name "Edgebric" and associated logos are trademarks. Forks must use a different name and branding. The trademark policy will be published alongside the license.
 
 ## Distribution
 
-### Platform
+### Source Code
 
-- **macOS only** at launch
-- GUI installer (Electron-based) — no CLI required for end users
-- CLI available as optional advanced tool
-- Apple Developer Program ($99/yr) required for notarization before public launch. Not needed during dev/beta — testers bypass Gatekeeper manually.
+- Public GitHub repository
+- Anyone can read, clone, build from source
+- Community contributions welcome (CLA required for non-trivial PRs)
+- Bug reports and feature requests via GitHub Issues
 
-### Payments & Licensing
+### Desktop App (DMG)
 
-- **LemonSqueezy or Paddle** (not raw Stripe) — handles payments, license keys, tax/VAT compliance, and download delivery in one platform
-- ~5% per transaction (vs Stripe's 2.9% + building license infra yourself)
-- No self-built license key validation — use the platform's built-in system
+- Signed and notarized macOS installer (.dmg)
+- Hosted on **GitHub Releases** (free, unlimited bandwidth for public repos)
+- Apple Developer Program ($99/yr) required for code signing + notarization
+- Auto-updates via electron-updater pointed at GitHub Releases (no update server needed)
 
-### Website
+### Marketing Website
 
-- Marketing site guides customers on compatible hardware
-- Minimum specs published clearly
-- **Recommended server hardware**: Mac Mini M4 24GB ($699)
-- **Minimum (local/vault)**: Any Apple Silicon Mac with 16GB RAM
-- Marketing line: "Under $1,200 total — hardware + software — for a private AI knowledge platform for your entire office"
+- Static site on **Vercel** or **Netlify** free tier
+- Product overview, screenshots, hardware requirements
+- "Download" button leads to Stripe Checkout (pay-what-you-want)
+- "Already purchased?" page with email lookup for re-downloads
+- "Need support?" page with contact info for enterprise support contracts
+
+## Revenue Model
+
+### Pay-What-You-Want Download
+
+The marketing website offers a paid download for non-technical users who want a simple, normal install experience. Technical users can always build from source for free.
+
+- **Minimum:** $5
+- **Recommended (anchored):** $50
+- **Preset buttons:** $30 | $50 (recommended) | $100 | Custom amount
+- **Payment processor:** Stripe Checkout (no monthly fee, ~2.9% + $0.30 per transaction)
+
+This is a convenience/support fee, not a paywall. The source code and GitHub Releases are public. The pay-what-you-want model captures value from non-technical users who prefer a guided download experience, and from supporters who want to fund development.
+
+### Post-Purchase UX
+
+1. User clicks "Download" on marketing site
+2. Stripe Checkout opens with pay-what-you-want (preset at $50)
+3. Payment completes -> redirect to thank-you page with download link
+4. Stripe receipt email also includes the download link
+5. Download link points to latest GitHub Release (.dmg)
+
+### Re-Download Flow
+
+For users who need to download again after purchase:
+
+1. User visits "Already purchased?" page on marketing site
+2. Enters the email they used at checkout
+3. Serverless function queries Stripe API for matching customer
+4. **Match found:** shows download link for latest release
+5. **No match:** friendly message suggesting they check the email address or contact support
+6. Rate-limited at 3 requests per IP per hour
+
+### Enterprise Support Contracts
+
+- Available on request via support@edgebric.com
+- No published pricing — negotiated per engagement
+- For organizations that want guaranteed response times or deployment assistance
+- Not expected to be a significant revenue stream — exists as an option
+
+## Email
+
+- **support@edgebric.com** — public-facing contact
+- Cloudflare Email Routing forwards to edgebric@gmail.com
+- Gmail "Send as" configured so replies come from support@edgebric.com
+- Cost: $0
+
+## Support Policy
+
+> Community-supported software. Bug reports welcome on GitHub. No SLA or guaranteed response times.
+
+This messaging appears on:
+- The marketing website download page
+- The GitHub README
+- The Stripe receipt / thank-you page
+
+For organizations needing guaranteed support, the enterprise support contracts option is available.
 
 ## Overhead
 
-| Expense | Cost |
+| Item | Cost/year |
 |---|---|
-| Apple Developer Program | $99/yr |
-| Domain + website hosting | ~$10-20/mo |
-| LemonSqueezy/Paddle | ~5% per transaction (no monthly fee) |
-| Email (support inbox) | ~$0-10/mo |
-| **Total fixed overhead** | **~$50-75/mo** |
+| Domain (edgebric.com) | $12 |
+| Apple Developer Program | $99 |
+| Stripe fees (per transaction) | ~2.9% + $0.30 |
+| Email (Cloudflare routing) | $0 |
+| Site hosting (Vercel/Netlify free tier) | $0 |
+| DMG hosting (GitHub Releases) | $0 |
+| Update infrastructure (GitHub Releases) | $0 |
+| **Total fixed overhead** | **~$111/year** |
 
-## Revenue Math
+## Break-Even
 
-At $499/license (after ~5% platform fee = ~$474 net):
+At the $15 minimum (conservative — most sales will be minimum):
+- Net per sale after Stripe: ~$14.07
+- **8 sales/year to break even** on $111 fixed cost
 
-| Monthly sales | Monthly revenue | Annual revenue |
-|---|---|---|
-| 3 | $1,422 | $17,064 |
-| 5 | $2,370 | $28,440 |
-| 7 | $3,318 | $39,816 |
-| 10 | $4,740 | $56,880 |
+At $50 recommended:
+- Net per sale after Stripe: ~$48.25
+- **3 sales/year to break even**
 
-Subscription revenue ($49/mo = ~$46.55 net per month per subscriber) compounds on top of license sales as recurring base.
+## Hardware Requirements (Published to Users)
 
-## Hardware Requirements (Published to Customers)
-
-### Minimum (Local/Vault Mode)
+### Minimum (Personal Use)
 
 - macOS (Apple Silicon required)
 - 16GB RAM
 - 20GB free disk space
-- Suitable for workers running Edgebric locally on laptops, vault data sources
+- Any Apple Silicon Mac (MacBook Air/Pro, iMac, Mac Mini, Mac Studio)
 
-### Recommended (Server/Org Node)
+### Recommended (Org Server)
 
 - Mac Mini M4 24GB ($699 new)
-- Dedicated to running Edgebric (not shared with other heavy workloads)
+- Dedicated to running Edgebric
 - Supports larger models (up to 27B Q3) and longer contexts
 
-### Also Works
+### Budget Option
 
-- Any Apple Silicon Mac with 16GB+ RAM (MacBook Air/Pro, iMac, Mac Studio)
-- Mac Mini M4 16GB ($499) — functional server for small teams with 4B models
-- Refurbished Mac Mini M1/M2 with 16GB ($300-400) — local/vault use
+- Mac Mini M4 16GB ($499) — functional for small teams with 4B models
+- Refurbished Mac Mini M1/M2 16GB ($300-400) — personal/vault use
 
 ## Competitive Positioning
 
 ### vs. Cloud AI (Glean, Guru, Notion AI, GoSearch)
 
 - Data never leaves customer premises
-- No per-user fees — one price, unlimited users
-- No recurring cost (license option)
+- No per-user fees — one download, unlimited users
+- No recurring cost
 - EU AI Act / HIPAA / data sovereignty compliant by architecture
-- Total cost (hardware + license) < 3 months of cloud alternatives
+- Total cost (hardware + download) < 1 month of cloud alternatives
 
-### vs. Open Source (PrivateGPT, AnythingLLM)
+### vs. Other Source-Available / Open Source (PrivateGPT, AnythingLLM)
 
 - No technical setup required — GUI installer, no CLI
 - Enterprise features included (SSO, vault encryption, group chats, audit)
-- Support included
-- Target market literally cannot set up OSS alternatives
-- Ollama is used under the hood (MIT license, credited in open-source acknowledgments) — but users never interact with it directly
+- Polished desktop app experience
+- Built for non-technical end users, not developers
 
 ### vs. Enterprise On-Prem (Pryon, Lucidworks)
 
-- 10-100x cheaper
+- 100x cheaper
 - Self-service, no sales cycle
 - Designed for small orgs, not Fortune 500
 
-## Open Pricing Questions (Resolve Before Launch)
+## Pre-Launch Checklist
 
-- Exact v2 upgrade discount (intentionally not committed to a number — decide per release)
-- Whether mesh features (Phase 5) warrant a separate higher-priced tier or just a v2 price bump
-- Whether to run a "Founding Customer" launch promo ($349 for first N customers)
-- Education/nonprofit discount? (common in indie software, good PR)
+- [ ] BSL 1.1 LICENSE file added to repo root
+- [ ] Trademark policy drafted and published
+- [ ] Apple Developer Program enrolled
+- [ ] Code signing + notarization pipeline working
+- [ ] GitHub repo made public
+- [ ] Marketing site live (static, Vercel/Netlify)
+- [ ] Stripe Checkout configured (pay-what-you-want, $5 min, $50 default)
+- [ ] Re-download email lookup serverless function deployed
+- [ ] Cloudflare email routing configured (support@edgebric.com -> edgebric@gmail.com)
+- [ ] Gmail "Send as" configured for support@edgebric.com
+- [ ] README updated for public audience
+- [ ] CONTRIBUTING.md added
+- [ ] GitHub Issues templates configured
+- [ ] First GitHub Release published with signed DMG

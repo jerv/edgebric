@@ -20,7 +20,7 @@
 | [08-productization.md](08-productization.md) | Phase 2 productization details |
 | [09-demo-plan.md](09-demo-plan.md) | Demo plan |
 | [10-architecture-onepager.md](10-architecture-onepager.md) | Architecture one-pager |
-| [11-pricing-distribution.md](11-pricing-distribution.md) | Pricing model and distribution strategy |
+| [11-pricing-distribution.md](11-pricing-distribution.md) | BSL license, pay-what-you-want distribution, overhead, pre-launch checklist |
 | [12-desktop-app-plan.md](12-desktop-app-plan.md) | Desktop GUI app (Electron) development plan |
 
 ---

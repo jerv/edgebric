@@ -127,90 +127,20 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 4. **Architecture Document (One-Pager)** — Non-technical diagram showing data flow. For compliance officers to hand to auditors. "All processing happens on customer hardware. No external network calls."
 5. **Security Practices Doc** — What we do as a vendor: code signing, dependency scanning, responsible disclosure process. NOT about customer data (because we don't have any).
 
-**Estimated cost:** $0-$2,000 (self-drafted with legal review from a startup-friendly lawyer)
+**Estimated cost:** $0 (self-drafted). Legal review optional but recommended before public launch.
 
-**What we DON'T need to spend $40K on:**
-- SOC 2 audit ($30-60K) — not needed when we don't hold customer data
-- HIPAA assessment ($15-40K) — simplified scope for software vendor
-- Penetration testing ($10-30K) — nice to have, not required for launch. Can do basic automated scanning (OWASP ZAP) for free.
-
----
-
-## Pricing Strategy
-
-### Cost Structure (Per Deployment)
-
-| Component | Cost | Notes |
-|---|---|---|
-| Hardware (Mac Mini M4) | $599 one-time | Customer purchases |
-| Edgebric software | TBD | Our revenue |
-| Electricity | ~$10/year | Mac Mini idle power |
-| Maintenance | MSP handles | Customer's existing IT support |
-
-### Pricing Models Under Consideration
-
-**Option A: One-Time License + Annual Maintenance**
-- $999 one-time license
-- $199/year maintenance (updates, support)
-- Pros: simple, aligns with on-prem model, attractive vs. cloud subscriptions
-- Cons: lower recurring revenue, harder to scale
-
-**Option B: Annual Subscription (Software Only)**
-- $99/month or $999/year
-- Includes updates and support
-- Pros: recurring revenue, familiar SaaS model
-- Cons: customers may resist subscription for on-prem software
-
-**Option C: Tiered by Features**
-- Free: single-node, 1 network source, 3 vault sources
-- Pro ($49/month): multi-node mesh, meeting mode, unlimited data sources
-- Enterprise ($199/month): department isolation, advanced analytics, priority support
-- Pros: freemium funnel, feature differentiation
-- Cons: free tier may be sufficient for most SMBs
-
-**Option D: Per-Node Licensing**
-- $29/month per active node
-- Includes all features
-- Pros: scales with deployment size, simple to understand
-- Cons: disincentivizes adding nodes (exactly what we want people to do)
-
-**Recommendation:** Lean toward Option C for launch. Free tier demonstrates value and removes purchase friction. Pro tier captures SMBs who want meeting mode (the daily-use hook). Enterprise for larger orgs.
+**What we DON'T need:**
+- SOC 2 audit — not needed when we don't hold customer data
+- HIPAA assessment — simplified scope for software vendor
+- Expensive penetration testing — can do basic automated scanning (OWASP ZAP) for free
 
 ---
 
-## Go-To-Market Channels
+## Pricing & Distribution
 
-### Primary: MSP (Managed Service Provider) Channel
-- 65-75% of SMBs already have an MSP
-- MSPs are trusted advisors who recommend and deploy software
-- MSP deploys on customer hardware, handles updates
-- We provide MSP training materials + partner program
-- Revenue share or referral fee model
+See [11-pricing-distribution.md](11-pricing-distribution.md) for the full plan.
 
-### Secondary: Direct (Website + Self-Serve)
-- Landing page with demo video
-- Download + self-install for technical users
-- Documentation for IT administrators
-- Free tier drives adoption
-
-### Tertiary: Appliance Model (V2)
-- Pre-configured Mac Mini with Edgebric pre-installed
-- Ship to customer, plug in, run setup wizard
-- Premium pricing ($1,499 including hardware + 1 year license)
-- For non-technical customers (dental offices, small law firms)
-
----
-
-## Target Market Segments
-
-| Segment | Server Ownership | MSP Usage | Fit | Notes |
-|---|---|---|---|---|
-| Dental practices | 55-65% | 70-85% | Strong | Regulated (HIPAA), existing hardware |
-| Medical offices | 55-65% | 70-85% | Strong | Regulated (HIPAA), existing hardware |
-| Small law firms | 30-40% | 60-70% | Medium | Sensitive data, declining server ownership |
-| Therapy practices | <10% | 40-50% | Weak | No hardware, need appliance model |
-| General SMB (10-50) | 40-55% | 65-75% | Medium | Varies widely by industry |
-| General SMB (50-200) | 60-75% | 70-80% | Strong | More likely to have IT/hardware |
+**Summary:** BSL 1.1 license, source-available on GitHub, pay-what-you-want download via marketing website ($5 minimum, $50 recommended), Stripe Checkout, ~$111/year fixed overhead.
 
 ---
 
