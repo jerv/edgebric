@@ -5,7 +5,6 @@
  */
 
 import { MemoryStick, HardDrive } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { adminLabel } from "@/lib/models";
 import type { InstalledModel, SystemResources, StorageBreakdown } from "@edgebric/types";
 

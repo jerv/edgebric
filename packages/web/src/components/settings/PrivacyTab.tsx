@@ -177,10 +177,6 @@ interface LocalModel {
   name: string;
   size?: number;
 }
-interface TagsResponse {
-  models?: LocalModel[];
-}
-
 const EMBEDDING_MODEL_PREFIX = "nomic-embed-text";
 
 /** Models that are known to not be chat models (embedding-only). */

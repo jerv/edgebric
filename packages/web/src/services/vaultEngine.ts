@@ -49,10 +49,6 @@ interface ScoredChunk {
   score: number;
 }
 
-interface TagsResponse {
-  models?: Array<{ name: string }>;
-}
-
 interface EmbedResponse {
   embedding: number[];
 }
@@ -425,7 +421,7 @@ export async function* vaultQuery(
     chatMessages.push({ role: msg.role, content: msg.content });
   }
 
-  // Add current query with /nothink to suppress thinking mode (matches milm.ts)
+  // Add current query with /nothink to suppress thinking mode
   chatMessages.push({ role: "user", content: query + " /nothink" });
 
   // 4. Stream response from local AI engine (proxied through API server on same machine)

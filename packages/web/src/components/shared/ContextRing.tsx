@@ -19,8 +19,6 @@ export function ContextRing({ usage }: { usage: ContextUsage | null }) {
   if (!usage) return null;
 
   const pct = Math.min((usage.usedTokens / usage.maxTokens) * 100, 100);
-  const contextPct = (usage.contextTokens / usage.maxTokens) * 100;
-  const historyPct = (usage.historyTokens / usage.maxTokens) * 100;
 
   // Color based on usage level
   const ringColor = pct > 90 ? "text-red-500" : pct > 70 ? "text-amber-500" : "text-emerald-500";

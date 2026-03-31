@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
-import type { AnswerResponse, Citation, PersistedMessage } from "@edgebric/types";
+import type { Citation, PersistedMessage } from "@edgebric/types";
 import { getLoginUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
