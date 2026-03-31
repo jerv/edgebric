@@ -97,6 +97,19 @@ function PrivacyPolicy() {
             </ul>
           </Section>
 
+          <Section title="edgebric.com website">
+            <p>
+              The Edgebric marketing website (edgebric.com) is separate from the Edgebric software.
+              If you purchase a download from edgebric.com, payment is processed by{" "}
+              <a href="https://stripe.com/privacy" className="text-slate-900 dark:text-gray-100 underline">
+                Stripe
+              </a>
+              . Edgebric does not store credit card numbers. Stripe retains your email address and
+              payment details under their own privacy policy. No analytics, tracking pixels, or
+              third-party scripts are used on edgebric.com.
+            </p>
+          </Section>
+
           <Section title="Your rights">
             <p>
               Since your organization controls the Edgebric deployment, data subject requests
@@ -110,8 +123,8 @@ function PrivacyPolicy() {
             <p>
               For questions about this privacy policy or Edgebric's data practices, contact
               your organization's IT administrator or the Edgebric team at{" "}
-              <a href="mailto:privacy@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
-                privacy@edgebric.com
+              <a href="mailto:support@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
+                support@edgebric.com
               </a>.
             </p>
           </Section>
