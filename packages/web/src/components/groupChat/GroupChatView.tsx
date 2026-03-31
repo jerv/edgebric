@@ -681,7 +681,11 @@ export function GroupChatView() {
                       ) : (
                         <Markdown>{displayContent}</Markdown>
                       )}
-                      <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 dark:bg-gray-500 animate-pulse" />
+                      <div className="flex items-center gap-1 mt-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+                      </div>
                     </div>
                   );
                 })() : (

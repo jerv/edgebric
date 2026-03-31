@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   ArrowLeft,
-  RefreshCw,
   Trash2,
   Loader2,
   FolderOpen,
@@ -348,7 +347,7 @@ function ConnectionDetail({ connectionId, onBack }: {
               disabled={syncing || syncMutation.isPending || !conn.folderId}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-slate-700 dark:hover:bg-gray-300 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={cn("w-3 h-3", (syncing || syncMutation.isPending) && "animate-spin")} />
+              <Loader2 className={cn("w-3 h-3", (syncing || syncMutation.isPending) && "animate-spin")} />
               {syncing || syncMutation.isPending ? "Syncing..." : "Sync Now"}
             </button>
           </div>

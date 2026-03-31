@@ -270,14 +270,18 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
                     ) : (
                       <Markdown>{displayContent}</Markdown>
                     )}
-                    <span className="inline-block w-1 h-1 mt-1 rounded-full bg-slate-400 dark:bg-gray-500 animate-pulse" />
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+                    </div>
                   </div>
                 );
               })() : (
                 <div className="flex items-center gap-1 py-1">
-                  <span className="w-1 h-1 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce" />
-                  <span className="w-1 h-1 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1 h-1 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
                 </div>
               )}
             </div>

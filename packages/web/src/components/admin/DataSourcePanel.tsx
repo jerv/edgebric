@@ -19,7 +19,6 @@ import {
   Search,
   ArrowUp,
   ArrowDown,
-  RefreshCw,
   Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -744,7 +743,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                   <span className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
                     {ds.documentCount} file{ds.documentCount !== 1 ? "s" : ""}
                     {ds.rebuilding && (
-                      <RefreshCw className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
+                      <Loader2 className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
                     )}
                   </span>
                   <span className="relative group/storage">
@@ -1223,7 +1222,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                   )}
                   {data?.rebuilding && (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <Loader2 className="w-3 h-3 animate-spin" />
                       Syncing
                     </span>
                   )}
@@ -1294,7 +1293,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
         {/* Rebuild in progress banner */}
         {data?.rebuilding && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900">
-            <RefreshCw className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin flex-shrink-0" />
+            <Loader2 className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Index syncing</p>
               <p className="text-xs text-blue-600 dark:text-blue-400">Search results may be temporarily incomplete while the index rebuilds.</p>
