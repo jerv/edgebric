@@ -35,6 +35,12 @@ vi.mock("../services/ollamaClient.js", () => ({
     diskFreeBytes: 100 * 1024 ** 3,
     diskTotalBytes: 500 * 1024 ** 3,
   }),
+  getStorageBreakdown: vi.fn().mockReturnValue({
+    modelsBytes: 5 * 1024 ** 3,
+    dataBytes: 2 * 1024 ** 3,
+    freeBytes: 100 * 1024 ** 3,
+    totalBytes: 500 * 1024 ** 3,
+  }),
 }));
 
 describe("Models API", () => {
@@ -146,7 +152,7 @@ describe("Models API", () => {
       expect(res.body.tag).toBe("qwen3:4b");
     });
 
-    it("rejects unloading the active model", async () => {
+    it("unloads the active model and auto-switches", async () => {
       // Set active model back
       await adminAgent(orgId)
         .put("/api/admin/models/active")
@@ -155,8 +161,9 @@ describe("Models API", () => {
       const res = await adminAgent(orgId)
         .post("/api/admin/models/unload")
         .send({ tag: "qwen3:4b" });
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain("Cannot unload the active model");
+      expect(res.status).toBe(200);
+      expect(res.body.unloaded).toBe(true);
+      expect(res.body.tag).toBe("qwen3:4b");
     });
   });
 
