@@ -1,10 +1,12 @@
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
   LogOut, Trash2, Pencil, ShieldCheck, Sun, Moon, Monitor, Bell, Building2,
+  Archive, RotateCcw,
 } from "lucide-react";
+import type { Conversation } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
@@ -315,12 +317,25 @@ function NotificationsTab() {
 
 // ─── Conversations tab ──────────────────────────────────────────────────────
 
+interface ArchivedConversation extends Conversation {
+  preview?: string;
+}
+
 function ConversationsTab() {
   const queryClient = useQueryClient();
   const [deleteMode, setDeleteMode] = useState<"idle" | "choose">("idle");
   const [confirmText, setConfirmText] = useState("");
   const [archiveConfirmText, setArchiveConfirmText] = useState("");
-  const [deleteResult, setDeleteResult] = useState<{ preserved?: number } | null>(null);
+
+  const { data: archivedConvs } = useQuery<ArchivedConversation[]>({
+    queryKey: ["conversations-archived"],
+    queryFn: () =>
+      fetch("/api/conversations/archived", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [];
+        return r.json() as Promise<ArchivedConversation[]>;
+      }),
+    staleTime: 10_000,
+  });
 
   const deleteAllMutation = useMutation({
     mutationFn: async (mode: "archive" | "delete") => {
@@ -328,40 +343,37 @@ function ConversationsTab() {
         method: "DELETE",
         credentials: "same-origin",
       });
-      if (!res.ok) throw new Error("Failed to delete conversations");
-      return res.json() as Promise<{ ok: boolean; mode: string; count: number; preserved?: number }>;
+      if (!res.ok) throw new Error("Failed");
+      return res.json() as Promise<{ ok: boolean; mode: string; count: number }>;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      if (data.preserved && data.preserved > 0) {
-        setDeleteResult({ preserved: data.preserved });
-      }
+      void queryClient.invalidateQueries({ queryKey: ["conversations-archived"] });
       setDeleteMode("idle");
       setConfirmText("");
       setArchiveConfirmText("");
     },
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/conversations/${id}/restore`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error("Failed to restore");
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      void queryClient.invalidateQueries({ queryKey: ["conversations-archived"] });
+    },
+  });
+
   return (
     <div className="space-y-6">
+      {/* Manage all conversations */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-3">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Conversation History</h3>
-
-        {deleteResult?.preserved && (
-          <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 rounded-lg px-4 py-3 mb-2">
-            <p className="text-sm text-amber-800 dark:text-amber-300">
-              {deleteResult.preserved} conversation{deleteResult.preserved > 1 ? "s were" : " was"} archived
-              instead of deleted because {deleteResult.preserved > 1 ? "they include" : "it includes"} a
-              request for human verification. Escalated conversations are preserved for admin review.
-            </p>
-            <button
-              onClick={() => setDeleteResult(null)}
-              className="text-xs text-amber-600 dark:text-amber-400 hover:text-amber-800 mt-1"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {deleteMode === "idle" && (
           <button
@@ -369,50 +381,48 @@ function ConversationsTab() {
             className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
-            Delete all conversations
+            Remove all conversations
           </button>
         )}
 
         {deleteMode === "choose" && (
           <div className="space-y-3">
             <p className="text-sm text-slate-600 dark:text-gray-400">
-              Your conversations help your organization identify knowledge gaps.
-              Choose how to remove them:
+              Choose how to remove your conversations:
             </p>
             <div className="flex flex-col gap-2">
               <div className="border border-slate-200 dark:border-gray-800 rounded-lg px-4 py-3 space-y-2">
-                <p className="text-sm font-medium text-slate-900 dark:text-gray-100">Hide from sidebar</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-gray-100">Archive all</p>
                 <p className="text-xs text-slate-400 dark:text-gray-500">
-                  Conversations are hidden but still contribute to anonymized topic trends.
+                  Conversations are moved to your archive and can be restored later.
                 </p>
                 <div className="pt-1">
                   <label className="text-xs text-slate-500 dark:text-gray-400 block mb-1">
-                    Type <span className="font-mono font-semibold text-slate-700 dark:text-gray-300">HIDE</span> to confirm
+                    Type <span className="font-mono font-semibold text-slate-700 dark:text-gray-300">ARCHIVE</span> to confirm
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={archiveConfirmText}
                       onChange={(e) => setArchiveConfirmText(e.target.value)}
-                      placeholder="HIDE"
+                      placeholder="ARCHIVE"
                       className="border border-slate-200 dark:border-gray-800 rounded-md px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 focus:border-slate-300 dark:focus:border-gray-600 dark:bg-gray-950 dark:text-gray-100"
                     />
                     <button
                       onClick={() => deleteAllMutation.mutate("archive")}
-                      disabled={archiveConfirmText !== "HIDE" || deleteAllMutation.isPending}
+                      disabled={archiveConfirmText !== "ARCHIVE" || deleteAllMutation.isPending}
                       className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
-                      {deleteAllMutation.isPending ? "Hiding..." : "Confirm"}
+                      {deleteAllMutation.isPending ? "Archiving..." : "Confirm"}
                     </button>
                   </div>
                 </div>
               </div>
 
               <div className="border border-red-200 dark:border-red-800 rounded-lg px-4 py-3 space-y-2">
-                <p className="text-sm font-medium text-red-700 dark:text-red-400">Delete permanently</p>
+                <p className="text-sm font-medium text-red-700 dark:text-red-400">Delete all permanently</p>
                 <p className="text-xs text-slate-400 dark:text-gray-500">
                   Removes all conversations and messages entirely. This cannot be undone.
-                  Conversations with human verification requests will be archived instead.
                 </p>
                 <div className="pt-1">
                   <label className="text-xs text-slate-500 dark:text-gray-400 block mb-1">
@@ -445,6 +455,43 @@ function ConversationsTab() {
                 Cancel
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Archived conversations */}
+      <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Archive className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Archived Conversations</h3>
+        </div>
+
+        {!archivedConvs?.length ? (
+          <p className="text-xs text-slate-400 dark:text-gray-500">No archived conversations.</p>
+        ) : (
+          <div className="space-y-1">
+            {archivedConvs.map((conv) => (
+              <div
+                key={conv.id}
+                className="flex items-center gap-3 border border-slate-100 dark:border-gray-800 rounded-lg px-3 py-2"
+              >
+                <span className="flex-1 min-w-0 text-xs text-slate-700 dark:text-gray-300 truncate">
+                  {conv.preview || "Empty conversation"}
+                </span>
+                <span className="text-[10px] text-slate-400 dark:text-gray-500 flex-shrink-0">
+                  {new Date(conv.updatedAt).toLocaleDateString()}
+                </span>
+                <button
+                  onClick={() => restoreMutation.mutate(conv.id)}
+                  disabled={restoreMutation.isPending}
+                  className="flex items-center gap-1 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 transition-colors flex-shrink-0 disabled:opacity-30"
+                  title="Restore conversation"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Restore
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

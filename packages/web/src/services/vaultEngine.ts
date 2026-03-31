@@ -1,7 +1,7 @@
 /**
- * Vault Mode engine — local Ollama + IndexedDB RAG with AES-256-GCM encryption.
+ * Vault Mode engine — local AI + IndexedDB RAG with AES-256-GCM encryption.
  *
- * All inference and search runs on the user's device via Ollama.
+ * All inference and search runs on the user's device via the local AI engine.
  * Chunks are synced from the server, encrypted at rest, and embedded locally.
  * Nothing leaves the device during queries.
  *
@@ -49,15 +49,15 @@ interface ScoredChunk {
   score: number;
 }
 
-interface OllamaTagsResponse {
+interface TagsResponse {
   models?: Array<{ name: string }>;
 }
 
-interface OllamaEmbedResponse {
+interface EmbedResponse {
   embedding: number[];
 }
 
-interface OllamaChatChunk {
+interface ChatChunk {
   message?: { content: string };
   done?: boolean;
 }
@@ -91,7 +91,7 @@ const QUERY_FILTER_REDIRECT =
 
 const DB_NAME = "edgebric-vault";
 const DB_VERSION = 2; // v2: encrypted chunks + vaultKeys store
-const OLLAMA_URL = "http://localhost:11434";
+const VAULT_API = "/api/vault";
 const EMBEDDING_MODEL = "nomic-embed-text";
 const VAULT_CHAT_MODEL_KEY = "edgebric-vault-chat-model";
 
@@ -291,17 +291,18 @@ export async function getLocalChunksForDocument(documentId: string): Promise<Arr
   return results.sort((a, b) => a.chunkIndex - b.chunkIndex);
 }
 
-// ─── Ollama connectivity ─────────────────────────────────────────────────────
+// ─── Engine connectivity ──────────────────────────────────────────────────────
 
-export async function checkOllama(): Promise<{
+export async function checkEngine(): Promise<{
   running: boolean;
   models: string[];
 }> {
   try {
-    const r = await fetch(`${OLLAMA_URL}/api/tags`);
+    const r = await fetch(`${VAULT_API}/engine-status`, { credentials: "same-origin" });
     if (!r.ok) return { running: false, models: [] };
-    const data = (await r.json()) as OllamaTagsResponse;
-    const models = (data.models ?? []).map((m) => m.name);
+    const data = (await r.json()) as { connected: boolean; models: Array<{ name: string }> };
+    if (!data.connected) return { running: false, models: [] };
+    const models = data.models.map((m) => m.name);
     return { running: true, models };
   } catch {
     return { running: false, models: [] };
@@ -326,13 +327,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
 // ─── Embed ───────────────────────────────────────────────────────────────────
 
 async function embed(text: string): Promise<number[]> {
-  const r = await fetch(`${OLLAMA_URL}/api/embeddings`, {
+  const r = await fetch(`${VAULT_API}/embed`, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, prompt: text }),
   });
-  if (!r.ok) throw new Error(`Ollama embed failed: ${r.status}`);
-  const data = (await r.json()) as OllamaEmbedResponse;
+  if (!r.ok) throw new Error(`Embedding failed: ${r.status}`);
+  const data = (await r.json()) as EmbedResponse;
   return data.embedding;
 }
 
@@ -413,34 +415,35 @@ export async function* vaultQuery(
     })
     .join("\n\n---\n\n");
 
-  // 3. Build messages for Ollama
-  const ollamaMessages: Array<{ role: string; content: string }> = [
+  // 3. Build messages for local AI
+  const chatMessages: Array<{ role: string; content: string }> = [
     { role: "system", content: `${SYSTEM_PROMPT_HEADER}\n\n${contextBlock}` },
   ];
 
   // Add conversation history (last 4 messages for multi-turn)
   for (const msg of conversationMessages.slice(-4)) {
-    ollamaMessages.push({ role: msg.role, content: msg.content });
+    chatMessages.push({ role: msg.role, content: msg.content });
   }
 
   // Add current query with /nothink to suppress thinking mode (matches milm.ts)
-  ollamaMessages.push({ role: "user", content: query + " /nothink" });
+  chatMessages.push({ role: "user", content: query + " /nothink" });
 
-  // 4. Stream response from Ollama
-  const r = await fetch(`${OLLAMA_URL}/api/chat`, {
+  // 4. Stream response from local AI engine (proxied through API server on same machine)
+  const r = await fetch(`${VAULT_API}/chat`, {
     method: "POST",
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: getVaultChatModel(),
-      messages: ollamaMessages,
+      messages: chatMessages,
       stream: true,
     }),
   });
 
-  if (!r.ok) throw new Error(`Ollama chat failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Chat request failed: ${r.status}`);
 
   const reader = r.body?.getReader();
-  if (!reader) throw new Error("No response body from Ollama");
+  if (!reader) throw new Error("No response body from AI engine");
 
   const decoder = new TextDecoder();
   let fullAnswer = "";
@@ -458,7 +461,7 @@ export async function* vaultQuery(
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const parsed = JSON.parse(line) as OllamaChatChunk;
+        const parsed = JSON.parse(line) as ChatChunk;
         if (parsed.message?.content) {
           let content = parsed.message.content;
 

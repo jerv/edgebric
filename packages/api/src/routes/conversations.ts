@@ -11,6 +11,8 @@ import {
   archiveConversation,
   deleteConversation,
   archiveAllConversations,
+  unarchiveConversation,
+  getArchivedConversationPreviews,
 } from "../services/conversationStore.js";
 import { convertSoloToGroup, shareDataSource } from "../services/groupChatStore.js";
 import { getUserInOrg } from "../services/userStore.js";
@@ -72,6 +74,17 @@ conversationsRouter.delete("/", validateQuery(deleteQuerySchema), (req, res) => 
   res.json({ ok: true, mode, count: deleted });
 });
 
+// GET /api/conversations/archived — list user's archived conversations
+conversationsRouter.get("/archived", (req, res) => {
+  const email = req.session.email;
+  if (!email) {
+    res.json([]);
+    return;
+  }
+  const convs = getArchivedConversationPreviews(email, req.session.orgId);
+  res.json(convs);
+});
+
 // GET /api/conversations/:id — get conversation + messages
 // Admin can view any conversation; employee can only view their own.
 conversationsRouter.get("/:id", (req, res) => {
@@ -119,6 +132,34 @@ conversationsRouter.delete("/:id", validateQuery(deleteQuerySchema), (req, res) 
   }
 
   res.json({ ok: true, mode });
+});
+
+// POST /api/conversations/:id/restore — restore an archived conversation
+conversationsRouter.post("/:id/restore", (req, res) => {
+  const email = req.session.email;
+  if (!email) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const conv = getConversation(req.params["id"] as string);
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  if (!req.session.isAdmin && email !== conv.userEmail) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  if (!conv.archivedAt) {
+    res.status(400).json({ error: "Conversation is not archived" });
+    return;
+  }
+
+  unarchiveConversation(conv.id);
+  res.json({ ok: true });
 });
 
 // POST /api/conversations/:id/convert-to-group — convert solo chat to group chat

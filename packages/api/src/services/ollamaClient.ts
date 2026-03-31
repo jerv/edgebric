@@ -4,10 +4,12 @@
  * Ollama API docs: https://github.com/ollama/ollama/blob/main/docs/api.md
  */
 import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
 import os from "os";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
-import type { InstalledModel, PullProgressEvent, SystemResources } from "@edgebric/types";
+import type { InstalledModel, PullProgressEvent, SystemResources, StorageBreakdown } from "@edgebric/types";
 import { MODEL_CATALOG_MAP } from "@edgebric/types";
 
 function baseUrl(): string {
@@ -248,6 +250,52 @@ export function getSystemResources(): SystemResources {
   }
 
   return { ramTotalBytes, ramAvailableBytes, diskFreeBytes, diskTotalBytes, serverRamBytes };
+}
+
+// ─── Storage Breakdown ───────────────────────────────────────────────────────
+
+/** Recursively compute directory size in bytes. */
+function dirSize(dirPath: string): number {
+  let total = 0;
+  try {
+    for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+      const full = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        total += dirSize(full);
+      } else if (entry.isFile()) {
+        total += fs.statSync(full).size;
+      }
+    }
+  } catch { /* permission errors, etc. */ }
+  return total;
+}
+
+/** Get disk usage breakdown for Edgebric data. */
+export function getStorageBreakdown(): StorageBreakdown {
+  const dir = config.dataDir;
+  let dbBytes = 0;
+  let uploadsBytes = 0;
+  let ollamaModelsBytes = 0;
+  const vaultBytes = 0;
+
+  try {
+    for (const f of ["edgebric.db", "edgebric.db-wal", "edgebric.db-shm"]) {
+      const p = path.join(dir, f);
+      if (fs.existsSync(p)) dbBytes += fs.statSync(p).size;
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const uploadsDir = path.join(dir, "uploads");
+    if (fs.existsSync(uploadsDir)) uploadsBytes = dirSize(uploadsDir);
+  } catch { /* ignore */ }
+
+  try {
+    const modelsDir = path.join(dir, ".ollama", "models");
+    if (fs.existsSync(modelsDir)) ollamaModelsBytes = dirSize(modelsDir);
+  } catch { /* ignore */ }
+
+  return { dbBytes, uploadsBytes, ollamaModelsBytes, vaultBytes };
 }
 
 // ─── Embeddings ──────────────────────────────────────────────────────────────

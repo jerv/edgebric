@@ -70,12 +70,23 @@ modelsRouter.get("/", async (_req, res) => {
       }
     }
 
+    // Auto-select: if the active model isn't loaded but another chat model is, switch to it
+    const loadedChat = models.filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_MODEL_TAG);
+    const activeIsLoaded = loadedChat.some((m) => m.tag === runtimeChatConfig.model);
+    if (!activeIsLoaded && loadedChat.length > 0) {
+      runtimeChatConfig.model = loadedChat[0]!.tag;
+      runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+      logger.info({ newActive: runtimeChatConfig.model }, "Auto-selected loaded model as active");
+    }
+
     const system = ollama.getSystemResources();
+    const storage = ollama.getStorageBreakdown();
     const response: ModelsResponse = {
       models,
       catalog: getVisibleCatalog(),
       activeModel: runtimeChatConfig.model,
       system,
+      storage,
     };
     res.json(response);
   } catch (err) {

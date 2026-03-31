@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Copy, Trash2, RefreshCw, ExternalLink, Sparkles,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Sparkles,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";
@@ -63,7 +63,7 @@ function AdminToggles() {
         <ToggleCard
           icon={<ShieldCheck className="w-4 h-4" />}
           title="Vault Mode"
-          description="Members can run queries entirely on their own device using Ollama. Nothing is sent to the server. Requires one-time setup per member."
+          description="Members can run queries entirely on their own device using the Edgebric desktop app. Nothing is sent to the server. Requires one-time setup per member."
           enabled={config?.vaultModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ vaultModeEnabled: v })}
@@ -169,16 +169,16 @@ function ToggleCard({
 
 // ─── Vault Setup Wizard ───────────────────────────────────────────────────────
 
-type OllamaStatus = "unknown" | "checking" | "connected" | "error";
+type EngineStatus = "unknown" | "checking" | "connected" | "error";
 type ModelsStatus = "unknown" | "checking" | "ready" | "missing";
 type SyncStatus = "idle" | "syncing" | "embedding" | "done" | "error";
 
-interface OllamaModel {
+interface LocalModel {
   name: string;
   size?: number;
 }
-interface OllamaTagsResponse {
-  models?: OllamaModel[];
+interface TagsResponse {
+  models?: LocalModel[];
 }
 
 const EMBEDDING_MODEL_PREFIX = "nomic-embed-text";
@@ -200,9 +200,9 @@ function isChatModel(name: string): boolean {
 function VaultSetupWizard() {
   const { vaultSetupComplete, setVaultSetupComplete } = usePrivacy();
 
-  const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus>("unknown");
+  const [engineStatus, setEngineStatus] = useState<EngineStatus>("unknown");
   const [modelsStatus, setModelsStatus] = useState<ModelsStatus>("unknown");
-  const [installedModels, setInstalledModels] = useState<OllamaModel[]>([]);
+  const [installedModels, setInstalledModels] = useState<LocalModel[]>([]);
   const [selectedChatModel, setSelectedChatModel] = useState<string>(() => {
     // Lazy-import to avoid top-level side effects
     try {
@@ -215,21 +215,23 @@ function VaultSetupWizard() {
   const [syncProgress, setSyncProgress] = useState("");
   const [syncError, setSyncError] = useState("");
 
-  const fetchModels = useCallback(async () => {
-    const r = await fetch("http://localhost:11434/api/tags");
+  const fetchEngineStatus = useCallback(async () => {
+    const r = await fetch("/api/vault/engine-status", { credentials: "same-origin" });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = (await r.json()) as OllamaTagsResponse;
-    return data.models ?? [];
+    const data = (await r.json()) as { connected: boolean; models: LocalModel[] };
+    if (!data.connected) throw new Error("Engine not connected");
+    return data.models;
   }, []);
 
-  const evaluateModels = useCallback((models: OllamaModel[]) => {
+  const evaluateModels = useCallback((models: LocalModel[]) => {
     setInstalledModels(models);
     const hasEmbedding = models.some((m) => m.name.split(":")[0] === EMBEDDING_MODEL_PREFIX);
     const chatModels = models.filter((m) => isChatModel(m.name));
     const hasChatModel = chatModels.length > 0;
 
-    // Auto-select chat model if only one available or previous selection still present
-    if (hasChatModel && !selectedChatModel) {
+    // Auto-select chat model if none selected or current selection no longer available
+    const currentValid = hasChatModel && chatModels.some((m) => m.name === selectedChatModel);
+    if (hasChatModel && !currentValid) {
       const first = chatModels[0]!.name;
       setSelectedChatModel(first);
       try { localStorage.setItem("edgebric-vault-chat-model", first); } catch { /* localStorage unavailable */ }
@@ -238,31 +240,31 @@ function VaultSetupWizard() {
     setModelsStatus(hasEmbedding && hasChatModel ? "ready" : "missing");
   }, [selectedChatModel]);
 
-  const checkOllama = useCallback(async () => {
-    setOllamaStatus("checking");
+  const checkEngine = useCallback(async () => {
+    setEngineStatus("checking");
     try {
-      const models = await fetchModels();
-      setOllamaStatus("connected");
+      const models = await fetchEngineStatus();
+      setEngineStatus("connected");
       evaluateModels(models);
     } catch {
-      setOllamaStatus("error");
+      setEngineStatus("error");
       setModelsStatus("unknown");
     }
-  }, [fetchModels, evaluateModels]);
+  }, [fetchEngineStatus, evaluateModels]);
 
   const checkModels = useCallback(async () => {
     setModelsStatus("checking");
     try {
-      const models = await fetchModels();
+      const models = await fetchEngineStatus();
       evaluateModels(models);
     } catch {
       setModelsStatus("unknown");
     }
-  }, [fetchModels, evaluateModels]);
+  }, [fetchEngineStatus, evaluateModels]);
 
-  // Auto-verify Ollama connection on mount
+  // Auto-verify engine connection on mount
   useEffect(() => {
-    void checkOllama();
+    void checkEngine();
   }, []);
 
   const startSync = useCallback(async () => {
@@ -292,7 +294,7 @@ function VaultSetupWizard() {
       );
       const db = await openVaultDB();
 
-      // Embed each chunk via Ollama
+      // Embed each chunk via local AI engine
       const embedded: Array<{
         chunkId: string;
         content: string;
@@ -306,15 +308,16 @@ function VaultSetupWizard() {
           `Embedding chunks locally... ${i + 1}/${chunks.length}`,
         );
 
-        const embedR = await fetch("http://localhost:11434/api/embeddings", {
+        const embedR = await fetch("/api/vault/embed", {
           method: "POST",
+          credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "nomic-embed-text",
             prompt: chunk.content,
           }),
         });
-        if (!embedR.ok) throw new Error(`Ollama embed error: ${embedR.status}`);
+        if (!embedR.ok) throw new Error(`Embedding error: ${embedR.status}`);
         const embedData = (await embedR.json()) as { embedding: number[] };
         embedded.push({ ...chunk, embedding: embedData.embedding });
       }
@@ -372,7 +375,7 @@ function VaultSetupWizard() {
 
   // Determine which step we're on
   const step =
-    ollamaStatus !== "connected"
+    engineStatus !== "connected"
       ? 1
       : modelsStatus !== "ready"
         ? 2
@@ -392,49 +395,37 @@ function VaultSetupWizard() {
       </div>
 
       <div className="border border-slate-200 dark:border-gray-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-gray-800">
-        {/* Step 1: Install Ollama */}
+        {/* Step 1: Connect to Edgebric */}
         <StepRow
           number={1}
-          title="Install Ollama"
+          title="Connect to Edgebric"
           active={step === 1}
-          complete={ollamaStatus === "connected"}
+          complete={engineStatus === "connected"}
         >
-          {ollamaStatus === "connected" ? (
+          {engineStatus === "connected" ? (
             <p className="text-xs text-emerald-600 flex items-center gap-1.5">
               <CheckCircle className="w-3.5 h-3.5" /> Connected
             </p>
           ) : (
             <div className="space-y-2.5">
               <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
-                Ollama runs AI models locally on your Mac. Install it once — it
-                runs automatically in the background.
+                The Edgebric desktop app runs AI models locally on your device.
+                Make sure it is installed and running.
               </p>
-              <div className="flex items-center gap-2">
-                <CopyCommand command="brew install ollama" />
-                <span className="text-xs text-slate-300 dark:text-gray-600">or</span>
-                <a
-                  href="https://ollama.com/download"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-gray-100 flex items-center gap-1 underline"
-                >
-                  Download <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
               <button
-                onClick={() => void checkOllama()}
-                disabled={ollamaStatus === "checking"}
+                onClick={() => void checkEngine()}
+                disabled={engineStatus === "checking"}
                 className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
-                {ollamaStatus === "checking" && (
+                {engineStatus === "checking" && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 )}
                 Verify Connection
               </button>
-              {ollamaStatus === "error" && (
+              {engineStatus === "error" && (
                 <p className="text-xs text-red-500 flex items-center gap-1.5">
                   <XCircle className="w-3.5 h-3.5" /> Could not connect.
-                  Make sure Ollama is installed and running.
+                  Make sure the Edgebric desktop app is running.
                 </p>
               )}
             </div>
@@ -459,13 +450,13 @@ function VaultSetupWizard() {
               {/* Embedding model */}
               <div className="flex items-center justify-between">
                 <div className="text-xs text-slate-700 dark:text-gray-300">
-                  <span className="font-medium">nomic-embed-text</span>
-                  <span className="text-slate-400 dark:text-gray-500 ml-1">~274 MB, search</span>
+                  <span className="font-medium">Embedding model</span>
+                  <span className="text-slate-400 dark:text-gray-500 ml-1">(for search)</span>
                 </div>
                 {hasEmbeddingModel ? (
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                 ) : (
-                  <CopyCommand command="ollama pull nomic-embed-text" />
+                  <span className="text-xs text-amber-600 dark:text-amber-400">Not installed</span>
                 )}
               </div>
 
@@ -497,14 +488,13 @@ function VaultSetupWizard() {
                 </div>
               ) : (
                 <div className="text-xs text-slate-500 dark:text-gray-400">
-                  No chat models found.{" "}
-                  <CopyCommand command="ollama pull llama3.2:3b" />
+                  No chat models found. Install models from the Edgebric desktop app under Settings &gt; Models.
                 </div>
               )}
 
               <button
                 onClick={() => void checkModels()}
-                disabled={modelsStatus === "checking" || ollamaStatus !== "connected"}
+                disabled={modelsStatus === "checking" || engineStatus !== "connected"}
                 className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 disabled:opacity-50 transition-colors"
               >
                 {modelsStatus === "checking" ? (
@@ -574,7 +564,7 @@ function VaultSetupWizard() {
         <StepRow number={4} title="Ready" active={step === 4} complete={step === 4}>
           <p className={cn("text-xs", step === 4 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-gray-500")}>
             {step === 4
-              ? "Vault Mode is ready. Use the privacy selector in the sidebar."
+              ? "Vault Mode is ready. Use the privacy selector above the chat input."
               : "Complete the steps above."}
           </p>
         </StepRow>
@@ -617,30 +607,6 @@ function StepRow({
       </div>
       <div className="pl-7">{children}</div>
     </div>
-  );
-}
-
-function CopyCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const copy = () => {
-    void navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      onClick={copy}
-      className="inline-flex items-center gap-1.5 font-mono text-xs bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 rounded-lg px-2.5 py-1.5 hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors"
-    >
-      <code>{command}</code>
-      {copied ? (
-        <CheckCircle className="w-3 h-3 text-emerald-500" />
-      ) : (
-        <Copy className="w-3 h-3 text-slate-400 dark:text-gray-500" />
-      )}
-    </button>
   );
 }
 
@@ -691,7 +657,7 @@ export function PrivacyTab() {
                 Private Mode Available
               </p>
               <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5 leading-relaxed">
-                Use the privacy selector in the sidebar to switch to Private
+                Use the privacy selector above the chat input to switch to Private
                 Mode. Your queries will be anonymous and nothing will be
                 logged.
               </p>

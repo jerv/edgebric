@@ -110,4 +110,52 @@ describe("Conversations API", () => {
       expect(res.body.count).toBeGreaterThanOrEqual(2);
     });
   });
+
+  describe("GET /api/conversations/archived", () => {
+    it("returns archived conversations", async () => {
+      const conv = createConversation("member@test.com", "Test", orgId);
+      seedMessage(conv.id, "user", "Archived question");
+      // Archive it
+      await memberAgent(orgId).delete(`/api/conversations/${conv.id}?mode=archive`);
+
+      const res = await memberAgent(orgId).get("/api/conversations/archived");
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const found = res.body.find((c: any) => c.id === conv.id);
+      expect(found).toBeDefined();
+      expect(found.archivedAt).toBeDefined();
+    });
+  });
+
+  describe("POST /api/conversations/:id/restore", () => {
+    it("restores an archived conversation", async () => {
+      const conv = createConversation("member@test.com", "Test", orgId);
+      seedMessage(conv.id, "user", "Restoring this");
+      await memberAgent(orgId).delete(`/api/conversations/${conv.id}?mode=archive`);
+
+      const restoreRes = await memberAgent(orgId).post(`/api/conversations/${conv.id}/restore`);
+      expect(restoreRes.status).toBe(200);
+      expect(restoreRes.body.ok).toBe(true);
+
+      // Should now appear in main list, not archived
+      const listRes = await memberAgent(orgId).get("/api/conversations");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const found = listRes.body.find((c: any) => c.id === conv.id);
+      expect(found).toBeDefined();
+    });
+
+    it("returns 400 for non-archived conversation", async () => {
+      const conv = createConversation("member@test.com", "Test", orgId);
+      const res = await memberAgent(orgId).post(`/api/conversations/${conv.id}/restore`);
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 403 for other user", async () => {
+      const conv = createConversation("member@test.com", "Test", orgId);
+      await memberAgent(orgId).delete(`/api/conversations/${conv.id}?mode=archive`);
+      const res = await memberAgent(orgId, "other@test.com").post(`/api/conversations/${conv.id}/restore`);
+      expect(res.status).toBe(403);
+    });
+  });
 });

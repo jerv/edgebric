@@ -805,7 +805,7 @@ function deriveStatus(health: HealthResponse | undefined): { status: ServiceStat
 
 const HEALTH_CHECK_TOOLTIPS: Record<string, string> = {
   database: "SQLite database used for documents, users, conversations, and metadata.",
-  inference: "Ollama AI engine that runs language models for chat and analysis.",
+  inference: "AI engine that runs language models for chat and analysis.",
   vectorStore: "sqlite-vec embedding index used for semantic search over documents.",
   disk: "Available storage on the volume where Edgebric data is stored.",
 };
@@ -940,7 +940,7 @@ export function ServiceTab() {
         {modelsData?.system && (
           <div className="border-t border-slate-100 dark:border-gray-800 pt-3 space-y-3">
             <RAMBar models={loadedModels} embeddingModel={embeddingModel} system={modelsData.system} />
-            <DiskBar system={modelsData.system} />
+            <DiskBar system={modelsData.system} storage={modelsData.storage} />
           </div>
         )}
       </div>

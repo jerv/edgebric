@@ -1,7 +1,7 @@
 import type { Conversation, PersistedMessage, Citation, AnswerType } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { conversations, messages } from "../db/schema.js";
-import { eq, desc, asc, isNull, and } from "drizzle-orm";
+import { eq, desc, asc, isNull, isNotNull, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { encryptText, decryptText } from "../lib/crypto.js";
 
@@ -149,7 +149,7 @@ export function getConversationPreviews(
   });
 }
 
-/** Soft-delete: hides from sidebar but keeps data for analytics. */
+/** Soft-delete: hides from sidebar but preserves data. Can be restored. */
 export function archiveConversation(id: string): void {
   const db = getDb();
   db.update(conversations)
@@ -198,6 +198,46 @@ export function deleteAllConversations(email: string, orgId?: string): number {
     deleted++;
   }
   return deleted;
+}
+
+/** Restore a previously archived conversation. */
+export function unarchiveConversation(id: string): void {
+  const db = getDb();
+  db.update(conversations)
+    .set({ archivedAt: null })
+    .where(eq(conversations.id, id))
+    .run();
+}
+
+/** Get archived conversations for a user with a preview of the first user message. */
+export function getArchivedConversationPreviews(
+  email: string,
+  orgId?: string,
+): Array<Conversation & { preview?: string }> {
+  const db = getDb();
+  const conditions = [eq(conversations.userEmail, email), isNotNull(conversations.archivedAt)];
+  if (orgId) conditions.push(eq(conversations.orgId, orgId));
+  const convs = db
+    .select()
+    .from(conversations)
+    .where(and(...conditions))
+    .orderBy(desc(conversations.updatedAt))
+    .all();
+
+  return convs.map((row) => {
+    const conv = rowToConversation(row);
+    const firstMsg = db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, row.id))
+      .orderBy(asc(messages.createdAt))
+      .limit(1)
+      .get();
+    const result: Conversation & { preview?: string } = { ...conv };
+    const previewText = firstMsg?.content ? decryptContentSafe(firstMsg.content).slice(0, 100) : undefined;
+    if (previewText && previewText.length > 0) result.preview = previewText;
+    return result;
+  });
 }
 
 export function updateConversationTimestamp(id: string): void {

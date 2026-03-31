@@ -8,7 +8,7 @@
 import path from "path";
 import os from "os";
 import fs from "fs";
-import { spawn, execSync } from "child_process";
+import { spawn, execSync, execFileSync } from "child_process";
 import type { ChildProcess } from "child_process";
 import https from "https";
 import http from "http";
@@ -17,7 +17,7 @@ import { DEFAULT_DATA_DIR } from "./config.js";
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 /** Pinned Ollama version — tested and known to work with Edgebric. */
-const PINNED_VERSION = "0.6.2";
+const PINNED_VERSION = "0.19.0";
 
 const OLLAMA_HOST = "127.0.0.1";
 const OLLAMA_PORT = 11434;
@@ -74,10 +74,10 @@ export async function downloadOllama(
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(ollamaModelsDir(dataDir), { recursive: true });
 
-  const arch = os.arch() === "arm64" ? "arm64" : "amd64";
-  const url = `https://github.com/ollama/ollama/releases/download/v${version}/ollama-darwin-${arch}`;
+  // Ollama releases changed from raw binaries (ollama-darwin-arm64) to tarballs (ollama-darwin.tgz)
+  const url = `https://github.com/ollama/ollama/releases/download/v${version}/ollama-darwin.tgz`;
 
-  const tmpPath = ollamaBinaryPath(dataDir) + ".tmp";
+  const tmpPath = ollamaBinaryPath(dataDir) + ".tgz";
   const finalPath = ollamaBinaryPath(dataDir);
 
   await new Promise<void>((resolve, reject) => {
@@ -114,11 +114,15 @@ export async function downloadOllama(
         res.pipe(file);
         file.on("finish", () => {
           file.close(() => {
-            // Atomic rename
-            fs.renameSync(tmpPath, finalPath);
-            // Make executable
-            fs.chmodSync(finalPath, 0o755);
-            resolve();
+            try {
+              // Extract ollama binary from the tarball
+              execFileSync("tar", ["-xzf", tmpPath, "-C", dir, "ollama"]);
+              fs.chmodSync(finalPath, 0o755);
+              fs.unlinkSync(tmpPath);
+              resolve();
+            } catch (err) {
+              reject(new Error(`Failed to extract Ollama binary: ${err}`));
+            }
           });
         });
         file.on("error", reject);
@@ -178,6 +182,8 @@ export async function startOllama(dataDir?: string): Promise<{ started: boolean;
       ...process.env,
       OLLAMA_HOST: `${OLLAMA_HOST}:${OLLAMA_PORT}`,
       OLLAMA_MODELS: modelsDir,
+      // Allow browser-origin requests (vault mode queries hit Ollama directly)
+      OLLAMA_ORIGINS: "*",
       // Allow 2 concurrent inferences (default is 1 — sequential).
       // RAM cost: 2x KV-cache. Fine for <=8B models on 16GB+ Macs.
       OLLAMA_NUM_PARALLEL: process.env.OLLAMA_NUM_PARALLEL ?? "2",

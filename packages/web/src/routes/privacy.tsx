@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import numbatLight from "../assets/numbat-black.svg";
+import numbatDark from "../assets/numbat-white.svg";
 
 export const Route = createFileRoute("/privacy")({
   component: PrivacyPolicy,
@@ -47,8 +49,8 @@ function PrivacyPolicy() {
                 used solely for sign-in. Edgebric stores a session cookie — not your IdP credentials.
               </li>
               <li>
-                <strong>Anonymous query tokens</strong> — after login, each session receives a random UUID
-                for analytics. Queries cannot be traced back to individual users.
+                <strong>Session tokens</strong> — after login, each session receives a random UUID.
+                Queries cannot be traced back to individual users.
               </li>
             </ul>
           </Section>
@@ -113,6 +115,11 @@ function PrivacyPolicy() {
               </a>.
             </p>
           </Section>
+        </div>
+
+        <div className="mt-16 mb-4 flex justify-center">
+          <img src={numbatLight} alt="Edgebric" className="h-16 opacity-20 dark:hidden" />
+          <img src={numbatDark} alt="Edgebric" className="h-16 opacity-20 hidden dark:block" />
         </div>
       </div>
     </div>

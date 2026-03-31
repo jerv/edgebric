@@ -313,7 +313,7 @@ export interface Feedback {
   rating: "up" | "down";
   /** All messages (user + assistant) up to and including the rated message. */
   messageSnapshot: Array<{ role: string; content: string }>;
-  /** Auto-extracted topic label for analytics grouping. */
+  /** Auto-extracted topic label. */
   topic?: string | undefined;
   /** Optional note from user explaining a thumbs-down rating. */
   comment?: string | undefined;
@@ -386,7 +386,7 @@ export interface GroupChatMessage {
 
 // ─── AI Models (re-exported from models.ts) ─────────────────────────────────
 
-export type { ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult } from "./models.js";
+export type { ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, StorageBreakdown, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult } from "./models.js";
 export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG, checkModelRAMFit } from "./models.js";
 
 // ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────

@@ -24,6 +24,7 @@ import { groupChatQueryRouter } from "./routes/groupChatQuery.js";
 import { auditRouter } from "./routes/audit.js";
 import { meshRouter } from "./routes/mesh.js";
 import { meshInterNodeRouter } from "./routes/meshInterNode.js";
+import { vaultRouter } from "./routes/vault.js";
 import { integrationsRouter } from "./routes/integrations.js";
 import { cloudConnectionsRouter } from "./routes/cloudConnections.js";
 import { config } from "./config.js";
@@ -76,10 +77,10 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         imgSrc: ["'self'", "data:", "blob:", ...(OIDC_PROVIDERS[config.oidc.provider]?.imgSrcDomains ?? [])],
-        connectSrc: ["'self'", "http://localhost:11434", "http://127.0.0.1:11434"],
-        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
@@ -241,6 +242,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
+  app.use("/api/vault", vaultRouter);
   app.use("/api/mesh/peer", meshInterNodeRouter); // before /api/mesh — peer routes use MeshToken auth, not session
   app.use("/api/mesh", meshRouter);
 

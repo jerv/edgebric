@@ -20,6 +20,9 @@ const BASE_URL = process.env["EDGEBRIC_URL"] ?? "http://localhost:3001";
 const OLLAMA_URL = process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434";
 const RESULTS_DIR = path.join(__dirname, "results");
 
+// Per-question timeout in ms (2 minutes — anything longer is bad UX anyway)
+const QUESTION_TIMEOUT_MS = 120_000;
+
 // Models to benchmark (from the Edgebric catalog)
 const DEFAULT_MODELS = ["qwen3:4b", "phi4-mini", "gemma3:4b", "llama3.2:3b"];
 
@@ -152,18 +155,53 @@ async function query(
   text: string,
   opts?: { conversationId?: string; dataSourceIds?: string[] },
 ): Promise<QueryResult> {
-  const res = await fetch(`${BASE_URL}/api/query`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: text,
-      conversationId: opts?.conversationId,
-      dataSourceIds: opts?.dataSourceIds,
-    }),
-  });
-  if (res.status !== 200) throw new Error(`Query failed: ${res.status} ${await res.text()}`);
-  const body = await res.text();
-  return extractAnswer(parseSSE(body));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), QUESTION_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${BASE_URL}/api/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: text,
+        conversationId: opts?.conversationId,
+        dataSourceIds: opts?.dataSourceIds,
+      }),
+      signal: controller.signal,
+    });
+    if (res.status !== 200) throw new Error(`Query failed: ${res.status} ${await res.text()}`);
+
+    // Stream the response to avoid buffering huge SSE bodies in memory.
+    // Parse events incrementally instead of res.text().
+    const events: SSEEvent[] = [];
+    let currentType = "";
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? ""; // keep incomplete last line
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          currentType = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          try {
+            events.push({ type: currentType, data: JSON.parse(line.slice(6)) });
+          } catch { /* skip malformed */ }
+        }
+      }
+    }
+    // Process remaining buffer
+    if (buffer.startsWith("data: ")) {
+      try { events.push({ type: currentType, data: JSON.parse(buffer.slice(6)) }); } catch {}
+    }
+    return extractAnswer(events);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function setActiveModel(tag: string): Promise<void> {
@@ -356,7 +394,10 @@ async function main() {
       } catch (err) {
         const latency = Date.now() - start;
         totalLatency += latency;
-        console.log(` [ERROR] ${(err as Error).message.slice(0, 60)}`);
+        const isTimeout = (err as Error).name === "AbortError";
+        const label = isTimeout ? "TIMEOUT" : "ERROR";
+        const msg = isTimeout ? `Exceeded ${QUESTION_TIMEOUT_MS / 1000}s limit` : (err as Error).message;
+        console.log(` [${label}] ${msg.slice(0, 60)}`);
         results.push({
           questionId: q.id,
           question: q.question,
@@ -364,7 +405,7 @@ async function main() {
           groundTruth: q.groundTruth,
           rubric: q.rubric,
           sourceDoc: q.sourceDoc,
-          answer: `ERROR: ${(err as Error).message}`,
+          answer: `${label}: ${msg}`,
           latencyMs: latency,
           citations: [],
           hasConfidentAnswer: false,
@@ -397,6 +438,17 @@ async function main() {
     console.log(`    Needs grading: ${manual}/${results.length}`);
     console.log(`    Avg latency: ${(totalLatency / results.length / 1000).toFixed(1)}s`);
     console.log(`    Total time: ${(totalLatency / 1000).toFixed(0)}s`);
+
+    // Incremental save — don't lose progress if a later model crashes
+    fs.mkdirSync(RESULTS_DIR, { recursive: true });
+    const partial: BenchmarkOutput = {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      dataSourceId: ds.id,
+      models: allBenchmarks,
+    };
+    fs.writeFileSync(path.join(RESULTS_DIR, "latest.json"), JSON.stringify(partial, null, 2));
+    console.log(`  (incremental save: ${allBenchmarks.length} model(s) saved)`);
 
     // Unload model to free RAM for next one
     await unloadModel(model);

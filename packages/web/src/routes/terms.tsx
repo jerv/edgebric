@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import numbatLight from "../assets/numbat-black.svg";
+import numbatDark from "../assets/numbat-white.svg";
 
 export const Route = createFileRoute("/terms")({
   component: TermsOfService,
@@ -124,6 +126,11 @@ function TermsOfService() {
               </a>.
             </p>
           </Section>
+        </div>
+
+        <div className="mt-16 mb-4 flex justify-center">
+          <img src={numbatLight} alt="Edgebric" className="h-16 opacity-20 dark:hidden" />
+          <img src={numbatDark} alt="Edgebric" className="h-16 opacity-20 hidden dark:block" />
         </div>
       </div>
     </div>

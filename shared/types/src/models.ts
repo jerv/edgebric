@@ -56,11 +56,23 @@ export interface SystemResources {
   serverRamBytes?: number;
 }
 
+export interface StorageBreakdown {
+  /** Ollama model files on disk (bytes). */
+  ollamaModelsBytes: number;
+  /** Uploaded documents (bytes). */
+  uploadsBytes: number;
+  /** SQLite database files (bytes). */
+  dbBytes: number;
+  /** Vault-specific data (bytes). */
+  vaultBytes: number;
+}
+
 export interface ModelsResponse {
   models: InstalledModel[];
   catalog: ModelCatalogEntry[];
   activeModel: string;
   system: SystemResources;
+  storage?: StorageBreakdown;
 }
 
 export interface PullProgressEvent {

@@ -7,7 +7,7 @@
 import { MemoryStick, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminLabel } from "@/lib/models";
-import type { InstalledModel, SystemResources } from "@edgebric/types";
+import type { InstalledModel, SystemResources, StorageBreakdown } from "@edgebric/types";
 
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -87,10 +87,17 @@ export function RAMBar({ models, embeddingModel, system }: {
 
 // ─── Disk Bar (full size) ───────────────────────────────────────────────────
 
-export function DiskBar({ system }: { system: SystemResources }) {
-  const used = system.diskTotalBytes - system.diskFreeBytes;
-  const percent = system.diskTotalBytes > 0 ? Math.round((used / system.diskTotalBytes) * 100) : 0;
-  const barColor = percent > 90 ? "bg-red-500 dark:bg-red-400" : percent > 70 ? "bg-amber-500 dark:bg-amber-400" : "bg-emerald-500 dark:bg-emerald-400";
+export function DiskBar({ system, storage }: { system: SystemResources; storage?: StorageBreakdown }) {
+  const diskTotal = system.diskTotalBytes;
+  const diskUsed = diskTotal - system.diskFreeBytes;
+  const pctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
+
+  const ollamaBytes = storage?.ollamaModelsBytes ?? 0;
+  const uploadsBytes = storage?.uploadsBytes ?? 0;
+  const dbBytes = storage?.dbBytes ?? 0;
+  const vaultBytes = storage?.vaultBytes ?? 0;
+  const edgebricTotal = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+  const otherUsed = Math.max(0, diskUsed - edgebricTotal);
 
   return (
     <div className="flex items-center gap-3">
@@ -99,11 +106,53 @@ export function DiskBar({ system }: { system: SystemResources }) {
         <div className="flex items-center justify-between text-xs mb-1">
           <span className="text-slate-600 dark:text-gray-400">Disk</span>
           <span className="text-slate-500 dark:text-gray-500 font-mono">
-            {formatBytes(used)} / {formatBytes(system.diskTotalBytes)}
+            {formatBytes(diskUsed)} / {formatBytes(diskTotal)}
           </span>
         </div>
-        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden">
-          <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${Math.min(percent, 100)}%` }} />
+        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden flex">
+          <div className="h-full bg-slate-400 dark:bg-gray-600 transition-all" style={{ width: `${pctOf(otherUsed)}%` }} />
+          {ollamaBytes > 0 && (
+            <div className="h-full bg-blue-500 dark:bg-blue-400 transition-all" style={{ width: `${pctOf(ollamaBytes)}%` }} />
+          )}
+          {uploadsBytes > 0 && (
+            <div className="h-full bg-green-500 dark:bg-green-400 transition-all" style={{ width: `${pctOf(uploadsBytes)}%` }} />
+          )}
+          {vaultBytes > 0 && (
+            <div className="h-full bg-amber-500 dark:bg-amber-400 transition-all" style={{ width: `${pctOf(vaultBytes)}%` }} />
+          )}
+          {dbBytes > 0 && (
+            <div className="h-full bg-violet-500 dark:bg-violet-400 transition-all" style={{ width: `${pctOf(dbBytes)}%` }} />
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+          {ollamaBytes > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />
+              AI Models {formatBytes(ollamaBytes)}
+            </span>
+          )}
+          {uploadsBytes > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 dark:bg-green-400" />
+              Documents {formatBytes(uploadsBytes)}
+            </span>
+          )}
+          {vaultBytes > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
+              Vault {formatBytes(vaultBytes)}
+            </span>
+          )}
+          {dbBytes > 0 && (
+            <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-500 dark:bg-violet-400" />
+              Database {formatBytes(dbBytes)}
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-600" />
+            Other {formatBytes(otherUsed)}
+          </span>
         </div>
       </div>
     </div>

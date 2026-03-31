@@ -307,8 +307,9 @@ export function ChatPanel() {
         }> = [];
         for (const chunk of chunks) {
           if (cancelled) { db.close(); return; }
-          const embedR = await fetch("http://localhost:11434/api/embeddings", {
+          const embedR = await fetch("/api/vault/embed", {
             method: "POST",
+            credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ model: "nomic-embed-text", prompt: chunk.content }),
           });
@@ -932,20 +933,11 @@ export function ChatPanel() {
                     : "No documents have been loaded yet. Check back soon."}
                 </p>
               </>
-            ) : !modelLoaded ? (
-              <>
-                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">No model loaded</p>
-                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  {user?.isAdmin
-                    ? "Go to Settings > Models to load a model before chatting."
-                    : "An administrator needs to load an AI model. Check back soon."}
-                </p>
-              </>
             ) : (
               <>
                 <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Ask a question</p>
                 <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  Your questions are private. Conversations are only visible to you.
+                  Conversations are stored on your organization's servers and visible only to you.
                 </p>
               </>
             )}
@@ -1096,13 +1088,6 @@ export function ChatPanel() {
         {!systemReady ? (
           <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
             Chat unavailable — no documents loaded.
-          </div>
-        ) : !modelLoaded ? (
-          <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
-            No AI model is loaded.{" "}
-            {user?.isAdmin
-              ? "Go to Settings > Models to load one."
-              : "Ask your administrator to load a model."}
           </div>
         ) : (
           <div className="space-y-2">
@@ -1258,17 +1243,17 @@ export function ChatPanel() {
               {/* Model selector + context usage — visible to all users */}
               <div className="flex items-center gap-2">
                 <ModelPicker onModelLoading={setModelLoading} />
+                {modelLoading ? (
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-gray-400">
+                    <LoaderIcon className="w-3 h-3 animate-spin" />
+                    Loading model...
+                  </span>
+                ) : !modelLoaded && privacyLevel !== "vault" ? (
+                  <span className="text-[11px] text-amber-500 dark:text-amber-400">No model loaded</span>
+                ) : null}
                 <ContextRing usage={contextUsage} />
               </div>
             </div>
-
-            {/* Model loading overlay */}
-            {modelLoading && (
-              <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-500 dark:text-gray-400">
-                <LoaderIcon className="w-4 h-4 animate-spin" />
-                <span>Loading model... This may take a few seconds.</span>
-              </div>
-            )}
 
             <form onSubmit={(e) => void handleSubmit(e)} className={cn("space-y-2", modelLoading && "opacity-50 pointer-events-none")}>
               {/* Data source target chips */}
@@ -1300,6 +1285,7 @@ export function ChatPanel() {
                 onSubmit={() => void handleSubmit({ preventDefault: () => {} } as React.FormEvent)}
                 onStop={handleStop}
                 isLoading={isLoading}
+                disabled={!modelLoaded && privacyLevel !== "vault"}
                 overlay={
                   mentionPickerOpen ? (
                     <DSMentionPicker

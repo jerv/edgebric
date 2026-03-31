@@ -35,19 +35,17 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
           Remove this conversation?
         </h3>
         <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-5">
-          Your conversations help your organization identify knowledge gaps
-          — topics that come up frequently signal where documentation needs
-          improvement. Removing this conversation affects that signal.
+          Choose whether to archive or permanently delete this conversation.
         </p>
 
         <div className="space-y-3">
-          {/* Hide from sidebar */}
+          {/* Archive */}
           <div className="border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-2.5 space-y-2">
             <span className="text-sm font-medium text-slate-800 dark:text-gray-200 block">
-              Hide from sidebar
+              Archive
             </span>
             <span className="text-xs text-slate-400 dark:text-gray-500 block">
-              Your questions still contribute to anonymized topic trends.
+              Moves to your archive. You can restore it later from Account &gt; Conversations.
             </span>
             <div className="flex items-center gap-2 pt-1">
               {confirmStep === "archive" ? (
@@ -58,7 +56,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
                     disabled={!!pending}
                     className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-30"
                   >
-                    {pending === "archive" ? "Hiding..." : "Yes, hide"}
+                    {pending === "archive" ? "Archiving..." : "Yes, archive"}
                   </button>
                   <button
                     onClick={() => setConfirmStep(null)}
@@ -74,7 +72,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
                   disabled={!!pending}
                   className="bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-30"
                 >
-                  Hide
+                  Archive
                 </button>
               )}
             </div>
@@ -86,7 +84,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
               Delete permanently
             </span>
             <span className="text-xs text-slate-400 dark:text-gray-500 block">
-              Removes this conversation and all messages entirely.
+              Removes this conversation and all messages entirely. This cannot be undone.
             </span>
             <div className="flex items-center gap-2 pt-1">
               {confirmStep === "delete" ? (

@@ -53,9 +53,9 @@ export function openMainWindow() {
 
   mainWindow = new BrowserWindow({
     width: 900,
-    height: 680,
+    height: 860,
     minWidth: 680,
-    minHeight: 580,
+    minHeight: 680,
     title: "Edgebric",
     titleBarStyle: "hiddenInset",
     icon: appIcon,
@@ -128,7 +128,7 @@ export function openLogWindow() {
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Edgebric Logs</title><style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: ${bg}; color: ${fg}; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+    body { background: ${bg}; color: ${fg}; font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; display: flex; flex-direction: column; }
     .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid ${isDark ? "#1e293b" : "#333"}; flex-shrink: 0; -webkit-app-region: drag; }
     .toolbar-title { font-size: 12px; font-weight: 600; color: ${isDark ? "#94a3b8" : "#999"}; flex: 1; }
     .toolbar button { -webkit-app-region: no-drag; padding: 4px 10px; border-radius: 4px; border: 1px solid ${btnBorder}; background: ${btnBg}; color: ${fg}; font-size: 11px; font-family: inherit; cursor: pointer; transition: background 0.1s; }

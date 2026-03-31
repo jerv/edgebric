@@ -1,6 +1,8 @@
 {
   "name": "Edgebric",
   "short_name": "Edgebric",
+  "description": "Privacy-first knowledge platform. Data never moves — queries move.",
+  "start_url": "/",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -13,7 +15,7 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#ffffff",
+  "theme_color": "#0f172a",
   "background_color": "#ffffff",
   "display": "standalone"
 }
