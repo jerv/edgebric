@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   ArrowLeft,
 } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { adminLabel } from "@/lib/models";
 import {
@@ -122,7 +121,6 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
 }
 
 export function ModelsPanel() {
-  const navigate = useNavigate();
   const { data, isLoading, isError } = useModels();
   const loadMutation = useLoadModel();
   const unloadMutation = useUnloadModel();
@@ -159,7 +157,7 @@ export function ModelsPanel() {
         {/* Header with back button */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => void navigate({ to: "/" })}
+            onClick={() => window.history.back()}
             className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-600 dark:hover:text-gray-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
