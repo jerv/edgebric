@@ -21,6 +21,7 @@ import {
   updateNodeGroup,
   deleteNodeGroup,
 } from "../services/nodeRegistry.js";
+import { getPrimaryReachable } from "../services/meshScheduler.js";
 
 export const meshRouter: IRouter = Router();
 
@@ -205,7 +206,7 @@ meshRouter.get("/status", (_req, res) => {
     connectedNodes: onlineCount,
     totalNodes: nodes.length,
     primaryEndpoint: cfg.primaryEndpoint,
-    primaryReachable: null, // TODO: M2 will add primary health check
+    primaryReachable: getPrimaryReachable(),
   });
 });
 

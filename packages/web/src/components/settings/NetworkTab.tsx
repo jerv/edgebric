@@ -52,6 +52,7 @@ interface MeshStatus {
   nodeName: string | null;
   connectedNodes: number;
   totalNodes: number;
+  primaryReachable: boolean | null;
 }
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -723,6 +724,20 @@ export function NetworkTab() {
                   ? `${onlineCount} of ${totalCount} nodes online`
                   : "Query routing to other nodes is paused"}
               </p>
+              {meshConfig.enabled && meshConfig.role === "secondary" && status?.primaryReachable !== null && (
+                <p className={cn(
+                  "text-xs flex items-center gap-1",
+                  status?.primaryReachable
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-500 dark:text-red-400",
+                )}>
+                  <span className={cn(
+                    "inline-block w-1.5 h-1.5 rounded-full",
+                    status?.primaryReachable ? "bg-emerald-500" : "bg-red-500 animate-pulse",
+                  )} />
+                  {status?.primaryReachable ? "Primary reachable" : "Primary unreachable"}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-3">
