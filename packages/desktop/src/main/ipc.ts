@@ -126,6 +126,10 @@ export function registerIpcHandlers() {
     chatBaseUrl?: string;
     chatModel?: string;
     orgServerUrl?: string;
+    // Secondary node mesh setup
+    meshToken?: string;
+    secondaryNodeName?: string;
+    primaryEndpoint?: string;
   }) => {
     const config: EdgebricConfig = {
       mode: setupData.mode,
@@ -141,7 +145,9 @@ export function registerIpcHandlers() {
       ...(setupData.orgServerUrl && { orgServerUrl: setupData.orgServerUrl }),
     };
 
-    const isSolo = setupData.mode === "solo" || setupData.mode === "member";
+    // Secondary nodes are network-facing (not solo) — they need HTTPS and mesh config
+    const isSecondaryNode = !!(setupData.meshToken && setupData.primaryEndpoint);
+    const isSolo = setupData.mode === "solo" || (setupData.mode === "member" && !isSecondaryNode);
 
     // Validate data directory is within user's home (prevent path traversal)
     const resolvedDataDir = path.resolve(config.dataDir);
@@ -182,7 +188,24 @@ export function registerIpcHandlers() {
       `LISTEN_HOST=${isSolo ? "127.0.0.1" : "0.0.0.0"}`,
     ];
 
-    if (!isSolo) {
+    if (isSecondaryNode) {
+      // Secondary nodes: network-facing with OIDC auth, but no local OIDC
+      // credentials — auth is proxied to the primary via the mesh protocol.
+      // OIDC_CLIENT_ID/SECRET are placeholders so the config parser doesn't
+      // reject the file; the auth route redirects to primary before using them.
+      envLines.push(
+        `OIDC_PROVIDER=generic`,
+        `OIDC_ISSUER=https://placeholder.local`,
+        `OIDC_CLIENT_ID=secondary-node`,
+        `OIDC_CLIENT_SECRET=secondary-node`,
+        `OIDC_REDIRECT_URI=${protocol}://localhost:${config.port}/api/auth/callback`,
+        `ADMIN_EMAILS=`,
+        `FRONTEND_URL=${protocol}://${hostname}:${config.port}`,
+        `TLS_CERT=${certs.serverCert}`,
+        `TLS_KEY=${certs.serverKey}`,
+      );
+    } else if (!isSolo) {
+      // Primary / admin node: full OIDC config
       envLines.push(
         `OIDC_PROVIDER=${config.oidcProvider ?? "generic"}`,
         `OIDC_ISSUER=${config.oidcIssuer ?? ""}`,
@@ -195,6 +218,7 @@ export function registerIpcHandlers() {
         `TLS_KEY=${certs.serverKey}`,
       );
     } else {
+      // Solo mode: localhost only, no TLS, no auth
       envLines.push(
         `FRONTEND_URL=http://localhost:${config.port}`,
       );
@@ -210,6 +234,22 @@ export function registerIpcHandlers() {
 
     const envFile = envPath(config.dataDir);
     fs.writeFileSync(envFile, envContent, "utf8");
+
+    // For secondary nodes: write mesh-setup.json so the API server
+    // auto-initializes mesh config as secondary on first boot
+    if (isSecondaryNode && setupData.meshToken && setupData.primaryEndpoint) {
+      const meshSetup = {
+        role: "secondary",
+        nodeName: setupData.secondaryNodeName ?? "Secondary Node",
+        meshToken: setupData.meshToken,
+        primaryEndpoint: setupData.primaryEndpoint,
+      };
+      fs.writeFileSync(
+        path.join(config.dataDir, "mesh-setup.json"),
+        JSON.stringify(meshSetup, null, 2) + "\n",
+        "utf8",
+      );
+    }
 
     return { success: true };
   });
