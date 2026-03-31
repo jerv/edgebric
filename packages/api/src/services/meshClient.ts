@@ -84,7 +84,13 @@ export async function searchRemoteNode(
       return null;
     }
 
-    return (await resp.json()) as MeshSearchResponse;
+    const body = await resp.json();
+    // Validate that the response has the expected shape
+    if (!body || !Array.isArray(body.chunks) || typeof body.nodeId !== "string") {
+      logger.warn({ nodeId, nodeName: node.name }, "Mesh search: malformed response from remote node");
+      return null;
+    }
+    return body as MeshSearchResponse;
   } catch (err) {
     logger.warn(
       { nodeId, nodeName: node.name, err: err instanceof Error ? err.message : String(err) },
@@ -117,7 +123,9 @@ export async function getRemoteNodeInfo(
     });
 
     if (!resp.ok) return null;
-    return (await resp.json()) as MeshNodeInfo;
+    const body = await resp.json();
+    if (!body || typeof body.nodeId !== "string") return null;
+    return body as MeshNodeInfo;
   } catch {
     return null;
   }

@@ -83,6 +83,10 @@ function publishMdns(hostname: string, port: number) {
       type: "_edgebric._tcp",
       port,
       host: hostname,
+      txt: {
+        version: app.getVersion(),
+        protocol: "https",
+      },
     });
   } catch (err) {
     console.error("mDNS publish failed:", err);
@@ -402,29 +406,60 @@ export function readLogs(lines = 100): string {
   return allLines.slice(-lines).join("\n");
 }
 
+export interface DiscoveredInstance {
+  name: string;
+  host: string;
+  port: number;
+  addresses: string[];
+  /** Endpoint URL constructed from discovery data */
+  endpoint: string;
+  txt: Record<string, string>;
+}
+
 /** Discover Edgebric instances on the local network via mDNS */
-export function discoverInstances(timeoutMs = 5000): Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>> {
+export function discoverInstances(timeoutMs = 5000): Promise<DiscoveredInstance[]> {
   return new Promise((resolve) => {
-    const found: Array<{ name: string; host: string; port: number; addresses: string[] }> = [];
-    const browser = new Bonjour(undefined, (err: Error) => {
-      console.warn("mDNS discovery error (non-fatal):", err.message);
-    });
+    const found = new Map<string, DiscoveredInstance>();
+    let browser: InstanceType<typeof Bonjour> | null = null;
+
+    try {
+      browser = new Bonjour(undefined, (err: Error) => {
+        console.warn("mDNS discovery error (non-fatal):", err.message);
+      });
+    } catch (err) {
+      console.warn("mDNS discovery init failed:", err);
+      resolve([]);
+      return;
+    }
 
     const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
-      found.push({
+      const protocol = (service.txt as Record<string, string>)?.protocol ?? "https";
+      found.set(service.name, {
         name: service.name,
         host: service.host,
         port: service.port,
         addresses: service.addresses ?? [],
+        endpoint: `${protocol}://${service.host}:${service.port}`,
+        txt: (service.txt as Record<string, string>) ?? {},
       });
     });
 
     setTimeout(() => {
-      svc.stop();
-      browser.destroy();
-      resolve(found);
+      try {
+        svc.stop();
+        browser!.destroy();
+      } catch { /* cleanup errors are non-fatal */ }
+      resolve(Array.from(found.values()));
     }, timeoutMs);
   });
+}
+
+/** Re-publish mDNS after network changes (sleep/wake, interface changes). */
+export function refreshMdns() {
+  const config = loadConfig();
+  if (!config || config.mode === "solo") return;
+  const hostname = config.hostname ?? "edgebric.local";
+  publishMdns(hostname, config.port);
 }
 
 /** Clean up on app quit */

@@ -77,8 +77,16 @@ export interface MeshNodeInfo {
   role: NodeRole;
   version: string;
   sourceCount: number;
+  /** Number of sources with allowExternalAccess enabled */
+  meshVisibleSourceCount: number;
   groupId: string | null;
   groupName: string | null;
+}
+
+/** Response from GET /api/mesh/peer/auth-info */
+export interface MeshAuthInfo {
+  provider: string;
+  providerName: string;
 }
 
 /** Status returned by GET /api/mesh/status */

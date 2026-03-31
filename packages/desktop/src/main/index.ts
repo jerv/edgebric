@@ -1,13 +1,15 @@
-import { app, BrowserWindow, nativeImage, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, nativeImage, nativeTheme, shell, powerMonitor } from "electron";
 import path from "path";
 import { createTray, destroyTray } from "./tray.js";
-import { startServer, cleanup, getStatus, readLogs } from "./server.js";
+import { startServer, cleanup, getStatus, readLogs, refreshMdns } from "./server.js";
 import { isFirstRun, loadConfig } from "./config.js";
 import { registerIpcHandlers } from "./ipc.js";
 
 function getAppIcon(): Electron.NativeImage {
-  const iconPath = path.join(__dirname, "..", "..", "resources", "icon.icns");
-  return nativeImage.createFromPath(iconPath);
+  const resourcesDir = app.isPackaged
+    ? path.join(process.resourcesPath, "resources")
+    : path.join(__dirname, "..", "..", "resources");
+  return nativeImage.createFromPath(path.join(resourcesDir, "icon.icns"));
 }
 
 // Catch unhandled errors so mDNS/network glitches don't crash the app
@@ -265,6 +267,12 @@ app.whenReady().then(async () => {
       console.error("Failed to start server:", err);
     }
   }
+
+  // Re-publish mDNS after sleep/wake so the service record is fresh
+  powerMonitor.on("resume", () => {
+    console.log("System resumed from sleep — refreshing mDNS");
+    refreshMdns();
+  });
 });
 
 app.on("window-all-closed", () => {

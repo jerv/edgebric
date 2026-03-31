@@ -229,6 +229,47 @@ meshRouter.get("/query-targets", (req, res) => {
   });
 });
 
+// ─── mDNS Discovery (admin only) ─────────────────────────────────────────────
+
+/** GET /api/mesh/discover — scan LAN for Edgebric instances via mDNS (admin only) */
+meshRouter.get("/discover", requireAdmin, async (_req, res) => {
+  try {
+    // Dynamic import — bonjour-service is optional (desktop only)
+    const { default: Bonjour } = await import("bonjour-service");
+
+    const found: Array<{ name: string; host: string; port: number; endpoint: string; addresses: string[]; txt: Record<string, string> }> = [];
+    const browser = new Bonjour(undefined, () => { /* swallow errors */ });
+    const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
+      const protocol = (service.txt as Record<string, string>)?.protocol ?? "https";
+      found.push({
+        name: service.name,
+        host: service.host,
+        port: service.port,
+        endpoint: `${protocol}://${service.host}:${service.port}`,
+        addresses: service.addresses ?? [],
+        txt: (service.txt as Record<string, string>) ?? {},
+      });
+    });
+
+    // Browse for 5 seconds then return results
+    await new Promise((r) => setTimeout(r, 5000));
+    svc.stop();
+    browser.destroy();
+
+    // Filter out self
+    const cfg = getMeshConfig();
+    const selfName = cfg?.nodeName?.toLowerCase();
+    const filtered = selfName
+      ? found.filter((f) => f.name.toLowerCase() !== selfName)
+      : found;
+
+    res.json({ instances: filtered });
+  } catch {
+    // bonjour-service not available (web-only deployment)
+    res.status(501).json({ error: "mDNS discovery not available in this deployment" });
+  }
+});
+
 // ─── Nodes (admin only) ──────────────────────────────────────────────────────
 
 meshRouter.use("/nodes", requireAdmin);

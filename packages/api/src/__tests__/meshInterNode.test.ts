@@ -196,7 +196,10 @@ describe("Mesh Inter-Node API", () => {
 
       const res = await authedGet("/api/mesh/peer/info");
       expect(res.status).toBe(200);
+      // We created 2 sources: one with external access, one without
+      // There may be additional sources from earlier tests
       expect(res.body.sourceCount).toBeGreaterThanOrEqual(2);
+      expect(res.body.meshVisibleSourceCount).toBeGreaterThanOrEqual(1);
       expect(res.body.meshVisibleSourceCount).toBeLessThan(res.body.sourceCount);
     });
   });
@@ -250,14 +253,13 @@ describe("Mesh Inter-Node API", () => {
       const res = await authedPost("/api/mesh/peer/search")
         .send({ query: "vacation policy" });
       expect(res.status).toBe(200);
-
-      if (res.body.chunks.length > 0) {
-        const chunk = res.body.chunks[0];
-        expect(chunk).toHaveProperty("chunkId");
-        expect(chunk).toHaveProperty("content");
-        expect(chunk).toHaveProperty("similarity");
-        expect(chunk).toHaveProperty("sourceName");
-      }
+      // Mock guarantees at least one result — assert unconditionally
+      expect(res.body.chunks.length).toBeGreaterThan(0);
+      const chunk = res.body.chunks[0];
+      expect(typeof chunk.chunkId).toBe("string");
+      expect(typeof chunk.content).toBe("string");
+      expect(typeof chunk.similarity).toBe("number");
+      expect(typeof chunk.sourceName).toBe("string");
     });
 
     it("respects topN parameter", async () => {

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Network, Server, Plus, Trash2, Pencil, Copy, Check, Eye, EyeOff,
   RefreshCw, Power, PowerOff, ChevronDown, ChevronRight, AlertTriangle,
-  Loader2, Shield, Globe, HelpCircle,
+  Loader2, Shield, Globe, HelpCircle, Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,21 +64,25 @@ function api(url: string, init?: RequestInit): Promise<Response> {
 
 async function fetchMeshConfig(): Promise<MeshConfig> {
   const res = await api("/api/mesh/config");
+  if (!res.ok) throw new Error(`Failed to fetch mesh config (${res.status})`);
   return res.json();
 }
 
 async function fetchMeshStatus(): Promise<MeshStatus> {
-  const res = await api("/api/mesh/status", { credentials: "same-origin" });
+  const res = await api("/api/mesh/status");
+  if (!res.ok) throw new Error(`Failed to fetch mesh status (${res.status})`);
   return res.json();
 }
 
 async function fetchNodes(): Promise<MeshNode[]> {
-  const res = await api("/api/mesh/nodes", { credentials: "same-origin" });
+  const res = await api("/api/mesh/nodes");
+  if (!res.ok) throw new Error(`Failed to fetch nodes (${res.status})`);
   return res.json();
 }
 
 async function fetchGroups(): Promise<NodeGroup[]> {
-  const res = await api("/api/mesh/groups", { credentials: "same-origin" });
+  const res = await api("/api/mesh/groups");
+  if (!res.ok) throw new Error(`Failed to fetch groups (${res.status})`);
   return res.json();
 }
 
@@ -545,6 +549,9 @@ export function NetworkTab() {
   const [fullToken, setFullToken] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmRegenToken, setConfirmRegenToken] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [discoveredNodes, setDiscoveredNodes] = useState<Array<{ name: string; host: string; port: number; endpoint: string }>>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
   const { data: meshConfig, isLoading: configLoading } = useQuery({
     queryKey: ["mesh-config"],
@@ -574,16 +581,19 @@ export function NetworkTab() {
 
   const toggleMeshMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      await api("/api/mesh/config", {
+      const res = await api("/api/mesh/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       });
+      if (!res.ok) throw new Error("Failed to toggle mesh");
     },
     onSuccess: () => {
+      setMutationError(null);
       void queryClient.invalidateQueries({ queryKey: ["mesh-config"] });
       void queryClient.invalidateQueries({ queryKey: ["mesh-status"] });
     },
+    onError: (err: Error) => setMutationError(err.message),
   });
 
   const leaveMeshMutation = useMutation({
@@ -599,21 +609,28 @@ export function NetworkTab() {
 
   const removeNodeMutation = useMutation({
     mutationFn: async (nodeId: string) => {
-      await api(`/api/mesh/nodes/${nodeId}`, { method: "DELETE" });
+      const res = await api(`/api/mesh/nodes/${nodeId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove node");
     },
     onSuccess: () => {
+      setMutationError(null);
       void queryClient.invalidateQueries({ queryKey: ["mesh-nodes"] });
+      void queryClient.invalidateQueries({ queryKey: ["mesh-status"] });
     },
+    onError: (err: Error) => setMutationError(err.message),
   });
 
   const deleteGroupMutation = useMutation({
     mutationFn: async (groupId: string) => {
-      await api(`/api/mesh/groups/${groupId}`, { method: "DELETE" });
+      const res = await api(`/api/mesh/groups/${groupId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete group");
     },
     onSuccess: () => {
+      setMutationError(null);
       void queryClient.invalidateQueries({ queryKey: ["mesh-groups"] });
       void queryClient.invalidateQueries({ queryKey: ["mesh-nodes"] });
     },
+    onError: (err: Error) => setMutationError(err.message),
   });
 
   const regenTokenMutation = useMutation({
@@ -635,6 +652,53 @@ export function NetworkTab() {
     setFullToken(data.meshToken);
     setShowToken(true);
   }, []);
+
+  const scanLan = useCallback(async () => {
+    setIsScanning(true);
+    setDiscoveredNodes([]);
+    try {
+      const res = await api("/api/mesh/discover");
+      if (!res.ok) {
+        if (res.status === 501) {
+          setMutationError("LAN discovery not available in this deployment");
+        } else {
+          setMutationError("Failed to scan LAN");
+        }
+        return;
+      }
+      const data = await res.json() as { instances: Array<{ name: string; host: string; port: number; endpoint: string }> };
+      // Filter out nodes already registered
+      const registeredEndpoints = new Set(nodes.map((n) => n.endpoint));
+      const newInstances = data.instances.filter((i) => !registeredEndpoints.has(i.endpoint));
+      setDiscoveredNodes(newInstances);
+    } catch {
+      setMutationError("LAN scan failed");
+    } finally {
+      setIsScanning(false);
+    }
+  }, [nodes]);
+
+  const addDiscoveredNode = useCallback(async (instance: { name: string; endpoint: string }) => {
+    try {
+      const res = await api("/api/mesh/nodes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: crypto.randomUUID(),
+          name: instance.name,
+          role: "secondary" as const,
+          endpoint: instance.endpoint,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to register node");
+      void queryClient.invalidateQueries({ queryKey: ["mesh-nodes"] });
+      void queryClient.invalidateQueries({ queryKey: ["mesh-status"] });
+      // Remove from discovered list
+      setDiscoveredNodes((prev) => prev.filter((n) => n.endpoint !== instance.endpoint));
+    } catch {
+      setMutationError("Failed to add discovered node");
+    }
+  }, [queryClient]);
 
   if (configLoading) {
     return (
@@ -720,23 +784,32 @@ export function NetworkTab() {
                 {meshConfig.enabled ? "Mesh Active" : "Mesh Disabled"}
               </h3>
               <p className="text-xs text-slate-500 dark:text-gray-400">
-                {meshConfig.enabled
-                  ? `${onlineCount} of ${totalCount} nodes online`
-                  : "Query routing to other nodes is paused"}
+                {!meshConfig.enabled
+                  ? "Query routing to other nodes is paused"
+                  : totalCount === 0
+                    ? "No other nodes connected"
+                    : `${onlineCount} of ${totalCount} nodes online`}
               </p>
-              {meshConfig.enabled && meshConfig.role === "secondary" && status?.primaryReachable !== null && (
-                <p className={cn(
-                  "text-xs flex items-center gap-1",
-                  status?.primaryReachable
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-red-500 dark:text-red-400",
-                )}>
-                  <span className={cn(
-                    "inline-block w-1.5 h-1.5 rounded-full",
-                    status?.primaryReachable ? "bg-emerald-500" : "bg-red-500 animate-pulse",
-                  )} />
-                  {status?.primaryReachable ? "Primary reachable" : "Primary unreachable"}
-                </p>
+              {meshConfig.enabled && meshConfig.role === "secondary" && (
+                status?.primaryReachable === null ? (
+                  <p className="text-xs flex items-center gap-1 text-slate-400 dark:text-gray-500">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Checking primary...
+                  </p>
+                ) : (
+                  <p className={cn(
+                    "text-xs flex items-center gap-1",
+                    status?.primaryReachable
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-red-500 dark:text-red-400",
+                  )}>
+                    <span className={cn(
+                      "inline-block w-1.5 h-1.5 rounded-full",
+                      status?.primaryReachable ? "bg-emerald-500" : "bg-red-500 animate-pulse",
+                    )} />
+                    {status?.primaryReachable ? "Primary reachable" : "Primary unreachable"}
+                  </p>
+                )
               )}
             </div>
           </div>
@@ -757,6 +830,16 @@ export function NetworkTab() {
           </div>
         </div>
       </div>
+
+      {/* Mutation error banner */}
+      {mutationError && (
+        <div className="flex items-center justify-between border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-xl px-4 py-2">
+          <p className="text-sm text-red-600 dark:text-red-400">{mutationError}</p>
+          <button onClick={() => setMutationError(null)} className="text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300 text-xs">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* This Node */}
       <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-3">
@@ -808,6 +891,14 @@ export function NetworkTab() {
           </h3>
           <div className="flex items-center gap-2">
             <button
+              onClick={scanLan}
+              disabled={isScanning}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 border border-slate-200 dark:border-gray-700 rounded-lg"
+            >
+              {isScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
+              {isScanning ? "Scanning..." : "Scan LAN"}
+            </button>
+            <button
               onClick={() => setShowCreateGroup(!showCreateGroup)}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 border border-slate-200 dark:border-gray-700 rounded-lg"
             >
@@ -830,6 +921,32 @@ export function NetworkTab() {
 
         {showRegisterNode && (
           <RegisterNodeForm groups={groups} onDone={() => setShowRegisterNode(false)} />
+        )}
+
+        {/* Discovered nodes (mDNS scan results) */}
+        {discoveredNodes.length > 0 && (
+          <div className="border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 space-y-3">
+            <h4 className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+              <Wifi className="w-3.5 h-3.5" />
+              Discovered on LAN ({discoveredNodes.length})
+            </h4>
+            <div className="space-y-2">
+              {discoveredNodes.map((inst) => (
+                <div key={inst.endpoint} className="flex items-center justify-between py-2 px-3 border border-blue-100 dark:border-blue-800/50 rounded-lg bg-white dark:bg-gray-900">
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-slate-900 dark:text-gray-100">{inst.name}</span>
+                    <p className="text-xs text-slate-400 dark:text-gray-500">{inst.endpoint}</p>
+                  </div>
+                  <button
+                    onClick={() => addDiscoveredNode(inst)}
+                    className="px-2.5 py-1 text-xs font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Grouped nodes */}

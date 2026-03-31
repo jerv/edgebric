@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { timingSafeEqual } from "crypto";
 import { getMeshConfig, getNode } from "../services/nodeRegistry.js";
 
 /**
@@ -22,7 +23,10 @@ export function requireMeshToken(req: Request, res: Response, next: NextFunction
   }
 
   const token = authHeader.slice("MeshToken ".length);
-  if (token !== cfg.meshToken) {
+  // Constant-time comparison to prevent timing attacks
+  const tokenBuf = Buffer.from(token);
+  const expectedBuf = Buffer.from(cfg.meshToken);
+  if (tokenBuf.length !== expectedBuf.length || !timingSafeEqual(tokenBuf, expectedBuf)) {
     res.status(403).json({ error: "Invalid mesh token" });
     return;
   }

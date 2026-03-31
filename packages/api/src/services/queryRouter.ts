@@ -69,6 +69,10 @@ export async function routedSearch(
   const remoteRouted: RoutedSearchResult[] = [];
   for (const nodeResponse of meshResult.results) {
     for (const chunk of nodeResponse.chunks) {
+      // Parse chunk index from chunkId (format: "{datasetName}-{index}")
+      const idxMatch = chunk.chunkId.match(/-(\d+)$/);
+      const chunkIndex = idxMatch ? parseInt(idxMatch[1], 10) : 0;
+
       remoteRouted.push({
         chunkId: chunk.chunkId,
         chunk: chunk.content,
@@ -79,7 +83,7 @@ export async function routedSearch(
           sectionPath: chunk.sectionPath ?? [],
           pageNumber: chunk.pageNumber ?? 0,
           heading: chunk.heading ?? "",
-          chunkIndex: 0,
+          chunkIndex,
         },
         sourceNodeId: nodeResponse.nodeId,
         sourceNodeName: nodeResponse.nodeName,

@@ -112,10 +112,9 @@ describe("Mesh Scheduler", () => {
 
       // Simulate a heartbeat from 2 minutes ago
       heartbeat(nodeId, 3);
-      // Manually backdate lastSeen via a direct DB approach isn't available,
-      // but markStaleNodesOffline with a 0ms timeout will mark any node as stale
+      // markStaleNodesOffline with a 0ms timeout marks any node as stale
       const marked = markStaleNodesOffline(0);
-      expect(marked).toBeGreaterThanOrEqual(1);
+      expect(marked).toBe(1);
 
       const nodes = listNodes({ orgId });
       const staleNode = nodes.find((n) => n.id === nodeId);

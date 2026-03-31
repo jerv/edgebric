@@ -391,7 +391,7 @@ export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisible
 
 // ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────
 
-export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshStatus } from "./mesh.js";
+export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshAuthInfo, MeshStatus } from "./mesh.js";
 
 // ─── Cloud Storage Integrations (re-exported from cloud.ts) ──────────────────
 
