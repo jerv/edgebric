@@ -33,13 +33,13 @@ export interface RoutedSearchResponse {
  * @param localDatasetNames - dataset names to search locally
  * @param queryText - the user's query
  * @param maxCandidates - max results per source (local + each remote node)
- * @param meshGroupId - optional: restrict remote search to a specific node group
+ * @param allowedGroupIds - groups the user can access. Empty = no remote access. Undefined = admin (all groups).
  */
 export async function routedSearch(
   localDatasetNames: string[],
   queryText: string,
   maxCandidates = 20,
-  meshGroupId?: string,
+  allowedGroupIds?: string[],
 ): Promise<RoutedSearchResponse> {
   const meshEnabled = isMeshEnabled();
   const cfg = meshEnabled ? getMeshConfig() : undefined;
@@ -49,10 +49,12 @@ export async function routedSearch(
     ? hybridMultiDatasetSearch(localDatasetNames, queryText, maxCandidates)
     : Promise.resolve({ results: [] as HybridSearchResult[], candidateCount: 0, hybridBoost: false });
 
-  // If mesh is enabled, fan out to remote nodes in parallel
-  const meshPromise = meshEnabled
+  // If mesh is enabled, fan out to remote nodes in the user's allowed groups
+  // allowedGroupIds === undefined means admin — search all groups
+  // allowedGroupIds === [] means no mesh access
+  const meshPromise = meshEnabled && allowedGroupIds?.length !== 0
     ? searchAllNodes(queryText, {
-        ...(meshGroupId != null && { groupId: meshGroupId }),
+        ...(allowedGroupIds != null && { groupIds: allowedGroupIds }),
         topN: maxCandidates,
       })
     : Promise.resolve({ results: [], nodesSearched: 0, nodesUnavailable: 0 });

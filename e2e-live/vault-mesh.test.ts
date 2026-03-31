@@ -315,12 +315,7 @@ test.describe.serial("Mesh Node Groups", () => {
     expect(group.color).toBe("#EF4444");
   });
 
-  test("query-targets endpoint returns groups", async ({ request }) => {
-    const res = await request.get("/api/mesh/query-targets");
-    expect(res.ok()).toBe(true);
-    const { groups } = await res.json();
-    expect(groups.some((g: { id: string }) => g.id === groupId)).toBe(true);
-  });
+  // query-targets endpoint removed — groups are security boundaries, not user-selectable
 
   test("assigns a node to a group", async ({ request }) => {
     const nodeId = randomUUID();

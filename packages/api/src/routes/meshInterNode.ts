@@ -17,6 +17,7 @@ import {
   heartbeat,
   listNodeGroups,
 } from "../services/nodeRegistry.js";
+import { revokeSessionsByEmail } from "../services/sessionRevocation.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { config } from "../config.js";
@@ -187,6 +188,33 @@ meshInterNodeRouter.get("/info", (_req, res) => {
  * to display the correct provider (Google, Microsoft, etc.) on their login page
  * even though they don't configure OIDC themselves.
  */
+// ─── User Revocation ────────────────────────────────────────────────────────
+
+const revokeSchema = z.object({
+  email: z.string().email(),
+});
+
+/**
+ * POST /api/mesh/peer/revoke-user
+ *
+ * Called by the primary node when a user is deactivated/removed.
+ * Destroys all local sessions for the given email so the user
+ * is immediately locked out, even if this node can't reach the primary.
+ */
+meshInterNodeRouter.post("/revoke-user", validateBody(revokeSchema), (req, res) => {
+  const { email } = req.body as z.infer<typeof revokeSchema>;
+  const destroyed = revokeSessionsByEmail(email);
+
+  logger.info(
+    { email, destroyed, fromNode: (req as MeshRequest).meshNode.name },
+    "Mesh revocation: destroyed user sessions",
+  );
+
+  res.json({ ok: true, destroyed });
+});
+
+// ─── Auth Info ────────────────────────────────────────────────────────────
+
 meshInterNodeRouter.get("/auth-info", (_req, res) => {
   if (config.authMode === "none") {
     res.json({ provider: "none", providerName: "Solo Mode" });

@@ -45,14 +45,6 @@ export interface MeshConfig {
   orgId: string;
 }
 
-export interface MeshSearchRequest {
-  query: string;
-  datasetNames: string[];
-  topN: number;
-  meshToken: string;
-  requestingNodeId: string;
-}
-
 export interface MeshSearchResult {
   chunkId: string;
   content: string;

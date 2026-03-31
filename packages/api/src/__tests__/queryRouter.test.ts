@@ -182,14 +182,39 @@ describe("Query Router", () => {
       expect(response.meshNodesUnavailable).toBe(2);
     });
 
-    it("passes meshGroupId to searchAllNodes for targeted queries", async () => {
+    it("passes allowedGroupIds to searchAllNodes", async () => {
       mockHybridSearch.mockResolvedValue({ results: [], candidateCount: 0, hybridBoost: false });
       mockSearchAllNodes.mockResolvedValue({ results: [], nodesSearched: 0, nodesUnavailable: 0 });
 
-      const groupId = randomUUID();
-      await routedSearch(["ds"], "test", 20, groupId);
+      const groupIds = [randomUUID(), randomUUID()];
+      await routedSearch(["ds"], "test", 20, groupIds);
 
-      expect(mockSearchAllNodes).toHaveBeenCalledWith("test", expect.objectContaining({ groupId }));
+      expect(mockSearchAllNodes).toHaveBeenCalledWith("test", expect.objectContaining({ groupIds }));
+    });
+
+    it("skips mesh search when allowedGroupIds is empty array", async () => {
+      mockHybridSearch.mockResolvedValue({
+        results: [{ chunkId: "local-0", chunk: "Local", similarity: 0.85, metadata: { sourceDocument: "", sectionPath: [], pageNumber: 0, heading: "", chunkIndex: 0 } }],
+        candidateCount: 1,
+        hybridBoost: false,
+      });
+
+      const response = await routedSearch(["ds"], "test", 20, []);
+
+      // Empty group array = no mesh access
+      expect(mockSearchAllNodes).not.toHaveBeenCalled();
+      expect(response.meshNodesSearched).toBe(0);
+      expect(response.results).toHaveLength(1);
+    });
+
+    it("searches all groups when allowedGroupIds is undefined (admin)", async () => {
+      mockHybridSearch.mockResolvedValue({ results: [], candidateCount: 0, hybridBoost: false });
+      mockSearchAllNodes.mockResolvedValue({ results: [], nodesSearched: 0, nodesUnavailable: 0 });
+
+      await routedSearch(["ds"], "test", 20, undefined);
+
+      // undefined = admin, no groupIds filter
+      expect(mockSearchAllNodes).toHaveBeenCalledWith("test", expect.not.objectContaining({ groupIds: expect.anything() }));
     });
 
     it("parses chunkIndex from remote chunkIds", async () => {

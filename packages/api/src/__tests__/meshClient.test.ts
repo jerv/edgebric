@@ -222,11 +222,11 @@ describe("Mesh Client", () => {
       expect(result.nodesSearched).toBe(0);
     });
 
-    it("filters by groupId when specified", async () => {
+    it("filters by groupIds when specified", async () => {
       // Node has no group — shouldn't match a group filter
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ chunks: [], nodeId: "x", nodeName: "X" }) });
 
-      const result = await searchAllNodes("test", { groupId: randomUUID() });
+      const result = await searchAllNodes("test", { groupIds: [randomUUID()] });
 
       expect(mockFetch).not.toHaveBeenCalled();
       expect(result.nodesSearched).toBe(0);

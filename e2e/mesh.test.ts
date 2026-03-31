@@ -166,17 +166,7 @@ test.describe("Mesh Full Lifecycle", () => {
     expect(res.status()).toBe(404);
   });
 
-  // ─── Query Targets ────────────────────────────────────────────────
-
-  test("query targets include the node group", async ({ request }) => {
-    const res = await request.get("/api/mesh/query-targets");
-    expect(res.ok()).toBe(true);
-    const body = await res.json();
-    expect(body.groups).toBeDefined();
-    const found = body.groups.find((g: { id: string }) => g.id === groupId);
-    expect(found).toBeDefined();
-    expect(found.nodeCount).toBeGreaterThanOrEqual(1);
-  });
+  // query-targets endpoint removed — groups are security boundaries, not user-selectable
 
   // ─── Peer Protocol (MeshToken auth) ───────────────────────────────
 

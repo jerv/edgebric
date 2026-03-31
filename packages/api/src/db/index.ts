@@ -365,9 +365,21 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_mesh_groups (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      assigned_at TEXT NOT NULL,
+      assigned_by TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_mesh_nodes_org_id ON mesh_nodes(org_id);
     CREATE INDEX IF NOT EXISTS idx_mesh_nodes_group_id ON mesh_nodes(group_id);
     CREATE INDEX IF NOT EXISTS idx_node_groups_org_id ON node_groups(org_id);
+    CREATE INDEX IF NOT EXISTS idx_user_mesh_groups_user_id ON user_mesh_groups(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_mesh_groups_group_id ON user_mesh_groups(group_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mesh_groups_unique ON user_mesh_groups(user_id, group_id);
   `);
 
   // Cloud storage integration tables

@@ -166,13 +166,7 @@ describe("Mesh API", () => {
     });
   });
 
-  describe("GET /api/mesh/query-targets", () => {
-    it("returns query targets for member", async () => {
-      const res = await memberAgent(orgId).get("/api/mesh/query-targets");
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.groups)).toBe(true);
-    });
-  });
+  // query-targets endpoint removed — groups are security boundaries, not user-selectable filters
 
   // ─── Nodes ──────────────────────────────────────────────────────────────────
 

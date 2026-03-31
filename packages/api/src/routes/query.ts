@@ -21,6 +21,8 @@ import { listDataSources, listAccessibleDataSources } from "../services/dataSour
 import { broadcastToUser } from "../services/notificationStore.js";
 import { routedSearch, type RoutedSearchResult } from "../services/queryRouter.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
+import { getUserGroupIds } from "../services/userMeshGroupStore.js";
+import { getUserInOrg } from "../services/userStore.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
@@ -35,8 +37,6 @@ const queryBodySchema = z.object({
   })).max(20).optional(),
   /** Optional data source IDs to restrict search scope. Omit for default (all accessible). */
   dataSourceIds: z.array(z.string().uuid()).max(20).optional(),
-  /** Optional node group ID for mesh query targeting (search only nodes in this group). */
-  nodeGroupId: z.string().uuid().optional(),
 });
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -184,13 +184,13 @@ function resolveTargetDatasets(
 async function searchWithHybrid(
   datasetNames: string[],
   queryText: string,
-  meshGroupId?: string,
+  allowedGroupIds?: string[],
 ): Promise<{ results: RoutedSearchResult[]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
   const { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await routedSearch(
     datasetNames,
     queryText,
     20, // Retrieve 20 candidates for reranking/adaptive-K
-    meshGroupId,
+    allowedGroupIds,
   );
 
   // Optional cross-encoder reranking (local results only — remote results already ranked)
@@ -232,7 +232,7 @@ queryRouter.get("/status", async (req, res) => {
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds, nodeGroupId } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds } = req.body as z.infer<typeof queryBodySchema>;
 
   // Rate limit: 10 queries per minute per user
   const rateLimitEmail = req.session.email;
@@ -295,6 +295,14 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   const orgConfig = getIntegrationConfig();
   const strict = !(orgConfig.generalAnswersEnabled ?? true);
 
+  // Resolve mesh group access: admins get undefined (all groups), users get their assigned groups
+  const isAdmin = req.session.isAdmin ?? false;
+  let allowedGroupIds: string[] | undefined;
+  if (!isAdmin) {
+    const user = getUserInOrg(req.session.email ?? "", req.session.orgId ?? "");
+    allowedGroupIds = user ? getUserGroupIds(user.id) : [];
+  }
+
   // ─── Private Mode: process query but don't log anything ────────────────────
   if (isPrivate) {
     if (!orgConfig.privateModeEnabled) {
@@ -337,7 +345,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
 
       // Acquire inference slot
       const abortController = new AbortController();
@@ -482,7 +490,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   let releaseSlotFn: (() => void) | undefined;
   try {
     const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, nodeGroupId);
+    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
 
     // Acquire inference slot — waits if all slots busy, sends queue position via SSE
     const abortController = new AbortController();

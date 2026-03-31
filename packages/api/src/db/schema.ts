@@ -275,6 +275,16 @@ export const nodeGroups = sqliteTable("node_groups", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** Maps users to mesh node groups for access control. Users can only search nodes in their assigned groups. */
+export const userMeshGroups = sqliteTable("user_mesh_groups", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(), // FK to users.id
+  groupId: text("group_id").notNull(), // FK to node_groups.id
+  orgId: text("org_id").notNull(),
+  assignedAt: text("assigned_at").notNull(),
+  assignedBy: text("assigned_by").notNull(), // email of admin who assigned
+});
+
 // ─── Integration Config ──────────────────────────────────────────────────────
 
 export const integrationConfig = sqliteTable("integration_config", {
