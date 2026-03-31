@@ -1,6 +1,5 @@
 packages:
   - packages/*
   - shared/*
-  - spikes/*
 ignoredBuiltDependencies:
   - esbuild

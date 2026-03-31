@@ -42,11 +42,6 @@ export function initReranker(generateFn: OllamaGenerateFn): void {
   logger.info("Reranker initialized (LLM-based scoring)");
 }
 
-/** Disable the reranker (e.g. if Ollama is not available). */
-export function disableReranker(): void {
-  _enabled = false;
-}
-
 export function isRerankerAvailable(): boolean {
   return _enabled && _generateFn !== null;
 }

@@ -150,14 +150,6 @@ export async function isOllamaRunning(): Promise<boolean> {
 }
 
 /**
- * Check if port 11434 is already in use (e.g., by a system Ollama install).
- * If so, we can use the existing instance instead of starting our own.
- */
-export async function isPortInUse(): Promise<boolean> {
-  return isOllamaRunning();
-}
-
-/**
  * Start Ollama server. If the port is already in use (e.g., system Ollama),
  * we piggyback on the existing instance instead of starting our own.
  */

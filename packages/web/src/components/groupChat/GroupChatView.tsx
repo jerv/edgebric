@@ -32,18 +32,8 @@ import type {
   GroupChatMessage,
   GroupChatNotifLevel,
   DataSource,
+  ModelsResponse,
 } from "@edgebric/types";
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface MILMModel {
-  id: string;
-  readyToUse: boolean;
-}
-interface ModelsResponse {
-  models: MILMModel[];
-  activeModel: string;
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -202,7 +192,7 @@ export function GroupChatView() {
   });
 
   const activeModel = modelsData?.activeModel;
-  const readyModels = (modelsData?.models ?? []).filter((m) => m.readyToUse);
+  const readyModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" || m.status === "installed");
 
   // ─── Derived data ──────────────────────────────────────────────────────────
 
@@ -798,19 +788,19 @@ export function GroupChatView() {
                       <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                         {readyModels.map((m) => (
                           <button
-                            key={m.id}
-                            onClick={() => switchModelMutation.mutate(m.id)}
+                            key={m.tag}
+                            onClick={() => switchModelMutation.mutate(m.tag)}
                             disabled={switchModelMutation.isPending}
                             className={cn(
                               "w-full text-left px-3 py-2 text-xs transition-colors flex items-center gap-2",
-                              m.id === activeModel
+                              m.tag === activeModel
                                 ? "text-slate-900 dark:text-gray-100 font-medium bg-slate-50 dark:bg-gray-900"
                                 : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                             )}
                           >
-                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.id === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
-                            {adminLabel(m.id)}
-                            {m.id === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
+                            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.tag === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
+                            {adminLabel(m.tag)}
+                            {m.tag === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
                           </button>
                         ))}
                       </div>

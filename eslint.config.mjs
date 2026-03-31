@@ -13,13 +13,12 @@ export default [
       "spikes/**",
       "scripts/**",
       "**/*.d.ts",
-      "packages/edge/src/**/*.js",
       "packages/web/src/routeTree.gen.ts",
     ],
   },
   js.configs.recommended,
   {
-    files: ["packages/api/**/*.ts", "packages/core/**/*.ts", "packages/edge/**/*.ts", "shared/**/*.ts"],
+    files: ["packages/api/**/*.ts", "packages/core/**/*.ts", "shared/**/*.ts"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

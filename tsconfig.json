@@ -17,8 +17,7 @@
       "@edgebric/types": ["./shared/types/src/index.ts"],
       "@edgebric/core": ["./packages/core/src/index.ts"],
       "@edgebric/core/ingestion": ["./packages/core/src/ingestion/index.ts"],
-      "@edgebric/core/rag": ["./packages/core/src/rag/index.ts"],
-      "@edgebric/edge": ["./packages/edge/src/index.ts"]
+      "@edgebric/core/rag": ["./packages/core/src/rag/index.ts"]
     }
   },
   "exclude": ["node_modules", "dist", "**/dist"]
