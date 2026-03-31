@@ -2,7 +2,10 @@ import { randomUUID } from "crypto";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db/index.js";
 import { users } from "../db/schema.js";
+import { config } from "../config.js";
 import type { User, UserRole, UserStatus, OidcProviderId } from "@edgebric/types";
+
+const SOLO_EMAIL = "solo@localhost";
 
 function rowToUser(row: typeof users.$inferSelect): User {
   const user: User = {
@@ -221,5 +224,10 @@ export function updateUserNotifPrefs(
 export function listUsers(orgId: string): User[] {
   const db = getDb();
   const rows = db.select().from(users).where(eq(users.orgId, orgId)).all();
-  return rows.map(rowToUser);
+  const mapped = rows.map(rowToUser);
+  // Hide the synthetic solo user when running in authenticated mode
+  if (config.authMode !== "none") {
+    return mapped.filter((u) => u.email !== SOLO_EMAIL);
+  }
+  return mapped;
 }
