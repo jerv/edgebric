@@ -1,6 +1,8 @@
 # Edgebric
 
-**Private knowledge platform for organizations.** Upload sensitive documents, ask questions with AI, and get cited answers — all running on your own hardware. Zero data leaves the building.
+**Private knowledge platform for individuals and organizations.** Upload sensitive documents, ask questions with AI, and get cited answers — all running on your own hardware. Zero data leaves the building.
+
+Whether you're a solo consultant managing client files, a small law firm with confidential case documents, or a 200-person company with department-level data isolation needs — Edgebric runs locally on a single Mac and scales from one user to hundreds.
 
 > *"Data never moves. Queries move."*
 
@@ -12,22 +14,31 @@
 
 ## Free to use. Pay if you want to support development.
 
-Edgebric is source-available under the [Business Source License 1.1](LICENSE). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
+Edgebric is source-available under the [Business Source License 1.1](#license). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
 
 If you find it useful, consider downloading from [edgebric.com](https://edgebric.com) — it's pay-what-you-want and directly supports continued development. But it's not required.
 
-**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [license](LICENSE) for full details.
+**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [license section](#license) for full details.
 
 ## What It Does
 
 - **Document ingestion**: Upload PDF, DOCX, TXT, MD files. Automatic extraction, chunking, and embedding.
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
+- **Cloud integrations**: Sync documents from Google Drive (OneDrive, Dropbox, Notion, Confluence coming soon). Documents are pulled to your local machine — never stored in the cloud.
 - **Privacy modes**: Standard (anonymous analytics), Private (no identity tracking), Vault (on-device only).
+- **SSO / OIDC authentication**: Sign in with Google, Okta, Auth0, or any OIDC provider. Not needed for Solo mode.
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
 - **Data source management**: Organize documents into data sources with per-source access control.
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
 - **Group chats**: Collaborative conversations with @bot querying, threads, and source sharing.
 - **Desktop app**: macOS menu bar app that manages Ollama, the API server, and setup — all from the tray.
+
+## Who It's For
+
+- **Solo professionals**: Consultants, freelancers, and independent practitioners with sensitive client documents
+- **Small businesses**: Law firms, medical practices, accounting firms, HR departments — anyone handling confidential information
+- **Teams and departments**: Organizations that need department-level data isolation enforced by architecture, not just access controls
+- **Privacy-conscious orgs**: Companies in regulated industries (healthcare, legal, finance) where data residency is non-negotiable
 
 ## Architecture
 
@@ -129,7 +140,7 @@ For enterprise support contracts, contact support@edgebric.com.
 
 ## License
 
-[Business Source License 1.1](LICENSE)
+Business Source License 1.1
 
 - **Use:** Free for personal and internal business use. No user limits, no feature restrictions.
 - **Restriction:** No commercial redistribution. You may not repackage, rebrand, or sell Edgebric or derivative works. You may not offer Edgebric as a hosted or managed service.
