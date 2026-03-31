@@ -62,6 +62,12 @@ if (serveStatic) {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 async function start() {
+  // Guard: solo mode (no auth) must never be exposed on a network interface
+  if (config.authMode === "none" && config.listenHost !== "127.0.0.1") {
+    logger.fatal("AUTH_MODE=none (solo mode) requires LISTEN_HOST=127.0.0.1 — refusing to start on a network interface without authentication");
+    process.exit(1);
+  }
+
   await fs.mkdir(path.join(config.dataDir, "uploads"), { recursive: true });
   await fs.mkdir(sessionsDir, { recursive: true });
   initEncryptionKey();
