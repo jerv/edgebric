@@ -11,6 +11,7 @@ import {
 } from "./helpers.js";
 import {
   createConnection,
+  createFolderSync,
   listSyncFiles,
   upsertSyncFile,
 } from "../services/cloudConnectionStore.js";
@@ -54,7 +55,7 @@ function createMockConnector(overrides: Partial<CloudConnectorAdapter> = {}): Cl
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
-/** Create a data source + cloud connection directly in the DB for a given org. */
+/** Create a data source + cloud connection + optional folder sync directly in the DB. */
 function seedConnection(orgId: string, opts: { provider?: string; folderId?: string } = {}) {
   const ds = createDataSource({
     name: "Google Drive (test@example.com)",
@@ -67,10 +68,8 @@ function seedConnection(orgId: string, opts: { provider?: string; folderId?: str
   const conn = createConnection({
     provider: (opts.provider ?? "google_drive") as "google_drive",
     displayName: "Google Drive (test@example.com)",
-    dataSourceId: ds.id,
     orgId,
     accountEmail: "test@example.com",
-    folderId: opts.folderId,
     createdBy: "admin@test.com",
   });
 
@@ -81,7 +80,19 @@ function seedConnection(orgId: string, opts: { provider?: string; folderId?: str
     expiresAt: new Date(Date.now() + 3600_000).toISOString(),
   });
 
-  return { ds, conn };
+  // Create folder sync if folderId provided
+  let folderSync;
+  if (opts.folderId) {
+    folderSync = createFolderSync({
+      connectionId: conn.id,
+      dataSourceId: ds.id,
+      folderId: opts.folderId,
+      folderName: "Test Folder",
+      createdBy: "admin@test.com",
+    });
+  }
+
+  return { ds, conn, folderSync };
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -105,45 +116,46 @@ describe("Cloud Connections API", () => {
 
   describe("Authentication & Authorization", () => {
     it("unauthenticated request returns 401", async () => {
-      const res = await unauthAgent().get("/api/admin/cloud-connections");
+      const res = await unauthAgent().get("/api/cloud-connections");
       expect(res.status).toBe(401);
       expect(res.body.error).toContain("Authentication required");
     });
 
-    it("non-admin member returns 403", async () => {
-      const res = await memberAgent(orgId).get("/api/admin/cloud-connections");
-      expect(res.status).toBe(403);
-      expect(res.body.error).toContain("Admin access required");
+    it("non-admin member can access their own connections", async () => {
+      const res = await memberAgent(orgId).get("/api/cloud-connections");
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("connections");
     });
 
-    it("admin without org selected returns 428", async () => {
+    it("without org selected returns 428", async () => {
       const agent = createAgent({
         email: "admin@test.com",
         isAdmin: true,
         // orgId intentionally omitted
       });
-      const res = await agent.get("/api/admin/cloud-connections");
+      const res = await agent.get("/api/cloud-connections");
       expect(res.status).toBe(428);
       expect(res.body.code).toBe("ORG_REQUIRED");
     });
 
-    it("member cannot access provider list", async () => {
-      const res = await memberAgent(orgId).get("/api/admin/cloud-connections/providers");
-      expect(res.status).toBe(403);
+    it("member can access provider list", async () => {
+      const res = await memberAgent(orgId).get("/api/cloud-connections/providers");
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty("providers");
     });
 
-    it("member cannot delete a connection", async () => {
+    it("member cannot delete another user's connection", async () => {
       const { conn } = seedConnection(orgId);
-      const res = await memberAgent(orgId).delete(`/api/admin/cloud-connections/${conn.id}`);
-      expect(res.status).toBe(403);
+      const res = await memberAgent(orgId).delete(`/api/cloud-connections/${conn.id}`);
+      expect(res.status).toBe(404);
     });
   });
 
   // ─── GET /providers ─────────────────────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections/providers", () => {
+  describe("GET /api/cloud-connections/providers", () => {
     it("returns all providers with enabled/disabled status", async () => {
-      const res = await adminAgent(orgId).get("/api/admin/cloud-connections/providers");
+      const res = await adminAgent(orgId).get("/api/cloud-connections/providers");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("providers");
@@ -165,11 +177,11 @@ describe("Cloud Connections API", () => {
 
   // ─── GET / (list connections) ───────────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections", () => {
+  describe("GET /api/cloud-connections", () => {
     it("returns connections for the admin's org", async () => {
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).get("/api/admin/cloud-connections");
+      const res = await adminAgent(orgId).get("/api/cloud-connections");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("connections");
@@ -186,7 +198,7 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       seedConnection(otherOrgId);
 
-      const res = await adminAgent(orgId).get("/api/admin/cloud-connections");
+      const res = await adminAgent(orgId).get("/api/cloud-connections");
       expect(res.status).toBe(200);
 
       // Verify none of the returned connections belong to the other org
@@ -198,11 +210,11 @@ describe("Cloud Connections API", () => {
 
   // ─── GET /:id (connection detail) ───────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections/:id", () => {
+  describe("GET /api/cloud-connections/:id", () => {
     it("returns connection detail with syncing status", async () => {
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}`);
 
       expect(res.status).toBe(200);
       expect(res.body.connection.id).toBe(conn.id);
@@ -214,7 +226,7 @@ describe("Cloud Connections API", () => {
     });
 
     it("returns 404 for non-existent connection", async () => {
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${randomUUID()}`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${randomUUID()}`);
       expect(res.status).toBe(404);
       expect(res.body.error).toContain("not found");
     });
@@ -223,17 +235,17 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       const { conn } = seedConnection(otherOrgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}`);
       expect(res.status).toBe(404);
     });
   });
 
   // ─── POST /oauth/authorize ──────────────────────────────────────────────
 
-  describe("POST /api/admin/cloud-connections/oauth/authorize", () => {
+  describe("POST /api/cloud-connections/oauth/authorize", () => {
     it("generates an authorization URL for a valid provider", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/admin/cloud-connections/oauth/authorize")
+        .post("/api/cloud-connections/oauth/authorize")
         .send({ provider: "google_drive" });
 
       expect(res.status).toBe(200);
@@ -245,7 +257,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 400 for an unsupported provider", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/admin/cloud-connections/oauth/authorize")
+        .post("/api/cloud-connections/oauth/authorize")
         .send({ provider: "dropbox" });
 
       // dropbox has no registered connector
@@ -255,7 +267,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 400 for an invalid provider value", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/admin/cloud-connections/oauth/authorize")
+        .post("/api/cloud-connections/oauth/authorize")
         .send({ provider: "not_a_real_provider" });
 
       expect(res.status).toBe(400);
@@ -264,7 +276,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 400 with missing body", async () => {
       const res = await adminAgent(orgId)
-        .post("/api/admin/cloud-connections/oauth/authorize")
+        .post("/api/cloud-connections/oauth/authorize")
         .send({});
 
       expect(res.status).toBe(400);
@@ -273,9 +285,9 @@ describe("Cloud Connections API", () => {
 
   // ─── GET /oauth/callback ───────────────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections/oauth/callback", () => {
+  describe("GET /api/cloud-connections/oauth/callback", () => {
     it("returns 400 when code or state is missing", async () => {
-      const res = await adminAgent(orgId).get("/api/admin/cloud-connections/oauth/callback");
+      const res = await adminAgent(orgId).get("/api/cloud-connections/oauth/callback");
 
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("Missing code or state");
@@ -283,7 +295,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 400 for invalid (non-base64url) state parameter", async () => {
       const res = await adminAgent(orgId).get(
-        "/api/admin/cloud-connections/oauth/callback?code=test-code&state=not-valid-json"
+        "/api/cloud-connections/oauth/callback?code=test-code&state=not-valid-json"
       );
 
       expect(res.status).toBe(400);
@@ -298,7 +310,7 @@ describe("Cloud Connections API", () => {
 
       // The session won't have cloudOAuthNonce set, so it should fail CSRF check
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/oauth/callback?code=auth-code-123&state=${state}`
+        `/api/cloud-connections/oauth/callback?code=auth-code-123&state=${state}`
       );
 
       expect(res.status).toBe(403);
@@ -307,7 +319,7 @@ describe("Cloud Connections API", () => {
 
     it("redirects with error query param when OAuth provider returns error", async () => {
       const res = await adminAgent(orgId).get(
-        "/api/admin/cloud-connections/oauth/callback?error=access_denied"
+        "/api/cloud-connections/oauth/callback?error=access_denied"
       );
 
       expect(res.status).toBe(302);
@@ -317,12 +329,12 @@ describe("Cloud Connections API", () => {
 
   // ─── PUT /:id (update connection) ──────────────────────────────────────
 
-  describe("PUT /api/admin/cloud-connections/:id", () => {
+  describe("PUT /api/cloud-connections/:id", () => {
     it("updates displayName", async () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ displayName: "Renamed Connection" });
 
       expect(res.status).toBe(200);
@@ -333,7 +345,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ folderId: "folder-abc", folderName: "Engineering Docs" });
 
       expect(res.status).toBe(200);
@@ -345,7 +357,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ syncIntervalMin: 30 });
 
       expect(res.status).toBe(200);
@@ -356,7 +368,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ status: "paused" });
 
       expect(res.status).toBe(200);
@@ -365,7 +377,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 404 for non-existent connection", async () => {
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${randomUUID()}`)
+        .put(`/api/cloud-connections/${randomUUID()}`)
         .send({ displayName: "Ghost" });
 
       expect(res.status).toBe(404);
@@ -376,7 +388,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(otherOrgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ displayName: "Hijacked" });
 
       expect(res.status).toBe(404);
@@ -386,7 +398,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ syncIntervalMin: 2 });
 
       expect(res.status).toBe(400);
@@ -397,7 +409,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ syncIntervalMin: 9999 });
 
       expect(res.status).toBe(400);
@@ -407,7 +419,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ status: "invalid_status" });
 
       expect(res.status).toBe(400);
@@ -417,7 +429,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${conn.id}`)
+        .put(`/api/cloud-connections/${conn.id}`)
         .send({ displayName: "" });
 
       expect(res.status).toBe(400);
@@ -426,22 +438,22 @@ describe("Cloud Connections API", () => {
 
   // ─── DELETE /:id ───────────────────────────────────────────────────────
 
-  describe("DELETE /api/admin/cloud-connections/:id", () => {
+  describe("DELETE /api/cloud-connections/:id", () => {
     it("deletes a connection and returns success", async () => {
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).delete(`/api/admin/cloud-connections/${conn.id}`);
+      const res = await adminAgent(orgId).delete(`/api/cloud-connections/${conn.id}`);
 
       expect(res.status).toBe(200);
       expect(res.body.deleted).toBe(true);
 
       // Verify it's gone
-      const check = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}`);
+      const check = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}`);
       expect(check.status).toBe(404);
     });
 
     it("returns 404 for non-existent connection", async () => {
-      const res = await adminAgent(orgId).delete(`/api/admin/cloud-connections/${randomUUID()}`);
+      const res = await adminAgent(orgId).delete(`/api/cloud-connections/${randomUUID()}`);
       expect(res.status).toBe(404);
     });
 
@@ -449,7 +461,7 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       const { conn } = seedConnection(otherOrgId);
 
-      const res = await adminAgent(orgId).delete(`/api/admin/cloud-connections/${conn.id}`);
+      const res = await adminAgent(orgId).delete(`/api/cloud-connections/${conn.id}`);
       expect(res.status).toBe(404);
     });
 
@@ -469,7 +481,7 @@ describe("Cloud Connections API", () => {
       // Verify files exist before delete
       expect(listSyncFiles(conn.id).length).toBe(2);
 
-      await adminAgent(orgId).delete(`/api/admin/cloud-connections/${conn.id}`);
+      await adminAgent(orgId).delete(`/api/cloud-connections/${conn.id}`);
 
       // Sync files should be gone
       expect(listSyncFiles(conn.id).length).toBe(0);
@@ -478,11 +490,11 @@ describe("Cloud Connections API", () => {
 
   // ─── GET /:id/folders ─────────────────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections/:id/folders", () => {
+  describe("GET /api/cloud-connections/:id/folders", () => {
     it("returns folder list for a connection", async () => {
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/folders`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/folders`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("folders");
@@ -501,7 +513,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/${conn.id}/folders?parentId=parent-folder-xyz`
+        `/api/cloud-connections/${conn.id}/folders?parentId=parent-folder-xyz`
       );
 
       expect(res.status).toBe(200);
@@ -516,7 +528,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 404 for non-existent connection", async () => {
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/${randomUUID()}/folders`
+        `/api/cloud-connections/${randomUUID()}/folders`
       );
       expect(res.status).toBe(404);
     });
@@ -525,7 +537,7 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       const { conn } = seedConnection(otherOrgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/folders`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/folders`);
       expect(res.status).toBe(404);
     });
 
@@ -538,7 +550,7 @@ describe("Cloud Connections API", () => {
 
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/folders`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/folders`);
 
       expect(res.status).toBe(500);
       expect(res.body.error).toContain("Failed to list folders");
@@ -550,10 +562,10 @@ describe("Cloud Connections API", () => {
 
   // ─── POST /:id/sync ──────────────────────────────────────────────────
 
-  describe("POST /api/admin/cloud-connections/:id/sync", () => {
+  describe("POST /api/cloud-connections/:id/sync", () => {
     it("returns 404 for non-existent connection", async () => {
       const res = await adminAgent(orgId).post(
-        `/api/admin/cloud-connections/${randomUUID()}/sync`
+        `/api/cloud-connections/${randomUUID()}/sync`
       );
       expect(res.status).toBe(404);
     });
@@ -562,7 +574,7 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       const { conn } = seedConnection(otherOrgId, { folderId: "folder-1" });
 
-      const res = await adminAgent(orgId).post(`/api/admin/cloud-connections/${conn.id}/sync`);
+      const res = await adminAgent(orgId).post(`/api/cloud-connections/${conn.id}/sync`);
       expect(res.status).toBe(404);
     });
 
@@ -570,7 +582,7 @@ describe("Cloud Connections API", () => {
       // Seed connection without a folderId
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).post(`/api/admin/cloud-connections/${conn.id}/sync`);
+      const res = await adminAgent(orgId).post(`/api/cloud-connections/${conn.id}/sync`);
 
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("No folder configured");
@@ -579,11 +591,11 @@ describe("Cloud Connections API", () => {
 
   // ─── GET /:id/files ──────────────────────────────────────────────────
 
-  describe("GET /api/admin/cloud-connections/:id/files", () => {
+  describe("GET /api/cloud-connections/:id/files", () => {
     it("returns empty array for connection with no sync files", async () => {
       const { conn } = seedConnection(orgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/files`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/files`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("files");
@@ -605,7 +617,7 @@ describe("Cloud Connections API", () => {
         status: "pending",
       });
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/files`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/files`);
 
       expect(res.status).toBe(200);
       expect(res.body.files.length).toBe(2);
@@ -617,7 +629,7 @@ describe("Cloud Connections API", () => {
 
     it("returns 404 for non-existent connection", async () => {
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/${randomUUID()}/files`
+        `/api/cloud-connections/${randomUUID()}/files`
       );
       expect(res.status).toBe(404);
     });
@@ -626,7 +638,7 @@ describe("Cloud Connections API", () => {
       const otherOrgId = randomUUID();
       const { conn } = seedConnection(otherOrgId);
 
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}/files`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}/files`);
       expect(res.status).toBe(404);
     });
   });
@@ -644,39 +656,39 @@ describe("Cloud Connections API", () => {
     });
 
     it("GET /:id returns 404 for cross-org access", async () => {
-      const res = await adminAgent(orgId).get(`/api/admin/cloud-connections/${otherConnId}`);
+      const res = await adminAgent(orgId).get(`/api/cloud-connections/${otherConnId}`);
       expect(res.status).toBe(404);
     });
 
     it("PUT /:id returns 404 for cross-org access", async () => {
       const res = await adminAgent(orgId)
-        .put(`/api/admin/cloud-connections/${otherConnId}`)
+        .put(`/api/cloud-connections/${otherConnId}`)
         .send({ displayName: "Stolen" });
       expect(res.status).toBe(404);
     });
 
     it("DELETE /:id returns 404 for cross-org access", async () => {
-      const res = await adminAgent(orgId).delete(`/api/admin/cloud-connections/${otherConnId}`);
+      const res = await adminAgent(orgId).delete(`/api/cloud-connections/${otherConnId}`);
       expect(res.status).toBe(404);
     });
 
     it("GET /:id/folders returns 404 for cross-org access", async () => {
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/${otherConnId}/folders`
+        `/api/cloud-connections/${otherConnId}/folders`
       );
       expect(res.status).toBe(404);
     });
 
     it("POST /:id/sync returns 404 for cross-org access", async () => {
       const res = await adminAgent(orgId).post(
-        `/api/admin/cloud-connections/${otherConnId}/sync`
+        `/api/cloud-connections/${otherConnId}/sync`
       );
       expect(res.status).toBe(404);
     });
 
     it("GET /:id/files returns 404 for cross-org access", async () => {
       const res = await adminAgent(orgId).get(
-        `/api/admin/cloud-connections/${otherConnId}/files`
+        `/api/cloud-connections/${otherConnId}/files`
       );
       expect(res.status).toBe(404);
     });
@@ -691,7 +703,7 @@ describe("Cloud Connections API", () => {
       const { conn: conn2 } = seedConnection(orgId);
 
       // Both should appear in the list
-      const res = await adminAgent(orgId).get("/api/admin/cloud-connections");
+      const res = await adminAgent(orgId).get("/api/cloud-connections");
       expect(res.status).toBe(200);
 
       const ids = res.body.connections.map((c: { id: string }) => c.id);
@@ -699,9 +711,9 @@ describe("Cloud Connections API", () => {
       expect(ids).toContain(conn2.id);
 
       // Deleting one should not affect the other
-      await adminAgent(orgId).delete(`/api/admin/cloud-connections/${conn1.id}`);
+      await adminAgent(orgId).delete(`/api/cloud-connections/${conn1.id}`);
 
-      const res2 = await adminAgent(orgId).get("/api/admin/cloud-connections");
+      const res2 = await adminAgent(orgId).get("/api/cloud-connections");
       const ids2 = res2.body.connections.map((c: { id: string }) => c.id);
       expect(ids2).not.toContain(conn1.id);
       expect(ids2).toContain(conn2.id);
@@ -715,7 +727,7 @@ describe("Cloud Connections API", () => {
       const { conn } = seedConnection(orgId);
 
       // Initially 0
-      const res1 = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}`);
+      const res1 = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}`);
       expect(res1.body.connection.syncedFileCount).toBe(0);
 
       // Add some synced files
@@ -723,7 +735,7 @@ describe("Cloud Connections API", () => {
       upsertSyncFile(conn.id, "ext-b", { externalName: "b.pdf", status: "synced" });
       upsertSyncFile(conn.id, "ext-c", { externalName: "c.pdf", status: "error" }); // not counted
 
-      const res2 = await adminAgent(orgId).get(`/api/admin/cloud-connections/${conn.id}`);
+      const res2 = await adminAgent(orgId).get(`/api/cloud-connections/${conn.id}`);
       expect(res2.body.connection.syncedFileCount).toBe(2);
     });
   });

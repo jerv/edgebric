@@ -1,14 +1,20 @@
 /**
  * Cloud connection persistence layer.
  *
- * Manages cloud_connections and cloud_sync_files tables.
- * Each connection is linked 1:1 with a data source.
+ * cloudConnections = OAuth credentials (one per user per provider).
+ * cloudFolderSyncs = links a cloud folder to a data source via a connection.
+ * cloudSyncFiles   = tracks individual files synced from a folder.
  */
 import { getDb } from "../db/index.js";
-import { cloudConnections, cloudSyncFiles } from "../db/schema.js";
+import { cloudConnections, cloudFolderSyncs, cloudSyncFiles } from "../db/schema.js";
 import { eq, and, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import type { CloudConnection, CloudSyncFile, CloudProvider, CloudConnectionStatus, CloudSyncFileStatus } from "@edgebric/types";
+import type {
+  CloudConnection, CloudConnectionStatus,
+  CloudFolderSync, CloudFolderSyncStatus,
+  CloudSyncFile, CloudSyncFileStatus,
+  CloudProvider,
+} from "@edgebric/types";
 
 // ─── Row → Type converters ──────────────────────────────────────────────────
 
@@ -17,13 +23,24 @@ function rowToConnection(row: typeof cloudConnections.$inferSelect): CloudConnec
     id: row.id,
     provider: row.provider as CloudProvider,
     displayName: row.displayName,
-    dataSourceId: row.dataSourceId,
     orgId: row.orgId,
     accountEmail: row.accountEmail ?? undefined,
-    folderId: row.folderId ?? undefined,
-    folderName: row.folderName ?? undefined,
-    syncIntervalMin: row.syncIntervalMin,
     status: row.status as CloudConnectionStatus,
+    createdBy: row.createdBy,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function rowToFolderSync(row: typeof cloudFolderSyncs.$inferSelect): CloudFolderSync {
+  return {
+    id: row.id,
+    connectionId: row.connectionId,
+    dataSourceId: row.dataSourceId,
+    folderId: row.folderId,
+    folderName: row.folderName,
+    syncIntervalMin: row.syncIntervalMin,
+    status: row.status as CloudFolderSyncStatus,
     lastSyncAt: row.lastSyncAt ?? undefined,
     lastError: row.lastError ?? undefined,
     createdBy: row.createdBy,
@@ -35,7 +52,7 @@ function rowToConnection(row: typeof cloudConnections.$inferSelect): CloudConnec
 function rowToSyncFile(row: typeof cloudSyncFiles.$inferSelect): CloudSyncFile {
   return {
     id: row.id,
-    connectionId: row.connectionId,
+    folderSyncId: row.folderSyncId,
     externalFileId: row.externalFileId,
     externalName: row.externalName,
     externalModified: row.externalModified ?? undefined,
@@ -47,17 +64,13 @@ function rowToSyncFile(row: typeof cloudSyncFiles.$inferSelect): CloudSyncFile {
   };
 }
 
-// ─── Connections ────────────────────────────────────────────────────────────
+// ─── Connections (OAuth credentials) ───────────────────────────────────────
 
 export function createConnection(opts: {
   provider: CloudProvider;
   displayName: string;
-  dataSourceId: string;
   orgId: string;
   accountEmail?: string | undefined;
-  folderId?: string | undefined;
-  folderName?: string | undefined;
-  syncIntervalMin?: number | undefined;
   createdBy: string;
 }): CloudConnection {
   const db = getDb();
@@ -69,12 +82,8 @@ export function createConnection(opts: {
       id,
       provider: opts.provider,
       displayName: opts.displayName,
-      dataSourceId: opts.dataSourceId,
       orgId: opts.orgId,
       accountEmail: opts.accountEmail ?? null,
-      folderId: opts.folderId ?? null,
-      folderName: opts.folderName ?? null,
-      syncIntervalMin: opts.syncIntervalMin ?? 60,
       status: "active",
       createdBy: opts.createdBy,
       createdAt: now,
@@ -88,19 +97,7 @@ export function createConnection(opts: {
 export function getConnection(id: string): CloudConnection | undefined {
   const db = getDb();
   const row = db.select().from(cloudConnections).where(eq(cloudConnections.id, id)).get();
-  if (!row) return undefined;
-
-  const conn = rowToConnection(row);
-
-  // Attach computed counts
-  const syncCount = db
-    .select({ count: sql<number>`count(*)` })
-    .from(cloudSyncFiles)
-    .where(and(eq(cloudSyncFiles.connectionId, id), eq(cloudSyncFiles.status, "synced")))
-    .get();
-  conn.syncedFileCount = syncCount?.count ?? 0;
-
-  return conn;
+  return row ? rowToConnection(row) : undefined;
 }
 
 export function listConnections(orgId: string): CloudConnection[] {
@@ -113,13 +110,7 @@ export function updateConnection(
   id: string,
   data: {
     displayName?: string | undefined;
-    folderId?: string | undefined;
-    folderName?: string | undefined;
-    syncIntervalMin?: number | undefined;
     status?: CloudConnectionStatus | undefined;
-    lastSyncAt?: string | undefined;
-    lastError?: string | null | undefined;
-    syncCursor?: string | null | undefined;
     accountEmail?: string | undefined;
   },
 ): CloudConnection | undefined {
@@ -129,13 +120,7 @@ export function updateConnection(
   db.update(cloudConnections)
     .set({
       ...(data.displayName !== undefined && { displayName: data.displayName }),
-      ...(data.folderId !== undefined && { folderId: data.folderId }),
-      ...(data.folderName !== undefined && { folderName: data.folderName }),
-      ...(data.syncIntervalMin !== undefined && { syncIntervalMin: data.syncIntervalMin }),
       ...(data.status !== undefined && { status: data.status }),
-      ...(data.lastSyncAt !== undefined && { lastSyncAt: data.lastSyncAt }),
-      ...(data.lastError !== undefined && { lastError: data.lastError }),
-      ...(data.syncCursor !== undefined && { syncCursor: data.syncCursor }),
       ...(data.accountEmail !== undefined && { accountEmail: data.accountEmail }),
       updatedAt: now,
     })
@@ -147,19 +132,139 @@ export function updateConnection(
 
 export function deleteConnection(id: string): void {
   const db = getDb();
-  // Delete sync files first (FK)
-  db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.connectionId, id)).run();
-  // Delete connection
+  // Delete folder syncs and their files first
+  const syncs = db.select({ id: cloudFolderSyncs.id }).from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.connectionId, id)).all();
+  for (const sync of syncs) {
+    db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, sync.id)).run();
+  }
+  db.delete(cloudFolderSyncs).where(eq(cloudFolderSyncs.connectionId, id)).run();
   db.delete(cloudConnections).where(eq(cloudConnections.id, id)).run();
 }
 
-/** Get the raw sync cursor for a connection (not exposed in the CloudConnection type). */
-export function getSyncCursor(id: string): string | null {
+// ─── Folder Syncs ──────────────────────────────────────────────────────────
+
+export function createFolderSync(opts: {
+  connectionId: string;
+  dataSourceId: string;
+  folderId: string;
+  folderName: string;
+  syncIntervalMin?: number | undefined;
+  createdBy: string;
+}): CloudFolderSync {
+  const db = getDb();
+  const id = randomUUID();
+  const now = new Date().toISOString();
+
+  db.insert(cloudFolderSyncs)
+    .values({
+      id,
+      connectionId: opts.connectionId,
+      dataSourceId: opts.dataSourceId,
+      folderId: opts.folderId,
+      folderName: opts.folderName,
+      syncIntervalMin: opts.syncIntervalMin ?? 60,
+      status: "active",
+      createdBy: opts.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+
+  return getFolderSync(id)!;
+}
+
+export function getFolderSync(id: string): CloudFolderSync | undefined {
+  const db = getDb();
+  const row = db.select().from(cloudFolderSyncs).where(eq(cloudFolderSyncs.id, id)).get();
+  if (!row) return undefined;
+
+  const fs = rowToFolderSync(row);
+
+  // Attach computed count
+  const syncCount = db
+    .select({ count: sql<number>`count(*)` })
+    .from(cloudSyncFiles)
+    .where(and(eq(cloudSyncFiles.folderSyncId, id), eq(cloudSyncFiles.status, "synced")))
+    .get();
+  fs.syncedFileCount = syncCount?.count ?? 0;
+
+  // Attach connection info
+  const conn = getConnection(row.connectionId);
+  if (conn) {
+    fs.provider = conn.provider;
+    fs.accountEmail = conn.accountEmail;
+  }
+
+  return fs;
+}
+
+export function listFolderSyncs(dataSourceId: string): CloudFolderSync[] {
+  const db = getDb();
+  const rows = db.select().from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.dataSourceId, dataSourceId)).all();
+  return rows.map((row) => {
+    const fs = rowToFolderSync(row);
+    const conn = getConnection(row.connectionId);
+    if (conn) {
+      fs.provider = conn.provider;
+      fs.accountEmail = conn.accountEmail;
+    }
+    return fs;
+  });
+}
+
+export function listAllActiveFolderSyncs(): CloudFolderSync[] {
+  const db = getDb();
+  const rows = db.select().from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.status, "active")).all();
+  return rows.map(rowToFolderSync);
+}
+
+export function updateFolderSync(
+  id: string,
+  data: {
+    folderId?: string | undefined;
+    folderName?: string | undefined;
+    syncIntervalMin?: number | undefined;
+    status?: CloudFolderSyncStatus | undefined;
+    lastSyncAt?: string | undefined;
+    lastError?: string | null | undefined;
+    syncCursor?: string | null | undefined;
+  },
+): CloudFolderSync | undefined {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  db.update(cloudFolderSyncs)
+    .set({
+      ...(data.folderId !== undefined && { folderId: data.folderId }),
+      ...(data.folderName !== undefined && { folderName: data.folderName }),
+      ...(data.syncIntervalMin !== undefined && { syncIntervalMin: data.syncIntervalMin }),
+      ...(data.status !== undefined && { status: data.status }),
+      ...(data.lastSyncAt !== undefined && { lastSyncAt: data.lastSyncAt }),
+      ...(data.lastError !== undefined && { lastError: data.lastError }),
+      ...(data.syncCursor !== undefined && { syncCursor: data.syncCursor }),
+      updatedAt: now,
+    })
+    .where(eq(cloudFolderSyncs.id, id))
+    .run();
+
+  return getFolderSync(id);
+}
+
+export function deleteFolderSync(id: string): void {
+  const db = getDb();
+  db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, id)).run();
+  db.delete(cloudFolderSyncs).where(eq(cloudFolderSyncs.id, id)).run();
+}
+
+export function getFolderSyncCursor(id: string): string | null {
   const db = getDb();
   const row = db
-    .select({ syncCursor: cloudConnections.syncCursor })
-    .from(cloudConnections)
-    .where(eq(cloudConnections.id, id))
+    .select({ syncCursor: cloudFolderSyncs.syncCursor })
+    .from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.id, id))
     .get();
   return row?.syncCursor ?? null;
 }
@@ -167,7 +272,7 @@ export function getSyncCursor(id: string): string | null {
 // ─── Sync Files ─────────────────────────────────────────────────────────────
 
 export function upsertSyncFile(
-  connectionId: string,
+  folderSyncId: string,
   externalFileId: string,
   data: {
     externalName: string;
@@ -180,11 +285,10 @@ export function upsertSyncFile(
   const db = getDb();
   const now = new Date().toISOString();
 
-  // Check if exists
   const existing = db
     .select()
     .from(cloudSyncFiles)
-    .where(and(eq(cloudSyncFiles.connectionId, connectionId), eq(cloudSyncFiles.externalFileId, externalFileId)))
+    .where(and(eq(cloudSyncFiles.folderSyncId, folderSyncId), eq(cloudSyncFiles.externalFileId, externalFileId)))
     .get();
 
   if (existing) {
@@ -206,7 +310,7 @@ export function upsertSyncFile(
   db.insert(cloudSyncFiles)
     .values({
       id,
-      connectionId,
+      folderSyncId,
       externalFileId,
       externalName: data.externalName,
       externalModified: data.externalModified ?? null,
@@ -227,19 +331,9 @@ export function getSyncFile(id: string): CloudSyncFile | undefined {
   return row ? rowToSyncFile(row) : undefined;
 }
 
-export function getSyncFileByExternalId(connectionId: string, externalFileId: string): CloudSyncFile | undefined {
+export function listSyncFiles(folderSyncId: string): CloudSyncFile[] {
   const db = getDb();
-  const row = db
-    .select()
-    .from(cloudSyncFiles)
-    .where(and(eq(cloudSyncFiles.connectionId, connectionId), eq(cloudSyncFiles.externalFileId, externalFileId)))
-    .get();
-  return row ? rowToSyncFile(row) : undefined;
-}
-
-export function listSyncFiles(connectionId: string): CloudSyncFile[] {
-  const db = getDb();
-  const rows = db.select().from(cloudSyncFiles).where(eq(cloudSyncFiles.connectionId, connectionId)).all();
+  const rows = db.select().from(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, folderSyncId)).all();
   return rows.map(rowToSyncFile);
 }
 

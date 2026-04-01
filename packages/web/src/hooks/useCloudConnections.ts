@@ -1,12 +1,17 @@
 /**
- * React Query hooks for cloud storage connections.
- * Used by IntegrationsPanel for connection management and sync operations.
+ * React Query hooks for cloud storage connections and folder syncs.
+ *
+ * Connections = OAuth credentials (managed from org settings).
+ * Folder syncs = links a cloud folder to a data source (managed from data source UI).
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CloudConnection, CloudSyncFile, CloudFolder, CloudProviderInfo } from "@edgebric/types";
+import type { CloudConnection, CloudFolderSync, CloudSyncFile, CloudFolder, CloudProviderInfo } from "@edgebric/types";
 
-const CONNECTIONS_KEY = ["admin", "cloud-connections"] as const;
-const PROVIDERS_KEY = ["admin", "cloud-providers"] as const;
+const CONNECTIONS_KEY = ["cloud-connections"] as const;
+const PROVIDERS_KEY = ["cloud-providers"] as const;
+const FOLDER_SYNCS_KEY = ["cloud-folder-syncs"] as const;
+
+// ─── Connection hooks (org settings) ────────────────────────────────────────
 
 interface ProvidersResponse {
   providers: (CloudProviderInfo & { enabled: boolean })[];
@@ -16,25 +21,12 @@ interface ConnectionsResponse {
   connections: CloudConnection[];
 }
 
-interface ConnectionDetailResponse {
-  connection: CloudConnection;
-  syncing: boolean;
-}
-
-interface SyncFilesResponse {
-  files: CloudSyncFile[];
-}
-
-interface FoldersResponse {
-  folders: CloudFolder[];
-}
-
 /** Fetch available cloud providers. */
 export function useCloudProviders() {
   return useQuery<ProvidersResponse>({
     queryKey: PROVIDERS_KEY,
     queryFn: async () => {
-      const r = await fetch("/api/admin/cloud-connections/providers", { credentials: "same-origin" });
+      const r = await fetch("/api/cloud-connections/providers", { credentials: "same-origin" });
       if (!r.ok) throw new Error("Failed to load providers");
       return r.json() as Promise<ProvidersResponse>;
     },
@@ -42,12 +34,12 @@ export function useCloudProviders() {
   });
 }
 
-/** Fetch all cloud connections for the current org. */
+/** Fetch all cloud connections for the current org/user. */
 export function useCloudConnections() {
   return useQuery<ConnectionsResponse>({
     queryKey: CONNECTIONS_KEY,
     queryFn: async () => {
-      const r = await fetch("/api/admin/cloud-connections", { credentials: "same-origin" });
+      const r = await fetch("/api/cloud-connections", { credentials: "same-origin" });
       if (!r.ok) throw new Error("Failed to load connections");
       return r.json() as Promise<ConnectionsResponse>;
     },
@@ -55,57 +47,15 @@ export function useCloudConnections() {
   });
 }
 
-/** Fetch a single connection's detail + syncing status. */
-export function useCloudConnection(id: string | null) {
-  return useQuery<ConnectionDetailResponse>({
-    queryKey: [...CONNECTIONS_KEY, id],
-    queryFn: async () => {
-      const r = await fetch(`/api/admin/cloud-connections/${id}`, { credentials: "same-origin" });
-      if (!r.ok) throw new Error("Failed to load connection");
-      return r.json() as Promise<ConnectionDetailResponse>;
-    },
-    enabled: !!id,
-    refetchInterval: 10_000,
-  });
-}
-
-/** Fetch sync files for a connection. */
-export function useCloudSyncFiles(connectionId: string | null) {
-  return useQuery<SyncFilesResponse>({
-    queryKey: [...CONNECTIONS_KEY, connectionId, "files"],
-    queryFn: async () => {
-      const r = await fetch(`/api/admin/cloud-connections/${connectionId}/files`, { credentials: "same-origin" });
-      if (!r.ok) throw new Error("Failed to load sync files");
-      return r.json() as Promise<SyncFilesResponse>;
-    },
-    enabled: !!connectionId,
-    refetchInterval: 15_000,
-  });
-}
-
-/** Fetch folders for the folder picker. */
-export function useCloudFolders(connectionId: string | null, parentId?: string) {
-  return useQuery<FoldersResponse>({
-    queryKey: [...CONNECTIONS_KEY, connectionId, "folders", parentId ?? "root"],
-    queryFn: async () => {
-      const params = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
-      const r = await fetch(`/api/admin/cloud-connections/${connectionId}/folders${params}`, { credentials: "same-origin" });
-      if (!r.ok) throw new Error("Failed to load folders");
-      return r.json() as Promise<FoldersResponse>;
-    },
-    enabled: !!connectionId,
-  });
-}
-
 /** Start OAuth flow — returns the auth URL to redirect to. */
 export function useConnectProvider() {
   return useMutation({
-    mutationFn: async (provider: string) => {
-      const r = await fetch("/api/admin/cloud-connections/oauth/authorize", {
+    mutationFn: async ({ provider, returnTo }: { provider: string; returnTo?: string }) => {
+      const r = await fetch("/api/cloud-connections/oauth/authorize", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, returnTo }),
       });
       if (!r.ok) {
         const body = await r.json().catch(() => ({ error: "Failed to start OAuth" }));
@@ -116,42 +66,12 @@ export function useConnectProvider() {
   });
 }
 
-/** Update a connection's settings. */
-export function useUpdateConnection() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...data }: {
-      id: string;
-      displayName?: string;
-      folderId?: string;
-      folderName?: string;
-      syncIntervalMin?: number;
-      status?: "active" | "paused";
-    }) => {
-      const r = await fetch(`/api/admin/cloud-connections/${id}`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({ error: "Failed to update" }));
-        throw new Error((body as { error?: string }).error ?? "Failed to update");
-      }
-      return r.json() as Promise<{ connection: CloudConnection }>;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...CONNECTIONS_KEY] });
-    },
-  });
-}
-
 /** Delete a connection. */
 export function useDeleteConnection() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`/api/admin/cloud-connections/${id}`, {
+      const r = await fetch(`/api/cloud-connections/${id}`, {
         method: "DELETE",
         credentials: "same-origin",
       });
@@ -167,12 +87,119 @@ export function useDeleteConnection() {
   });
 }
 
-/** Trigger a manual sync. */
-export function useSyncConnection() {
+/** Fetch folders for a connection's folder picker. */
+export function useCloudFolders(connectionId: string | null, parentId?: string) {
+  return useQuery<{ folders: CloudFolder[] }>({
+    queryKey: [...CONNECTIONS_KEY, connectionId, "folders", parentId ?? "root"],
+    queryFn: async () => {
+      const params = parentId ? `?parentId=${encodeURIComponent(parentId)}` : "";
+      const r = await fetch(`/api/cloud-connections/${connectionId}/folders${params}`, { credentials: "same-origin" });
+      if (!r.ok) throw new Error("Failed to load folders");
+      return r.json() as Promise<{ folders: CloudFolder[] }>;
+    },
+    enabled: !!connectionId,
+  });
+}
+
+// ─── Folder sync hooks (data source UI) ─────────────────────────────────────
+
+/** Fetch folder syncs for a data source. */
+export function useFolderSyncs(dataSourceId: string | null) {
+  return useQuery<{ folderSyncs: CloudFolderSync[] }>({
+    queryKey: [...FOLDER_SYNCS_KEY, dataSourceId],
+    queryFn: async () => {
+      const r = await fetch(`/api/cloud-connections/folder-syncs/by-data-source/${dataSourceId}`, { credentials: "same-origin" });
+      if (!r.ok) throw new Error("Failed to load folder syncs");
+      return r.json() as Promise<{ folderSyncs: CloudFolderSync[] }>;
+    },
+    enabled: !!dataSourceId,
+    refetchInterval: 15_000,
+  });
+}
+
+/** Create a folder sync (link a cloud folder to a data source). */
+export function useCreateFolderSync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      connectionId: string;
+      dataSourceId: string;
+      folderId: string;
+      folderName: string;
+      syncIntervalMin?: number;
+    }) => {
+      const r = await fetch("/api/cloud-connections/folder-syncs", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: "Failed to create folder sync" }));
+        throw new Error((body as { error?: string }).error ?? "Failed to create folder sync");
+      }
+      return r.json() as Promise<{ folderSync: CloudFolderSync }>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...FOLDER_SYNCS_KEY] });
+    },
+  });
+}
+
+/** Update a folder sync's settings. */
+export function useUpdateFolderSync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }: {
+      id: string;
+      syncIntervalMin?: number;
+      status?: "active" | "paused";
+    }) => {
+      const r = await fetch(`/api/cloud-connections/folder-syncs/${id}`, {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: "Failed to update" }));
+        throw new Error((body as { error?: string }).error ?? "Failed to update");
+      }
+      return r.json() as Promise<{ folderSync: CloudFolderSync }>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...FOLDER_SYNCS_KEY] });
+    },
+  });
+}
+
+/** Delete a folder sync. */
+export function useDeleteFolderSync() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const r = await fetch(`/api/admin/cloud-connections/${id}/sync`, {
+      const r = await fetch(`/api/cloud-connections/folder-syncs/${id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: "Failed to delete" }));
+        throw new Error((body as { error?: string }).error ?? "Failed to delete");
+      }
+      return r.json() as Promise<{ deleted: boolean }>;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...FOLDER_SYNCS_KEY] });
+    },
+  });
+}
+
+/** Trigger a manual sync on a folder sync. */
+export function useSyncFolderSync() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetch(`/api/cloud-connections/folder-syncs/${id}/sync`, {
         method: "POST",
         credentials: "same-origin",
       });
@@ -183,7 +210,21 @@ export function useSyncConnection() {
       return r.json() as Promise<{ synced: boolean; added: number; modified: number; deleted: number; errors: number }>;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...CONNECTIONS_KEY] });
+      void queryClient.invalidateQueries({ queryKey: [...FOLDER_SYNCS_KEY] });
     },
+  });
+}
+
+/** Fetch sync files for a folder sync. */
+export function useFolderSyncFiles(folderSyncId: string | null) {
+  return useQuery<{ files: CloudSyncFile[] }>({
+    queryKey: [...FOLDER_SYNCS_KEY, folderSyncId, "files"],
+    queryFn: async () => {
+      const r = await fetch(`/api/cloud-connections/folder-syncs/${folderSyncId}/files`, { credentials: "same-origin" });
+      if (!r.ok) throw new Error("Failed to load sync files");
+      return r.json() as Promise<{ files: CloudSyncFile[] }>;
+    },
+    enabled: !!folderSyncId,
+    refetchInterval: 15_000,
   });
 }

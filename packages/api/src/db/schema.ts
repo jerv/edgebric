@@ -299,16 +299,25 @@ export const cloudConnections = sqliteTable("cloud_connections", {
   id: text("id").primaryKey(),
   provider: text("provider").notNull(), // google_drive | onedrive | dropbox | notion | confluence
   displayName: text("display_name").notNull(),
-  dataSourceId: text("data_source_id").notNull(), // FK to data_sources.id (1:1)
   orgId: text("org_id").notNull(),
   accountEmail: text("account_email"),
-  folderId: text("folder_id"),
-  folderName: text("folder_name"),
+  status: text("status").notNull().default("active"), // active | disconnected
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const cloudFolderSyncs = sqliteTable("cloud_folder_syncs", {
+  id: text("id").primaryKey(),
+  connectionId: text("connection_id").notNull(), // FK to cloud_connections.id
+  dataSourceId: text("data_source_id").notNull(), // FK to data_sources.id
+  folderId: text("folder_id").notNull(),
+  folderName: text("folder_name").notNull(),
   syncIntervalMin: integer("sync_interval_min").notNull().default(60),
-  status: text("status").notNull().default("active"), // active | paused | error | disconnected
+  status: text("status").notNull().default("active"), // active | paused | error
   lastSyncAt: text("last_sync_at"),
   lastError: text("last_error"),
-  syncCursor: text("sync_cursor"), // provider-specific opaque cursor
+  syncCursor: text("sync_cursor"),
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -327,7 +336,7 @@ export const cloudOauthTokens = sqliteTable("cloud_oauth_tokens", {
 
 export const cloudSyncFiles = sqliteTable("cloud_sync_files", {
   id: text("id").primaryKey(),
-  connectionId: text("connection_id").notNull(), // FK to cloud_connections.id
+  folderSyncId: text("folder_sync_id").notNull(), // FK to cloud_folder_syncs.id
   externalFileId: text("external_file_id").notNull(),
   externalName: text("external_name").notNull(),
   externalModified: text("external_modified"),
