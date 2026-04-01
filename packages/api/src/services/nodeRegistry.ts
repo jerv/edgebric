@@ -236,6 +236,11 @@ export function removeNode(id: string): void {
   db.delete(meshNodes).where(eq(meshNodes.id, id)).run();
 }
 
+export function removeAllNodes(): void {
+  const db = getDb();
+  db.delete(meshNodes).run();
+}
+
 /** Mark nodes as offline if not seen within the timeout period (default 60s). */
 export function markStaleNodesOffline(timeoutMs: number = 60_000): number {
   const db = getDb();

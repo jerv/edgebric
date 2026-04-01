@@ -172,6 +172,7 @@ meshInterNodeRouter.get("/info", (_req, res) => {
     role: cfg.role,
     version: process.env["npm_package_version"] ?? "0.0.0",
     sourceCount: localSources.length,
+    meshVisibleSourceCount: localSources.length,
     groupId: cfg.groupId,
     groupName,
   });

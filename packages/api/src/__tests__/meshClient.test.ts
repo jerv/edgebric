@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "vitest";
 import { setupTestApp, teardownTestApp, getDefaultOrgId } from "./helpers.js";
-import { initMeshConfig, registerNode, deleteMeshConfig, updateNode } from "../services/nodeRegistry.js";
+import { initMeshConfig, registerNode, deleteMeshConfig, updateNode, removeAllNodes } from "../services/nodeRegistry.js";
 import { searchRemoteNode, getRemoteNodeInfo, sendHeartbeat, searchAllNodes } from "../services/meshClient.js";
 import { randomUUID } from "crypto";
 
@@ -25,6 +25,7 @@ describe("Mesh Client", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     try { deleteMeshConfig(); } catch { /* may not exist */ }
+    removeAllNodes();
 
     const cfg = initMeshConfig({ role: "primary", nodeName: "test-primary", orgId });
     meshToken = cfg.meshToken;
