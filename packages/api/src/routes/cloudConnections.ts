@@ -334,7 +334,7 @@ const updateFolderSyncSchema = z.object({
 });
 
 cloudConnectionsRouter.put("/folder-syncs/:id", validateBody(updateFolderSyncSchema), (req, res) => {
-  const folderSync = getFolderSync(req.params.id);
+  const folderSync = getFolderSync(req.params.id as string);
   if (!folderSync) {
     res.status(404).json({ error: "Folder sync not found" });
     return;

@@ -223,11 +223,13 @@ meshRouter.get("/status", (_req, res) => {
 meshRouter.get("/discover", requireAdmin, async (_req, res) => {
   try {
     // Dynamic import — bonjour-service is optional (desktop only)
-    const { default: Bonjour } = await import("bonjour-service");
+    const BonjourModule = await import("bonjour-service");
+    const Bonjour = BonjourModule.default ?? BonjourModule;
 
     const found: Array<{ name: string; host: string; port: number; endpoint: string; addresses: string[]; txt: Record<string, string> }> = [];
-    const browser = new Bonjour(undefined, () => { /* swallow errors */ });
-    const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
+    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+    const browser = new (Bonjour as unknown as { new(opts?: unknown, errorCb?: () => void): import("bonjour-service").Bonjour })(undefined, () => { /* swallow errors */ });
+    const svc = browser.find({ type: "_edgebric._tcp" }, (service: { name: string; host: string; port: number; addresses?: string[]; txt?: Record<string, string> }) => {
       const protocol = (service.txt as Record<string, string>)?.protocol ?? "https";
       found.push({
         name: service.name,
@@ -513,7 +515,7 @@ meshRouter.put("/users/:userId/groups", requireAdmin, validateBody(setUserGroups
   });
 
   recordAuditEvent({
-    eventType: "mesh.user_groups_updated",
+    eventType: "mesh.group_updated",
     actorEmail: email,
     actorIp: req.ip,
     resourceType: "user",
@@ -543,7 +545,7 @@ meshRouter.post("/users/:userId/groups", requireAdmin, validateBody(assignGroupS
   }
 
   recordAuditEvent({
-    eventType: "mesh.user_group_assigned",
+    eventType: "mesh.group_updated",
     actorEmail: email,
     actorIp: req.ip,
     resourceType: "user",
@@ -567,7 +569,7 @@ meshRouter.delete("/users/:userId/groups/:groupId", requireAdmin, (req, res) => 
   }
 
   recordAuditEvent({
-    eventType: "mesh.user_group_removed",
+    eventType: "mesh.group_updated",
     actorEmail: email,
     actorIp: req.ip,
     resourceType: "user",

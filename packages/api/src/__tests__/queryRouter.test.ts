@@ -50,7 +50,7 @@ describe("Query Router", () => {
       const response = await routedSearch(["ds"], "test query");
 
       expect(response.results).toHaveLength(1);
-      expect(response.results[0].chunkId).toBe("ds-0");
+      expect(response.results[0]!.chunkId).toBe("ds-0");
       expect(response.meshNodesSearched).toBe(0);
       expect(response.meshNodesUnavailable).toBe(0);
       expect(mockSearchAllNodes).not.toHaveBeenCalled();
@@ -98,13 +98,13 @@ describe("Query Router", () => {
 
       expect(response.results).toHaveLength(2);
       // Remote result has higher similarity, should be first
-      expect(response.results[0].chunkId).toBe("remote-ds-5");
-      expect(response.results[0].similarity).toBe(0.92);
-      expect(response.results[0].sourceNodeId).toBe("remote-1");
-      expect(response.results[0].sourceNodeName).toBe("Branch Office");
+      expect(response.results[0]!.chunkId).toBe("remote-ds-5");
+      expect(response.results[0]!.similarity).toBe(0.92);
+      expect(response.results[0]!.sourceNodeId).toBe("remote-1");
+      expect(response.results[0]!.sourceNodeName).toBe("Branch Office");
       // Local result second
-      expect(response.results[1].chunkId).toBe("local-0");
-      expect(response.results[1].similarity).toBe(0.85);
+      expect(response.results[1]!.chunkId).toBe("local-0");
+      expect(response.results[1]!.similarity).toBe(0.85);
       expect(response.meshNodesSearched).toBe(1);
     });
 
@@ -135,8 +135,8 @@ describe("Query Router", () => {
 
       // Same chunkId — only keep the one with higher similarity (remote: 0.95)
       expect(response.results).toHaveLength(1);
-      expect(response.results[0].similarity).toBe(0.95);
-      expect(response.results[0].sourceNodeId).toBe("remote-1");
+      expect(response.results[0]!.similarity).toBe(0.95);
+      expect(response.results[0]!.sourceNodeId).toBe("remote-1");
     });
 
     it("caps results to maxCandidates", async () => {
@@ -235,8 +235,8 @@ describe("Query Router", () => {
 
       const response = await routedSearch(["ds"], "test");
 
-      expect(response.results[0].metadata.chunkIndex).toBe(42);
-      expect(response.results[1].metadata.chunkIndex).toBe(7);
+      expect(response.results[0]!.metadata.chunkIndex).toBe(42);
+      expect(response.results[1]!.metadata.chunkIndex).toBe(7);
     });
   });
 });

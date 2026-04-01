@@ -121,7 +121,7 @@ describe("OneDrive connector", () => {
       expect(tokens.scopes).toBe("Files.Read.All offline_access User.Read");
 
       // Verify token exchange request
-      const [tokenUrl, tokenOpts] = mockFetch.mock.calls[0];
+      const [tokenUrl, tokenOpts] = mockFetch.mock.calls[0]!;
       expect(tokenUrl).toBe("https://login.microsoftonline.com/common/oauth2/v2.0/token");
       expect(tokenOpts.method).toBe("POST");
       const body = new URLSearchParams(tokenOpts.body);
@@ -132,7 +132,7 @@ describe("OneDrive connector", () => {
       expect(body.get("grant_type")).toBe("authorization_code");
 
       // Verify /me request
-      const [meUrl, meOpts] = mockFetch.mock.calls[1];
+      const [meUrl, meOpts] = mockFetch.mock.calls[1]!;
       expect(meUrl).toBe("https://graph.microsoft.com/v1.0/me");
       expect(meOpts.headers.Authorization).toBe("Bearer new-access-token");
     });
@@ -188,7 +188,7 @@ describe("OneDrive connector", () => {
       expect(Math.abs(expiresAt - twoHoursFromNow)).toBeLessThan(5000);
 
       // Verify the request body
-      const [, opts] = mockFetch.mock.calls[0];
+      const [, opts] = mockFetch.mock.calls[0]!;
       const body = new URLSearchParams(opts.body);
       expect(body.get("refresh_token")).toBe("old-refresh-token");
       expect(body.get("client_id")).toBe("test-client-id");
@@ -237,7 +237,7 @@ describe("OneDrive connector", () => {
       ]);
 
       // Verify it used the root endpoint
-      const [url] = mockFetch.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0]!;
       expect(url).toContain("me/drive/root/children");
       // URLSearchParams encodes $ as %24
       expect(url).toContain("%24filter=folder+ne+null");
@@ -248,7 +248,7 @@ describe("OneDrive connector", () => {
 
       await oneDriveAdapter.listFolders("access-tok", "parent-id-123");
 
-      const [url] = mockFetch.mock.calls[0];
+      const [url] = mockFetch.mock.calls[0]!;
       expect(url).toContain("me/drive/items/parent-id-123/children");
       expect(url).not.toContain("root/children");
     });
@@ -427,7 +427,7 @@ describe("OneDrive connector", () => {
 
       expect(result.changes).toHaveLength(2);
       // Verify the second call used the nextLink
-      expect(mockFetch.mock.calls[1][0]).toBe(
+      expect(mockFetch.mock.calls[1]![0]).toBe(
         "https://graph.microsoft.com/v1.0/me/drive/items/folder-1/children?skip=1",
       );
     });
@@ -496,7 +496,7 @@ describe("OneDrive connector", () => {
       expect(result.newCursor).toBe("https://graph.microsoft.com/v1.0/delta?token=new-cursor");
 
       // Verify it called the delta URL
-      expect(mockFetch.mock.calls[0][0]).toBe(deltaUrl);
+      expect(mockFetch.mock.calls[0]![0]).toBe(deltaUrl);
     });
 
     it("handles 410 expired delta link by falling back to full sync", async () => {
@@ -533,7 +533,7 @@ describe("OneDrive connector", () => {
 
       // Should have done a full sync
       expect(result.changes).toHaveLength(1);
-      expect(result.changes[0].type).toBe("added"); // Initial sync uses "added"
+      expect(result.changes[0]!.type).toBe("added"); // Initial sync uses "added"
       expect(result.newCursor).toBe("https://graph.microsoft.com/v1.0/delta?token=fresh");
     });
 
@@ -564,7 +564,7 @@ describe("OneDrive connector", () => {
       const result = await oneDriveAdapter.getChanges("access-tok", "folder-1", "https://delta-link");
 
       expect(result.changes).toHaveLength(1);
-      expect(result.changes[0].file.name).toBe("report.docx");
+      expect(result.changes[0]!.file.name).toBe("report.docx");
     });
 
     it("paginates through delta results", async () => {
@@ -633,12 +633,12 @@ describe("OneDrive connector", () => {
       expect(result.buffer).toEqual(Buffer.from(fileContent));
 
       // Verify metadata URL
-      const [metaUrl] = mockFetch.mock.calls[0];
+      const [metaUrl] = mockFetch.mock.calls[0]!;
       expect(metaUrl).toContain("me/drive/items/file-id-123");
       expect(metaUrl).toContain("$select=name,file");
 
       // Verify content URL
-      const [contentUrl, contentOpts] = mockFetch.mock.calls[1];
+      const [contentUrl, contentOpts] = mockFetch.mock.calls[1]!;
       expect(contentUrl).toContain("me/drive/items/file-id-123/content");
       expect(contentOpts.redirect).toBe("follow");
     });
