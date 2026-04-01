@@ -68,6 +68,23 @@ function AdminToggles() {
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ vaultModeEnabled: v })}
         />
+        {config?.vaultModeEnabled && (
+          <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-4 py-3 space-y-2">
+            <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              Vault Mode syncs company document chunks to member devices for
+              local processing. This is the same content members can already
+              query via the web app. Enabling this means accepting that company
+              data will be cached locally.
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              <span className="font-medium">Limitations:</span> Vault Mode
+              processes documents on-device, which supports text-based PDFs and
+              Word documents. Scanned or image-only PDFs cannot be processed
+              locally. All data is encrypted at rest with AES-256 and can be
+              remotely wiped if a device is lost.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-6">
@@ -83,30 +100,12 @@ function AdminToggles() {
         <ToggleCard
           icon={<Sparkles className="w-4 h-4" />}
           title="General AI Answers"
-          description="Allow the AI to answer from general knowledge when no matching documents are found. When disabled, the AI only answers from your uploaded documents."
+          description="When enabled, the AI can supplement document answers with general knowledge. When disabled, the AI strictly answers from your uploaded documents only — but will still answer general questions that don't relate to any documents."
           enabled={config?.generalAnswersEnabled ?? true}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ generalAnswersEnabled: v })}
         />
       </div>
-
-      {config?.vaultModeEnabled && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-4 py-3 space-y-2">
-          <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-            Vault Mode syncs company document chunks to member devices for
-            local processing. This is the same content members can already
-            query via the web app. Enabling this means accepting that company
-            data will be cached locally.
-          </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-            <span className="font-medium">Limitations:</span> Vault Mode
-            processes documents on-device, which supports text-based PDFs and
-            Word documents. Scanned or image-only PDFs cannot be processed
-            locally. All data is encrypted at rest with AES-256 and can be
-            remotely wiped if a device is lost.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

@@ -15,7 +15,6 @@ import {
   LogOut,
   MessageSquare,
   Network,
-  Plug,
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -278,7 +277,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Data Sources", icon: Database },
-    { href: "/integrations", label: "Integrations", icon: Plug },
     { href: "/service", label: "Service", icon: ServiceIcon, adminOnly: true },
   ];
 
