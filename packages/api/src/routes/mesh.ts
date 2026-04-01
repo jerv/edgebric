@@ -1,8 +1,10 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { z } from "zod";
+import os from "os";
 import { requireOrg, requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { config } from "../config.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import {
   getMeshConfig,
@@ -247,12 +249,15 @@ meshRouter.get("/discover", requireAdmin, async (_req, res) => {
     svc.stop();
     browser.destroy();
 
-    // Filter out self
-    const cfg = getMeshConfig();
-    const selfName = cfg?.nodeName?.toLowerCase();
-    const filtered = selfName
-      ? found.filter((f) => f.name.toLowerCase() !== selfName)
-      : found;
+    // Filter out self — compare by hostname (mDNS name is derived from hostname,
+    // not the user-configured node name)
+    const selfHostname = os.hostname().replace(/\.local$/, "").toLowerCase();
+    const selfPort = config.port;
+    const filtered = found.filter((f) => {
+      const discoveredName = f.name.toLowerCase();
+      const isSelf = discoveredName === selfHostname && f.port === selfPort;
+      return !isSelf;
+    });
 
     res.json({ instances: filtered });
   } catch {

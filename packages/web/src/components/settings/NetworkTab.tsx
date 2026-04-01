@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Network, Server, Plus, Trash2, Pencil, Copy, Check, Eye, EyeOff,
   RefreshCw, Power, PowerOff, ChevronDown, ChevronRight, AlertTriangle,
-  Loader2, Shield, Globe, HelpCircle, Wifi,
+  Loader2, Shield, Globe, HelpCircle, Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -895,7 +895,7 @@ export function NetworkTab() {
               disabled={isScanning}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 border border-slate-200 dark:border-gray-700 rounded-lg"
             >
-              {isScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wifi className="w-3.5 h-3.5" />}
+              {isScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Radar className="w-3.5 h-3.5" />}
               {isScanning ? "Scanning..." : "Scan LAN"}
             </button>
             <button
@@ -927,7 +927,7 @@ export function NetworkTab() {
         {discoveredNodes.length > 0 && (
           <div className="border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 space-y-3">
             <h4 className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
-              <Wifi className="w-3.5 h-3.5" />
+              <Radar className="w-3.5 h-3.5" />
               Discovered on LAN ({discoveredNodes.length})
             </h4>
             <div className="space-y-2">
