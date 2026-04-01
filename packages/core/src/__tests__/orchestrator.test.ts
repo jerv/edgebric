@@ -66,11 +66,12 @@ describe("answer (non-streaming)", () => {
     expect(response.citations[0]!.documentName).toBe("Handbook");
   });
 
-  it("returns no-answer in strict mode when no chunks found", async () => {
-    const response = await answer("Something obscure?", makeSession(), strictOptions, makeDeps([]));
+  it("generates general-knowledge answer in strict mode when no chunks found", async () => {
+    const response = await answer("Something obscure?", makeSession(), strictOptions, makeDeps([], "General knowledge answer."));
     expect(response.hasConfidentAnswer).toBe(false);
     expect(response.citations).toHaveLength(0);
-    expect(response.answer).toContain("couldn't find");
+    expect(response.answerType).toBe("general");
+    expect(response.answer).toContain("General knowledge");
   });
 
   it("generates general-knowledge answer in permissive mode when no chunks found", async () => {
@@ -81,13 +82,15 @@ describe("answer (non-streaming)", () => {
     expect(response.answer).toContain("Photosynthesis");
   });
 
-  it("returns no-answer when all chunks below similarity threshold", async () => {
+  it("generates general-knowledge answer when all chunks below similarity threshold", async () => {
     const results = [
       makeSearchResult("Unrelated text", 0.1),
       makeSearchResult("Also unrelated", 0.2),
     ];
-    const response = await answer("Something specific?", makeSession(), strictOptions, makeDeps(results));
+    const response = await answer("Something specific?", makeSession(), strictOptions, makeDeps(results, "A general answer."));
     expect(response.hasConfidentAnswer).toBe(false);
+    expect(response.answerType).toBe("general");
+    expect(response.answer).toContain("general answer");
   });
 
   it("blocks queries with person name + sensitive term", async () => {
@@ -211,16 +214,16 @@ describe("answerStream", () => {
     expect(finalResponse!.hasConfidentAnswer).toBe(false);
   });
 
-  it("yields only final for no-answer in strict mode (no deltas)", async () => {
+  it("yields deltas for general-knowledge answer in strict mode (no chunks)", async () => {
     const deltas: string[] = [];
     let finalResponse;
 
-    for await (const chunk of answerStream("Unknown?", makeSession(), strictOptions, makeDeps([]))) {
+    for await (const chunk of answerStream("Unknown?", makeSession(), strictOptions, makeDeps([], "General answer."))) {
       if (chunk.delta) deltas.push(chunk.delta);
       if (chunk.final) finalResponse = chunk.final;
     }
 
-    expect(deltas).toHaveLength(0);
+    expect(deltas.length).toBeGreaterThan(0);
     expect(finalResponse!.hasConfidentAnswer).toBe(false);
     expect(finalResponse!.answerType).toBe("general");
   });

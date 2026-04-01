@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import {
   Loader2,
   Power,
@@ -43,10 +44,29 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
   loading: boolean;
   ramFit?: RAMFitResult;
 }) {
+  const [confirmUnload, setConfirmUnload] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout>>();
   const isLoaded = model.status === "loaded";
   const isEmbedding = model.tag === EMBEDDING_MODEL_TAG;
   const label = adminLabel(model.tag);
   const catalogEntry = model.catalogEntry;
+
+  // Reset confirmation state after 3 seconds
+  useEffect(() => {
+    if (confirmUnload) {
+      confirmTimer.current = setTimeout(() => setConfirmUnload(false), 3000);
+      return () => clearTimeout(confirmTimer.current);
+    }
+  }, [confirmUnload]);
+
+  function handleStopClick() {
+    if (isActive && !confirmUnload) {
+      setConfirmUnload(true);
+      return;
+    }
+    setConfirmUnload(false);
+    onUnload();
+  }
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-gray-800 last:border-b-0">
@@ -96,11 +116,16 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
                 </button>
               )}
               <button
-                onClick={onUnload}
+                onClick={handleStopClick}
                 disabled={loading}
-                className="text-xs px-2.5 py-1 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-lg transition-colors",
+                  confirmUnload
+                    ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 font-medium"
+                    : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800",
+                )}
               >
-                Stop
+                {confirmUnload ? "Confirm stop?" : "Stop"}
               </button>
             </>
           ) : (

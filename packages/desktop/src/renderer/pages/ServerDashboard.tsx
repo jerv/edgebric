@@ -223,6 +223,7 @@ export default function ServerDashboard() {
   const [pullStatus, setPullStatus] = useState("");
   const [modelError, setModelError] = useState("");
   const [deleteConfirmTag, setDeleteConfirmTag] = useState<string | null>(null);
+  const [unloadConfirmTag, setUnloadConfirmTag] = useState<string | null>(null);
   const [ggufPath, setGgufPath] = useState<string | null>(null);
   const [ggufName, setGgufName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -684,7 +685,10 @@ export default function ServerDashboard() {
                   return (
                     <div className="resource-bar-item">
                       <div className="resource-bar-label">
-                        <span>Memory</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><rect x="2" y="3" width="20" height="13" rx="2"/></svg>
+                          Memory
+                        </span>
                         <span className="resource-bar-value">
                           {formatGB(ramAvailable)} available / {formatGB(ramTotal)} total
                         </span>
@@ -743,7 +747,10 @@ export default function ServerDashboard() {
                   return (
                     <div className="resource-bar-item">
                       <div className="resource-bar-label">
-                        <span>Disk</span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
+                          Disk
+                        </span>
                         <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
                       </div>
                       <div className="resource-bar-track">
@@ -816,13 +823,40 @@ export default function ServerDashboard() {
                           </span>
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => handleUnloadModel(m.tag)}
-                            disabled={!!modelOp}
-                          >
-                            {isOpTarget && modelOp?.type === "unload" ? "..." : "Stop"}
-                          </button>
+                          {m.tag === modelsData?.activeModel && unloadConfirmTag !== m.tag ? (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setUnloadConfirmTag(m.tag)}
+                              disabled={!!modelOp}
+                            >
+                              Stop
+                            </button>
+                          ) : unloadConfirmTag === m.tag ? (
+                            <>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => { setUnloadConfirmTag(null); handleUnloadModel(m.tag); }}
+                                disabled={!!modelOp}
+                              >
+                                {isOpTarget && modelOp?.type === "unload" ? "..." : "Confirm"}
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                onClick={() => setUnloadConfirmTag(null)}
+                                disabled={!!modelOp}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => handleUnloadModel(m.tag)}
+                              disabled={!!modelOp}
+                            >
+                              {isOpTarget && modelOp?.type === "unload" ? "..." : "Stop"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -1210,7 +1244,7 @@ export default function ServerDashboard() {
                     <p className="danger-item-desc">Change your identity provider. Sources, documents, and chat history are preserved. Users are matched by email.</p>
                   </div>
                   <button className="btn btn-danger btn-sm" onClick={() => { setDangerAction("switchAuth"); setSwitchStep("provider"); setErrorMsg(""); }}>
-                    Switch Provider
+                    Switch
                   </button>
                 </div>
                 <div className="danger-item">
@@ -1489,7 +1523,7 @@ export default function ServerDashboard() {
                   className="btn btn-primary btn-sm"
                   disabled={actionInProgress}
                 >
-                  {actionInProgress ? "Switching..." : "Switch Provider"}
+                  {actionInProgress ? "Switching..." : "Switch"}
                 </button>
               </div>
             </form>
@@ -1504,8 +1538,10 @@ export default function ServerDashboard() {
     <div className="dashboard">
       <div className="dashboard-main">
         <div className="hero">
-          <img src={isDark ? logoDark : logoLight} alt="Edgebric" className="hero-logo" />
-          <h1 className="hero-title">Edgebric</h1>
+          <div className="hero-brand">
+            <img src={isDark ? logoDark : logoLight} alt="Edgebric" className="hero-logo" />
+            <h1 className="hero-title">Edgebric</h1>
+          </div>
           <p className="hero-subtitle">You can close this window — Edgebric lives in your menu bar.</p>
         </div>
 
@@ -1557,7 +1593,7 @@ export default function ServerDashboard() {
           {isRunning && healthData?.checks && (() => {
             const allOk = Object.values(healthData.checks).every((c) => c.status === "ok");
             return (
-              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 10, marginTop: 10 }}>
+              <div className="card-section-divider">
                 <button
                   onClick={() => setChecksOpen(!checksOpen)}
                   className="checks-toggle"
@@ -1602,7 +1638,6 @@ export default function ServerDashboard() {
             const ramUsed = ramTotal - ramAvailable;
             const diskTotal = sys.diskTotalBytes ?? 0;
             const diskUsed = diskTotal - (sys.diskFreeBytes ?? 0);
-            const diskPercent = diskTotal > 0 ? Math.round((diskUsed / diskTotal) * 100) : 0;
             const loadedModels = (modelsData?.models ?? []).filter((m) => m.status === "loaded" && m.tag !== EMBEDDING_TAG);
             const embeddingModel = (modelsData?.models ?? []).find((m) => m.tag === EMBEDDING_TAG && m.status === "loaded");
             const modelRam = loadedModels.filter((m) => m.ramUsageBytes).reduce((sum, m) => sum + (m.ramUsageBytes ?? 0), 0);
@@ -1610,14 +1645,16 @@ export default function ServerDashboard() {
             const edgebricRam = sys.edgebricRamBytes ?? 0;
             const otherUsed = Math.max(0, ramUsed - modelRam - embeddingRam - edgebricRam);
             const pctOf = (bytes: number) => ramTotal > 0 ? Math.max(0, (bytes / ramTotal) * 100) : 0;
-            const diskBarColor = diskPercent > 90 ? "#ef4444" : diskPercent > 70 ? "#f59e0b" : "#22c55e";
 
             return (
-              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 10, marginTop: 10 }}>
+              <div className="card-section-divider">
                 {/* RAM bar */}
                 <div className="resource-bar-item" style={{ marginBottom: 10 }}>
                   <div className="resource-bar-label">
-                    <span>Memory</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><rect x="2" y="3" width="20" height="13" rx="2"/></svg>
+                      Memory
+                    </span>
                     <span className="resource-bar-value">{formatGB(ramAvailable)} available / {formatGB(ramTotal)} total</span>
                   </div>
                   <div className="resource-bar-track">
@@ -1633,16 +1670,43 @@ export default function ServerDashboard() {
                     )}
                   </div>
                 </div>
-                {/* Disk bar */}
-                <div className="resource-bar-item">
-                  <div className="resource-bar-label">
-                    <span>Disk</span>
-                    <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
-                  </div>
-                  <div className="resource-bar-track">
-                    <div className="resource-bar-fill" style={{ width: `${Math.min(diskPercent, 100)}%`, background: diskBarColor, borderRadius: "3px" }} />
-                  </div>
-                </div>
+                {/* Disk bar — segmented, matches models section */}
+                {(() => {
+                  const st = modelsData?.storage;
+                  const ollamaBytes = st?.ollamaModelsBytes ?? 0;
+                  const uploadsBytes = st?.uploadsBytes ?? 0;
+                  const dbBytes = st?.dbBytes ?? 0;
+                  const vaultBytes = st?.vaultBytes ?? 0;
+                  const edgebricDisk = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+                  const otherDisk = Math.max(0, diskUsed - edgebricDisk);
+                  const diskPctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
+                  return (
+                    <div className="resource-bar-item">
+                      <div className="resource-bar-label">
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
+                          Disk
+                        </span>
+                        <span className="resource-bar-value">{formatGB(diskUsed)} / {formatGB(diskTotal)}</span>
+                      </div>
+                      <div className="resource-bar-track">
+                        <div className="resource-bar-fill" style={{ width: `${diskPctOf(otherDisk)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
+                        {ollamaBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(ollamaBytes)}%`, background: "#3b82f6" }} />
+                        )}
+                        {uploadsBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(uploadsBytes)}%`, background: "#22c55e" }} />
+                        )}
+                        {vaultBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(vaultBytes)}%`, background: "#f59e0b" }} />
+                        )}
+                        {dbBytes > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(dbBytes)}%`, background: "#8b5cf6", borderRadius: "0 3px 3px 0" }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -1650,7 +1714,7 @@ export default function ServerDashboard() {
 
         {isRunning && (
           <button className="btn btn-primary action-btn" style={{ width: "100%" }} onClick={() => window.open(accessUrl, "_blank")}>
-            Open Edgebric
+            Use Edgebric
           </button>
         )}
       </div>
