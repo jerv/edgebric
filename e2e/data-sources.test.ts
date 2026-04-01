@@ -68,14 +68,12 @@ test.describe("Data Source CRUD", () => {
     const res = await request.put(`/api/data-sources/${sourceId}`, {
       data: {
         allowSourceViewing: true,
-        allowExternalAccess: false,
         allowVaultSync: true,
       },
     });
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(body.allowSourceViewing).toBe(true);
-    expect(body.allowExternalAccess).toBe(false);
     expect(body.allowVaultSync).toBe(true);
   });
 

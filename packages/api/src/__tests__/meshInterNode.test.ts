@@ -14,7 +14,6 @@ import {
 } from "../services/nodeRegistry.js";
 import {
   createDataSource,
-  updateDataSource,
 } from "../services/dataSourceStore.js";
 
 // Mock the search service — we don't want real Ollama/sqlite-vec calls
@@ -177,29 +176,13 @@ describe("Mesh Inter-Node API", () => {
       expect(typeof res.body.meshVisibleSourceCount).toBe("number");
     });
 
-    it("meshVisibleSourceCount only counts externally accessible sources", async () => {
-      // Create two sources: one with external access, one without
-      const ds1 = createDataSource({
-        name: "Public Policies",
-        ownerId: "admin@test.com",
-        orgId,
-      });
-      updateDataSource(ds1.id, { allowExternalAccess: true });
-
-      const ds2 = createDataSource({
-        name: "Internal Only",
-        ownerId: "admin@test.com",
-        orgId,
-      });
-      // Default is allowExternalAccess=false, so ds2 is already private
+    it("sourceCount includes all sources on this node", async () => {
+      createDataSource({ name: "Source A", ownerId: "admin@test.com", orgId });
+      createDataSource({ name: "Source B", ownerId: "admin@test.com", orgId });
 
       const res = await authedGet("/api/mesh/peer/info");
       expect(res.status).toBe(200);
-      // We created 2 sources: one with external access, one without
-      // There may be additional sources from earlier tests
       expect(res.body.sourceCount).toBeGreaterThanOrEqual(2);
-      expect(res.body.meshVisibleSourceCount).toBeGreaterThanOrEqual(1);
-      expect(res.body.meshVisibleSourceCount).toBeLessThan(res.body.sourceCount);
     });
   });
 
@@ -231,14 +214,13 @@ describe("Mesh Inter-Node API", () => {
 
   describe("POST /api/mesh/peer/search", () => {
     it("returns search results with node identity", async () => {
-      // Ensure we have an externally-accessible source
-      const ds = createDataSource({
+      // Create a source on this node
+      createDataSource({
         name: "Mesh-Visible Source",
         ownerId: "admin@test.com",
         orgId,
         datasetName: "test-dataset",
       });
-      updateDataSource(ds.id, { allowExternalAccess: true });
 
       const res = await authedPost("/api/mesh/peer/search")
         .send({ query: "vacation policy" });

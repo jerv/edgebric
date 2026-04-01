@@ -72,21 +72,7 @@ test.describe("Vault Controls", () => {
     expect(ds.allowSourceViewing).toBe(true);
   });
 
-  test("external access permission can be toggled", async ({ request }) => {
-    const res = await request.put(`/api/data-sources/${sourceId}`, {
-      data: { allowExternalAccess: true },
-    });
-    expect(res.ok()).toBe(true);
-    const ds = await res.json();
-    expect(ds.allowExternalAccess).toBe(true);
-
-    const res2 = await request.put(`/api/data-sources/${sourceId}`, {
-      data: { allowExternalAccess: false },
-    });
-    expect(res2.ok()).toBe(true);
-    const ds2 = await res2.json();
-    expect(ds2.allowExternalAccess).toBe(false);
-  });
+  // allowExternalAccess removed — mesh access is controlled by node groups
 });
 
 test.describe.serial("Mesh Configuration", () => {

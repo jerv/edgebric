@@ -105,7 +105,7 @@ describe("Mesh Client", () => {
 
   describe("getRemoteNodeInfo", () => {
     it("returns node info on success", async () => {
-      const info = { nodeId: "n1", nodeName: "Node 1", role: "primary", version: "1.0", sourceCount: 5, meshVisibleSourceCount: 3, groupId: null, groupName: null };
+      const info = { nodeId: "n1", nodeName: "Node 1", role: "primary", version: "1.0", sourceCount: 5, groupId: null, groupName: null };
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve(info) });
 
       const result = await getRemoteNodeInfo(nodeId);

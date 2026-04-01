@@ -23,7 +23,6 @@ describe("Data Sources API", () => {
       expect(res.body.accessMode).toBe("all");
       expect(res.body.allowSourceViewing).toBe(true);
       expect(res.body.allowVaultSync).toBe(true);
-      expect(res.body.allowExternalAccess).toBe(false);
     });
 
     it("rejects empty name", async () => {
@@ -119,13 +118,11 @@ describe("Data Sources API", () => {
         .send({
           allowSourceViewing: false,
           allowVaultSync: false,
-          allowExternalAccess: false,
         });
 
       expect(res.status).toBe(200);
       expect(res.body.allowSourceViewing).toBe(false);
       expect(res.body.allowVaultSync).toBe(false);
-      expect(res.body.allowExternalAccess).toBe(false);
     });
 
     it("member cannot update data source", async () => {

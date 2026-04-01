@@ -19,13 +19,13 @@ import {
   Search,
   ArrowUp,
   ArrowDown,
-  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { SourcePanel } from "@/components/employee/SourcePanel";
-import type { Document, DataSource, PIIWarning } from "@edgebric/types";
+import type { Document, DataSource, PIIWarning, CloudFolder } from "@edgebric/types";
+import { CloudDriveSyncSection } from "./CloudDriveSyncSection";
 
 /** Format a full name into "First L." display format. */
 function nameToDisplay(name: string): string {
@@ -867,7 +867,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
+    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean }) =>
       fetch(`/api/data-sources/${ds.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1147,19 +1147,6 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
-                  <SecurityToggle
-                    label="Allow external network access"
-                    description="Members can access this data source from outside the local network. Turn off for on-premises-only data."
-                    checked={data?.allowExternalAccess ?? ds.allowExternalAccess ?? true}
-                    onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
-                    disabled={updateMutation.isPending}
-                  />
-                  {(data?.allowExternalAccess ?? ds.allowExternalAccess ?? true) && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pl-1 mt-1">
-                      <Network className="w-3 h-3 flex-shrink-0" />
-                      For stronger data isolation, consider enabling Mesh Networking to keep sensitive sources on a separate internal node.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -1326,6 +1313,9 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
             onChange={(e) => handleFiles(e.target.files)}
           />
         </div>}
+
+        {/* Cloud sync (Google Drive, etc.) */}
+        {canEdit && ds && <CloudDriveSyncSection dataSourceId={ds.id} />}
 
         {/* Upload progress */}
         {uploading.length > 0 && (

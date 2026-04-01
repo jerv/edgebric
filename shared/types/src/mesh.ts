@@ -69,8 +69,6 @@ export interface MeshNodeInfo {
   role: NodeRole;
   version: string;
   sourceCount: number;
-  /** Number of sources with allowExternalAccess enabled */
-  meshVisibleSourceCount: number;
   groupId: string | null;
   groupName: string | null;
 }
