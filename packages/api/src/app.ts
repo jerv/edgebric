@@ -133,7 +133,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   if (!opts.skipRateLimit && process.env["SKIP_RATE_LIMIT"] !== "1") {
     const globalLimiter = rateLimit({
       windowMs: 60_000,
-      limit: 100,
+      limit: 300,
       standardHeaders: "draft-7",
       legacyHeaders: false,
       message: { error: "Too many requests, please try again later" },
@@ -247,8 +247,8 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
     legacyHeaders: false,
     message: { error: "Too many OAuth requests, please try again later" },
   });
-  app.use("/api/admin/cloud-connections/oauth", oauthLimiter);
-  app.use("/api/admin/cloud-connections", cloudConnectionsRouter);
+  app.use("/api/cloud-connections/oauth", oauthLimiter);
+  app.use("/api/cloud-connections", cloudConnectionsRouter);
   app.use("/api/group-chats", groupChatsRouter);
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
