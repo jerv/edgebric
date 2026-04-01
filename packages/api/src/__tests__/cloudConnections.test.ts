@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { randomUUID, randomBytes } from "crypto";
 import {
   setupTestApp,
@@ -17,7 +17,7 @@ import {
 } from "../services/cloudConnectionStore.js";
 import { createDataSource } from "../services/dataSourceStore.js";
 import { saveTokens } from "../services/cloudTokenStore.js";
-import { registerConnector, getConnector } from "../connectors/registry.js";
+import { registerConnector } from "../connectors/registry.js";
 import type { CloudConnectorAdapter, OAuthTokens } from "../connectors/types.js";
 import type { CloudFolder } from "@edgebric/types";
 

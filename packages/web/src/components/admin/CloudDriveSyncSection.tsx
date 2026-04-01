@@ -7,7 +7,6 @@
 import { useState } from "react";
 import {
   Loader2,
-  FolderSync,
   ChevronRight,
   Trash2,
   RefreshCw,
@@ -17,7 +16,7 @@ import {
   FolderOpen,
   AlertTriangle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+// cn imported from utils if needed for conditional classnames
 import {
   useCloudProviders,
   useCloudConnections,
