@@ -8,7 +8,7 @@ import { createDataSource, deleteDataSource, uploadAndIngest } from "./helpers";
  * - Creating data sources with different access modes
  * - Restricted sources enforce access lists
  * - Data source CRUD lifecycle works end-to-end
- * - Permission toggles (source viewing, vault sync, external access)
+ * - Permission toggles (source viewing, vault sync)
  * - Document upload with various file types
  * - Data source health endpoint returns valid metrics
  */
@@ -85,14 +85,12 @@ test.describe.serial("Data Source Permissions", () => {
       data: {
         allowSourceViewing: false,
         allowVaultSync: true,
-        allowExternalAccess: false,
       },
     });
     expect(res.ok()).toBe(true);
     const updated = await res.json();
     expect(updated.allowSourceViewing).toBe(false);
     expect(updated.allowVaultSync).toBe(true);
-    expect(updated.allowExternalAccess).toBe(false);
   });
 
   test("switches access mode from all to restricted", async ({ request }) => {

@@ -62,6 +62,12 @@ if (serveStatic) {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 async function start() {
+  // Guard: solo mode (no auth) must never be exposed on a network interface
+  if (config.authMode === "none" && config.listenHost !== "127.0.0.1") {
+    logger.fatal("AUTH_MODE=none (solo mode) requires LISTEN_HOST=127.0.0.1 — refusing to start on a network interface without authentication");
+    process.exit(1);
+  }
+
   await fs.mkdir(path.join(config.dataDir, "uploads"), { recursive: true });
   await fs.mkdir(sessionsDir, { recursive: true });
   initEncryptionKey();
@@ -127,11 +133,56 @@ async function start() {
     startSyncScheduler();
   }
 
-  // Auto-install embedding model if Ollama is running but nomic-embed-text is missing
+  // Auto-initialize mesh from setup file if present (secondary node first boot)
+  {
+    const fs = await import("fs");
+    const meshSetupPath = path.join(config.dataDir, "mesh-setup.json");
+    if (fs.existsSync(meshSetupPath)) {
+      try {
+        const setupData = JSON.parse(fs.readFileSync(meshSetupPath, "utf8"));
+        const { initMeshConfig, updateMeshConfig } = await import("./services/nodeRegistry.js");
+        const { ensureDefaultOrg } = await import("./services/orgStore.js");
+        const org = ensureDefaultOrg();
+
+        const cfg = initMeshConfig({
+          role: setupData.role ?? "secondary",
+          nodeName: setupData.nodeName ?? "Secondary Node",
+          orgId: org.id,
+          primaryEndpoint: setupData.primaryEndpoint,
+        });
+
+        // Override the auto-generated token with the primary's shared token
+        if (setupData.meshToken) {
+          updateMeshConfig({ meshToken: setupData.meshToken });
+        }
+
+        logger.info({ nodeName: setupData.nodeName, role: setupData.role }, "Auto-initialized mesh from setup file");
+
+        // Remove the setup file — one-time use
+        fs.unlinkSync(meshSetupPath);
+      } catch (err) {
+        logger.error({ err }, "Failed to auto-initialize mesh from setup file");
+      }
+    }
+  }
+
+  // Start mesh scheduler if mesh networking is enabled (heartbeats + stale detection)
+  {
+    const { isMeshEnabled } = await import("./services/nodeRegistry.js");
+    const { startMeshScheduler } = await import("./services/meshScheduler.js");
+    if (isMeshEnabled()) {
+      startMeshScheduler();
+    }
+  }
+
+  // Auto-install embedding model if Ollama is running but nomic-embed-text is missing,
+  // then auto-reload the last active chat model.
   (async () => {
     try {
-      const { isRunning, listInstalled, pullModel } = await import("./services/ollamaClient.js");
+      const { isRunning, listInstalled, pullModel, loadModel } = await import("./services/ollamaClient.js");
       const { EMBEDDING_MODEL_TAG } = await import("@edgebric/types");
+      const { getLastModel } = await import("./services/modelPersistence.js");
+
       if (await isRunning()) {
         const installed = await listInstalled();
         const hasEmbedding = installed.some((m) => m.tag === EMBEDDING_MODEL_TAG);
@@ -143,6 +194,26 @@ async function start() {
             }
           });
           logger.info("Embedding model installed");
+        }
+
+        // Auto-reload the last active chat model
+        const lastModel = getLastModel();
+        if (lastModel) {
+          const isInstalled = installed.some((m) => m.tag === lastModel);
+          if (isInstalled) {
+            logger.info({ model: lastModel }, "Auto-reloading last active chat model...");
+            try {
+              await loadModel(lastModel);
+              const { runtimeChatConfig } = await import("./config.js");
+              runtimeChatConfig.model = lastModel;
+              runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+              logger.info({ model: lastModel }, "Last active chat model reloaded successfully");
+            } catch (loadErr) {
+              logger.warn({ err: loadErr, model: lastModel }, "Could not auto-reload last chat model");
+            }
+          } else {
+            logger.info({ model: lastModel }, "Last active model is no longer installed, skipping auto-reload");
+          }
         }
       }
     } catch (err) {

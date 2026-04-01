@@ -1,3 +1,5 @@
+> **Status: ASPIRATIONAL** — Target metrics for product success. Not yet measured. "Meeting Mode" metrics are for an unbuilt feature.
+
 # Success Metrics
 
 ---

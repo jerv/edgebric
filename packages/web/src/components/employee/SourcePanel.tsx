@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { X, FileText, ChevronRight, ExternalLink } from "lucide-react";
+import { X, FileText, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
 import Markdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import { PROSE_CLASSES } from "@/lib/content";
@@ -156,7 +156,7 @@ export function SourcePanel({
         <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <div className="w-5 h-5 border-2 border-slate-200 dark:border-gray-700 border-t-slate-600 dark:border-t-gray-400 rounded-full animate-spin" />
+              <Loader2 className="w-5 h-5 text-slate-400 dark:text-gray-500 animate-spin" />
             </div>
           )}
 

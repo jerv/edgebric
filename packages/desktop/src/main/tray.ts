@@ -1,4 +1,4 @@
-import { Tray, Menu, nativeImage, shell } from "electron";
+import { app, Tray, Menu, nativeImage, shell } from "electron";
 import path from "path";
 import {
   startServer,
@@ -23,8 +23,14 @@ const STATUS_LABELS: Record<ServerStatus, string> = {
   error: "Server Error",
 };
 
+function getResourcesPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "resources")
+    : path.join(__dirname, "..", "..", "resources");
+}
+
 function getTrayIcon(_status: ServerStatus): Electron.NativeImage {
-  const iconPath = path.join(__dirname, "..", "..", "resources", "trayTemplate.png");
+  const iconPath = path.join(getResourcesPath(), "trayTemplate.png");
   const icon = nativeImage.createFromPath(iconPath);
   if (!icon.isEmpty()) {
     icon.setTemplateImage(true);

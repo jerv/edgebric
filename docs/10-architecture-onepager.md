@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Accurate compliance/auditor-facing architecture overview.
+
 # Edgebric Architecture Overview
 
 **For: Compliance officers, auditors, and IT administrators**

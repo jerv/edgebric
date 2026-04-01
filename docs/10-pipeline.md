@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Branch strategy (main/dev) matches actual git setup. CI/CD details may be aspirational if not yet configured.
+
 # Development & Deployment Pipeline
 
 This document explains how code moves from your editor to production. Follow this process for every change.

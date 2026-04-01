@@ -241,6 +241,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE data_sources ADD COLUMN access_mode TEXT NOT NULL DEFAULT 'all'",
     "ALTER TABLE messages ADD COLUMN answer_type TEXT",
     "ALTER TABLE group_chat_messages ADD COLUMN answer_type TEXT",
+    // Cloud connections refactor: add folder_sync_id to cloud_sync_files
+    "ALTER TABLE cloud_sync_files ADD COLUMN folder_sync_id TEXT NOT NULL DEFAULT ''",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
@@ -365,27 +367,33 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_mesh_groups (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      assigned_at TEXT NOT NULL,
+      assigned_by TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_mesh_nodes_org_id ON mesh_nodes(org_id);
     CREATE INDEX IF NOT EXISTS idx_mesh_nodes_group_id ON mesh_nodes(group_id);
     CREATE INDEX IF NOT EXISTS idx_node_groups_org_id ON node_groups(org_id);
+    CREATE INDEX IF NOT EXISTS idx_user_mesh_groups_user_id ON user_mesh_groups(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_mesh_groups_group_id ON user_mesh_groups(group_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_mesh_groups_unique ON user_mesh_groups(user_id, group_id);
   `);
 
   // Cloud storage integration tables
   sqlite.exec(`
+    -- Cloud connections = OAuth credentials only (one per user per provider)
     CREATE TABLE IF NOT EXISTS cloud_connections (
       id TEXT PRIMARY KEY,
       provider TEXT NOT NULL,
       display_name TEXT NOT NULL,
-      data_source_id TEXT NOT NULL,
       org_id TEXT NOT NULL,
       account_email TEXT,
-      folder_id TEXT,
-      folder_name TEXT,
-      sync_interval_min INTEGER NOT NULL DEFAULT 60,
       status TEXT NOT NULL DEFAULT 'active',
-      last_sync_at TEXT,
-      last_error TEXT,
-      sync_cursor TEXT,
       created_by TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -402,9 +410,26 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       updated_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS cloud_sync_files (
+    -- Folder syncs = link a cloud folder to a data source via a connection
+    CREATE TABLE IF NOT EXISTS cloud_folder_syncs (
       id TEXT PRIMARY KEY,
       connection_id TEXT NOT NULL,
+      data_source_id TEXT NOT NULL,
+      folder_id TEXT NOT NULL,
+      folder_name TEXT NOT NULL,
+      sync_interval_min INTEGER NOT NULL DEFAULT 60,
+      status TEXT NOT NULL DEFAULT 'active',
+      last_sync_at TEXT,
+      last_error TEXT,
+      sync_cursor TEXT,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cloud_sync_files (
+      id TEXT PRIMARY KEY,
+      folder_sync_id TEXT NOT NULL,
       external_file_id TEXT NOT NULL,
       external_name TEXT NOT NULL,
       external_modified TEXT,
@@ -417,9 +442,11 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
 
     CREATE INDEX IF NOT EXISTS idx_cloud_connections_org_id ON cloud_connections(org_id);
     CREATE INDEX IF NOT EXISTS idx_cloud_connections_status ON cloud_connections(status);
-    CREATE INDEX IF NOT EXISTS idx_cloud_sync_files_connection_id ON cloud_sync_files(connection_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_folder_syncs_connection_id ON cloud_folder_syncs(connection_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_folder_syncs_data_source_id ON cloud_folder_syncs(data_source_id);
+    CREATE INDEX IF NOT EXISTS idx_cloud_sync_files_folder_sync_id ON cloud_sync_files(folder_sync_id);
     CREATE INDEX IF NOT EXISTS idx_cloud_sync_files_external_file_id ON cloud_sync_files(external_file_id);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_sync_files_conn_ext ON cloud_sync_files(connection_id, external_file_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_sync_files_sync_ext ON cloud_sync_files(folder_sync_id, external_file_id);
   `);
 
   // FTS5 full-text search index for hybrid BM25+vector retrieval

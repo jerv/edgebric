@@ -19,14 +19,13 @@ import {
   Search,
   ArrowUp,
   ArrowDown,
-  RefreshCw,
-  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { SourcePanel } from "@/components/employee/SourcePanel";
-import type { Document, DataSource, PIIWarning } from "@edgebric/types";
+import type { Document, DataSource, PIIWarning, CloudFolder } from "@edgebric/types";
+import { CloudDriveSyncSection } from "./CloudDriveSyncSection";
 
 /** Format a full name into "First L." display format. */
 function nameToDisplay(name: string): string {
@@ -66,10 +65,12 @@ function SourceTypeSelector({
   onChange: (type: "organization" | "personal") => void;
   /** Compact labels for edit form ("Network" / "Vault") vs full labels for create ("Network Source" / "Vault Source"). */
   compact?: boolean;
+  /** Node name to show for network storage (e.g. "HR Office") when mesh is active. */
+  nodeName?: string;
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Source Type</label>
+      <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Storage</label>
       <div className="grid grid-cols-2 gap-2">
         <button
           type="button"
@@ -84,7 +85,7 @@ function SourceTypeSelector({
           <Globe className={cn("w-4 h-4 shrink-0", value === "organization" ? "text-slate-900 dark:text-gray-100" : "text-slate-400 dark:text-gray-500")} />
           <div>
             <p className={cn("text-sm font-medium", value === "organization" ? "text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400")}>{compact ? "Network" : "Network Source"}</p>
-            <p className="text-xs text-slate-400 dark:text-gray-500">{compact ? "Org server" : "Stored on org server"}</p>
+            <p className="text-xs text-slate-400 dark:text-gray-500">{nodeName ?? (compact ? "This server" : "Stored on this server")}</p>
           </div>
         </button>
         <button
@@ -269,6 +270,14 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
     refetchInterval: (query) => query.state.data?.some((ds) => ds.rebuilding) ? 3000 : false,
   });
 
+  // Mesh status — used to show node name in Storage column/selector
+  const { data: meshStatus } = useQuery<{ enabled: boolean; nodeName: string | null }>({
+    queryKey: ["mesh-status"],
+    queryFn: () => fetch("/api/mesh/status", { credentials: "same-origin" }).then((r) => r.ok ? r.json() : { enabled: false, nodeName: null }),
+    staleTime: 60_000,
+  });
+  const meshNodeName = meshStatus?.enabled ? meshStatus.nodeName : null;
+
   // Fetch org members for email autocomplete (only when create form is open)
   const { data: createMembers = [] } = useQuery<{ email: string; name?: string }[]>({
     queryKey: ["org-members"],
@@ -438,7 +447,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
 
             {/* Source type selector */}
             {user?.authMode !== "none" && (
-              <SourceTypeSelector value={createType} onChange={setCreateType} />
+              <SourceTypeSelector value={createType} onChange={setCreateType} nodeName={meshNodeName ?? undefined} />
             )}
 
             <input
@@ -744,7 +753,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                   <span className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
                     {ds.documentCount} file{ds.documentCount !== 1 ? "s" : ""}
                     {ds.rebuilding && (
-                      <RefreshCw className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
+                      <Loader2 className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
                     )}
                   </span>
                   <span className="relative group/storage">
@@ -759,13 +768,15 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                       {ds.type === "personal" ? (
                         <><Lock className="w-3 h-3" /> Vault</>
                       ) : (
-                        <><Globe className="w-3 h-3" /> Network</>
+                        <><Globe className="w-3 h-3" /> {meshNodeName ?? "Network"}</>
                       )}
                     </span>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 transition-opacity z-10">
                       {ds.type === "personal"
-                        ? "Encrypted on your device — never leaves your machine"
-                        : "Stored on the organization\u2019s network server"}
+                        ? "Encrypted on your device \u2014 never leaves your machine"
+                        : meshNodeName
+                          ? `Stored on ${meshNodeName}`
+                          : "Stored on this server"}
                     </span>
                   </span>
                   <span className="relative group/access">
@@ -838,6 +849,14 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
 
   const docs = data?.documents ?? [];
 
+  // Mesh status — for Storage label
+  const { data: meshStatus } = useQuery<{ enabled: boolean; nodeName: string | null }>({
+    queryKey: ["mesh-status"],
+    queryFn: () => fetch("/api/mesh/status", { credentials: "same-origin" }).then((r) => r.ok ? r.json() : { enabled: false, nodeName: null }),
+    staleTime: 60_000,
+  });
+  const meshNodeName = meshStatus?.enabled ? meshStatus.nodeName : null;
+
   // Fetch org members for email autocomplete
   const { data: members = [] } = useQuery<OrgMember[]>({
     queryKey: ["org-members"],
@@ -868,7 +887,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; allowExternalAccess?: boolean }) =>
+    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean }) =>
       fetch(`/api/data-sources/${ds.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1026,6 +1045,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                       setEditType(t);
                     }}
                     compact
+                    nodeName={meshNodeName ?? undefined}
                   />
                   {/* Migration warning: vault → org */}
                   {showTypeWarning && editType === "organization" && ds.type === "personal" && (
@@ -1148,19 +1168,6 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
-                  <SecurityToggle
-                    label="Allow external network access"
-                    description="Members can access this data source from outside the local network. Turn off for on-premises-only data."
-                    checked={data?.allowExternalAccess ?? ds.allowExternalAccess ?? true}
-                    onChange={(v) => updateMutation.mutate({ allowExternalAccess: v })}
-                    disabled={updateMutation.isPending}
-                  />
-                  {(data?.allowExternalAccess ?? ds.allowExternalAccess ?? true) && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 pl-1 mt-1">
-                      <Network className="w-3 h-3 flex-shrink-0" />
-                      For stronger data isolation, consider enabling Mesh Networking to keep sensitive sources on a separate internal node.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -1223,7 +1230,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                   )}
                   {data?.rebuilding && (
                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <Loader2 className="w-3 h-3 animate-spin" />
                       Syncing
                     </span>
                   )}
@@ -1294,7 +1301,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
         {/* Rebuild in progress banner */}
         {data?.rebuilding && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-100 dark:border-blue-900">
-            <RefreshCw className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin flex-shrink-0" />
+            <Loader2 className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Index syncing</p>
               <p className="text-xs text-blue-600 dark:text-blue-400">Search results may be temporarily incomplete while the index rebuilds.</p>
@@ -1327,6 +1334,9 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
             onChange={(e) => handleFiles(e.target.files)}
           />
         </div>}
+
+        {/* Cloud sync (Google Drive, etc.) */}
+        {canEdit && ds && <CloudDriveSyncSection dataSourceId={ds.id} />}
 
         {/* Upload progress */}
         {uploading.length > 0 && (

@@ -84,7 +84,13 @@ export async function searchRemoteNode(
       return null;
     }
 
-    return (await resp.json()) as MeshSearchResponse;
+    const body = await resp.json();
+    // Validate that the response has the expected shape
+    if (!body || !Array.isArray(body.chunks) || typeof body.nodeId !== "string") {
+      logger.warn({ nodeId, nodeName: node.name }, "Mesh search: malformed response from remote node");
+      return null;
+    }
+    return body as MeshSearchResponse;
   } catch (err) {
     logger.warn(
       { nodeId, nodeName: node.name, err: err instanceof Error ? err.message : String(err) },
@@ -117,7 +123,9 @@ export async function getRemoteNodeInfo(
     });
 
     if (!resp.ok) return null;
-    return (await resp.json()) as MeshNodeInfo;
+    const body = await resp.json();
+    if (!body || typeof body.nodeId !== "string") return null;
+    return body as MeshNodeInfo;
   } catch {
     return null;
   }
@@ -158,10 +166,38 @@ export async function sendHeartbeat(
  * Returns results from each node that responds successfully.
  * Nodes that fail or time out are silently skipped.
  */
+/**
+ * Broadcast a user revocation to all mesh nodes.
+ * Called when a user is removed/deactivated on any node.
+ * Best-effort — failures are logged but don't block the removal.
+ */
+export async function broadcastRevocation(email: string): Promise<void> {
+  const cfg = getMeshConfig();
+  if (!cfg) return;
+
+  const nodes = listNodes({ orgId: cfg.orgId })
+    .filter((n) => n.id !== cfg.nodeId && n.status === "online");
+
+  for (const node of nodes) {
+    meshFetch(node.endpoint, "/revoke-user", {
+      method: "POST",
+      body: { email },
+      meshToken: cfg.meshToken,
+      nodeId: cfg.nodeId,
+      timeoutMs: 5_000,
+    }).catch((err) => {
+      logger.warn(
+        { nodeId: node.id, nodeName: node.name, err: err instanceof Error ? err.message : String(err) },
+        "Failed to send revocation to mesh node",
+      );
+    });
+  }
+}
+
 export async function searchAllNodes(
   query: string,
   opts?: {
-    groupId?: string;
+    groupIds?: string[];
     datasetNames?: string[];
     topN?: number;
     excludeNodeId?: string;
@@ -174,10 +210,11 @@ export async function searchAllNodes(
   const cfg = getMeshConfig();
   if (!cfg) return { results: [], nodesSearched: 0, nodesUnavailable: 0 };
 
-  // Get all online nodes (optionally filtered by group)
+  // Get all online nodes, filtered by allowed groups if specified
   let nodes = listNodes({ orgId: cfg.orgId });
-  if (opts?.groupId) {
-    nodes = nodes.filter((n) => n.groupId === opts.groupId);
+  if (opts?.groupIds) {
+    const allowedSet = new Set(opts.groupIds);
+    nodes = nodes.filter((n) => n.groupId != null && allowedSet.has(n.groupId));
   }
   // Exclude self and optionally another node
   nodes = nodes.filter((n) => {

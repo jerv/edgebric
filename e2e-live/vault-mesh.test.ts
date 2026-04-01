@@ -72,21 +72,7 @@ test.describe("Vault Controls", () => {
     expect(ds.allowSourceViewing).toBe(true);
   });
 
-  test("external access permission can be toggled", async ({ request }) => {
-    const res = await request.put(`/api/data-sources/${sourceId}`, {
-      data: { allowExternalAccess: true },
-    });
-    expect(res.ok()).toBe(true);
-    const ds = await res.json();
-    expect(ds.allowExternalAccess).toBe(true);
-
-    const res2 = await request.put(`/api/data-sources/${sourceId}`, {
-      data: { allowExternalAccess: false },
-    });
-    expect(res2.ok()).toBe(true);
-    const ds2 = await res2.json();
-    expect(ds2.allowExternalAccess).toBe(false);
-  });
+  // allowExternalAccess removed — mesh access is controlled by node groups
 });
 
 test.describe.serial("Mesh Configuration", () => {
@@ -315,12 +301,7 @@ test.describe.serial("Mesh Node Groups", () => {
     expect(group.color).toBe("#EF4444");
   });
 
-  test("query-targets endpoint returns groups", async ({ request }) => {
-    const res = await request.get("/api/mesh/query-targets");
-    expect(res.ok()).toBe(true);
-    const { groups } = await res.json();
-    expect(groups.some((g: { id: string }) => g.id === groupId)).toBe(true);
-  });
+  // query-targets endpoint removed — groups are security boundaries, not user-selectable
 
   test("assigns a node to a group", async ({ request }) => {
     const nodeId = randomUUID();

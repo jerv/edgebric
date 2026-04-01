@@ -33,6 +33,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     chatBaseUrl?: string;
     chatModel?: string;
     orgServerUrl?: string;
+    // Secondary node mesh setup
+    meshToken?: string;
+    secondaryNodeName?: string;
+    primaryEndpoint?: string;
   }) => ipcRenderer.invoke("save-setup", data),
 
   // Ollama / AI Engine

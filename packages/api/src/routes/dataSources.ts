@@ -50,7 +50,6 @@ const updateDataSourceSchema = z.object({
   accessList: z.array(z.string().email()).optional(),
   allowSourceViewing: z.boolean().optional(),
   allowVaultSync: z.boolean().optional(),
-  allowExternalAccess: z.boolean().optional(),
 });
 
 // ─── Data Source Routes ──────────────────────────────────────────────────────
@@ -170,7 +169,7 @@ dataSourcesRouter.put("/:id", validateBody(updateDataSourceSchema), (req, res) =
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, allowExternalAccess } = req.body as z.infer<typeof updateDataSourceSchema>;
+  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync } = req.body as z.infer<typeof updateDataSourceSchema>;
 
   // Only the owner or an admin can change source type
   if (type !== undefined) {
@@ -188,7 +187,6 @@ dataSourcesRouter.put("/:id", validateBody(updateDataSourceSchema), (req, res) =
     ...(accessMode !== undefined && { accessMode: accessMode as DataSourceAccessMode }),
     ...(allowSourceViewing !== undefined && { allowSourceViewing }),
     ...(allowVaultSync !== undefined && { allowVaultSync }),
-    ...(allowExternalAccess !== undefined && { allowExternalAccess }),
   });
   if (!updated) {
     res.status(404).json({ error: "Data source not found" });

@@ -45,14 +45,6 @@ export interface MeshConfig {
   orgId: string;
 }
 
-export interface MeshSearchRequest {
-  query: string;
-  datasetNames: string[];
-  topN: number;
-  meshToken: string;
-  requestingNodeId: string;
-}
-
 export interface MeshSearchResult {
   chunkId: string;
   content: string;
@@ -79,6 +71,12 @@ export interface MeshNodeInfo {
   sourceCount: number;
   groupId: string | null;
   groupName: string | null;
+}
+
+/** Response from GET /api/mesh/peer/auth-info */
+export interface MeshAuthInfo {
+  provider: string;
+  providerName: string;
 }
 
 /** Status returned by GET /api/mesh/status */

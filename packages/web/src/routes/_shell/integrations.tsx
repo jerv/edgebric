@@ -1,20 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { useUser } from "@/contexts/UserContext";
-import { IntegrationsPanel } from "@/components/admin/IntegrationsPanel";
 
+/** Redirect legacy /integrations URL to organization settings. */
 function IntegrationsRoute() {
-  const user = useUser();
   const navigate = useNavigate();
-
   useEffect(() => {
-    if (user && !user.isAdmin) {
-      void navigate({ to: "/" });
-    }
-  }, [user, navigate]);
-
-  if (!user?.isAdmin) return null;
-  return <IntegrationsPanel />;
+    void navigate({ to: "/organization", search: { tab: "integrations" }, replace: true });
+  }, [navigate]);
+  return null;
 }
 
 export const Route = createFileRoute("/_shell/integrations")({

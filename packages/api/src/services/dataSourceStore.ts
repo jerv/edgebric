@@ -16,7 +16,6 @@ function rowToDataSource(row: typeof dataSources.$inferSelect): DataSource {
     accessMode: (row.accessMode ?? "all") as DataSourceAccessMode,
     allowSourceViewing: row.allowSourceViewing !== 0,
     allowVaultSync: row.allowVaultSync !== 0,
-    allowExternalAccess: row.allowExternalAccess !== 0,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
@@ -154,7 +153,6 @@ export function updateDataSource(
     avatarUrl?: string;
     allowSourceViewing?: boolean;
     allowVaultSync?: boolean;
-    allowExternalAccess?: boolean;
   },
 ): DataSource | undefined {
   const db = getDb();
@@ -171,7 +169,6 @@ export function updateDataSource(
       ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       ...(data.allowSourceViewing !== undefined && { allowSourceViewing: data.allowSourceViewing ? 1 : 0 }),
       ...(data.allowVaultSync !== undefined && { allowVaultSync: data.allowVaultSync ? 1 : 0 }),
-      ...(data.allowExternalAccess !== undefined && { allowExternalAccess: data.allowExternalAccess ? 1 : 0 }),
       updatedAt: now,
     })
     .where(eq(dataSources.id, id))

@@ -92,11 +92,11 @@ export function LoginPage() {
       <div className="relative z-10 h-full flex items-center justify-center">
         <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border border-slate-200 dark:border-gray-800 rounded-2xl shadow-lg px-10 py-12 text-center space-y-8">
           <div className="flex flex-col items-center gap-3">
-            <Logo className="w-32 h-32 rounded-2xl" />
-            <div>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
-              <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">Your data, your devices, your AI.</p>
+            <div className="flex items-center gap-3">
+              <Logo className="w-16 h-16 rounded-xl" />
+              <h1 className="text-6xl font-bold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
             </div>
+            <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">AI that never leaves your network.</p>
           </div>
           <a
             href={getLoginUrl()}

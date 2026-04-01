@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Loader2 as LoaderIcon, Network } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -1018,7 +1018,11 @@ export function ChatPanel() {
                           )}
                         </div>
                         {message.isStreaming && (
-                          <span className="inline-block w-1.5 h-1.5 mt-2 rounded-full bg-slate-400 dark:bg-gray-500 animate-pulse" />
+                          <div className="flex items-center gap-1 mt-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+                          </div>
                         )}
                       </>
                     )}
@@ -1243,14 +1247,9 @@ export function ChatPanel() {
               {/* Model selector + context usage — visible to all users */}
               <div className="flex items-center gap-2">
                 <ModelPicker onModelLoading={setModelLoading} />
-                {modelLoading ? (
-                  <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-gray-400">
-                    <LoaderIcon className="w-3 h-3 animate-spin" />
-                    Loading model...
-                  </span>
-                ) : !modelLoaded && privacyLevel !== "vault" ? (
+                {!modelLoading && !modelLoaded && privacyLevel !== "vault" && (
                   <span className="text-[11px] text-amber-500 dark:text-amber-400">No model loaded</span>
-                ) : null}
+                )}
                 <ContextRing usage={contextUsage} />
               </div>
             </div>

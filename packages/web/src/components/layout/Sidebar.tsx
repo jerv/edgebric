@@ -14,9 +14,7 @@ import {
   ChevronDown,
   LogOut,
   MessageSquare,
-  Loader2,
   Network,
-  Plug,
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -279,7 +277,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const adminNavItems: NavItem[] = [
     { href: "/library", label: "Data Sources", icon: Database },
-    { href: "/integrations", label: "Integrations", icon: Plug },
     { href: "/service", label: "Service", icon: ServiceIcon, adminOnly: true },
   ];
 
@@ -297,15 +294,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <Link
         to="/"
         onClick={onNavigate}
-        className="mb-3 overflow-hidden flex items-center gap-3 px-4"
+        className="mb-3 overflow-hidden flex items-center justify-center gap-2 px-3"
       >
-        <Logo className="w-9 h-9 rounded-lg flex-shrink-0" />
-        <div className="min-w-0">
-          <span className="font-semibold text-slate-900 dark:text-gray-100 text-base block">Edgebric</span>
-          {user?.orgName && (
-            <span className="text-[11px] text-slate-400 dark:text-gray-500 truncate block">{user.orgName}</span>
-          )}
-        </div>
+        <Logo className="w-9 h-9 rounded-md flex-shrink-0" />
+        <span className="font-bold text-slate-900 dark:text-gray-100 text-3xl tracking-tight">Edgebric</span>
       </Link>
 
       {/* New Chat button */}
@@ -439,7 +431,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       )}
                     >
                       {thinkingChatIds?.has(item.id) ? (
-                        <Loader2 className="w-3 h-3 flex-shrink-0 mr-1.5 text-blue-500 animate-spin" />
+                        <span className="flex items-center gap-0.5 flex-shrink-0 mr-1.5">
+                          <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:0ms]" />
+                          <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:150ms]" />
+                          <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:300ms]" />
+                        </span>
                       ) : (
                         <MessageSquare className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400 dark:text-gray-500" />
                       )}
@@ -486,7 +482,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     }}
                   >
                     {isThinkingChat ? (
-                      <Loader2 className="w-3 h-3 flex-shrink-0 mr-1.5 text-blue-500 animate-spin" />
+                      <span className="flex items-center gap-0.5 flex-shrink-0 mr-1.5">
+                        <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:300ms]" />
+                      </span>
                     ) : (
                       <Users className="w-3 h-3 flex-shrink-0 mr-1.5 text-slate-400 dark:text-gray-500" />
                     )}

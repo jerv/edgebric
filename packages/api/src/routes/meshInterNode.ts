@@ -17,6 +17,7 @@ import {
   heartbeat,
   listNodeGroups,
 } from "../services/nodeRegistry.js";
+import { revokeSessionsByEmail } from "../services/sessionRevocation.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { config } from "../config.js";
@@ -39,10 +40,11 @@ const searchSchema = z.object({
 /**
  * POST /api/mesh/peer/search
  *
- * Search this node's sources. Only returns results from sources that have
- * allowExternalAccess enabled. The requesting node never sees restricted sources.
+ * Search this node's sources. Access control is handled by the query route
+ * on the requesting node (group-based). All sources on this node are
+ * searchable via mesh — if the requesting node can reach us, it's authorized.
  *
- * If datasetNames is omitted, searches ALL mesh-visible sources on this node.
+ * If datasetNames is omitted, searches ALL sources on this node.
  */
 meshInterNodeRouter.post("/search", validateBody(searchSchema), async (req, res) => {
   const meshReq = req as MeshRequest;
@@ -55,9 +57,8 @@ meshInterNodeRouter.post("/search", validateBody(searchSchema), async (req, res)
   }
 
   try {
-    // Get sources on this node that allow external access
-    const localSources = listDataSources({ orgId: cfg.orgId })
-      .filter((ds) => ds.allowExternalAccess);
+    // All sources on this node are mesh-searchable (access controlled by groups on the requesting side)
+    const localSources = listDataSources({ orgId: cfg.orgId });
 
     // If specific datasets requested, filter to those
     let targetDatasets: string[];
@@ -156,7 +157,6 @@ meshInterNodeRouter.get("/info", (_req, res) => {
   }
 
   const localSources = listDataSources({ orgId: cfg.orgId });
-  const meshVisibleCount = localSources.filter((ds) => ds.allowExternalAccess).length;
 
   // Look up group name
   let groupName: string | null = null;
@@ -172,7 +172,6 @@ meshInterNodeRouter.get("/info", (_req, res) => {
     role: cfg.role,
     version: process.env["npm_package_version"] ?? "0.0.0",
     sourceCount: localSources.length,
-    meshVisibleSourceCount: meshVisibleCount,
     groupId: cfg.groupId,
     groupName,
   });
@@ -187,6 +186,33 @@ meshInterNodeRouter.get("/info", (_req, res) => {
  * to display the correct provider (Google, Microsoft, etc.) on their login page
  * even though they don't configure OIDC themselves.
  */
+// ─── User Revocation ────────────────────────────────────────────────────────
+
+const revokeSchema = z.object({
+  email: z.string().email(),
+});
+
+/**
+ * POST /api/mesh/peer/revoke-user
+ *
+ * Called by the primary node when a user is deactivated/removed.
+ * Destroys all local sessions for the given email so the user
+ * is immediately locked out, even if this node can't reach the primary.
+ */
+meshInterNodeRouter.post("/revoke-user", validateBody(revokeSchema), (req, res) => {
+  const { email } = req.body as z.infer<typeof revokeSchema>;
+  const destroyed = revokeSessionsByEmail(email);
+
+  logger.info(
+    { email, destroyed, fromNode: (req as MeshRequest).meshNode.name },
+    "Mesh revocation: destroyed user sessions",
+  );
+
+  res.json({ ok: true, destroyed });
+});
+
+// ─── Auth Info ────────────────────────────────────────────────────────────
+
 meshInterNodeRouter.get("/auth-info", (_req, res) => {
   if (config.authMode === "none") {
     res.json({ provider: "none", providerName: "Solo Mode" });

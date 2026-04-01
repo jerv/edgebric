@@ -19,6 +19,7 @@ declare global {
         mode: "solo" | "admin" | "member";
         dataDir: string;
         port: number;
+        oidcProvider?: string;
         oidcIssuer?: string;
         oidcClientId?: string;
         oidcClientSecret?: string;
@@ -26,6 +27,9 @@ declare global {
         chatBaseUrl?: string;
         chatModel?: string;
         orgServerUrl?: string;
+        meshToken?: string;
+        secondaryNodeName?: string;
+        primaryEndpoint?: string;
       }) => Promise<{ success: boolean }>;
       // Ollama / AI Engine
       getOllamaStatus: () => Promise<{ installed: boolean; running: boolean; version: string | null }>;

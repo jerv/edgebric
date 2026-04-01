@@ -14,14 +14,15 @@ Whether you're a solo consultant managing client files, a small law firm with co
 
 ## Free to use. Pay if you want to support development.
 
-Edgebric is source-available under the [Business Source License 1.1](#license). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
+Edgebric is source-available under the [Business Source License 1.1](LICENSE). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
 
 If you find it useful, consider downloading from [edgebric.com](https://edgebric.com) — it's pay-what-you-want and directly supports continued development. But it's not required.
 
-**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [license section](#license) for full details.
+**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [full license](LICENSE) for details.
 
 ## What It Does
 
+- **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations, but no document ever leaves the machine it's stored on. This is the core of "data never moves, queries move."
 - **Document ingestion**: Upload PDF, DOCX, TXT, MD files. Automatic extraction, chunking, and embedding.
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
 - **Cloud integrations**: Sync documents from Google Drive (OneDrive, Dropbox, Notion, Confluence coming soon). Documents are pulled to your local machine — never stored in the cloud.
@@ -39,6 +40,20 @@ If you find it useful, consider downloading from [edgebric.com](https://edgebric
 - **Small businesses**: Law firms, medical practices, accounting firms, HR departments — anyone handling confidential information
 - **Teams and departments**: Organizations that need department-level data isolation enforced by architecture, not just access controls
 - **Privacy-conscious orgs**: Companies in regulated industries (healthcare, legal, finance) where data residency is non-negotiable
+
+## Mesh Networking — Data Never Moves
+
+Most knowledge platforms centralize your documents in one place. Edgebric does the opposite.
+
+Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When an employee asks a question, Edgebric queries all three nodes simultaneously and merges the results — but no document ever crosses the network. Only the query and the relevant answer snippets travel.
+
+- **One primary node** handles authentication; secondary nodes join the mesh with a shared token
+- **Node groups** let you organize by department, office, or sensitivity level
+- **Parallel fan-out** queries all nodes at once via `Promise.allSettled` — fast even across continents
+- **No replication** — each document lives on exactly one node
+- **Opt-in** — mesh can be enabled or disabled at any time without losing configuration
+
+A single Mac Mini M4 ($699) can serve 100-200 daily users. Three of them give you a globally distributed, fully private knowledge platform for under $2,100 in hardware.
 
 ## Architecture
 

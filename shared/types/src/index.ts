@@ -76,8 +76,6 @@ export interface DataSource {
   allowSourceViewing: boolean;
   /** Can this source's chunks be synced to member devices for Vault Mode? (default: true) */
   allowVaultSync: boolean;
-  /** Can members access this source from outside the local network? (default: true) */
-  allowExternalAccess: boolean;
 
   /** True when the dataset is being rebuilt (populated by API, not stored). */
   rebuilding?: boolean;
@@ -391,10 +389,10 @@ export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, getRecommendedModelTag, getVisible
 
 // ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────
 
-export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchRequest, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshStatus } from "./mesh.js";
+export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchResult, MeshSearchResponse, MeshNodeInfo, MeshAuthInfo, MeshStatus } from "./mesh.js";
 
 // ─── Cloud Storage Integrations (re-exported from cloud.ts) ──────────────────
 
-export type { CloudProvider, CloudConnectionStatus, CloudSyncFileStatus, CloudConnection, CloudSyncFile, CloudFolder, CloudProviderInfo } from "./cloud.js";
+export type { CloudProvider, CloudConnectionStatus, CloudFolderSyncStatus, CloudSyncFileStatus, CloudConnection, CloudFolderSync, CloudSyncFile, CloudFolder, CloudProviderInfo } from "./cloud.js";
 export { CLOUD_PROVIDERS } from "./cloud.js";
 

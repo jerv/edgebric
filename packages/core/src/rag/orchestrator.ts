@@ -76,8 +76,7 @@ function estimateMessagesTokens(messages: Message[]): number {
  * 1. Filter query (person + sensitive term → redirect)
  * 2. Search (hybrid BM25+vector with adaptive top-K, done by caller)
  * 3. If no relevant chunks:
- *    - strict mode → return NO_ANSWER_RESPONSE
- *    - permissive mode → generate from general knowledge
+ *    - generate from general knowledge (both strict and permissive modes)
  * 4. Use parent content for LLM context (parent-child retrieval)
  * 5. Build system prompt (strict vs permissive with inline citations)
  * 6. Generate streamed answer
@@ -117,22 +116,10 @@ export async function* answerStream(
   // ─── No relevant chunks ───────────────────────────────────────────────────
 
   if (relevantResults.length === 0) {
-    if (strict) {
-      // Strict mode: dead-end (current behavior)
-      const response: AnswerResponse = {
-        answer: NO_ANSWER_RESPONSE,
-        citations: [],
-        hasConfidentAnswer: false,
-        answerType: "general",
-        sessionId: session.id,
-        searchedDatasets: options.datasetNames ?? [options.datasetName],
-        candidateCount: options.candidateCount ?? 0,
-      };
-      yield { final: response };
-      return;
-    }
-
-    // Permissive mode: answer from general knowledge
+    // No relevant documents found — answer from general knowledge.
+    // Even in strict mode, refusing to answer general questions (e.g. "what is 2+2?")
+    // is unhelpful. Strict mode restricts the model from fabricating company-specific
+    // data, but general knowledge questions should still get answers.
     const generalPrompt = buildGeneralPrompt();
     const genContextTokens = estimateTokens(generalPrompt);
     const genMaxContext = options.maxContextTokens ?? 8192;

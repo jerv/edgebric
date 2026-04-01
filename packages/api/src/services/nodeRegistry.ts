@@ -176,7 +176,31 @@ export function listNodes(opts?: { orgId?: string; groupId?: string }): MeshNode
     ? db.select().from(meshNodes).where(and(...conditions))
     : db.select().from(meshNodes);
 
-  return query.all().map(rowToNode);
+  const rows = query.all();
+  if (rows.length === 0) return [];
+
+  // Batch-load group names to avoid N+1 queries in rowToNode
+  const groupIds = [...new Set(rows.map((r) => r.groupId).filter(Boolean))] as string[];
+  const groupNameMap = new Map<string, string>();
+  for (const gid of groupIds) {
+    const group = db.select({ name: nodeGroups.name }).from(nodeGroups)
+      .where(eq(nodeGroups.id, gid)).get();
+    if (group) groupNameMap.set(gid, group.name);
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    role: row.role as NodeRole,
+    status: row.status as MeshNode["status"],
+    endpoint: row.endpoint,
+    groupId: row.groupId,
+    groupName: row.groupId ? (groupNameMap.get(row.groupId) ?? null) : null,
+    sourceCount: row.sourceCount,
+    lastSeen: row.lastSeen,
+    version: row.version,
+    orgId: row.orgId,
+  }));
 }
 
 export function updateNode(id: string, data: {

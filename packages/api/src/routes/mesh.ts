@@ -21,6 +21,14 @@ import {
   updateNodeGroup,
   deleteNodeGroup,
 } from "../services/nodeRegistry.js";
+import { getPrimaryReachable } from "../services/meshScheduler.js";
+import {
+  getUserGroups,
+  assignUserToGroup,
+  removeUserFromGroup,
+  setUserGroups,
+  getGroupMembers,
+} from "../services/userMeshGroupStore.js";
 
 export const meshRouter: IRouter = Router();
 
@@ -205,27 +213,49 @@ meshRouter.get("/status", (_req, res) => {
     connectedNodes: onlineCount,
     totalNodes: nodes.length,
     primaryEndpoint: cfg.primaryEndpoint,
-    primaryReachable: null, // TODO: M2 will add primary health check
+    primaryReachable: getPrimaryReachable(),
   });
 });
 
-/** GET /api/mesh/query-targets — node groups for query targeting (available to all users) */
-meshRouter.get("/query-targets", (req, res) => {
-  const cfg = getMeshConfig();
-  if (!cfg || !cfg.enabled) {
-    res.json({ groups: [] });
-    return;
+// ─── mDNS Discovery (admin only) ─────────────────────────────────────────────
+
+/** GET /api/mesh/discover — scan LAN for Edgebric instances via mDNS (admin only) */
+meshRouter.get("/discover", requireAdmin, async (_req, res) => {
+  try {
+    // Dynamic import — bonjour-service is optional (desktop only)
+    const { default: Bonjour } = await import("bonjour-service");
+
+    const found: Array<{ name: string; host: string; port: number; endpoint: string; addresses: string[]; txt: Record<string, string> }> = [];
+    const browser = new Bonjour(undefined, () => { /* swallow errors */ });
+    const svc = browser.find({ type: "_edgebric._tcp" }, (service) => {
+      const protocol = (service.txt as Record<string, string>)?.protocol ?? "https";
+      found.push({
+        name: service.name,
+        host: service.host,
+        port: service.port,
+        endpoint: `${protocol}://${service.host}:${service.port}`,
+        addresses: service.addresses ?? [],
+        txt: (service.txt as Record<string, string>) ?? {},
+      });
+    });
+
+    // Browse for 5 seconds then return results
+    await new Promise((r) => setTimeout(r, 5000));
+    svc.stop();
+    browser.destroy();
+
+    // Filter out self
+    const cfg = getMeshConfig();
+    const selfName = cfg?.nodeName?.toLowerCase();
+    const filtered = selfName
+      ? found.filter((f) => f.name.toLowerCase() !== selfName)
+      : found;
+
+    res.json({ instances: filtered });
+  } catch {
+    // bonjour-service not available (web-only deployment)
+    res.status(501).json({ error: "mDNS discovery not available in this deployment" });
   }
-  const orgId = req.session.orgId ?? cfg.orgId;
-  const groups = listNodeGroups(orgId);
-  res.json({
-    groups: groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      color: g.color,
-      nodeCount: g.nodeCount,
-    })),
-  });
 });
 
 // ─── Nodes (admin only) ──────────────────────────────────────────────────────
@@ -453,4 +483,104 @@ meshRouter.delete("/groups/:id", (req, res) => {
 
   deleteNodeGroup(groupId);
   res.json({ ok: true });
+});
+
+// ─── User Group Assignments (admin only) ─────────────────────────────────────
+
+/** GET /api/mesh/users/:userId/groups — get a user's group assignments */
+meshRouter.get("/users/:userId/groups", requireAdmin, (req, res) => {
+  const userId = req.params["userId"] as string;
+  const groups = getUserGroups(userId);
+  res.json(groups);
+});
+
+const setUserGroupsSchema = z.object({
+  groupIds: z.array(z.string().uuid()),
+});
+
+/** PUT /api/mesh/users/:userId/groups — set a user's group assignments (replaces all) */
+meshRouter.put("/users/:userId/groups", requireAdmin, validateBody(setUserGroupsSchema), (req, res) => {
+  const email = req.session.email ?? "";
+  const orgId = req.session.orgId ?? "";
+  const userId = req.params["userId"] as string;
+  const { groupIds } = req.body as z.infer<typeof setUserGroupsSchema>;
+
+  setUserGroups({
+    userId,
+    groupIds,
+    orgId,
+    assignedBy: email,
+  });
+
+  recordAuditEvent({
+    eventType: "mesh.user_groups_updated",
+    actorEmail: email,
+    actorIp: req.ip,
+    resourceType: "user",
+    resourceId: userId,
+    details: { groupIds },
+  });
+
+  const updated = getUserGroups(userId);
+  res.json(updated);
+});
+
+const assignGroupSchema = z.object({
+  groupId: z.string().uuid(),
+});
+
+/** POST /api/mesh/users/:userId/groups — assign a user to a group */
+meshRouter.post("/users/:userId/groups", requireAdmin, validateBody(assignGroupSchema), (req, res) => {
+  const email = req.session.email ?? "";
+  const orgId = req.session.orgId ?? "";
+  const userId = req.params["userId"] as string;
+  const { groupId } = req.body as z.infer<typeof assignGroupSchema>;
+
+  const result = assignUserToGroup({ userId, groupId, orgId, assignedBy: email });
+  if (!result) {
+    res.json({ ok: true, alreadyAssigned: true });
+    return;
+  }
+
+  recordAuditEvent({
+    eventType: "mesh.user_group_assigned",
+    actorEmail: email,
+    actorIp: req.ip,
+    resourceType: "user",
+    resourceId: userId,
+    details: { groupId },
+  });
+
+  res.status(201).json(result);
+});
+
+/** DELETE /api/mesh/users/:userId/groups/:groupId — remove a user from a group */
+meshRouter.delete("/users/:userId/groups/:groupId", requireAdmin, (req, res) => {
+  const email = req.session.email ?? "";
+  const userId = req.params["userId"] as string;
+  const groupId = req.params["groupId"] as string;
+
+  const removed = removeUserFromGroup(userId, groupId);
+  if (!removed) {
+    res.status(404).json({ error: "User is not in this group" });
+    return;
+  }
+
+  recordAuditEvent({
+    eventType: "mesh.user_group_removed",
+    actorEmail: email,
+    actorIp: req.ip,
+    resourceType: "user",
+    resourceId: userId,
+    details: { groupId },
+  });
+
+  res.json({ ok: true });
+});
+
+/** GET /api/mesh/groups/:id/members — get users assigned to a group */
+meshRouter.get("/groups/:id/members", requireAdmin, (req, res) => {
+  const groupId = req.params["id"] as string;
+  const memberIds = getGroupMembers(groupId);
+  res.json({ memberIds });
 });

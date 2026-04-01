@@ -49,7 +49,7 @@ export const dataSources = sqliteTable("data_sources", {
   // Per-source security toggles (1 = allowed, 0 = blocked; default: all allowed)
   allowSourceViewing: integer("allow_source_viewing").notNull().default(1),
   allowVaultSync: integer("allow_vault_sync").notNull().default(1),
-  allowExternalAccess: integer("allow_external_access").notNull().default(1),
+  allowExternalAccess: integer("allow_external_access").notNull().default(0),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -275,6 +275,16 @@ export const nodeGroups = sqliteTable("node_groups", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** Maps users to mesh node groups for access control. Users can only search nodes in their assigned groups. */
+export const userMeshGroups = sqliteTable("user_mesh_groups", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(), // FK to users.id
+  groupId: text("group_id").notNull(), // FK to node_groups.id
+  orgId: text("org_id").notNull(),
+  assignedAt: text("assigned_at").notNull(),
+  assignedBy: text("assigned_by").notNull(), // email of admin who assigned
+});
+
 // ─── Integration Config ──────────────────────────────────────────────────────
 
 export const integrationConfig = sqliteTable("integration_config", {
@@ -289,16 +299,25 @@ export const cloudConnections = sqliteTable("cloud_connections", {
   id: text("id").primaryKey(),
   provider: text("provider").notNull(), // google_drive | onedrive | dropbox | notion | confluence
   displayName: text("display_name").notNull(),
-  dataSourceId: text("data_source_id").notNull(), // FK to data_sources.id (1:1)
   orgId: text("org_id").notNull(),
   accountEmail: text("account_email"),
-  folderId: text("folder_id"),
-  folderName: text("folder_name"),
+  status: text("status").notNull().default("active"), // active | disconnected
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const cloudFolderSyncs = sqliteTable("cloud_folder_syncs", {
+  id: text("id").primaryKey(),
+  connectionId: text("connection_id").notNull(), // FK to cloud_connections.id
+  dataSourceId: text("data_source_id").notNull(), // FK to data_sources.id
+  folderId: text("folder_id").notNull(),
+  folderName: text("folder_name").notNull(),
   syncIntervalMin: integer("sync_interval_min").notNull().default(60),
-  status: text("status").notNull().default("active"), // active | paused | error | disconnected
+  status: text("status").notNull().default("active"), // active | paused | error
   lastSyncAt: text("last_sync_at"),
   lastError: text("last_error"),
-  syncCursor: text("sync_cursor"), // provider-specific opaque cursor
+  syncCursor: text("sync_cursor"),
   createdBy: text("created_by").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -317,7 +336,7 @@ export const cloudOauthTokens = sqliteTable("cloud_oauth_tokens", {
 
 export const cloudSyncFiles = sqliteTable("cloud_sync_files", {
   id: text("id").primaryKey(),
-  connectionId: text("connection_id").notNull(), // FK to cloud_connections.id
+  folderSyncId: text("folder_sync_id").notNull(), // FK to cloud_folder_syncs.id
   externalFileId: text("external_file_id").notNull(),
   externalName: text("external_name").notNull(),
   externalModified: text("external_modified"),

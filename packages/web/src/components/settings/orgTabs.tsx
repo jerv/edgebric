@@ -37,6 +37,7 @@ export function MembersTab() {
   const [csvStep, setCsvStep] = useState<"upload" | "map" | "preview">("upload");
   const [csvPreview, setCsvPreview] = useState<{ email: string; role: string }[]>([]);
   const [csvError, setCsvError] = useState("");
+  const [editingGroupsFor, setEditingGroupsFor] = useState<string | null>(null);
 
   const { data: members = [], isLoading } = useQuery<User[]>({
     queryKey: ["admin", "org", "members"],
@@ -45,6 +46,51 @@ export function MembersTab() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<User[]>;
       }),
+  });
+
+  // Mesh groups — for user-group assignment column
+  const { data: meshGroups = [] } = useQuery<Array<{ id: string; name: string; color: string }>>({
+    queryKey: ["mesh-groups"],
+    queryFn: () =>
+      fetch("/api/mesh/groups", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [] as Array<{ id: string; name: string; color: string }>;
+        return r.json();
+      }),
+  });
+
+  // User group assignments — keyed by userId
+  const { data: userGroupMap = {} } = useQuery<Record<string, string[]>>({
+    queryKey: ["mesh-user-groups", members.map((m) => m.id).join(",")],
+    queryFn: async () => {
+      const map: Record<string, string[]> = {};
+      await Promise.all(members.map(async (m) => {
+        try {
+          const res = await fetch(`/api/mesh/users/${m.id}/groups`, { credentials: "same-origin" });
+          if (res.ok) {
+            const groups = await res.json() as Array<{ groupId: string }>;
+            map[m.id] = groups.map((g) => g.groupId);
+          }
+        } catch { /* ignore */ }
+      }));
+      return map;
+    },
+    enabled: members.length > 0 && meshGroups.length > 0,
+  });
+
+  const groupAssignMutation = useMutation({
+    mutationFn: async ({ userId, groupIds }: { userId: string; groupIds: string[] }) => {
+      const res = await fetch(`/api/mesh/users/${userId}/groups`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ groupIds }),
+      });
+      if (!res.ok) throw new Error("Failed to update groups");
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["mesh-user-groups"] });
+      setEditingGroupsFor(null);
+    },
   });
 
   const inviteMutation = useMutation({
@@ -342,13 +388,16 @@ export function MembersTab() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Role</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Create Data Sources</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Create Group Chats</th>
+                  {meshGroups.length > 0 && (
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wide">Mesh Access</th>
+                  )}
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-gray-800">
                 {pagedMembers.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-gray-500 text-xs">
+                    <td colSpan={meshGroups.length > 0 ? 7 : 6} className="px-4 py-8 text-center text-slate-400 dark:text-gray-500 text-xs">
                       {searchQuery ? "No members match your search." : "No members yet."}
                     </td>
                   </tr>
@@ -459,6 +508,62 @@ export function MembersTab() {
                           </button>
                         )}
                       </td>
+                      {meshGroups.length > 0 && (
+                        <td className="px-4 py-3">
+                          {m.role === "admin" || m.role === "owner" ? (
+                            <span className="text-xs text-slate-400 dark:text-gray-500">All groups</span>
+                          ) : editingGroupsFor === m.id ? (
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {meshGroups.map((g) => {
+                                const assigned = (userGroupMap[m.id] ?? []).includes(g.id);
+                                return (
+                                  <button
+                                    key={g.id}
+                                    onClick={() => {
+                                      const current = userGroupMap[m.id] ?? [];
+                                      const next = assigned ? current.filter((id) => id !== g.id) : [...current, g.id];
+                                      groupAssignMutation.mutate({ userId: m.id, groupIds: next });
+                                    }}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors",
+                                      assigned
+                                        ? "border-transparent text-white"
+                                        : "border-slate-200 dark:border-gray-700 text-slate-400 dark:text-gray-500 hover:border-slate-300 dark:hover:border-gray-600",
+                                    )}
+                                    style={assigned ? { backgroundColor: g.color } : undefined}
+                                  >
+                                    {g.name}
+                                  </button>
+                                );
+                              })}
+                              <button
+                                onClick={() => setEditingGroupsFor(null)}
+                                className="text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 ml-1"
+                              >
+                                Done
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setEditingGroupsFor(m.id)}
+                              className="flex flex-wrap gap-1 items-center group"
+                            >
+                              {(userGroupMap[m.id] ?? []).length === 0 ? (
+                                <span className="text-xs text-slate-300 dark:text-gray-600 group-hover:text-slate-500 dark:group-hover:text-gray-400 transition-colors">None</span>
+                              ) : (
+                                (userGroupMap[m.id] ?? []).map((gid) => {
+                                  const g = meshGroups.find((mg) => mg.id === gid);
+                                  return g ? (
+                                    <span key={gid} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-white" style={{ backgroundColor: g.color }}>
+                                      {g.name}
+                                    </span>
+                                  ) : null;
+                                })
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-right">
                         {isSelf ? null : (
                           <button

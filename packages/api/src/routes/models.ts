@@ -8,6 +8,7 @@ import { validateBody } from "../middleware/validate.js";
 import * as ollama from "../services/ollamaClient.js";
 import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog, MODEL_CATALOG_MAP, checkModelRAMFit } from "@edgebric/types";
 import type { InstalledModel, ModelsResponse } from "@edgebric/types";
+import { saveLastModel, clearLastModel } from "../services/modelPersistence.js";
 
 const tagSchema = z.object({
   tag: z.string().min(1, "tag is required").transform((s) => s.trim()),
@@ -231,6 +232,7 @@ modelsRouter.post("/load", validateBody(tagSchema), async (req, res) => {
     // Update runtime config so queries use this model
     runtimeChatConfig.model = tag;
     runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+    saveLastModel(tag);
 
     // Post-load resource snapshot
     const postLoad = ollama.getSystemResources();
@@ -273,6 +275,7 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
         // No models loaded — clear active so user can free all RAM
         runtimeChatConfig.model = "";
         newActive = null;
+        clearLastModel();
         logger.info("All chat models unloaded, active model cleared");
       }
     }

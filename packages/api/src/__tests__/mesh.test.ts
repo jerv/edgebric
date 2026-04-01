@@ -37,8 +37,10 @@ describe("Mesh API", () => {
       expect(res.body.nodeName).toBe("HQ Node");
       expect(res.body.enabled).toBe(true);
       expect(typeof res.body.nodeId).toBe("string");
-      expect(typeof res.body.meshToken).toBe("string");
-      expect(res.body.meshToken.length).toBeGreaterThan(8);
+      // Token should be a 64-char hex string (32 bytes)
+      expect(res.body.meshToken).toMatch(/^[0-9a-f]{64}$/);
+      // Primary node should have null primaryEndpoint
+      expect(res.body.primaryEndpoint).toBeNull();
     });
 
     it("requires primaryEndpoint for secondary nodes", async () => {
@@ -61,6 +63,31 @@ describe("Mesh API", () => {
         .post("/api/mesh/config")
         .send({ role: "primary", nodeName: "" });
       expect(res.status).toBe(400);
+    });
+
+    it("initializes mesh as secondary with primaryEndpoint", async () => {
+      // First delete the existing primary config so we can init as secondary
+      await adminAgent(orgId).delete("/api/mesh/config");
+
+      const res = await adminAgent(orgId)
+        .post("/api/mesh/config")
+        .send({
+          role: "secondary",
+          nodeName: "Branch Office",
+          primaryEndpoint: "https://primary.example.com:3001",
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.role).toBe("secondary");
+      expect(res.body.nodeName).toBe("Branch Office");
+      expect(res.body.primaryEndpoint).toBe("https://primary.example.com:3001");
+      expect(res.body.enabled).toBe(true);
+      expect(res.body.meshToken).toMatch(/^[0-9a-f]{64}$/);
+
+      // Re-init as primary for subsequent tests
+      await adminAgent(orgId).delete("/api/mesh/config");
+      await adminAgent(orgId)
+        .post("/api/mesh/config")
+        .send({ role: "primary", nodeName: "HQ Node" });
     });
   });
 
@@ -139,13 +166,7 @@ describe("Mesh API", () => {
     });
   });
 
-  describe("GET /api/mesh/query-targets", () => {
-    it("returns query targets for member", async () => {
-      const res = await memberAgent(orgId).get("/api/mesh/query-targets");
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.groups)).toBe(true);
-    });
-  });
+  // query-targets endpoint removed — groups are security boundaries, not user-selectable filters
 
   // ─── Nodes ──────────────────────────────────────────────────────────────────
 

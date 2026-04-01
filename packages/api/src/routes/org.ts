@@ -19,6 +19,9 @@ import {
   getUserInOrg,
   getUser,
 } from "../services/userStore.js";
+import { removeAllUserGroups } from "../services/userMeshGroupStore.js";
+import { revokeSessionsByEmail } from "../services/sessionRevocation.js";
+import { broadcastRevocation } from "../services/meshClient.js";
 
 export const orgRouter: IRouter = Router();
 
@@ -223,11 +226,21 @@ orgRouter.delete("/members/:id", (req, res) => {
     return;
   }
 
+  const targetEmail = targetUser.email;
+
+  // Clean up mesh group assignments
+  removeAllUserGroups(userId);
+
   const removed = removeUser(userId);
   if (!removed) {
     res.status(404).json({ error: "User not found" });
     return;
   }
+
+  // Revoke sessions locally and broadcast to all mesh nodes
+  revokeSessionsByEmail(targetEmail);
+  broadcastRevocation(targetEmail).catch(() => { /* best effort */ });
+
   res.json({ ok: true });
 });
 

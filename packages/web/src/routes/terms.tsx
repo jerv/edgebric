@@ -26,11 +26,14 @@ function TermsOfService() {
         <div className="mt-8 space-y-8 text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
           <Section title="1. Software license">
             <p>
-              Edgebric is available in two modes. <strong>Solo mode</strong> is free for individual
-              use with no time limit, license key, or account required. <strong>Org mode</strong> (multi-user
-              with SSO authentication) requires a commercial license — either a perpetual license or
-              a monthly subscription. These terms govern your use of the Edgebric software in either
-              mode, along with any updates or documentation provided with it.
+              Edgebric is source-available under the{" "}
+              <a href="https://github.com/edgebric/edgebric/blob/main/LICENSE" className="text-slate-900 dark:text-gray-100 underline">
+                Business Source License 1.1
+              </a>
+              . You may use it for personal and internal business use — including production use —
+              without limitation on the number of users or features. No license key, subscription, or
+              account is required. These terms govern your use of the Edgebric software, along with
+              any updates or documentation provided with it.
             </p>
           </Section>
 
@@ -53,11 +56,12 @@ function TermsOfService() {
           </Section>
 
           <Section title="4. Restrictions">
-            <p>You may not:</p>
+            <p>Under the Business Source License 1.1, you may not:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Redistribute, sublicense, or resell the Edgebric software</li>
-              <li>Reverse engineer, decompile, or disassemble the software beyond what applicable law permits</li>
-              <li>Remove or alter any proprietary notices or labels</li>
+              <li>Repackage, rebrand, or sell Edgebric or derivative works as a commercial product</li>
+              <li>Offer Edgebric as a hosted or managed service to third parties</li>
+              <li>Remove or alter any proprietary notices, license text, or branding</li>
+              <li>Use the &quot;Edgebric&quot; name or logos for derivative works (forks must use a different name)</li>
               <li>Use the software to process data in violation of applicable privacy laws</li>
             </ul>
           </Section>
@@ -104,8 +108,13 @@ function TermsOfService() {
 
           <Section title="9. Updates and support">
             <p>
-              Software updates may be provided at the discretion of Edgebric's developers.
-              Support terms are governed by your organization's license agreement.
+              Software updates are provided on a best-effort basis. Community support is available
+              through{" "}
+              <a href="https://github.com/edgebric/edgebric/issues" className="text-slate-900 dark:text-gray-100 underline">
+                GitHub Issues
+              </a>
+              . No SLA or guaranteed response times. For enterprise support contracts,
+              contact support@edgebric.com.
             </p>
           </Section>
 
@@ -121,8 +130,8 @@ function TermsOfService() {
           <Section title="Contact">
             <p>
               For questions about these terms, contact{" "}
-              <a href="mailto:legal@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
-                legal@edgebric.com
+              <a href="mailto:support@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
+                support@edgebric.com
               </a>.
             </p>
           </Section>
