@@ -551,8 +551,10 @@ cloudConnectionsRouter.get("/folder-syncs/:id/files", (req, res) => {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getBaseUrl(_req: { protocol: string; get: (name: string) => string | undefined }): string {
-  // Use frontendUrl origin — the desktop app sets this to the correct
-  // protocol://hostname:port for every mode (solo, primary, secondary).
-  const url = new URL(config.frontendUrl);
-  return url.origin;
+  // Always use http://localhost:{port} for cloud OAuth redirect URIs.
+  // The OAuth flow runs in the user's local browser (desktop app), so
+  // localhost always reaches the API server. This lets us register a
+  // single redirect URI in the product's Google/OneDrive OAuth console
+  // that works for every deployment — no per-org configuration needed.
+  return `http://localhost:${config.port}`;
 }
