@@ -33,3 +33,17 @@
 - `packages/api/src/routes/meshInterNode.ts` — added `meshVisibleSourceCount` to `/info` response
 
 **Status**: All 39 mesh tests passing.
+
+## 2026-03-31 — agent/mesh-sidebar-fix (mesh agent)
+
+### Fixed sidebar node click → blank page + node count off-by-one
+
+**Problem 1:** Clicking the node name ("Main Office") in the sidebar navigated to `/organization?tab=network`, but in solo auth mode the OrganizationPage early-returned with a "Multi-user features" lock screen before rendering any tab content.
+
+**Problem 2:** Mesh status showed "0 of 0 nodes online" because `/api/mesh/status` only counted nodes in the `meshNodes` table (remote peers). The local node is stored in `meshConfig`, not `meshNodes`, so it was never included.
+
+**Changes:**
+- `packages/web/src/components/OrganizationPage.tsx` — skip solo-mode block when `tab === "network"`
+- `packages/api/src/routes/mesh.ts` — add +1 to `connectedNodes` and `totalNodes` to include self
+
+**Status**: All 73 mesh tests passing.
