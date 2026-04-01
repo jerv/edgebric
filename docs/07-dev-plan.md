@@ -242,7 +242,7 @@ edgebric/
 
 | Temptation | Why Skip |
 |---|---|
-| Billing / subscriptions | License validation stubbed — not needed until paid distribution |
+| Billing / subscriptions | All features free — revenue from pay-what-you-want downloads + GitHub Sponsors |
 | Multi-office federation | Same-network mesh first, cross-network later |
 | Mobile apps | Phase 7 — desktop product ships first |
 | Custom AI model training | Out of scope — use off-the-shelf models |

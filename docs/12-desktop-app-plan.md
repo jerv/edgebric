@@ -212,7 +212,6 @@ interface EdgebricConfig {
   orgServerUrl?: string;       // Member mode
   ollamaAutoUpdate?: boolean;  // default: true
   launchAtLogin?: boolean;     // default: false
-  licenseKey?: string;         // Stubbed, not validated
 }
 ```
 

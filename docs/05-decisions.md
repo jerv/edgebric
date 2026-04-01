@@ -101,7 +101,7 @@ Authentication posture varies by app mode and surface, designed to maximize priv
 | Mode | Auth | Description |
 |---|---|---|
 | **Solo** (free) | None — no login, no OIDC | Single user on their own machine. Full product, free forever. |
-| **Admin** (org) | OIDC/SSO setup required | Multi-user org server. Admin configures OIDC provider, sets admin emails. License required. |
+| **Admin** (org) | OIDC/SSO setup required | Multi-user org server. Admin configures OIDC provider, sets admin emails. Free. |
 | **Member** (coming soon) | Connects to org server | Employee connects to an existing Admin-mode instance on the network. |
 
 **Auth by surface (Admin/Member modes):**
@@ -113,7 +113,7 @@ Authentication posture varies by app mode and surface, designed to maximize priv
 | Employee incognito mode (V2) | Biometric (vault access only) | None — no server contact during query |
 | Meeting mode | Authenticated user + room code | Identity visible to session participants |
 
-**Solo mode:** No auth at all. No OIDC, no login screen, no session management. The user launches the app and starts querying. The paywall is the OIDC setup step — configuring SSO for multi-user access requires a license.
+**Solo mode:** No auth at all. No OIDC, no login screen, no session management. The user launches the app and starts querying. Admin mode simply requires configuring an OIDC provider during setup — no paywall, no license.
 
 **Session cookies (Admin/Member):** httpOnly, session-file-store. No localStorage tokens.
 
