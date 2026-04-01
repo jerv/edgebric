@@ -1,3 +1,5 @@
+> **Status: MOSTLY CURRENT** — Architecture diagrams are accurate. References to `packages/edge/` are stale (removed, replaced by Ollama client in packages/api). The tech stack section may reference old dependencies.
+
 # Technical Architecture
 
 ---

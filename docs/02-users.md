@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Personas are accurate. "Meeting Organizer" persona is aspirational (Meeting Mode not yet built).
+
 # Users & Stories
 
 ---

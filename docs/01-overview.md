@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Accurately describes the product vision and architecture. "Meeting Mode" (Mode 3) is not yet implemented.
+
 # Overview — Vision, Problem & Positioning
 
 ---

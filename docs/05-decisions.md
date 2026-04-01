@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Architectural decisions are still valid. Some "open questions" may have been resolved — verify against code.
+
 # Design Decisions & Open Questions
 
 ---

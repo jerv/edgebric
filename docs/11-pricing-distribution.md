@@ -1,3 +1,5 @@
+> **Status: CURRENT** — Reflects the decided business model as of 2026-03-30. Stripe checkout on marketing website is not yet implemented (placeholder only).
+
 # Pricing & Distribution Plan
 
 Last updated: 2026-03-30

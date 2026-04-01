@@ -1,3 +1,5 @@
+> **Status: ASPIRATIONAL** — Demo script for showcasing mesh networking. Hardware setup is accurate but demo data is hypothetical. Model reference (Qwen3.5-4B) may not match current default (qwen3:4b).
+
 # Demo Plan — Edgebric
 
 ---
