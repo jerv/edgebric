@@ -69,8 +69,6 @@ export interface EdgebricConfig {
   /** Whether Edgebric launches automatically when you log in. Default: false. */
   launchAtLogin?: boolean;
 
-  /** License key for org mode. Required to enable OIDC/SSO/multi-user features. */
-  licenseKey?: string;
 }
 
 /** Config file location: DATA_DIR/.edgebric.json */

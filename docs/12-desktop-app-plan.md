@@ -12,7 +12,7 @@ A macOS Electron app with **three modes** that manages the Edgebric server lifec
 
 **Three app modes (one binary):**
 - **Solo** — Free, no auth, single user. Full product for personal use on your own machine.
-- **Admin** — Org server with OIDC/SSO. Multi-user. License enforcement stubbed (not yet active).
+- **Admin** — Org server with OIDC/SSO. Multi-user. Free, no license required.
 - **Member** — Connect to an existing Admin-mode instance on the network. Setup wizard supports it; full flow may be incomplete.
 
 **This is NOT a full Electron app with the web UI embedded.** The web UI runs in the browser. The desktop app is a lightweight server manager + setup wizard that lives in the menu bar.
@@ -154,7 +154,7 @@ All IPC handlers are registered in `ipc.ts`:
 | `models-pick-gguf` | File picker for custom GGUF |
 | `models-import-gguf` | Import GGUF file as model |
 | `models-search` | Search Ollama registry by name |
-| `validate-license` | **STUB** — returns `{ valid: true }` |
+| ~~`validate-license`~~ | Removed — no feature gating |
 | `instance-wipe` | Delete all data, reset to setup |
 | `instance-reset-auth` | Clear sessions, revert to Solo mode |
 | `instance-reconfigure-auth` | Change OIDC provider without wiping data |
@@ -254,14 +254,9 @@ Saved to: `~/.edgebric.json`
 - [x] Secondary node setup (mesh token + primary endpoint)
 - [ ] System requirements check (RAM >= 8GB, disk >= 10GB)
 
-### Phase D3 — Licensing (Admin Mode Only) STUBBED
+### Phase D3 — Licensing REMOVED
 
-- [x] Config field for licenseKey
-- [x] `validate-license` IPC handler — currently returns `{ valid: true }` (no-op)
-- [ ] Actual license key validation (LemonSqueezy/Paddle API)
-- [ ] License status persistence and revalidation
-- [ ] Expired subscription handling (revert to Solo mode)
-- [ ] License activation window
+Licensing/feature gating has been removed. All features are free. Revenue from pay-what-you-want downloads and GitHub Sponsors.
 
 ### Phase D4 — Auto-Update NOT STARTED
 

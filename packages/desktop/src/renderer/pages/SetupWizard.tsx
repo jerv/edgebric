@@ -143,7 +143,6 @@ type StepId =
   | "newType"         // Solo or Organization?
   | "connectType"     // Member or Secondary node?
   | "dataDir"
-  | "license"
   | "authProvider"
   | "authCredentials"
   | "adminAccess"
@@ -154,7 +153,7 @@ type StepId =
 function getSteps(intent: SetupIntent, mode: EdgebricMode, connectType: ConnectType): StepId[] {
   if (intent === "new") {
     if (mode === "solo") return ["intent", "newType", "dataDir", "aiEngine"];
-    return ["intent", "newType", "dataDir", "license", "authProvider", "authCredentials", "adminAccess", "aiEngine"];
+    return ["intent", "newType", "dataDir", "authProvider", "authCredentials", "adminAccess", "aiEngine"];
   }
   // Connect to existing
   if (connectType === "member") return ["intent", "connectType", "memberConnect", "dataDir", "aiEngine"];
@@ -189,11 +188,6 @@ export default function SetupWizard({ onComplete }: Props) {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
-
-  const [licenseKey, setLicenseKey] = useState("");
-  const [licenseValid, setLicenseValid] = useState(false);
-  const [licenseError, setLicenseError] = useState("");
-  const [licenseValidating, setLicenseValidating] = useState(false);
 
   // Member + secondary connect — shared mDNS discovery state
   const [discoveredInstances, setDiscoveredInstances] = useState<Array<{ name: string; host: string; port: number; addresses: string[]; endpoint?: string }>>([]);
@@ -266,8 +260,6 @@ export default function SetupWizard({ onComplete }: Props) {
         return true;
       case "dataDir":
         return dataDir.trim().length > 0;
-      case "license":
-        return licenseValid;
       case "authProvider":
         return authProvider.length > 0;
       case "authCredentials":
@@ -660,62 +652,6 @@ export default function SetupWizard({ onComplete }: Props) {
                 placeholder="/Users/you/Edgebric"
               />
               <p className="hint">This folder will be created if it doesn't exist.</p>
-            </div>
-          </>
-        )}
-
-        {/* ─── Step: License ───────────────────────────────────────────── */}
-        {currentStep === "license" && (
-          <>
-            <h2>License Key</h2>
-            <p className="description">
-              A license is required to enable multi-user organization mode with SSO authentication.
-            </p>
-            <div className="form-fields">
-              <div className="field-group">
-                <label className="field-label">License Key</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="text"
-                    value={licenseKey}
-                    onChange={(e) => { setLicenseKey(e.target.value); setLicenseValid(false); setLicenseError(""); }}
-                    placeholder="XXXX-XXXX-XXXX-XXXX"
-                    className="field-input"
-                    style={{ flex: 1, fontFamily: "monospace" }}
-                  />
-                  <button
-                    className="btn-primary"
-                    disabled={!licenseKey.trim() || licenseValidating}
-                    onClick={async () => {
-                      setLicenseValidating(true);
-                      setLicenseError("");
-                      try {
-                        const result = await window.electronAPI.validateLicense(licenseKey.trim());
-                        if (result.valid) {
-                          setLicenseValid(true);
-                        } else {
-                          setLicenseError(result.error ?? "Invalid license key");
-                        }
-                      } catch {
-                        setLicenseError("Could not validate license key");
-                      } finally {
-                        setLicenseValidating(false);
-                      }
-                    }}
-                  >
-                    {licenseValidating ? "Validating..." : "Activate"}
-                  </button>
-                </div>
-                {licenseError && <p className="hint" style={{ color: "#e53e3e" }}>{licenseError}</p>}
-                {licenseValid && <p className="hint" style={{ color: "#38a169" }}>License activated successfully.</p>}
-              </div>
-              <p className="hint" style={{ marginTop: 16 }}>
-                Don't have a license?{" "}
-                <a href="https://edgebric.com/pricing" target="_blank" rel="noopener noreferrer" className="docs-link">
-                  Purchase one here
-                </a>
-                {" "}or go back and choose "Just for me" to use Edgebric for free.
-              </p>
             </div>
           </>
         )}
