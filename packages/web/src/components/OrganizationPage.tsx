@@ -229,7 +229,7 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
             </div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-gray-100">Multi-user features</h2>
             <p className="text-sm text-slate-500 dark:text-gray-400 max-w-md mx-auto">
-              Organization mode enables SSO authentication, team members, group chats, and shared data sources across your network. A license is required to enable these features.
+              Organization mode enables SSO authentication, team members, group chats, and shared data sources across your network.
             </p>
             <Link
               to="/account"

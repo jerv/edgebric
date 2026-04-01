@@ -250,27 +250,15 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 
 ### PRICING-01 — Pricing & Distribution Model
 
-**Decision:** Self-service distribution. Solo mode is free forever. License required only for multi-user (org) mode. See [11-pricing-distribution.md](11-pricing-distribution.md) for full details.
+**Decision:** Self-service distribution. All features are free. Revenue from pay-what-you-want convenience downloads and GitHub Sponsors. See [11-pricing-distribution.md](11-pricing-distribution.md) for full details.
 
 **Summary:**
-- **Solo mode** — free, full product, single user, no auth, no time limit. This replaces the 30-day trial concept.
-- **Org mode paywall** — configuring OIDC/SSO for multi-user access requires a license.
-- **Perpetual license**: $499 one-time (free updates within major version, discount offered for major version upgrades — amount uncommitted)
-- **Subscription**: $49/mo (always latest, monthly only — costs more than license over 12 months)
-- No per-user pricing. Unlimited users on the node.
-- No sales team. No tiered pricing at launch.
+- **All features free** — Solo mode, Admin/org mode, mesh networking, everything. No feature gating. No license keys.
+- **Pay-what-you-want** — Pre-built `.dmg` download via website ($5 minimum, $50 recommended). Source code always free to build.
+- **No per-user pricing.** No sales team. No tiered pricing.
 - Distribution via website + GUI installer (Electron). macOS only at launch.
-- Payments/licensing via LemonSqueezy or Paddle (handles keys, tax, delivery).
-
-**Hardware cost comparison (marketing angle):**
-
-| | Edgebric | Cloud HR AI (typical) |
-|---|---|---|
-| Solo user | Free (runs on any Mac) | $30-60/mo per user |
-| 15-person company | $499 license + $499 Mac Mini = $998 total | $3,600-$9,000/year |
-| Break-even vs cloud | Month 1 | Never (recurring) |
-| Data custody | Customer owns hardware + data | Vendor holds data |
-| Ongoing costs | Electricity (~$10/year) | Subscription + overages |
+- Payments via Stripe Checkout.
+- GitHub Sponsors for recurring donations.
 
 **On-prem software model:** We sell software, not a service. The customer buys/owns the hardware. This means:
 - SOC 2 barely applies to us (we never touch their data)

@@ -14,7 +14,6 @@ import {
   ChevronDown,
   LogOut,
   MessageSquare,
-  Network,
   Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -119,49 +118,6 @@ interface SidebarProps {
   onNavigate?: () => void;
 }
 
-function MeshStatusIndicator() {
-  const { data: status } = useQuery({
-    queryKey: ["mesh-status"],
-    queryFn: async () => {
-      const res = await fetch("/api/mesh/status", { credentials: "same-origin" });
-      return res.json() as Promise<{
-        enabled: boolean;
-        connectedNodes: number;
-        totalNodes: number;
-        nodeName: string | null;
-      }>;
-    },
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
-
-  if (!status?.enabled) return null;
-
-  const online = status.connectedNodes;
-  const total = status.totalNodes;
-  const allOnline = online === total;
-
-  return (
-    <Link
-      to="/organization"
-      search={{ tab: "network" }}
-      className="mx-2 px-3 py-1.5 flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 rounded-lg transition-colors"
-    >
-      <Network className="w-3.5 h-3.5 flex-shrink-0" />
-      <span className="flex-1 truncate">{status.nodeName ?? "Mesh"}</span>
-      <span className={cn(
-        "flex items-center gap-1",
-        allOnline ? "text-emerald-500" : "text-amber-500",
-      )}>
-        <span className={cn(
-          "w-1.5 h-1.5 rounded-full",
-          allOnline ? "bg-emerald-500" : "bg-amber-500",
-        )} />
-        {online}/{total}
-      </span>
-    </Link>
-  );
-}
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const user = useUser();
@@ -558,9 +514,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           })}
         </div>
       )}
-
-      {/* Mesh status indicator */}
-      <MeshStatusIndicator />
 
       {/* Bottom: Organization + Account */}
       <div className="px-2 border-t border-slate-100 dark:border-gray-800 pt-2 mt-2 space-y-0.5">

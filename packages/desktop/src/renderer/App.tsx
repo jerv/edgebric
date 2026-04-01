@@ -37,8 +37,6 @@ declare global {
       startOllama: () => Promise<{ success: boolean; external?: boolean; error?: string }>;
       stopOllama: () => Promise<{ success: boolean; error?: string }>;
       onOllamaDownloadProgress: (callback: (percent: number) => void) => () => void;
-      // License
-      validateLicense: (key: string) => Promise<{ valid: boolean; error?: string }>;
       // mDNS Discovery
       discoverInstances: () => Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>;
       // Settings

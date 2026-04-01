@@ -200,7 +200,7 @@ function GeneralTab() {
             <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Enable Organization Mode</h3>
           </div>
           <p className="text-xs text-slate-500 dark:text-gray-400">
-            Upgrade to organization mode to enable SSO authentication, invite team members, create group chats, and share data sources across your network. Requires a license key.
+            Upgrade to organization mode to enable SSO authentication, invite team members, create group chats, and share data sources across your network.
           </p>
           <p className="text-xs text-slate-400 dark:text-gray-500">
             To enable organization mode, open the Edgebric desktop app and go to Instance Management. Your existing data and sources will be preserved.

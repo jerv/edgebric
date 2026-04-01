@@ -50,9 +50,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("ollama-download-progress", handler);
   },
 
-  // License
-  validateLicense: (key: string) => ipcRenderer.invoke("validate-license", key),
-
   // mDNS Discovery
   discoverInstances: () => ipcRenderer.invoke("discover-instances") as Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>,
 

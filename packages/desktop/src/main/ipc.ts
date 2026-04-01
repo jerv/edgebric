@@ -659,32 +659,6 @@ export function registerIpcHandlers() {
     }
   });
 
-  // ─── License Validation ────────────────────────────────────────────────────
-
-  /**
-   * Validate a license key. Returns { valid: true } if the key is accepted.
-   * TODO: Replace placeholder with LemonSqueezy/Paddle API call before distribution.
-   */
-  ipcMain.handle("validate-license", async (_event, key: string) => {
-    const trimmed = key.trim();
-    if (!trimmed) return { valid: false, error: "License key is required" };
-
-    // Placeholder: accept any non-empty key that looks like a license (8+ chars)
-    // In production, this will POST to LemonSqueezy API to validate
-    if (trimmed.length < 8) {
-      return { valid: false, error: "Invalid license key format" };
-    }
-
-    // Store the key in config
-    const config = loadConfig();
-    if (config) {
-      config.licenseKey = trimmed;
-      saveConfig(config);
-    }
-
-    return { valid: true };
-  });
-
   // ─── Instance Management ──────────────────────────────────────────────────
 
   /** Full wipe: stop server, delete data dir contents, remove config. Triggers re-setup on next launch. */
