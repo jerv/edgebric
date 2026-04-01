@@ -211,6 +211,13 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
 
   const visibleTabs = TABS.filter((t) => !t.adminOnly || isAdmin);
 
+  // Redirect non-admins away from admin-only tabs
+  const tabDef = TABS.find((t) => t.id === tab);
+  if (tabDef?.adminOnly && !isAdmin) {
+    void navigate({ to: "/organization", search: { tab: "general" }, replace: true });
+    return null;
+  }
+
   if (isSolo && tab !== "network") {
     return (
       <div className="h-full overflow-y-auto">

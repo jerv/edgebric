@@ -1,5 +1,17 @@
 # Worklog
 
+## 2026-03-31 — agent/cloud-work (cloud sync agent)
+
+### Fixed blank page when non-admin clicks Integrations
+
+**Problem:** Non-admin users navigating to `/organization?tab=integrations` (via legacy `/integrations` redirect or direct URL) saw blank content. The tab was hidden from `visibleTabs` and content guard blocked rendering.
+
+**Fix:** Added redirect in `OrganizationPage` — if current tab is `adminOnly` and user isn't admin, redirect to `"general"` tab.
+
+**File:** `packages/web/src/components/OrganizationPage.tsx`
+
+---
+
 ## 2026-03-31 — agent/cloud-fixes (cloud sync agent)
 
 ### Fixed 15 failing cloudConnections tests
