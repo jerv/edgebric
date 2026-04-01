@@ -59,3 +59,15 @@
 - `packages/api/src/routes/mesh.ts` — add +1 to `connectedNodes` and `totalNodes` to include self
 
 **Status**: All 73 mesh tests passing.
+
+## 2026-03-31 — agent/mesh-discovery-fix (mesh agent)
+
+### Fixed LAN discovery showing self + icon change
+
+**Problem:** "Scan LAN" showed the user's own node in results (e.g. "edgebric" at `https://edgebric.local:3001`). The self-filter compared `cfg.nodeName` (user-set, e.g. "Main Office") against the mDNS service name (hostname-derived, e.g. "edgebric") — these never matched.
+
+**Changes:**
+- `packages/api/src/routes/mesh.ts` — filter self by `os.hostname()` + `config.port` instead of node name
+- `packages/web/src/components/settings/NetworkTab.tsx` — changed scan icon from `Wifi` to `Radar`
+
+**Status**: All 34 mesh route tests passing, web typecheck clean.
