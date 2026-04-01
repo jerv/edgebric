@@ -205,13 +205,14 @@ meshRouter.get("/status", (_req, res) => {
   const nodes = listNodes({ orgId: cfg.orgId });
   const onlineCount = nodes.filter((n) => n.status === "online").length;
 
+  // +1 for self (this node is always online and isn't in the meshNodes table)
   res.json({
     enabled: true,
     role: cfg.role,
     nodeId: cfg.nodeId,
     nodeName: cfg.nodeName,
-    connectedNodes: onlineCount,
-    totalNodes: nodes.length,
+    connectedNodes: onlineCount + 1,
+    totalNodes: nodes.length + 1,
     primaryEndpoint: cfg.primaryEndpoint,
     primaryReachable: getPrimaryReachable(),
   });
