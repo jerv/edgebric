@@ -368,6 +368,13 @@ function VaultSetupWizard() {
     (m) => m.name.split(":")[0] === EMBEDDING_MODEL_PREFIX,
   );
 
+  // Auto-start sync when AI engine + models are ready and sync hasn't happened yet
+  useEffect(() => {
+    if (modelsStatus === "ready" && syncStatus === "idle") {
+      void startSync();
+    }
+  }, [modelsStatus, syncStatus, startSync]);
+
   // Determine which step we're on
   const step =
     engineStatus !== "connected"
@@ -506,14 +513,14 @@ function VaultSetupWizard() {
         {/* Step 3: Sync Data */}
         <StepRow
           number={3}
-          title="Sync Company Data"
+          title="Company Data"
           active={step === 3}
           complete={syncStatus === "done"}
         >
           {syncStatus === "done" ? (
             <div className="flex items-center justify-between">
               <p className="text-xs text-emerald-600">
-                {syncProgress || "Synced and indexed"}
+                {syncProgress || "Synced and indexed — auto-updates when you query"}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -534,22 +541,24 @@ function VaultSetupWizard() {
             <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-gray-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> {syncProgress}
             </div>
-          ) : (
+          ) : syncStatus === "error" ? (
             <div className="space-y-2.5">
-              <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
-                Download and index company documents locally for search.
+              <p className="text-xs text-red-500 flex items-center gap-1.5">
+                <XCircle className="w-3.5 h-3.5" /> {syncError}
               </p>
               <button
                 onClick={() => void startSync()}
-                disabled={modelsStatus !== "ready"}
-                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors"
               >
-                Sync Data
+                Retry Sync
               </button>
-              {syncStatus === "error" && (
-                <p className="text-xs text-red-500 flex items-center gap-1.5">
-                  <XCircle className="w-3.5 h-3.5" /> {syncError}
-                </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
+              {modelsStatus === "ready" ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Starting sync...</>
+              ) : (
+                <>Waiting for AI engine...</>
               )}
             </div>
           )}
