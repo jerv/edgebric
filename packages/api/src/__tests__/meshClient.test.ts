@@ -53,7 +53,7 @@ describe("Mesh Client", () => {
       await searchRemoteNode(nodeId, "test query", ["ds1"], 5);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, opts] = mockFetch.mock.calls[0];
+      const [url, opts] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://remote.local:3001/api/mesh/peer/search");
       expect(opts.method).toBe("POST");
       expect(opts.headers["Authorization"]).toBe(`MeshToken ${meshToken}`);
@@ -140,7 +140,7 @@ describe("Mesh Client", () => {
       const result = await sendHeartbeat(nodeId, 10);
       expect(result).toBe(true);
 
-      const [url, opts] = mockFetch.mock.calls[0];
+      const [url, opts] = mockFetch.mock.calls[0]!;
       expect(url).toBe("https://remote.local:3001/api/mesh/peer/heartbeat");
       expect(opts.method).toBe("POST");
       const body = JSON.parse(opts.body);

@@ -73,7 +73,7 @@ export async function routedSearch(
     for (const chunk of nodeResponse.chunks) {
       // Parse chunk index from chunkId (format: "{datasetName}-{index}")
       const idxMatch = chunk.chunkId.match(/-(\d+)$/);
-      const chunkIndex = idxMatch ? parseInt(idxMatch[1], 10) : 0;
+      const chunkIndex = idxMatch?.[1] ? parseInt(idxMatch[1], 10) : 0;
 
       remoteRouted.push({
         chunkId: chunk.chunkId,

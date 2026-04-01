@@ -84,13 +84,14 @@ export async function searchRemoteNode(
       return null;
     }
 
-    const body = await resp.json();
+    const body: unknown = await resp.json();
     // Validate that the response has the expected shape
-    if (!body || !Array.isArray(body.chunks) || typeof body.nodeId !== "string") {
+    const obj = body as Record<string, unknown> | null;
+    if (!obj || !Array.isArray(obj.chunks) || typeof obj.nodeId !== "string") {
       logger.warn({ nodeId, nodeName: node.name }, "Mesh search: malformed response from remote node");
       return null;
     }
-    return body as MeshSearchResponse;
+    return obj as unknown as MeshSearchResponse;
   } catch (err) {
     logger.warn(
       { nodeId, nodeName: node.name, err: err instanceof Error ? err.message : String(err) },
@@ -123,9 +124,10 @@ export async function getRemoteNodeInfo(
     });
 
     if (!resp.ok) return null;
-    const body = await resp.json();
-    if (!body || typeof body.nodeId !== "string") return null;
-    return body as MeshNodeInfo;
+    const body: unknown = await resp.json();
+    const obj = body as Record<string, unknown> | null;
+    if (!obj || typeof obj.nodeId !== "string") return null;
+    return obj as unknown as MeshNodeInfo;
   } catch {
     return null;
   }
