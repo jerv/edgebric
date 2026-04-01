@@ -37,6 +37,8 @@ import { syncFolderSync } from "../jobs/syncConnection.js";
 import { isFolderSyncSyncing } from "../jobs/syncScheduler.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { config } from "../config.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { getGoogleCredentials } from "../connectors/googleDrive.js";
 import { logger } from "../lib/logger.js";
 import type { CloudProvider } from "@edgebric/types";
 import { CLOUD_PROVIDERS } from "@edgebric/types";
@@ -53,9 +55,16 @@ function canAccess(req: { session: { isAdmin?: boolean; email?: string } }, conn
 
 cloudConnectionsRouter.get("/providers", (_req, res) => {
   const registered = new Set(getRegisteredProviders());
+  const integrationCfg = getIntegrationConfig();
   const credentialsConfigured: Record<string, boolean> = {
-    google_drive: !!(config.cloud.google.clientId && config.cloud.google.clientSecret),
-    onedrive: !!(config.cloud.onedrive.clientId && config.cloud.onedrive.clientSecret),
+    google_drive: !!(
+      (config.cloud.google.clientId && config.cloud.google.clientSecret) ||
+      (integrationCfg.googleDriveClientId && integrationCfg.googleDriveClientSecret)
+    ),
+    onedrive: !!(
+      (config.cloud.onedrive.clientId && config.cloud.onedrive.clientSecret) ||
+      (integrationCfg.onedriveClientId && integrationCfg.onedriveClientSecret)
+    ),
   };
   const providers = CLOUD_PROVIDERS.map((p) => ({
     ...p,
@@ -116,7 +125,7 @@ cloudConnectionsRouter.post("/oauth/authorize", validateBody(authorizeSchema), (
 
     req.session.cloudOAuthNonce = stateNonce;
 
-    const redirectUri = `${getBaseUrl(req)}/api/cloud-connections/oauth/callback`;
+    const redirectUri = `${getBaseUrl(req, provider as CloudProvider)}/api/cloud-connections/oauth/callback`;
     const authUrl = connector.getAuthUrl(state, redirectUri);
 
     res.json({ authUrl });
@@ -171,7 +180,7 @@ cloudConnectionsRouter.get("/oauth/callback", async (req, res) => {
       return;
     }
 
-    const redirectUri = `${getBaseUrl(req)}/api/cloud-connections/oauth/callback`;
+    const redirectUri = `${getBaseUrl(req, provider)}/api/cloud-connections/oauth/callback`;
     const tokens = await connector.exchangeCode(code, redirectUri);
 
     // Create connection (OAuth credentials only — no data source)
@@ -208,13 +217,13 @@ cloudConnectionsRouter.get("/oauth/callback", async (req, res) => {
 
     // Return a page that auto-closes (for Electron where OAuth opened in external browser)
     // or redirects back to the app (for regular browser usage)
-    const returnTo = stateData.returnTo ?? "/organization?tab=integrations";
+    const returnTo = stateData.returnTo ?? "/account?tab=connected-accounts";
     const redirectUrl = `${config.frontendUrl}${returnTo}`;
     res.send(`<!DOCTYPE html><html><head><title>Connected</title></head><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#334155"><div style="text-align:center"><h2 style="font-size:18px;margin-bottom:8px">Connected successfully</h2><p style="font-size:14px;color:#64748b">You can close this tab and return to Edgebric.</p><p style="font-size:12px;color:#94a3b8;margin-top:16px">Redirecting...</p></div><script>setTimeout(function(){window.location.href="${redirectUrl}"},1500)</script></body></html>`);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg }, "OAuth callback failed");
-    const errorUrl = `${config.frontendUrl}/organization?tab=integrations&error=${encodeURIComponent("Authentication failed")}`;
+    const errorUrl = `${config.frontendUrl}/account?tab=connected-accounts&error=${encodeURIComponent("Authentication failed")}`;
     res.send(`<!DOCTYPE html><html><head><title>Error</title></head><body style="font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#334155"><div style="text-align:center"><h2 style="font-size:18px;margin-bottom:8px;color:#dc2626">Connection failed</h2><p style="font-size:14px;color:#64748b">Please close this tab and try again in Edgebric.</p><p style="font-size:12px;color:#94a3b8;margin-top:16px">Redirecting...</p></div><script>setTimeout(function(){window.location.href="${errorUrl}"},2000)</script></body></html>`);
   }
 });
@@ -550,10 +559,17 @@ cloudConnectionsRouter.get("/folder-syncs/:id/files", (req, res) => {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function getBaseUrl(_req: { protocol: string; get: (name: string) => string | undefined }): string {
-  if (process.env["NODE_ENV"] !== "production") {
-    return `http://localhost:${config.port}`;
+function getBaseUrl(_req: { protocol: string; get: (name: string) => string | undefined }, provider?: CloudProvider): string {
+  // If the org configured their own OAuth credentials, use frontendUrl
+  // (their hostname). They registered matching redirect URIs in their console.
+  if (provider === "google_drive") {
+    const { isCustom } = getGoogleCredentials();
+    if (isCustom) {
+      const url = new URL(config.frontendUrl);
+      return url.origin;
+    }
   }
-  const url = new URL(config.frontendUrl);
-  return url.origin;
+  // Shipped credentials: always use localhost (desktop app, single redirect URI
+  // registered in Edgebric's product OAuth console).
+  return `http://localhost:${config.port}`;
 }

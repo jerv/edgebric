@@ -1,5 +1,33 @@
 # Worklog
 
+## 2026-04-01 — agent/cloud-oauth (cloud sync agent)
+
+### Split integrations: admin credentials + user connected accounts
+
+**Problem:** Google Drive OAuth was broken (redirect_uri_mismatch) and all cloud integration was crammed into the admin-only Organization > Integrations page. Non-admin users couldn't connect their own accounts.
+
+**Design decisions:**
+- **Solo mode**: Shipped OAuth credentials "just work" — redirect URI is always `http://localhost:3001`. No setup needed.
+- **Org mode**: Admin provides their own Google Cloud OAuth credentials (same project they already have for OIDC). Redirect URI uses their `FRONTEND_URL`.
+- Users connect their own accounts from **Account > Connected Accounts** (both work and personal Google accounts supported).
+- Setup instructions note: set OAuth consent screen to "External" if personal accounts should be allowed.
+
+**Changes:**
+- `shared/types/src/index.ts` — Added `googleDriveClientId`, `googleDriveClientSecret`, `onedriveClientId`, `onedriveClientSecret` to `IntegrationConfig`
+- `packages/api/src/routes/integrations.ts` — Accept new credential fields in validation schema
+- `packages/api/src/connectors/googleDrive.ts` — `getGoogleCredentials()` resolves custom > env > shipped defaults, exports `isCustom` flag
+- `packages/api/src/routes/cloudConnections.ts` — `getBaseUrl` uses `frontendUrl` for custom credentials, `localhost` for shipped; `/providers` checks integration config; OAuth callback redirects to `/account?tab=connected-accounts`
+- `packages/web/src/components/shared/ProviderLogos.tsx` — Extracted shared provider logo SVGs
+- `packages/web/src/components/settings/ConnectedAccountsTab.tsx` — New "Connected Accounts" tab for Account page (any user)
+- `packages/web/src/components/settings/IntegrationsTab.tsx` — Redesigned as admin credentials form
+- `packages/web/src/components/SettingsPage.tsx` — Added "Connected Accounts" tab
+- `packages/web/src/routes/_shell/account.tsx` — Added `connected-accounts` to valid tabs
+- `packages/web/src/routes/_shell/integrations.tsx` — Legacy redirect now goes to `/account?tab=connected-accounts`
+
+**Result:** 387/387 tests pass. Typecheck clean.
+
+---
+
 ## 2026-03-31 — agent/cloud-work (cloud sync agent)
 
 ### Fixed blank page when non-admin clicks Integrations
