@@ -60,6 +60,7 @@ function SourceTypeSelector({
   value,
   onChange,
   compact,
+  nodeName,
 }: {
   value: "organization" | "personal";
   onChange: (type: "organization" | "personal") => void;
