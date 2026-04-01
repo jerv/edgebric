@@ -551,9 +551,8 @@ cloudConnectionsRouter.get("/folder-syncs/:id/files", (req, res) => {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getBaseUrl(_req: { protocol: string; get: (name: string) => string | undefined }): string {
-  if (process.env["NODE_ENV"] !== "production") {
-    return `http://localhost:${config.port}`;
-  }
+  // Use frontendUrl origin — the desktop app sets this to the correct
+  // protocol://hostname:port for every mode (solo, primary, secondary).
   const url = new URL(config.frontendUrl);
   return url.origin;
 }
