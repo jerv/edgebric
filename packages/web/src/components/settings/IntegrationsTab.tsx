@@ -1,85 +1,29 @@
 /**
- * Organization-level integrations tab.
- * Admin sets up cloud provider OAuth here (one-time setup).
- * Members interact with cloud storage from the data source UI.
+ * Organization-level integrations tab (admin-only).
+ * Admin configures cloud provider OAuth credentials here.
+ * In solo mode, shipped defaults are used — no setup needed.
  */
-import { useState } from "react";
-import { Loader2, ExternalLink, AlertTriangle, Trash2, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Check, ChevronDown, Eye, EyeOff, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  useCloudProviders,
-  useCloudConnections,
-  useConnectProvider,
-  useDeleteConnection,
-} from "@/hooks/useCloudConnections";
-import type { CloudProvider } from "@edgebric/types";
-
-// ─── Brand Logos (inline SVG) ────────────────────────────────────────────────
-
-function GoogleDriveLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/>
-      <path d="M43.65 25.15L29.9 1.35c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5l16.15-28z" fill="#00AC47"/>
-      <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.7c.8-1.4 1.2-2.95 1.2-4.5H59.8l6.1 11.8 7.65 11.8z" fill="#EA4335"/>
-      <path d="M43.65 25.15L57.4 1.35a9.39 9.39 0 0 0-4.5-1.35H34.4c-1.6 0-3.15.45-4.5 1.35l13.75 23.8z" fill="#00832D"/>
-      <path d="M59.8 53.15h-32.3L13.75 76.95c1.35.8 2.9 1.25 4.5 1.25h22.5c1.6 0 3.15-.45 4.5-1.25l14.55-23.8z" fill="#2684FC"/>
-      <path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25.15l16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/>
-    </svg>
-  );
-}
-
-function OneDriveLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path d="M14.22 9.59c.46-.79 1.17-1.4 2.03-1.73a3.98 3.98 0 0 1 2.66-.05A5.49 5.49 0 0 0 9.4 6.1a4.46 4.46 0 0 1 4.82 3.49z" fill="#0364B8"/>
-      <path d="M14.22 9.59A4.46 4.46 0 0 0 9.4 6.1a4.47 4.47 0 0 0-3.99 2.47A3.97 3.97 0 0 0 1 12.48a3.97 3.97 0 0 0 3.97 3.97h8.46l.79-6.86z" fill="#0078D4"/>
-      <path d="M18.91 7.81a3.98 3.98 0 0 0-2.66.05 3.98 3.98 0 0 0-2.03 1.73l.79 6.86h5.96A3.01 3.01 0 0 0 24 13.44a3.01 3.01 0 0 0-3.01-3.01 2.96 2.96 0 0 0-.76.1l-.14-.04a3.98 3.98 0 0 0-1.18-2.68z" fill="#1490DF"/>
-      <path d="M13.43 16.45H4.97A3.97 3.97 0 0 0 8.94 20.42h10.03A3.01 3.01 0 0 0 22 17.41a3.01 3.01 0 0 0-1.03-2.27l-7.54 1.31z" fill="#28A8EA"/>
-    </svg>
-  );
-}
-
-function ProviderLogo({ provider, className }: { provider: string; className?: string }) {
-  const size = className ?? "w-5 h-5";
-  switch (provider) {
-    case "google_drive": return <GoogleDriveLogo className={size} />;
-    case "onedrive": return <OneDriveLogo className={size} />;
-    default: return <div className={cn(size, "rounded bg-slate-200 dark:bg-gray-700")} />;
-  }
-}
+import { ProviderLogo } from "@/components/shared/ProviderLogos";
+import { useUser } from "@/contexts/UserContext";
+import type { IntegrationConfig } from "@edgebric/types";
 
 // ─── Integrations Tab ────────────────────────────────────────────────────────
 
 export function IntegrationsTab() {
-  const { data: providersData, isLoading: providersLoading } = useCloudProviders();
-  const { data: connectionsData, isLoading: connectionsLoading } = useCloudConnections();
-  const connectMutation = useConnectProvider();
-  const deleteMutation = useDeleteConnection();
-  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null);
+  const user = useUser();
+  const isSolo = user?.authMode === "none";
 
-  const providers = providersData?.providers ?? [];
-  const connections = connectionsData?.connections ?? [];
-  const isLoading = providersLoading || connectionsLoading;
-
-  // Check which providers already have at least one admin connection
-  const connectedProviders = new Set(connections.map((c) => c.provider));
-
-  function handleConnect(provider: CloudProvider) {
-    connectMutation.mutate({ provider }, {
-      onSuccess: (data) => {
-        // Use window.open so Electron's setWindowOpenHandler intercepts it
-        // and opens in the user's default browser (where they're already logged in)
-        window.open(data.authUrl, "_blank");
-      },
-    });
-  }
-
-  function handleDisconnect(id: string) {
-    deleteMutation.mutate(id, {
-      onSuccess: () => setConfirmDisconnect(null),
-    });
-  }
+  const { data: config, isLoading } = useQuery<IntegrationConfig>({
+    queryKey: ["admin", "integrations"],
+    queryFn: () =>
+      fetch("/api/admin/integrations", { credentials: "same-origin" }).then(
+        (r) => r.json() as Promise<IntegrationConfig>,
+      ),
+  });
 
   if (isLoading) {
     return (
@@ -89,115 +33,344 @@ export function IntegrationsTab() {
     );
   }
 
+  if (isSolo) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
+            Cloud integrations are pre-configured. Go to{" "}
+            <a href="/account?tab=connected-accounts" className="text-slate-900 dark:text-gray-100 underline">
+              Account &gt; Connected Accounts
+            </a>{" "}
+            to connect your Google Drive or OneDrive.
+          </p>
+        </div>
+        <div className="border border-green-200 dark:border-green-900 rounded-xl px-4 py-3 bg-green-50 dark:bg-green-950">
+          <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+            <Check className="w-4 h-4" />
+            Using built-in credentials — no setup needed
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed">
-          Enable cloud storage providers for your organization. Once enabled, members can
-          sync files from their own cloud accounts into data sources.
+          Configure cloud storage providers for your organization. Members connect their own
+          accounts from{" "}
+          <span className="text-slate-700 dark:text-gray-300">Account &gt; Connected Accounts</span>.
         </p>
       </div>
 
-      {/* Provider list */}
-      <div className="space-y-2">
-        {providers.map((provider) => {
-          const isConnected = connectedProviders.has(provider.id);
-          const isConnecting = connectMutation.isPending && connectMutation.variables?.provider === provider.id;
-          const providerConnections = connections.filter((c) => c.provider === provider.id);
+      <GoogleDriveCredentialsCard config={config} />
+      <OneDriveCredentialsCard config={config} />
+    </div>
+  );
+}
 
-          return (
-            <div
-              key={provider.id}
-              className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl border",
-                provider.enabled
-                  ? "border-slate-200 dark:border-gray-800"
-                  : "border-slate-100 dark:border-gray-900 opacity-50",
-              )}
-            >
-              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                <ProviderLogo provider={provider.id} className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-900 dark:text-gray-100">{provider.name}</span>
-                  {!provider.enabled && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-500">
-                      Coming soon
-                    </span>
-                  )}
-                  {isConnected && (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
-                      <Check className="w-3 h-3" />
-                      Enabled
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500 dark:text-gray-400 truncate">{provider.description}</p>
-                {providerConnections.length > 0 && (
-                  <div className="mt-1.5 space-y-1">
-                    {providerConnections.map((conn) => (
-                      <div key={conn.id} className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400">
-                        <span className="truncate">{conn.accountEmail ?? conn.displayName}</span>
-                        {confirmDisconnect === conn.id ? (
-                          <span className="flex items-center gap-1.5 flex-shrink-0">
-                            <button
-                              onClick={() => handleDisconnect(conn.id)}
-                              className="text-red-600 dark:text-red-400 hover:underline"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() => setConfirmDisconnect(null)}
-                              className="text-slate-400 dark:text-gray-500 hover:underline"
-                            >
-                              Cancel
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDisconnect(conn.id)}
-                            className="text-slate-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 flex-shrink-0"
-                            title="Disconnect"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {provider.enabled && !isConnected && (
-                <button
-                  onClick={() => handleConnect(provider.id)}
-                  disabled={connectMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-                >
-                  {isConnecting ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-3 h-3" />
-                  )}
-                  Enable
-                </button>
-              )}
-            </div>
-          );
-        })}
+// ─── Google Drive Credentials Card ──────────────────────────────────────────
+
+function GoogleDriveCredentialsCard({ config }: { config: IntegrationConfig | undefined }) {
+  const queryClient = useQueryClient();
+  const [clientId, setClientId] = useState(config?.googleDriveClientId ?? "");
+  const [clientSecret, setClientSecret] = useState(config?.googleDriveClientSecret ?? "");
+  const [showSecret, setShowSecret] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [showSetup, setShowSetup] = useState(false);
+
+  useEffect(() => {
+    setClientId(config?.googleDriveClientId ?? "");
+    setClientSecret(config?.googleDriveClientSecret ?? "");
+  }, [config?.googleDriveClientId, config?.googleDriveClientSecret]);
+
+  const isConfigured = !!(config?.googleDriveClientId && config?.googleDriveClientSecret);
+  const hasChanges = clientId !== (config?.googleDriveClientId ?? "") || clientSecret !== (config?.googleDriveClientSecret ?? "");
+
+  async function handleSave() {
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setError("Both Client ID and Client Secret are required");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const res = await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ googleDriveClientId: clientId.trim(), googleDriveClientSecret: clientSecret.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setError(data.error ?? "Failed to save");
+        return;
+      }
+      setSaved(true);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["cloud-providers"] });
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove() {
+    setSaving(true);
+    setError("");
+    try {
+      await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ googleDriveClientId: "", googleDriveClientSecret: "" }),
+      });
+      setClientId("");
+      setClientSecret("");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["cloud-providers"] });
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+          <ProviderLogo provider="google_drive" className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Google Drive</h3>
+          <p className="text-xs text-slate-400 dark:text-gray-500">
+            {isConfigured ? "Custom credentials configured" : "Not configured"}
+          </p>
+        </div>
+        {isConfigured && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
+            <Check className="w-3 h-3" />
+            Enabled
+          </span>
+        )}
       </div>
 
-      {connectMutation.isError && (
-        <div className="flex items-start gap-2 text-xs rounded-xl px-3 py-2 bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <span>{connectMutation.error.message}</span>
+      {/* Setup instructions */}
+      <button
+        onClick={() => setShowSetup(!showSetup)}
+        className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 transition-colors"
+      >
+        <Info className="w-3.5 h-3.5" />
+        Setup instructions
+        <ChevronDown className={cn("w-3 h-3 transition-transform", showSetup && "rotate-180")} />
+      </button>
+
+      {showSetup && (
+        <div className="text-xs text-slate-500 dark:text-gray-400 space-y-2 bg-slate-50 dark:bg-gray-900 rounded-xl px-4 py-3 border border-slate-100 dark:border-gray-800">
+          <p className="font-medium text-slate-700 dark:text-gray-300">
+            If you already have a Google Cloud project for OIDC login, use the same project:
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 ml-1">
+            <li>Go to the <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-gray-300">Google Cloud Console</a> and enable the <strong>Google Drive API</strong></li>
+            <li>Go to <strong>Credentials</strong> and create an <strong>OAuth 2.0 Client ID</strong> (type: Web application)</li>
+            <li>Add this <strong>Authorized redirect URI</strong>:<br/>
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+                {`${window.location.origin}/api/cloud-connections/oauth/callback`}
+              </code>
+            </li>
+            <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> and paste them below</li>
+          </ol>
+          <div className="pt-2 border-t border-slate-200 dark:border-gray-700 mt-3">
+            <p className="flex items-start gap-1.5">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-500" />
+              <span>
+                Set the OAuth consent screen to <strong className="text-slate-700 dark:text-gray-300">External</strong> if
+                you want team members to also connect their personal Google accounts (e.g. personal Gmail).
+              </span>
+            </p>
+          </div>
         </div>
       )}
 
-      <div className="text-xs text-slate-400 dark:text-gray-500 leading-relaxed">
-        Enabling a provider opens their authorization page. Edgebric only requests read-only access.
-        Once enabled, organization members can connect their own accounts and choose which folders
-        to sync from within each data source.
+      {/* Credential inputs */}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">Client ID</label>
+          <input
+            type="text"
+            value={clientId}
+            onChange={(e) => { setClientId(e.target.value); setSaved(false); }}
+            placeholder="123456789-abcdef.apps.googleusercontent.com"
+            className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">Client Secret</label>
+          <div className="relative">
+            <input
+              type={showSecret ? "text" : "password"}
+              value={clientSecret}
+              onChange={(e) => { setClientSecret(e.target.value); setSaved(false); }}
+              placeholder="GOCSPX-..."
+              className="w-full px-3 py-1.5 pr-9 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecret(!showSecret)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+            >
+              {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {saved && <p className="text-xs text-green-600 dark:text-green-400">Credentials saved.</p>}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !hasChanges || !clientId.trim() || !clientSecret.trim()}
+          className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        {isConfigured && (
+          <button
+            onClick={handleRemove}
+            disabled={saving}
+            className="px-3 py-1.5 text-sm text-slate-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── OneDrive Credentials Card ──────────────────────────────────────────────
+
+function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undefined }) {
+  const queryClient = useQueryClient();
+  const [clientId, setClientId] = useState(config?.onedriveClientId ?? "");
+  const [clientSecret, setClientSecret] = useState(config?.onedriveClientSecret ?? "");
+  const [showSecret, setShowSecret] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setClientId(config?.onedriveClientId ?? "");
+    setClientSecret(config?.onedriveClientSecret ?? "");
+  }, [config?.onedriveClientId, config?.onedriveClientSecret]);
+
+  const isConfigured = !!(config?.onedriveClientId && config?.onedriveClientSecret);
+  const hasChanges = clientId !== (config?.onedriveClientId ?? "") || clientSecret !== (config?.onedriveClientSecret ?? "");
+
+  async function handleSave() {
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setError("Both Client ID and Client Secret are required");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const res = await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ onedriveClientId: clientId.trim(), onedriveClientSecret: clientSecret.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setError(data.error ?? "Failed to save");
+        return;
+      }
+      setSaved(true);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["cloud-providers"] });
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+          <ProviderLogo provider="onedrive" className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">OneDrive</h3>
+          <p className="text-xs text-slate-400 dark:text-gray-500">
+            {isConfigured ? "Custom credentials configured" : "Not configured"}
+          </p>
+        </div>
+        {isConfigured && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
+            <Check className="w-3 h-3" />
+            Enabled
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">Client ID</label>
+          <input
+            type="text"
+            value={clientId}
+            onChange={(e) => { setClientId(e.target.value); setSaved(false); }}
+            placeholder="Application (client) ID"
+            className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">Client Secret</label>
+          <div className="relative">
+            <input
+              type={showSecret ? "text" : "password"}
+              value={clientSecret}
+              onChange={(e) => { setClientSecret(e.target.value); setSaved(false); }}
+              placeholder="Client secret value"
+              className="w-full px-3 py-1.5 pr-9 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecret(!showSecret)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+            >
+              {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {saved && <p className="text-xs text-green-600 dark:text-green-400">Credentials saved.</p>}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !hasChanges || !clientId.trim() || !clientSecret.trim()}
+          className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
       </div>
     </div>
   );

@@ -10,15 +10,17 @@ import type { Conversation } from "@edgebric/types";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
+import { ConnectedAccountsTab } from "@/components/settings/ConnectedAccountsTab";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type AccountTab = "general" | "notifications" | "conversations";
+export type AccountTab = "general" | "notifications" | "conversations" | "connected-accounts";
 
 const TABS: { id: AccountTab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "notifications", label: "Notifications" },
   { id: "conversations", label: "Conversations" },
+  { id: "connected-accounts", label: "Connected Accounts" },
 ];
 
 // ─── General tab (profile info) ─────────────────────────────────────────────
@@ -535,6 +537,7 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
         {tab === "general" && <GeneralTab />}
         {tab === "notifications" && <NotificationsTab />}
         {tab === "conversations" && <ConversationsTab />}
+        {tab === "connected-accounts" && <ConnectedAccountsTab />}
       </div>
     </div>
   );

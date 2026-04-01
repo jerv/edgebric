@@ -9,6 +9,7 @@
  */
 import { config } from "../config.js";
 import { registerConnector } from "./registry.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { logger } from "../lib/logger.js";
 import type { CloudConnectorAdapter, ConnectorSyncResult, OAuthTokens } from "./types.js";
 import type { CloudFolder } from "@edgebric/types";
@@ -34,16 +35,32 @@ const EXPORT_MIME_TYPES: Record<string, string> = {
   "application/vnd.google-apps.document": "application/pdf",
 };
 
+/**
+ * Resolve Google Drive OAuth credentials.
+ * Priority: org-level custom credentials > env vars > shipped defaults.
+ * Returns `isCustom: true` when org provided their own (affects redirect URI).
+ */
+export function getGoogleCredentials(): { clientId: string; clientSecret: string; isCustom: boolean } {
+  const integrationCfg = getIntegrationConfig();
+  if (integrationCfg.googleDriveClientId && integrationCfg.googleDriveClientSecret) {
+    return {
+      clientId: integrationCfg.googleDriveClientId,
+      clientSecret: integrationCfg.googleDriveClientSecret,
+      isCustom: true,
+    };
+  }
+  const clientId = config.cloud.google.clientId;
+  const clientSecret = config.cloud.google.clientSecret;
+  if (!clientId || !clientSecret) throw new Error("Google Drive OAuth credentials not configured");
+  return { clientId, clientSecret, isCustom: false };
+}
+
 function getClientId(): string {
-  const id = config.cloud.google.clientId;
-  if (!id) throw new Error("GOOGLE_DRIVE_CLIENT_ID not configured");
-  return id;
+  return getGoogleCredentials().clientId;
 }
 
 function getClientSecret(): string {
-  const secret = config.cloud.google.clientSecret;
-  if (!secret) throw new Error("GOOGLE_DRIVE_CLIENT_SECRET not configured");
-  return secret;
+  return getGoogleCredentials().clientSecret;
 }
 
 const googleDriveAdapter: CloudConnectorAdapter = {

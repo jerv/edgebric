@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-/** Redirect legacy /integrations URL to organization settings. */
+/** Redirect legacy /integrations URL to account connected accounts. */
 function IntegrationsRoute() {
   const navigate = useNavigate();
   useEffect(() => {
-    void navigate({ to: "/organization", search: { tab: "integrations" }, replace: true });
+    void navigate({ to: "/account", search: { tab: "connected-accounts" }, replace: true });
   }, [navigate]);
   return null;
 }

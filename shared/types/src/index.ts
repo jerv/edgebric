@@ -280,6 +280,12 @@ export interface IntegrationConfig {
   stalenessThresholdDays?: number;
   /** When true, the AI answers from general knowledge when no documents match. Default: true. */
   generalAnswersEnabled?: boolean;
+  /** Custom Google Drive OAuth credentials (org mode). When set, overrides shipped defaults. */
+  googleDriveClientId?: string;
+  googleDriveClientSecret?: string;
+  /** Custom OneDrive OAuth credentials (org mode). */
+  onedriveClientId?: string;
+  onedriveClientSecret?: string;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

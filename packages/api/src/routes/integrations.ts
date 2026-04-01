@@ -18,6 +18,10 @@ const updateConfigSchema = z.object({
   vaultModeEnabled: z.boolean().optional(),
   generalAnswersEnabled: z.boolean().optional(),
   stalenessThresholdDays: z.number().int().positive().optional(),
+  googleDriveClientId: z.string().optional(),
+  googleDriveClientSecret: z.string().optional(),
+  onedriveClientId: z.string().optional(),
+  onedriveClientSecret: z.string().optional(),
 });
 
 // GET /api/admin/integrations — get integration config
