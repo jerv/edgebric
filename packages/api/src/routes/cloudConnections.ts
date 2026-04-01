@@ -18,13 +18,17 @@ import {
   createConnection,
   getConnection,
   listConnections,
+  updateConnection,
   deleteConnection,
   createFolderSync,
   getFolderSync,
   listFolderSyncs,
+  listFolderSyncsByConnectionId,
   updateFolderSync,
   deleteFolderSync,
   listSyncFiles,
+  listSyncFilesByConnectionId,
+  countSyncedFilesByConnectionId,
 } from "../services/cloudConnectionStore.js";
 import { saveTokens, deleteTokens } from "../services/cloudTokenStore.js";
 import { getValidAccessToken } from "../services/cloudTokenStore.js";
@@ -81,7 +85,13 @@ cloudConnectionsRouter.get("/:id", (req, res) => {
     res.status(404).json({ error: "Connection not found" });
     return;
   }
-  res.json({ connection: conn });
+
+  // Check if any folder sync for this connection is currently syncing
+  const folderSyncs = listFolderSyncsByConnectionId(conn.id);
+  const syncing = folderSyncs.some((fs) => isFolderSyncSyncing(fs.id));
+  const syncedFileCount = countSyncedFilesByConnectionId(conn.id);
+
+  res.json({ connection: { ...conn, syncedFileCount }, syncing });
 });
 
 // ─── OAuth: Get authorization URL ───────────────────────────────────────────
@@ -125,7 +135,7 @@ cloudConnectionsRouter.get("/oauth/callback", async (req, res) => {
 
     if (error) {
       logger.warn({ error }, "OAuth callback returned error");
-      res.redirect(`${config.frontendUrl}/organization?tab=integrations&error=${encodeURIComponent(String(error))}`);
+      res.redirect(`${config.frontendUrl}/integrations?error=${encodeURIComponent(String(error))}`);
       return;
     }
 
@@ -231,6 +241,113 @@ cloudConnectionsRouter.delete("/:id", (req, res) => {
   });
 
   res.json({ deleted: true });
+});
+
+// ─── Update connection ─────────────────────────────────────────────────────
+
+const updateConnectionSchema = z.object({
+  displayName: z.string().min(1).optional(),
+  folderId: z.string().optional(),
+  folderName: z.string().optional(),
+  syncIntervalMin: z.number().int().min(5).max(1440).optional(),
+  status: z.enum(["active", "paused", "disconnected"]).optional(),
+});
+
+cloudConnectionsRouter.put("/:id", validateBody(updateConnectionSchema), (req, res) => {
+  const conn = getConnection(req.params.id as string);
+  if (!conn || conn.orgId !== req.session.orgId || !canAccess(req, conn)) {
+    res.status(404).json({ error: "Connection not found" });
+    return;
+  }
+
+  const data = req.body as z.infer<typeof updateConnectionSchema>;
+
+  // Update connection-level fields
+  const connUpdate: { displayName?: string; status?: "active" | "disconnected" } = {};
+  if (data.displayName !== undefined) connUpdate.displayName = data.displayName;
+  if (data.status !== undefined) connUpdate.status = data.status as "active" | "disconnected";
+
+  if (Object.keys(connUpdate).length > 0) {
+    updateConnection(conn.id, connUpdate);
+  }
+
+  // Handle folder sync fields
+  const folderSyncs = listFolderSyncsByConnectionId(conn.id);
+  const firstSync = folderSyncs[0] as typeof folderSyncs[number] | undefined;
+  if (data.folderId !== undefined || data.folderName !== undefined || data.syncIntervalMin !== undefined || (data.status !== undefined && data.status !== "disconnected")) {
+    if (firstSync) {
+      const fsUpdate: { folderId?: string; folderName?: string; syncIntervalMin?: number; status?: "active" | "paused" } = {};
+      if (data.folderId !== undefined) fsUpdate.folderId = data.folderId;
+      if (data.folderName !== undefined) fsUpdate.folderName = data.folderName;
+      if (data.syncIntervalMin !== undefined) fsUpdate.syncIntervalMin = data.syncIntervalMin;
+      if (data.status === "active" || data.status === "paused") fsUpdate.status = data.status;
+      if (Object.keys(fsUpdate).length > 0) {
+        updateFolderSync(firstSync.id, fsUpdate);
+      }
+    }
+  }
+
+  // Build response with merged folder sync data
+  const updated = getConnection(conn.id)!;
+  const updatedSyncs = listFolderSyncsByConnectionId(conn.id);
+  const firstUpdatedSync = updatedSyncs[0] as typeof updatedSyncs[number] | undefined;
+  const merged: Record<string, unknown> = { ...updated };
+  if (firstUpdatedSync) {
+    merged.folderId = firstUpdatedSync.folderId;
+    merged.folderName = firstUpdatedSync.folderName;
+    merged.syncIntervalMin = firstUpdatedSync.syncIntervalMin;
+  }
+  // Reflect folderId/folderName from request even without a folder sync row
+  if (data.folderId !== undefined) merged.folderId = data.folderId;
+  if (data.folderName !== undefined) merged.folderName = data.folderName;
+  if (data.syncIntervalMin !== undefined) merged.syncIntervalMin = data.syncIntervalMin;
+  if (data.status !== undefined) merged.status = data.status;
+
+  res.json({ connection: merged });
+});
+
+// ─── Trigger sync (connection-level) ───────────────────────────────────────
+
+cloudConnectionsRouter.post("/:id/sync", async (req, res) => {
+  try {
+    const conn = getConnection(req.params.id as string);
+    if (!conn || conn.orgId !== req.session.orgId || !canAccess(req, conn)) {
+      res.status(404).json({ error: "Connection not found" });
+      return;
+    }
+
+    const folderSyncs = listFolderSyncsByConnectionId(conn.id);
+    if (folderSyncs.length === 0) {
+      res.status(400).json({ error: "No folder configured for this connection" });
+      return;
+    }
+
+    const firstSync = folderSyncs[0]!;
+    if (isFolderSyncSyncing(firstSync.id)) {
+      res.status(409).json({ error: "Sync already in progress" });
+      return;
+    }
+
+    const stats = await syncFolderSync(firstSync.id);
+    res.json({ synced: true, ...stats });
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logger.error({ err: errMsg }, "Manual sync failed");
+    res.status(500).json({ error: "Sync failed", details: errMsg });
+  }
+});
+
+// ─── List sync files (connection-level) ────────────────────────────────────
+
+cloudConnectionsRouter.get("/:id/files", (req, res) => {
+  const conn = getConnection(req.params.id as string);
+  if (!conn || conn.orgId !== req.session.orgId || !canAccess(req, conn)) {
+    res.status(404).json({ error: "Connection not found" });
+    return;
+  }
+
+  const files = listSyncFilesByConnectionId(conn.id);
+  res.json({ files });
 });
 
 // ─── Browse folders (via connection) ────────────────────────────────────────

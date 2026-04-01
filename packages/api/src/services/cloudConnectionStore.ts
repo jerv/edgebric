@@ -139,6 +139,8 @@ export function deleteConnection(id: string): void {
     db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, sync.id)).run();
   }
   db.delete(cloudFolderSyncs).where(eq(cloudFolderSyncs.connectionId, id)).run();
+  // Also delete sync files directly linked by connectionId as folderSyncId
+  db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, id)).run();
   db.delete(cloudConnections).where(eq(cloudConnections.id, id)).run();
 }
 
@@ -340,4 +342,51 @@ export function listSyncFiles(folderSyncId: string): CloudSyncFile[] {
 export function deleteSyncFile(id: string): void {
   const db = getDb();
   db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.id, id)).run();
+}
+
+// ─── Connection-level helpers ──────────────────────────────────────────────
+
+/** List all folder syncs belonging to a connection. */
+export function listFolderSyncsByConnectionId(connectionId: string): CloudFolderSync[] {
+  const db = getDb();
+  const rows = db.select().from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.connectionId, connectionId)).all();
+  return rows.map(rowToFolderSync);
+}
+
+/** List sync files across all folder syncs for a connection (and any directly linked by connectionId). */
+export function listSyncFilesByConnectionId(connectionId: string): CloudSyncFile[] {
+  const db = getDb();
+  // Get folder sync IDs for this connection
+  const syncIds = db.select({ id: cloudFolderSyncs.id }).from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.connectionId, connectionId)).all().map((r) => r.id);
+
+  // Include the connectionId itself as a possible folderSyncId (backward compat)
+  const allIds = [...new Set([...syncIds, connectionId])];
+
+  const rows: (typeof cloudSyncFiles.$inferSelect)[] = [];
+  for (const id of allIds) {
+    const batch = db.select().from(cloudSyncFiles).where(eq(cloudSyncFiles.folderSyncId, id)).all();
+    rows.push(...batch);
+  }
+  return rows.map(rowToSyncFile);
+}
+
+/** Count synced files across all folder syncs for a connection (and any directly linked). */
+export function countSyncedFilesByConnectionId(connectionId: string): number {
+  const db = getDb();
+  const syncIds = db.select({ id: cloudFolderSyncs.id }).from(cloudFolderSyncs)
+    .where(eq(cloudFolderSyncs.connectionId, connectionId)).all().map((r) => r.id);
+
+  const allIds = [...new Set([...syncIds, connectionId])];
+  let count = 0;
+  for (const id of allIds) {
+    const result = db
+      .select({ count: sql<number>`count(*)` })
+      .from(cloudSyncFiles)
+      .where(and(eq(cloudSyncFiles.folderSyncId, id), eq(cloudSyncFiles.status, "synced")))
+      .get();
+    count += result?.count ?? 0;
+  }
+  return count;
 }
