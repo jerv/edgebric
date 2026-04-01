@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { SourcePanel } from "@/components/employee/SourcePanel";
-import type { Document, DataSource, PIIWarning, CloudFolder } from "@edgebric/types";
+import type { Document, DataSource, PIIWarning } from "@edgebric/types";
 import { CloudDriveSyncSection } from "./CloudDriveSyncSection";
 
 /** Format a full name into "First L." display format. */

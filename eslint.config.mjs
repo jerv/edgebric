@@ -14,6 +14,8 @@ export default [
       "scripts/**",
       "**/*.d.ts",
       "packages/web/src/routeTree.gen.ts",
+      "pnpm-lock.yaml",
+      "**/out/**",
     ],
   },
   js.configs.recommended,

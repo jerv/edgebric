@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "vitest";
 import { setupTestApp, teardownTestApp, getDefaultOrgId } from "./helpers.js";
-import { initMeshConfig, registerNode, deleteMeshConfig, updateNode } from "../services/nodeRegistry.js";
+import { initMeshConfig, deleteMeshConfig } from "../services/nodeRegistry.js";
 import { randomUUID } from "crypto";
 
 // Mock the search service — no real Ollama/sqlite-vec

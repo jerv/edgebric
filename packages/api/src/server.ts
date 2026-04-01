@@ -144,7 +144,7 @@ async function start() {
         const { ensureDefaultOrg } = await import("./services/orgStore.js");
         const org = ensureDefaultOrg();
 
-        const cfg = initMeshConfig({
+        initMeshConfig({
           role: setupData.role ?? "secondary",
           nodeName: setupData.nodeName ?? "Secondary Node",
           orgId: org.id,
