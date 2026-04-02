@@ -269,7 +269,7 @@ export function ModelsPanel() {
 
         {/* Explainer */}
         <p className="text-xs text-slate-400 dark:text-gray-500 leading-relaxed">
-          Models are the AI brains that answer your questions. Loading a model reserves memory (RAM) so it can respond instantly — unload models you're not using to free up resources.
+          Models power everything AI does — answering questions, searching your documents, and more. Loading a model keeps it ready in memory (RAM), so unload ones you're not using to free up resources.
         </p>
       </div>
     </div>

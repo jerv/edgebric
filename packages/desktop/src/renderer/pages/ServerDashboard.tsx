@@ -1135,7 +1135,7 @@ export default function ServerDashboard() {
             {modelError && <div className="error-msg">{modelError}</div>}
 
             <p className="hint" style={{ textAlign: "center", padding: "4px 0 8px" }}>
-              Models are the AI brains that answer your questions. Loading a model reserves memory (RAM) so it can respond instantly — unload models you're not using to free up resources.
+              Models power everything AI does — answering questions, searching your documents, and more. Loading a model keeps it ready in memory (RAM), so unload ones you're not using to free up resources.
             </p>
           </div>
         )}
