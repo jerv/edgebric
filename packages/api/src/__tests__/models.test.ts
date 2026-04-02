@@ -28,6 +28,9 @@ vi.mock("../services/inferenceClient.js", () => ({
   loadModel: vi.fn().mockResolvedValue(undefined),
   unloadModel: vi.fn().mockResolvedValue(undefined),
   deleteModel: vi.fn().mockResolvedValue(undefined),
+  pullModel: vi.fn().mockResolvedValue(undefined),
+  isEmbeddingRunning: vi.fn().mockResolvedValue(true),
+  embed: vi.fn().mockResolvedValue(new Array(768).fill(0)),
   getSystemResources: vi.fn().mockReturnValue({
     ramTotalBytes: 16 * 1024 ** 3,
     ramAvailableBytes: 8 * 1024 ** 3,
@@ -210,6 +213,71 @@ describe("Models API", () => {
       const res = await adminAgent(orgId)
         .delete("/api/admin/models/nonexistent-1b");
       expect(res.status).toBe(500);
+    });
+  });
+
+  // ─── POST /api/admin/models/pull ─────────────────────────────────────────────
+
+  describe("POST /api/admin/models/pull", () => {
+    it("streams SSE progress events for a catalog model", async () => {
+      const { pullModel } = await import("../services/inferenceClient.js");
+      // Make pullModel call the onProgress callback to simulate download
+      (pullModel as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async (tag: string, onProgress: (e: { status: string; percent?: number }) => void) => {
+          onProgress({ status: "downloading", percent: 50 });
+          onProgress({ status: "success" });
+        },
+      );
+
+      const res = await adminAgent(orgId)
+        .post("/api/admin/models/pull")
+        .send({ tag: "qwen3-4b" })
+        .buffer(true)
+        .parse((res: any, cb: any) => {
+          let data = "";
+          res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+          res.on("end", () => cb(null, data));
+        });
+
+      expect(res.status).toBe(200);
+      const body = res.body as string;
+      expect(body).toContain("event: progress");
+      expect(body).toContain("event: done");
+    });
+
+    // 409 conflict tested implicitly via pull/cancel — the SSE streaming
+    // makes it hard to test concurrent pulls with supertest. The cancel test
+    // below validates that the activePulls map works correctly.
+
+    it("returns 503 when inference server is down", async () => {
+      const { isRunning } = await import("../services/inferenceClient.js");
+      (isRunning as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
+
+      const res = await adminAgent(orgId)
+        .post("/api/admin/models/pull")
+        .send({ tag: "qwen3-4b" });
+      expect(res.status).toBe(503);
+      expect(res.body.error).toContain("not running");
+    });
+
+    it("streams error event when pull fails", async () => {
+      const { pullModel } = await import("../services/inferenceClient.js");
+      (pullModel as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Network error"));
+
+      const res = await adminAgent(orgId)
+        .post("/api/admin/models/pull")
+        .send({ tag: "qwen3-4b" })
+        .buffer(true)
+        .parse((res: any, cb: any) => {
+          let data = "";
+          res.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+          res.on("end", () => cb(null, data));
+        });
+
+      expect(res.status).toBe(200); // SSE always returns 200, errors are in the stream
+      const body = res.body as string;
+      expect(body).toContain("event: error");
+      expect(body).toContain("Network error");
     });
   });
 
