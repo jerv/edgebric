@@ -462,7 +462,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   sqlite.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
       chunk_id TEXT PRIMARY KEY,
-      embedding float[${config.ollama.embeddingDim}]
+      embedding float[${config.inference.embeddingDim}]
     );
   `);
 

@@ -1,5 +1,44 @@
 # Worklog
 
+## 2026-04-02 — agent/llama-cpp (inference agent)
+
+### Replaced Ollama with llama-server (llama.cpp)
+
+**Problem:** Ollama adds an abstraction layer over GGUF models with its own registry, model naming, and API. Switching to llama-server (llama.cpp's built-in HTTP server) gives direct GGUF file management, HuggingFace downloads, and an OpenAI-compatible API without the middleman.
+
+**Architecture:**
+- **Two llama-server instances**: Chat server (port 8080) and embedding server (port 8081), since llama-server loads one model at a time.
+- **GGUF files stored at** `~/Edgebric/.llama/models/` — users download models from HuggingFace directly.
+- **Metal GPU acceleration** enabled by default (`--n-gpu-layers 99`).
+
+**Changes:**
+- `packages/desktop/src/main/llama-server.ts` — New lifecycle manager: download pre-built binary from llama.cpp GitHub releases (macOS arm64/x64), start/stop chat+embedding instances, auto-update with rollback, GGUF download from HuggingFace
+- `packages/desktop/src/main/ipc.ts` — Rewrote all model management handlers: models-list scans GGUF files on disk, models-pull downloads from HuggingFace, models-load restarts chat server with new model, models-delete removes GGUF file, models-search queries HuggingFace API
+- `packages/desktop/src/main/server.ts` — Updated startup to launch two llama-server instances
+- `packages/desktop/src/main/config.ts` — `ollamaAutoUpdate` → `llamaAutoUpdate`
+- `packages/api/src/services/inferenceClient.ts` — New client: health checks via `/health`, embeddings via `/v1/embeddings` (OpenAI format), model listing from filesystem, GGUF download with progress
+- `packages/api/src/services/chatClient.ts` — Renamed from `ollamaChatClient.ts` (already used OpenAI-compatible endpoint, no logic changes needed)
+- `packages/api/src/config.ts` — `config.ollama` → `config.inference` with `chatBaseUrl` (port 8080) and `embeddingBaseUrl` (port 8081)
+- `packages/api/src/routes/models.ts` — Swapped `ollamaClient` → `inferenceClient`
+- `packages/api/src/routes/query.ts` — Updated imports to `inferenceClient`
+- `packages/api/src/routes/vault.ts` — Updated proxy endpoints for llama-server's `/v1/embeddings` and `/v1/chat/completions`
+- `packages/api/src/routes/health.ts` — Pings `/health` instead of `/api/tags`
+- `packages/api/src/server.ts` — Simplified auto-setup (desktop manages model installs now)
+- `shared/types/src/models.ts` — Catalog entries now include `ggufFilename` and `downloadUrl` (HuggingFace URLs); `StorageBreakdown.ollamaModelsBytes` → `modelsBytes`; added `MODEL_FILENAME_MAP`
+- `packages/desktop/src/renderer/pages/ServerDashboard.tsx` — Updated storage breakdown field names
+- `packages/web/src/components/shared/ResourceBars.tsx` — Updated storage breakdown field names
+- `packages/web/src/routes/privacy.tsx` — "Ollama" → "llama.cpp"
+- `packages/web/src/routes/acknowledgments.tsx` — Updated project card to llama.cpp
+- Deleted `packages/api/src/services/ollamaClient.ts`
+
+**Default models (GGUF Q4_K_M quantization):**
+- Chat: Qwen3-4B (2.7 GB), Qwen3-8B (5.5 GB), Qwen3-14B (9.5 GB)
+- Embedding: nomic-embed-text-v1.5 (0.15 GB)
+
+**Result:** 387/387 tests pass. Typecheck clean across all packages.
+
+---
+
 ## 2026-04-01 — agent/cloud-oauth (cloud sync agent)
 
 ### Split integrations: admin credentials + user connected accounts

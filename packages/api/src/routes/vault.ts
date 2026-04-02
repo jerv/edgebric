@@ -8,8 +8,12 @@ export const vaultRouter: IRouter = Router();
 
 vaultRouter.use(requireOrg);
 
-function ollamaUrl(): string {
-  return config.ollama.baseUrl;
+function chatServerUrl(): string {
+  return config.inference.chatBaseUrl;
+}
+
+function embeddingServerUrl(): string {
+  return config.inference.embeddingBaseUrl;
 }
 
 /**
@@ -25,15 +29,16 @@ vaultRouter.get("/engine-status", async (req, res) => {
   }
 
   try {
-    const resp = await fetch(`${ollamaUrl()}/api/tags`, {
+    const resp = await fetch(`${chatServerUrl()}/health`, {
       signal: AbortSignal.timeout(5000),
     });
     if (!resp.ok) {
       res.json({ connected: false, models: [] });
       return;
     }
-    const data = (await resp.json()) as { models?: Array<{ name: string; size?: number }> };
-    res.json({ connected: true, models: data.models ?? [] });
+    // llama-server loads one model at a time; report the active model
+    const activeModel = config.chat.model;
+    res.json({ connected: true, models: activeModel ? [{ name: activeModel }] : [] });
   } catch {
     res.json({ connected: false, models: [] });
   }
@@ -58,18 +63,19 @@ vaultRouter.post("/embed", async (req, res) => {
   }
 
   try {
-    const resp = await fetch(`${ollamaUrl()}/api/embeddings`, {
+    const resp = await fetch(`${embeddingServerUrl()}/v1/embeddings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model, prompt }),
+      body: JSON.stringify({ input: prompt, model: "embedding" }),
       signal: AbortSignal.timeout(30000),
     });
     if (!resp.ok) {
       res.status(resp.status).json({ error: `Embedding failed: ${resp.status}` });
       return;
     }
-    const data = (await resp.json()) as { embedding: number[] };
-    res.json(data);
+    const data = (await resp.json()) as { data: Array<{ embedding: number[] }> };
+    // Return in legacy format for backward compat with vault client
+    res.json({ embedding: data.data?.[0]?.embedding ?? [] });
   } catch {
     res.status(502).json({ error: "Could not reach AI engine" });
   }
@@ -98,7 +104,7 @@ vaultRouter.post("/chat", async (req, res) => {
   }
 
   try {
-    const resp = await fetch(`${ollamaUrl()}/api/chat`, {
+    const resp = await fetch(`${chatServerUrl()}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model, messages, stream: stream ?? true }),

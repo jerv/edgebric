@@ -179,7 +179,7 @@
 > As an IT administrator, I want to deploy Edgebric nodes on our infrastructure with minimal configuration and no external dependencies.
 
 - I install the Edgebric desktop app on each device that will host data sources
-- The app auto-manages Ollama (download, start, stop) for local AI inference
+- The app auto-manages llama-server (download, start, stop) for local AI inference
 - Employee devices on the network discover Edgebric nodes automatically via mDNS — no IP configuration required
 - For a single-node deployment: one app install, one device, done
 - For a multi-node deployment: install on additional devices, they auto-discover via mDNS

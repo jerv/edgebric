@@ -1,11 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Live E2E config — tests against a running Edgebric instance with real Ollama.
+ * Live E2E config — tests against a running Edgebric instance with real inference.
  *
  * Prerequisites:
  *   1. Desktop app running (or `pnpm --filter api exec tsx src/server.ts`)
- *   2. Ollama running with a model loaded (e.g. qwen3:4b)
+ *   2. llama-server running with a model loaded (e.g. qwen3:4b)
  *   3. At least one data source exists (tests create their own)
  *
  * Usage:

@@ -17,7 +17,7 @@ import {
  * - System remains responsive after burst load
  * - Health endpoint reflects queue state
  *
- * These tests use real Ollama inference and will be slow.
+ * These tests use real LLM inference and will be slow.
  */
 
 let sourceId: string;

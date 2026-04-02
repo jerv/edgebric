@@ -175,49 +175,32 @@ async function start() {
     }
   }
 
-  // Auto-install embedding model if Ollama is running but nomic-embed-text is missing,
-  // then auto-reload the last active chat model.
+  // Check inference servers and auto-configure the active chat model.
+  // Model installation and server lifecycle are managed by the desktop app.
   (async () => {
     try {
-      const { isRunning, listInstalled, pullModel, loadModel } = await import("./services/ollamaClient.js");
-      const { EMBEDDING_MODEL_TAG } = await import("@edgebric/types");
+      const { isRunning, listInstalled } = await import("./services/inferenceClient.js");
       const { getLastModel } = await import("./services/modelPersistence.js");
 
       if (await isRunning()) {
         const installed = await listInstalled();
-        const hasEmbedding = installed.some((m) => m.tag === EMBEDDING_MODEL_TAG);
-        if (!hasEmbedding) {
-          logger.info("Auto-installing embedding model...");
-          await pullModel(EMBEDDING_MODEL_TAG, (e) => {
-            if (e.percent !== undefined && e.percent % 20 === 0) {
-              logger.info({ percent: e.percent }, "Embedding model download progress");
-            }
-          });
-          logger.info("Embedding model installed");
-        }
 
-        // Auto-reload the last active chat model
+        // Auto-set the last active chat model
         const lastModel = getLastModel();
         if (lastModel) {
           const isInstalled = installed.some((m) => m.tag === lastModel);
           if (isInstalled) {
-            logger.info({ model: lastModel }, "Auto-reloading last active chat model...");
-            try {
-              await loadModel(lastModel);
-              const { runtimeChatConfig } = await import("./config.js");
-              runtimeChatConfig.model = lastModel;
-              runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
-              logger.info({ model: lastModel }, "Last active chat model reloaded successfully");
-            } catch (loadErr) {
-              logger.warn({ err: loadErr, model: lastModel }, "Could not auto-reload last chat model");
-            }
+            const { runtimeChatConfig } = await import("./config.js");
+            runtimeChatConfig.model = lastModel;
+            runtimeChatConfig.baseUrl = `${config.inference.chatBaseUrl}/v1`;
+            logger.info({ model: lastModel }, "Active chat model configured");
           } else {
-            logger.info({ model: lastModel }, "Last active model is no longer installed, skipping auto-reload");
+            logger.info({ model: lastModel }, "Last active model is no longer installed");
           }
         }
       }
     } catch (err) {
-      logger.warn({ err }, "Could not auto-install embedding model (Ollama may not be running)");
+      logger.warn({ err }, "Could not check inference server status");
     }
   })();
 

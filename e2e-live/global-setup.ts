@@ -3,12 +3,12 @@
  *
  * Ensures:
  * 1. The API server is reachable
- * 2. Ollama has a chat model loaded
+ * 2. The inference server (llama-server) has a chat model loaded
  * 3. The API knows which model to use
  */
 
 const BASE_URL = process.env["EDGEBRIC_URL"] ?? "http://localhost:3001";
-const OLLAMA_URL = process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434";
+const CHAT_SERVER_URL = process.env["INFERENCE_CHAT_URL"] ?? "http://localhost:8080";
 
 export default async function globalSetup() {
   // 1. Verify API is running
@@ -19,36 +19,21 @@ export default async function globalSetup() {
   const health = await healthRes.json() as { status: string; aiReady: boolean };
   console.log(`API health: ${health.status}, aiReady: ${health.aiReady}`);
 
-  // 2. Check Ollama for installed models
-  const tagsRes = await fetch(`${OLLAMA_URL}/api/tags`);
-  if (!tagsRes.ok) {
-    throw new Error(`Ollama not reachable at ${OLLAMA_URL}`);
-  }
-  const { models } = await tagsRes.json() as { models: Array<{ name: string }> };
-  const chatModels = models.filter(
-    (m) => !m.name.includes("embed") && !m.name.includes("nomic"),
-  );
-  if (chatModels.length === 0) {
-    throw new Error("No chat models installed in Ollama. Install one first (e.g. ollama pull llama3.2:3b)");
+  // 2. Check that the chat inference server is reachable
+  const chatHealthRes = await fetch(`${CHAT_SERVER_URL}/health`);
+  if (!chatHealthRes.ok) {
+    throw new Error(`Chat inference server not reachable at ${CHAT_SERVER_URL}`);
   }
 
-  // 3. Load the first available chat model if none are running
-  const psRes = await fetch(`${OLLAMA_URL}/api/ps`);
-  const { models: running } = await psRes.json() as { models: Array<{ name: string }> };
-  const runningChat = running.filter(
-    (m) => !m.name.includes("embed") && !m.name.includes("nomic"),
-  );
-
-  const modelTag = runningChat.length > 0 ? runningChat[0]!.name : chatModels[0]!.name;
-
-  if (runningChat.length === 0) {
-    console.log(`Loading model ${modelTag} into Ollama...`);
-    await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: "POST",
-      body: JSON.stringify({ model: modelTag, keep_alive: "30m", prompt: "" }),
-    });
-    console.log(`Model ${modelTag} loaded.`);
+  // 3. Check for running model slots
+  const slotsRes = await fetch(`${CHAT_SERVER_URL}/slots`);
+  if (!slotsRes.ok) {
+    throw new Error("Chat inference server has no model slots available. Load a model first.");
   }
+
+  // Use a default model tag since llama-server serves one model at a time
+  const modelTag = process.env["CHAT_MODEL"] ?? "qwen3:4b";
+  console.log(`Using model: ${modelTag}`);
 
   // 4. Set the active model in the API
   const setRes = await fetch(`${BASE_URL}/api/admin/models/active`, {

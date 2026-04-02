@@ -21,7 +21,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 |                                                           |
 |  +--------------+    +--------------+    +--------------+ |
 |  |   Web UI      |    |   API Server |    |   AI Engine   | |
-|  |  (Browser)    |--->|  (Express)   |--->|  (Ollama)     | |
+|  |  (Browser)    |--->|  (Express)   |--->| (llama-server)| |
 |  |              |    |              |    |              | |
 |  |  React app   |<---|  Auth, CRUD, |<---|  Embedding,  | |
 |  |  served from |    |  RAG pipeline|    |  Generation  | |
@@ -57,7 +57,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Property | Implementation |
 |---|---|
 | **Data residency** | All data stored in a single directory on your filesystem. Never transmitted externally. |
-| **AI processing** | Language model runs locally via Ollama on your hardware. No cloud AI APIs used by default. |
+| **AI processing** | Language model runs locally via llama-server (llama.cpp) on your hardware. No cloud AI APIs used by default. |
 | **Vector search** | sqlite-vec embedded in SQLite. No separate database or external service. |
 | **Keyword search** | FTS5 (BM25) built into SQLite. Combined with vector search via Reciprocal Rank Fusion. |
 | **Authentication** | OIDC/SSO via your existing identity provider. Session cookies (httpOnly, secure). |
@@ -90,7 +90,7 @@ Edgebric is **on-premise software** that enables organizations to build private,
 | Identity provider (Google, Okta, etc.) | Outbound | User authentication | OAuth tokens (no org data) | No (required for login) |
 | Custom LLM endpoint (if configured) | Outbound | AI inference | Query text + context chunks | Yes (disabled by default) |
 
-**By default, Edgebric makes zero external API calls for AI processing.** All inference runs on Ollama locally. All vector search runs on sqlite-vec locally.
+**By default, Edgebric makes zero external API calls for AI processing.** All inference runs on llama-server locally. All vector search runs on sqlite-vec locally.
 
 ---
 

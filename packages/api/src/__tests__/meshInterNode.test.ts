@@ -16,7 +16,7 @@ import {
   createDataSource,
 } from "../services/dataSourceStore.js";
 
-// Mock the search service — we don't want real Ollama/sqlite-vec calls
+// Mock the search service — we don't want real inference/sqlite-vec calls
 vi.mock("../services/searchService.js", () => ({
   hybridMultiDatasetSearch: vi.fn().mockResolvedValue({
     results: [

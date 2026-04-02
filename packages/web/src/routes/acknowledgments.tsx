@@ -25,10 +25,10 @@ function Acknowledgments() {
 
         <div className="mt-8 space-y-6">
           <ProjectCard
-            name="Ollama"
+            name="llama.cpp"
             license="MIT"
-            url="https://github.com/ollama/ollama"
-            description="Local large language model runtime. Ollama powers Edgebric's on-device AI inference, ensuring all queries are processed privately without leaving your network."
+            url="https://github.com/ggerganov/llama.cpp"
+            description="Local large language model inference engine. llama.cpp powers Edgebric's on-device AI inference, ensuring all queries are processed privately without leaving your network."
           />
 
           <ProjectCard

@@ -31,12 +31,12 @@ declare global {
         secondaryNodeName?: string;
         primaryEndpoint?: string;
       }) => Promise<{ success: boolean }>;
-      // Ollama / AI Engine
-      getOllamaStatus: () => Promise<{ installed: boolean; running: boolean; version: string | null }>;
-      installOllama: (version?: string) => Promise<{ success: boolean; error?: string }>;
-      startOllama: () => Promise<{ success: boolean; external?: boolean; error?: string }>;
-      stopOllama: () => Promise<{ success: boolean; error?: string }>;
-      onOllamaDownloadProgress: (callback: (percent: number) => void) => () => void;
+      // AI Engine (llama-server)
+      getEngineStatus: () => Promise<{ installed: boolean; running: boolean; version: string | null }>;
+      installEngine: (version?: string) => Promise<{ success: boolean; error?: string }>;
+      startEngine: () => Promise<{ success: boolean; external?: boolean; error?: string }>;
+      stopEngine: () => Promise<{ success: boolean; error?: string }>;
+      onEngineDownloadProgress: (callback: (percent: number) => void) => () => void;
       // mDNS Discovery
       discoverInstances: () => Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>;
       // Settings
@@ -82,7 +82,7 @@ interface ModelsListResult {
   activeModel: string;
   system: { ramTotalBytes: number; ramAvailableBytes: number; diskFreeBytes: number; diskTotalBytes: number; edgebricRamBytes?: number };
   mode?: string;
-  storage?: { dbBytes: number; uploadsBytes: number; ollamaModelsBytes: number; vaultBytes: number };
+  storage?: { dbBytes: number; uploadsBytes: number; modelsBytes: number; vaultBytes: number };
 }
 
 export default function App() {

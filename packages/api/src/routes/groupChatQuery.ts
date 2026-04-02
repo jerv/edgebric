@@ -13,7 +13,7 @@ import { getDocument } from "../services/documentStore.js";
 import { listDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
-import { createChatClient } from "../services/ollamaChatClient.js";
+import { createChatClient } from "../services/chatClient.js";
 import {
   getGroupChat,
   isMember,

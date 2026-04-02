@@ -4,9 +4,13 @@ export type ModelStatus = "not_installed" | "installed" | "loaded" | "downloadin
 export type ModelTier = "recommended" | "supported" | "community";
 
 export interface ModelCatalogEntry {
-  /** Ollama model tag (e.g., "qwen3:4b") */
+  /** Unique model tag (e.g., "qwen3-4b") — used as identifier */
   tag: string;
-  /** Display name (e.g., "Qwen 3") */
+  /** GGUF filename on disk (e.g., "Qwen3-4B-Q4_K_M.gguf") */
+  ggufFilename: string;
+  /** HuggingFace download URL for the GGUF file */
+  downloadUrl: string;
+  /** Display name (e.g., "Qwen 3 4B") */
   name: string;
   /** Model family / vendor (e.g., "Qwen", "Meta", "Microsoft", "Google") */
   family: string;
@@ -29,14 +33,14 @@ export interface ModelCatalogEntry {
 }
 
 export interface InstalledModel {
-  /** Ollama model tag */
+  /** Model tag (matches catalog tag for known models, or GGUF filename for community) */
   tag: string;
-  /** Display name (from catalog or Ollama) */
+  /** GGUF filename on disk */
+  filename: string;
+  /** Display name (from catalog or filename) */
   name: string;
   /** Size on disk in bytes */
   sizeBytes: number;
-  /** Model digest / hash */
-  digest: string;
   /** Last modified timestamp */
   modifiedAt: string;
   /** Current status */
@@ -57,8 +61,8 @@ export interface SystemResources {
 }
 
 export interface StorageBreakdown {
-  /** Ollama model files on disk (bytes). */
-  ollamaModelsBytes: number;
+  /** GGUF model files on disk (bytes). */
+  modelsBytes: number;
   /** Uploaded documents (bytes). */
   uploadsBytes: number;
   /** SQLite database files (bytes). */
@@ -87,36 +91,42 @@ export interface PullProgressEvent {
 export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   // ── Recommended (curated, tested with Edgebric) ──
   {
-    tag: "qwen3:4b",
+    tag: "qwen3-4b",
+    ggufFilename: "Qwen3-4B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
     name: "Qwen 3 4B",
     family: "Qwen",
     description: "Best overall for most hardware. Fast, accurate, 256K context.",
     paramCount: "4B",
-    downloadSizeGB: 2.5,
+    downloadSizeGB: 2.7,
     ramUsageGB: 5.5,
     origin: "Alibaba",
     tier: "recommended",
     minRAMGB: 8,
   },
   {
-    tag: "qwen3:8b",
+    tag: "qwen3-8b",
+    ggufFilename: "Qwen3-8B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
     name: "Qwen 3 8B",
     family: "Qwen",
     description: "Stronger reasoning and analysis. Best for 16GB machines.",
     paramCount: "8B",
-    downloadSizeGB: 5.2,
+    downloadSizeGB: 5.5,
     ramUsageGB: 9,
     origin: "Alibaba",
     tier: "recommended",
     minRAMGB: 16,
   },
   {
-    tag: "qwen3:14b",
+    tag: "qwen3-14b",
+    ggufFilename: "Qwen3-14B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
     name: "Qwen 3 14B",
     family: "Qwen",
     description: "Highest quality answers. Needs 32GB RAM.",
     paramCount: "14B",
-    downloadSizeGB: 9.3,
+    downloadSizeGB: 9.5,
     ramUsageGB: 15,
     origin: "Alibaba",
     tier: "recommended",
@@ -125,6 +135,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   // ── Supported (alternatives, known to work) ──
   {
     tag: "phi4-mini",
+    ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf",
     name: "Phi-4 Mini",
     family: "Microsoft",
     description: "Compact, efficient, 128K context. Good for constrained setups.",
@@ -136,7 +148,9 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     minRAMGB: 8,
   },
   {
-    tag: "gemma3:4b",
+    tag: "gemma3-4b",
+    ggufFilename: "gemma-3-4b-it-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/bartowski/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf",
     name: "Gemma 3 4B",
     family: "Google",
     description: "Google's efficient model. Multimodal capable, 128K context.",
@@ -148,7 +162,9 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     minRAMGB: 8,
   },
   {
-    tag: "gemma3:12b",
+    tag: "gemma3-12b",
+    ggufFilename: "gemma-3-12b-it-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/bartowski/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf",
     name: "Gemma 3 12B",
     family: "Google",
     description: "Strong document analysis. Multimodal, 128K context.",
@@ -162,11 +178,13 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   // ── Hidden infrastructure ──
   {
     tag: "nomic-embed-text",
+    ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf",
+    downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf",
     name: "Nomic Embed Text",
     family: "Nomic",
     description: "Text embedding model for semantic search.",
     paramCount: "137M",
-    downloadSizeGB: 0.27,
+    downloadSizeGB: 0.15,
     ramUsageGB: 0.3,
     origin: "Nomic",
     tier: "recommended",
@@ -175,16 +193,21 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   },
 ];
 
-/** Lookup catalog entry by Ollama tag. Returns undefined for community models. */
+/** Lookup catalog entry by tag. Returns undefined for community models. */
 export const MODEL_CATALOG_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Map(
   OFFICIAL_CATALOG.map((m) => [m.tag, m]),
 );
 
+/** Lookup catalog entry by GGUF filename. */
+export const MODEL_FILENAME_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Map(
+  OFFICIAL_CATALOG.map((m) => [m.ggufFilename, m]),
+);
+
 /** Returns the recommended model tag based on available RAM (in GB). */
 export function getRecommendedModelTag(ramGB: number): string {
-  if (ramGB < 12) return "qwen3:4b";
-  if (ramGB < 24) return "qwen3:8b";
-  return "qwen3:14b";
+  if (ramGB < 12) return "qwen3-4b";
+  if (ramGB < 24) return "qwen3-8b";
+  return "qwen3-14b";
 }
 
 /** User-visible catalog (excludes hidden models like embedding). */

@@ -8,7 +8,7 @@
 
 ### MESH-01 — Distributed Architecture Design
 
-**Decision:** The distributed knowledge architecture uses mDNS for device discovery and direct HTTP for cross-device communication. Each node runs Ollama for inference and sqlite-vec for local vector storage.
+**Decision:** The distributed knowledge architecture uses mDNS for device discovery and direct HTTP for cross-device communication. Each node runs llama-server for inference and sqlite-vec for local vector storage.
 
 **What the architecture provides:**
 
@@ -16,7 +16,7 @@
 |---|---|
 | Device discovery | mDNS auto-discovery, zero config |
 | Cross-device queries | Direct HTTP routing between nodes |
-| Local AI inference | Ollama on each device |
+| Local AI inference | llama-server on each device |
 | Local vector storage | sqlite-vec embedded in SQLite on each device |
 | Multi-node coordination | Custom query router with fan-out + synthesis |
 
@@ -156,14 +156,14 @@ Employees can download their own personal records for private querying.
 
 ### MODEL-01 — Model Strategy
 
-Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec. **Ollama** is the inference backend, auto-managed by the desktop app (download, start, stop, auto-update with rollback).
+Edgebric is model-agnostic. The inference layer targets the OpenAI-compatible API spec. **llama-server** (from llama.cpp) is the inference backend, auto-managed by the desktop app (download, start, stop, auto-update with rollback). GGUF models are downloaded from HuggingFace.
 
-**Ollama management:**
-- Desktop app downloads and manages Ollama automatically — users never interact with Ollama directly
+**llama-server management:**
+- Desktop app downloads and manages llama-server automatically — users never interact with llama-server directly
 - Users can install, load, and unload multiple models from within the app
 - Model picker dropdown in the chat interface lets users select which model to use
 - RAM and disk usage displayed per model so users can manage resources
-- Auto-update with rollback: Ollama binary is updated on app launch if a newer version is available, with automatic rollback if the update fails
+- Auto-update with rollback: llama-server binary is updated on app launch if a newer version is available, with automatic rollback if the update fails
 
 **Recommended defaults (March 2026):**
 - Coordinator / server-side: Qwen3.5-9B Q4_K_M (~5.8GB)
@@ -273,7 +273,7 @@ Group chats and collaboration features are absent in Incognito Mode. Collaborati
 **Decision:** The primary demo uses multiple devices on the same network to demonstrate cross-device query routing.
 
 **Why this setup:**
-- One device runs the coordinator node, API server, web UI, and has the most compute for Ollama
+- One device runs the coordinator node, API server, web UI, and has the most compute for llama-server
 - Additional devices act as data source nodes, each with sqlite-vec hosting different knowledge
 - Demonstrates: auto-discovery, cross-device query, meeting mode, physical data isolation
 - Works over WiFi (no corporate network needed)

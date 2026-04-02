@@ -28,7 +28,7 @@
 
 ## Quick Summary
 
-Edgebric is a privacy-first, on-premise AI knowledge platform that answers questions from a company's own policy and knowledge documents — running entirely on company hardware using Ollama for local AI inference and sqlite-vec for vector search. Zero data leaves the building.
+Edgebric is a privacy-first, on-premise AI knowledge platform that answers questions from a company's own policy and knowledge documents — running entirely on company hardware using llama.cpp for local AI inference and sqlite-vec for vector search. Zero data leaves the building.
 
 **Platform:** Any sensitive knowledge domain — HR, legal, compliance, finance, IT, and beyond.
 

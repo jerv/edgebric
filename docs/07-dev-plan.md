@@ -11,11 +11,11 @@ Phases 1–3 and Phase 5 (mesh networking) are complete. The product is working 
 - **packages/api/** — Express backend with OIDC auth, SQLite + Drizzle, multi-data-source management, group chat routes, SSE streaming, document upload + Docling extraction + ingestion, mesh networking, audit logging
 - **packages/web/** — Vite + React + TanStack Router, admin dashboard (Data Sources, user management, node management), employee query interface, group chats with threads, conversation management, onboarding wizard, privacy modes
 - **packages/core/** — Chunker (parent-child), PII detector, query filter, system prompt, RAG orchestrator, context summarizer, answer analysis, citation validation
-- **packages/desktop/** — Electron 33 menu bar app, setup wizard (Solo/Admin/Member modes), Ollama lifecycle management (auto-download, auto-update with rollback), model management, server dashboard, mDNS publishing, self-signed TLS
+- **packages/desktop/** — Electron 33 menu bar app, setup wizard (Solo/Admin/Member modes), llama-server lifecycle management (auto-download, auto-update with rollback), model management, server dashboard, mDNS publishing, self-signed TLS
 - **shared/types/** — TypeScript interfaces shared across packages
-- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via Ollama → store in sqlite-vec → hybrid search (BM25 + vector) → SSE stream → citations with data source attribution
+- **End-to-end working:** upload → Docling extract → chunk → PII scan → embed via llama-server → store in sqlite-vec → hybrid search (BM25 + vector) → SSE stream → citations with data source attribution
 - **Security:** Rate limiting, structured logging (pino), org-scoping, input validation (Zod), CSRF (double-submit cookie), CSP (Helmet), HSTS, immutable hash-chained audit log
-- **Privacy:** Private mode (anonymous queries) + Vault mode (fully on-device with AES-256-GCM, Ollama)
+- **Privacy:** Private mode (anonymous queries) + Vault mode (fully on-device with AES-256-GCM, llama-server)
 - **Org model:** Multi-org scoping, user/admin roles (owner/admin/member), OIDC/SSO (6 providers), invite flow, onboarding wizard
 - **Collaboration:** Group chats with @bot querying, threaded replies, data source sharing with confirmation, context summarization
 - **Mesh:** Node registry, cross-device query routing, mesh token auth, heartbeat scheduler, mDNS discovery (desktop), admin node dashboard
@@ -42,7 +42,7 @@ V1/beta is macOS-only. Mobile apps, Android, and cross-platform are V2+.
 ## Phase 2 — Productization COMPLETE
 
 See [08-productization.md](08-productization.md) for details. Summary of what shipped:
-- Desktop app (Electron) with setup wizard, tray menu, server/Ollama lifecycle management
+- Desktop app (Electron) with setup wizard, tray menu, server/llama-server lifecycle management
 - Zod input validation on all routes
 - CSRF, CSP, Helmet, graceful shutdown, secure headers, HSTS
 - Toast notifications, session expiry detection
@@ -194,7 +194,7 @@ POST   /api/sessions/:id/end      # End session (creator only)
 2. Server identifies all shared data sources across all participants
 3. Router fans out query to each node hosting a shared data source
 4. Results collected and merged with per-data-source citations
-5. Ollama generates synthesized answer on coordinator
+5. llama-server generates synthesized answer on coordinator
 6. Answer streamed to all session participants via SSE
 
 ### 6.3 — Session UI
@@ -246,7 +246,7 @@ edgebric/
 | Multi-office federation | Same-network mesh first, cross-network later |
 | Mobile apps | Phase 7 — desktop product ships first |
 | Custom AI model training | Out of scope — use off-the-shelf models |
-| App auto-update | Ollama auto-update works; app auto-update is Phase D4 |
+| App auto-update | llama-server auto-update works; app auto-update is Phase D4 |
 
 ---
 

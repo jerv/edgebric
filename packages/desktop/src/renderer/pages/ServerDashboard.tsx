@@ -113,7 +113,7 @@ interface SystemResources {
 interface StorageBreakdown {
   dbBytes: number;
   uploadsBytes: number;
-  ollamaModelsBytes: number;
+  modelsBytes: number;
   vaultBytes: number;
 }
 
@@ -297,13 +297,13 @@ export default function ServerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch models data via IPC (talks directly to Ollama, no API server auth needed)
+  // Fetch models data via IPC (talks to main process, no API server auth needed)
   const fetchModels = useCallback(async () => {
     try {
       const data = await window.electronAPI.modelsList();
       setModelsData(data as ModelsData);
     } catch {
-      // Ollama might not be ready yet
+      // Inference server might not be ready yet
     }
   }, []);
 
@@ -736,12 +736,12 @@ export default function ServerDashboard() {
                 {/* Disk bar — segmented: models, documents, embeddings on disk, database */}
                 {(() => {
                   const st = modelsData?.storage;
-                  const ollamaBytes = st?.ollamaModelsBytes ?? 0;
+                  const modelsSize = st?.modelsBytes ?? 0;
                   const uploadsBytes = st?.uploadsBytes ?? 0;
                   const dbBytes = st?.dbBytes ?? 0;
                   const vaultBytes = st?.vaultBytes ?? 0;
                   const embeddingDisk = embeddingModel?.sizeBytes ?? 0;
-                  const edgebricTotal = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+                  const edgebricTotal = modelsSize + uploadsBytes + dbBytes + vaultBytes;
                   const pctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
                   const otherUsed = Math.max(0, diskUsed - edgebricTotal);
                   return (
@@ -755,8 +755,8 @@ export default function ServerDashboard() {
                       </div>
                       <div className="resource-bar-track">
                         <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
-                        {ollamaBytes > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${pctOf(ollamaBytes)}%`, background: "#3b82f6" }} />
+                        {modelsSize > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelsSize)}%`, background: "#3b82f6" }} />
                         )}
                         {uploadsBytes > 0 && (
                           <div className="resource-bar-fill" style={{ width: `${pctOf(uploadsBytes)}%`, background: "#22c55e" }} />
@@ -769,10 +769,10 @@ export default function ServerDashboard() {
                         )}
                       </div>
                       <div className="resource-bar-legend">
-                        {ollamaBytes > 0 && (
+                        {modelsSize > 0 && (
                           <span className="legend-item">
                             <span className="legend-dot" style={{ background: "#3b82f6" }} />
-                            AI Models {formatBytes(ollamaBytes)}
+                            AI Models {formatBytes(modelsSize)}
                           </span>
                         )}
                         {uploadsBytes > 0 && (
@@ -1681,11 +1681,11 @@ export default function ServerDashboard() {
                 {/* Disk bar — segmented, matches models section */}
                 {(() => {
                   const st = modelsData?.storage;
-                  const ollamaBytes = st?.ollamaModelsBytes ?? 0;
+                  const modelsSize = st?.modelsBytes ?? 0;
                   const uploadsBytes = st?.uploadsBytes ?? 0;
                   const dbBytes = st?.dbBytes ?? 0;
                   const vaultBytes = st?.vaultBytes ?? 0;
-                  const edgebricDisk = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+                  const edgebricDisk = modelsSize + uploadsBytes + dbBytes + vaultBytes;
                   const otherDisk = Math.max(0, diskUsed - edgebricDisk);
                   const diskPctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
                   return (
@@ -1699,8 +1699,8 @@ export default function ServerDashboard() {
                       </div>
                       <div className="resource-bar-track">
                         <div className="resource-bar-fill" style={{ width: `${diskPctOf(otherDisk)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
-                        {ollamaBytes > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(ollamaBytes)}%`, background: "#3b82f6" }} />
+                        {modelsSize > 0 && (
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(modelsSize)}%`, background: "#3b82f6" }} />
                         )}
                         {uploadsBytes > 0 && (
                           <div className="resource-bar-fill" style={{ width: `${diskPctOf(uploadsBytes)}%`, background: "#22c55e" }} />

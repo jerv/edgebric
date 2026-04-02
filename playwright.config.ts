@@ -41,7 +41,7 @@ export default defineConfig({
       SESSION_SECRET: "e2e-test-secret",
       SERVE_STATIC: "1",
       FRONTEND_URL: "http://localhost:3099",
-      OLLAMA_BASE_URL: "http://localhost:99999", // intentionally unreachable
+      INFERENCE_CHAT_URL: "http://localhost:99999", // intentionally unreachable
       SKIP_CSRF: "1",
       SKIP_RATE_LIMIT: "1",
     },

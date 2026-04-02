@@ -91,11 +91,11 @@ export function DiskBar({ system, storage }: { system: SystemResources; storage?
   const diskUsed = diskTotal - system.diskFreeBytes;
   const pctOf = (bytes: number) => diskTotal > 0 ? Math.max(0, (bytes / diskTotal) * 100) : 0;
 
-  const ollamaBytes = storage?.ollamaModelsBytes ?? 0;
+  const modelsSize = storage?.modelsBytes ?? 0;
   const uploadsBytes = storage?.uploadsBytes ?? 0;
   const dbBytes = storage?.dbBytes ?? 0;
   const vaultBytes = storage?.vaultBytes ?? 0;
-  const edgebricTotal = ollamaBytes + uploadsBytes + dbBytes + vaultBytes;
+  const edgebricTotal = modelsSize + uploadsBytes + dbBytes + vaultBytes;
   const otherUsed = Math.max(0, diskUsed - edgebricTotal);
 
   return (
@@ -110,8 +110,8 @@ export function DiskBar({ system, storage }: { system: SystemResources; storage?
         </div>
         <div className="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden flex">
           <div className="h-full bg-slate-400 dark:bg-gray-600 transition-all" style={{ width: `${pctOf(otherUsed)}%` }} />
-          {ollamaBytes > 0 && (
-            <div className="h-full bg-blue-500 dark:bg-blue-400 transition-all" style={{ width: `${pctOf(ollamaBytes)}%` }} />
+          {modelsSize > 0 && (
+            <div className="h-full bg-blue-500 dark:bg-blue-400 transition-all" style={{ width: `${pctOf(modelsSize)}%` }} />
           )}
           {uploadsBytes > 0 && (
             <div className="h-full bg-green-500 dark:bg-green-400 transition-all" style={{ width: `${pctOf(uploadsBytes)}%` }} />
@@ -124,10 +124,10 @@ export function DiskBar({ system, storage }: { system: SystemResources; storage?
           )}
         </div>
         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-          {ollamaBytes > 0 && (
+          {modelsSize > 0 && (
             <span className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-gray-400">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400" />
-              AI Models {formatBytes(ollamaBytes)}
+              AI Models {formatBytes(modelsSize)}
             </span>
           )}
           {uploadsBytes > 0 && (

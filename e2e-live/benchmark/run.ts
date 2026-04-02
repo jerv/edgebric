@@ -17,7 +17,7 @@ import path from "path";
 import { BENCHMARK_QUESTIONS, type BenchmarkQuestion } from "./questions";
 
 const BASE_URL = process.env["EDGEBRIC_URL"] ?? "http://localhost:3001";
-const OLLAMA_URL = process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434";
+const CHAT_SERVER_URL = process.env["INFERENCE_CHAT_URL"] ?? "http://localhost:8080";
 const RESULTS_DIR = path.join(__dirname, "results");
 
 // Per-question timeout in ms (2 minutes — anything longer is bad UX anyway)
@@ -214,61 +214,29 @@ async function setActiveModel(tag: string): Promise<void> {
 }
 
 async function loadModel(tag: string): Promise<void> {
-  console.log(`  Loading ${tag} into Ollama...`);
-  const res = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: "POST",
-    body: JSON.stringify({ model: tag, keep_alive: "30m", prompt: "" }),
-  });
-  if (!res.ok) throw new Error(`Failed to load model ${tag}: ${res.status}`);
-  // Consume the response body
-  await res.text();
-  console.log(`  ${tag} loaded.`);
+  console.log(`  Loading ${tag} into inference server...`);
+  // With llama-server, models are loaded at startup. Verify it's ready.
+  const res = await fetch(`${CHAT_SERVER_URL}/health`);
+  if (!res.ok) throw new Error(`Inference server not ready for model ${tag}: ${res.status}`);
+  console.log(`  ${tag} ready.`);
 }
 
-async function unloadModel(tag: string): Promise<void> {
-  await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: "POST",
-    body: JSON.stringify({ model: tag, keep_alive: "0", prompt: "" }),
-  });
+async function unloadModel(_tag: string): Promise<void> {
+  // With llama-server, model lifecycle is managed by the server process.
+  // Nothing to do here — the benchmark runner script handles server restarts.
 }
 
 async function pullModel(tag: string): Promise<void> {
-  console.log(`  Pulling ${tag}...`);
-  const res = await fetch(`${OLLAMA_URL}/api/pull`, {
-    method: "POST",
-    body: JSON.stringify({ name: tag }),
-  });
-  if (!res.ok) throw new Error(`Failed to pull ${tag}: ${res.status}`);
-
-  // Stream progress
-  const reader = res.body?.getReader();
-  if (!reader) return;
-  const decoder = new TextDecoder();
-  let lastPct = -1;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const text = decoder.decode(value);
-    for (const line of text.split("\n").filter(Boolean)) {
-      try {
-        const data = JSON.parse(line) as { status?: string; completed?: number; total?: number };
-        if (data.total && data.completed) {
-          const pct = Math.round((data.completed / data.total) * 100);
-          if (pct !== lastPct && pct % 10 === 0) {
-            process.stdout.write(`  ${tag}: ${pct}%\n`);
-            lastPct = pct;
-          }
-        }
-      } catch { /* skip */ }
-    }
-  }
-  console.log(`  ${tag} pulled.`);
+  // With llama-server, model downloads are managed by the desktop app.
+  // This is a no-op in the benchmark runner — models must be pre-downloaded.
+  console.log(`  Model ${tag} must be pre-downloaded for llama-server benchmarks.`);
 }
 
-async function isModelInstalled(tag: string): Promise<boolean> {
-  const res = await fetch(`${OLLAMA_URL}/api/tags`);
-  const { models } = await res.json() as { models: Array<{ name: string }> };
-  return models.some((m) => m.name === tag || m.name === `${tag}:latest`);
+async function isModelInstalled(_tag: string): Promise<boolean> {
+  // With llama-server, model availability is managed by the desktop app.
+  // Assume models are available if the server is running.
+  const res = await fetch(`${CHAT_SERVER_URL}/health`);
+  return res.ok;
 }
 
 // ─── Auto-scoring ────────────────────────────────────────────────────────────
@@ -299,7 +267,7 @@ async function main() {
   console.log(`Models: ${models.join(", ")}`);
   console.log(`Questions: ${BENCHMARK_QUESTIONS.length}`);
   console.log(`API: ${BASE_URL}`);
-  console.log(`Ollama: ${OLLAMA_URL}\n`);
+  console.log(`Inference: ${CHAT_SERVER_URL}\n`);
 
   // 1. Verify API is running
   const health = await fetch(`${BASE_URL}/api/health`);

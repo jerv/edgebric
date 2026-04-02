@@ -7,7 +7,7 @@ import { logger } from "../lib/logger.js";
  * scores. This catches cases where vector cosine similarity ranks chunks
  * incorrectly due to semantic overlap (very common in HR/policy documents).
  *
- * Current implementation: uses the chat LLM via Ollama to score relevance.
+ * Current implementation: uses the chat LLM to score relevance.
  * This is slower than a dedicated cross-encoder model but requires no
  * additional dependencies. Can be upgraded to ONNX MiniLM later.
  *
@@ -27,16 +27,16 @@ interface RerankedResult {
   rerankerScore: number;
 }
 
-type OllamaGenerateFn = (prompt: string) => Promise<string>;
+type GenerateFn = (prompt: string) => Promise<string>;
 
-let _generateFn: OllamaGenerateFn | null = null;
+let _generateFn: GenerateFn | null = null;
 let _enabled = true;
 
 /**
- * Initialize the reranker with an Ollama generate function.
- * Call this once at startup when Ollama is available.
+ * Initialize the reranker with an LLM generate function.
+ * Call this once at startup when the inference server is available.
  */
-export function initReranker(generateFn: OllamaGenerateFn): void {
+export function initReranker(generateFn: GenerateFn): void {
   _generateFn = generateFn;
   _enabled = true;
   logger.info("Reranker initialized (LLM-based scoring)");

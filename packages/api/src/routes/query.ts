@@ -6,7 +6,7 @@ import type { ChatMessage } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
-import { isRunning as isOllamaRunning, listRunning as listRunningModels } from "../services/ollamaClient.js";
+import { isRunning as isInferenceRunning, listRunning as listRunningModels } from "../services/inferenceClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
@@ -91,8 +91,8 @@ function checkQueryRateLimit(email: string): { allowed: boolean; retryAfterMs?: 
 
 export const queryRouter: IRouter = Router();
 
-// Chat client — uses Ollama's OpenAI-compatible API for streaming inference.
-import { createChatClient } from "../services/ollamaChatClient.js";
+// Chat client — uses llama-server's OpenAI-compatible API for streaming inference.
+import { createChatClient } from "../services/chatClient.js";
 const chatClient = createChatClient();
 
 queryRouter.use(requireOrg);
@@ -219,8 +219,8 @@ queryRouter.get("/status", async (req, res) => {
 
   let modelLoaded = false;
   try {
-    const ollamaUp = await isOllamaRunning();
-    if (ollamaUp) {
+    const serverUp = await isInferenceRunning();
+    if (serverUp) {
       const running = await listRunningModels();
       modelLoaded = running.size > 0;
     }
@@ -253,10 +253,10 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     return;
   }
 
-  // Check that Ollama has a model loaded — fail early with a clear message
-  // instead of a cryptic connection error during generation.
-  const ollamaUp = await isOllamaRunning();
-  if (!ollamaUp) {
+  // Check that the inference server has a model loaded — fail early with a
+  // clear message instead of a cryptic connection error during generation.
+  const serverUp = await isInferenceRunning();
+  if (!serverUp) {
     // SSE error so the chat UI can display it inline
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
