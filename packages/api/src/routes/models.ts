@@ -5,7 +5,7 @@ import { runtimeChatConfig, config } from "../config.js";
 import { logger } from "../lib/logger.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
-import * as ollama from "../services/ollamaClient.js";
+import * as inference from "../services/inferenceClient.js";
 import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog, MODEL_CATALOG_MAP, checkModelRAMFit } from "@edgebric/types";
 import type { InstalledModel, ModelsResponse } from "@edgebric/types";
 import { saveLastModel, clearLastModel } from "../services/modelPersistence.js";
@@ -27,10 +27,10 @@ const activePulls = new Map<string, AbortController>();
 
 modelsRouter.get("/", async (_req, res) => {
   try {
-    const ollamaUp = await ollama.isRunning();
-    if (!ollamaUp) {
-      // Ollama not running — return empty state with catalog
-      const system = ollama.getSystemResources();
+    const serverUp = await inference.isRunning();
+    if (!serverUp) {
+      // Inference server not running — return empty state with catalog
+      const system = inference.getSystemResources();
       const response: ModelsResponse = {
         models: [],
         catalog: getVisibleCatalog(),
@@ -42,8 +42,8 @@ modelsRouter.get("/", async (_req, res) => {
     }
 
     const [installed, running] = await Promise.all([
-      ollama.listInstalled(),
-      ollama.listRunning(),
+      inference.listInstalled(),
+      inference.listRunning(),
     ]);
 
     // Merge installed list with running status
@@ -62,9 +62,9 @@ modelsRouter.get("/", async (_req, res) => {
       if (!models.some((m) => m.tag === tag)) {
         models.push({
           tag,
+          filename: `${tag}.gguf`,
           name: tag,
           sizeBytes: 0,
-          digest: "",
           modifiedAt: "",
           status: "downloading",
         });
@@ -76,12 +76,12 @@ modelsRouter.get("/", async (_req, res) => {
     const activeIsLoaded = loadedChat.some((m) => m.tag === runtimeChatConfig.model);
     if (!activeIsLoaded && loadedChat.length > 0) {
       runtimeChatConfig.model = loadedChat[0]!.tag;
-      runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+      runtimeChatConfig.baseUrl = `${config.inference.chatBaseUrl}/v1`;
       logger.info({ newActive: runtimeChatConfig.model }, "Auto-selected loaded model as active");
     }
 
-    const system = ollama.getSystemResources();
-    const storage = ollama.getStorageBreakdown();
+    const system = inference.getSystemResources();
+    const storage = inference.getStorageBreakdown();
     const response: ModelsResponse = {
       models,
       catalog: getVisibleCatalog(),
@@ -97,7 +97,7 @@ modelsRouter.get("/", async (_req, res) => {
 });
 
 // ─── POST /api/admin/models/pull ─────────────────────────────────────────────
-// Download a model from Ollama registry. Returns SSE stream with progress.
+// Download a model. Returns SSE stream with progress.
 
 modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
   const { tag } = req.body as z.infer<typeof tagSchema>;
@@ -107,9 +107,9 @@ modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
     return;
   }
 
-  // Check Ollama is running
-  const ollamaUp = await ollama.isRunning();
-  if (!ollamaUp) {
+  // Check inference server is running
+  const serverUp = await inference.isRunning();
+  if (!serverUp) {
     res.status(503).json({ error: "AI engine is not running" });
     return;
   }
@@ -119,7 +119,7 @@ modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
 
   // RAM fitness check
   const catalogEntry = MODEL_CATALOG_MAP.get(tag);
-  const system = ollama.getSystemResources();
+  const system = inference.getSystemResources();
   if (catalogEntry) {
     const fit = checkModelRAMFit(catalogEntry.ramUsageGB, system.ramTotalBytes);
     if (fit.level === "exceeds") {
@@ -157,7 +157,7 @@ modelsRouter.post("/pull", validateBody(tagSchema), async (req, res) => {
   activePulls.set(tag, controller);
 
   try {
-    await ollama.pullModel(
+    await inference.pullModel(
       tag,
       (event) => {
         res.write(`event: progress\ndata: ${JSON.stringify(event)}\n\n`);
@@ -206,7 +206,7 @@ modelsRouter.post("/load", validateBody(tagSchema), async (req, res) => {
 
   // RAM fitness logging before load
   const catalogEntry = MODEL_CATALOG_MAP.get(tag);
-  const system = ollama.getSystemResources();
+  const system = inference.getSystemResources();
   const totalRAMGB = system.ramTotalBytes / (1024 ** 3);
   const availRAMGB = system.ramAvailableBytes / (1024 ** 3);
 
@@ -228,14 +228,14 @@ modelsRouter.post("/load", validateBody(tagSchema), async (req, res) => {
   }
 
   try {
-    await ollama.loadModel(tag);
+    await inference.loadModel(tag);
     // Update runtime config so queries use this model
     runtimeChatConfig.model = tag;
-    runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+    runtimeChatConfig.baseUrl = `${config.inference.chatBaseUrl}/v1`;
     saveLastModel(tag);
 
     // Post-load resource snapshot
-    const postLoad = ollama.getSystemResources();
+    const postLoad = inference.getSystemResources();
     const postFreeGB = postLoad.ramAvailableBytes / (1024 ** 3);
     if (postFreeGB < 2) {
       logger.warn({ tag, postLoadFreeRAMGB: +postFreeGB.toFixed(1) }, "Model loaded but system RAM is critically low (<2 GB free)");
@@ -260,12 +260,12 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
   const { tag } = req.body as z.infer<typeof tagSchema>;
 
   try {
-    await ollama.unloadModel(tag);
+    await inference.unloadModel(tag);
 
     // If we just unloaded the active model, switch to another loaded model or clear it
     let newActive: string | null | undefined;
     if (tag === runtimeChatConfig.model) {
-      const running = await ollama.listRunning();
+      const running = await inference.listRunning();
       const otherTag = [...running.keys()].find((t) => t !== tag && t !== EMBEDDING_MODEL_TAG);
       if (otherTag) {
         runtimeChatConfig.model = otherTag;
@@ -295,7 +295,7 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
 modelsRouter.put("/active", validateBody(tagSchema), (req, res) => {
   const { tag } = req.body as z.infer<typeof tagSchema>;
   runtimeChatConfig.model = tag;
-  runtimeChatConfig.baseUrl = `${config.ollama.baseUrl}/v1`;
+  runtimeChatConfig.baseUrl = `${config.inference.chatBaseUrl}/v1`;
   logger.info({ model: tag }, "Active chat model switched");
   res.json({ activeModel: tag });
 });
@@ -313,12 +313,12 @@ modelsRouter.delete("/:tag", async (req, res) => {
   }
 
   try {
-    await ollama.deleteModel(tag);
+    await inference.deleteModel(tag);
 
     // If the deleted model was active, switch to another
     if (tag === runtimeChatConfig.model) {
       try {
-        const installed = await ollama.listInstalled();
+        const installed = await inference.listInstalled();
         const remaining = installed.filter((m) => m.tag !== EMBEDDING_MODEL_TAG && m.tag !== tag);
         if (remaining.length > 0) {
           runtimeChatConfig.model = remaining[0]!.tag;

@@ -1,5 +1,5 @@
 /**
- * Ollama Chat Client — OpenAI-compatible streaming chat via Ollama.
+ * Chat Client — OpenAI-compatible streaming chat via llama-server.
  *
  * Handles SSE streaming, Qwen /nothink injection, and <think> block filtering.
  * Provides streaming chat completions for the RAG pipeline.
@@ -13,7 +13,7 @@ export interface ChatClient {
 
 /**
  * Create a chat client that calls an OpenAI-compatible /chat/completions endpoint.
- * By default uses Ollama's OpenAI-compatible API.
+ * By default uses llama-server's OpenAI-compatible API.
  */
 export function createChatClient(): ChatClient {
   async function* chatStream(messages: Message[]): AsyncIterable<string> {

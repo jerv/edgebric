@@ -63,8 +63,8 @@ export interface EdgebricConfig {
    */
   hostname?: string;
 
-  /** Whether Ollama should auto-update on app launch. Default: true. */
-  ollamaAutoUpdate?: boolean;
+  /** Whether llama-server should auto-update on app launch. Default: true. */
+  llamaAutoUpdate?: boolean;
 
   /** Whether Edgebric launches automatically when you log in. Default: false. */
   launchAtLogin?: boolean;

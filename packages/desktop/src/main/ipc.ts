@@ -4,20 +4,26 @@ import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type Edg
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
 import { openLogWindow } from "./index.js";
 import {
-  isOllamaInstalled,
-  isOllamaRunning,
+  isLlamaInstalled,
+  isLlamaRunning,
   getInstalledVersion,
-  downloadOllama,
-  startOllama,
-  stopOllama,
-} from "./ollama.js";
+  downloadLlama,
+  startInstance,
+  stopLlama,
+  listLocalModels,
+  deleteLocalModel,
+  downloadModel,
+  llamaModelsDir,
+  isChatServerRunning,
+  stopInstance,
+  CHAT_BASE_URL,
+} from "./llama-server.js";
 import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execSync, execFile } from "child_process";
+import { execSync } from "child_process";
 
-const OLLAMA_BASE = "http://127.0.0.1:11434";
 const EMBEDDING_TAG = "nomic-embed-text";
 
 export function registerIpcHandlers() {
@@ -39,10 +45,10 @@ export function registerIpcHandlers() {
     // Database: if server is running, DB initialized successfully
     checks.database = { status: "ok" };
 
-    // Inference (direct Ollama ping)
+    // Inference (direct llama-server ping)
     try {
       const t = Date.now();
-      const resp = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      const resp = await fetch(`${CHAT_BASE_URL}/health`, { signal: AbortSignal.timeout(5000) });
       checks.inference = { status: resp.ok ? "ok" : "degraded", latencyMs: Date.now() - t };
     } catch (err) {
       checks.inference = { status: "unavailable", error: err instanceof Error ? err.message : "Connection failed" };
@@ -307,14 +313,14 @@ export function registerIpcHandlers() {
     openLogWindow();
   });
 
-  // ─── Ollama ─────────────────────────────────────────────────────────────────
+  // ─── AI Engine (llama-server) ────────────────────────────────────────────────
 
   ipcMain.handle("ollama-status", async () => {
     const config = loadConfig();
     const dataDir = config?.dataDir;
     return {
-      installed: isOllamaInstalled(dataDir),
-      running: await isOllamaRunning(),
+      installed: isLlamaInstalled(dataDir),
+      running: await isLlamaRunning(),
       version: getInstalledVersion(dataDir),
     };
   });
@@ -322,7 +328,7 @@ export function registerIpcHandlers() {
   ipcMain.handle("install-ollama", async (_event, version?: string) => {
     const config = loadConfig();
     try {
-      await downloadOllama(version, config?.dataDir, (percent) => {
+      await downloadLlama(version ?? undefined, config?.dataDir, (percent) => {
         for (const win of BrowserWindow.getAllWindows()) {
           try { win.webContents.send("ollama-download-progress", percent); } catch { /* frame disposed */ }
         }
@@ -335,9 +341,28 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("start-ollama", async () => {
     const config = loadConfig();
+    const dataDir = config?.dataDir;
     try {
-      const result = await startOllama(config?.dataDir);
-      return { success: true, external: result.external };
+      // Start embedding server with the embedding model
+      const modelsDir = llamaModelsDir(dataDir);
+      const embeddingModel = path.join(modelsDir, "nomic-embed-text-v1.5.Q8_0.gguf");
+      if (fs.existsSync(embeddingModel)) {
+        await startInstance("embedding", embeddingModel, dataDir);
+      }
+
+      // Start chat server if a chat model is configured
+      const chatModel = config?.chatModel;
+      if (chatModel) {
+        const CATALOG = getCatalog();
+        const catEntry = CATALOG.find(c => c.tag === chatModel);
+        const filename = catEntry?.ggufFilename ?? `${chatModel}.gguf`;
+        const chatModelPath = path.join(modelsDir, filename);
+        if (fs.existsSync(chatModelPath)) {
+          await startInstance("chat", chatModelPath, dataDir);
+        }
+      }
+
+      return { success: true, external: false };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
@@ -346,53 +371,38 @@ export function registerIpcHandlers() {
   ipcMain.handle("stop-ollama", async () => {
     const config = loadConfig();
     try {
-      await stopOllama(config?.dataDir);
+      await stopLlama(config?.dataDir);
       return { success: true };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 
-  // ─── Model Management (talks directly to Ollama, bypasses API server auth) ──
+  // ─── Model Management (filesystem-based GGUF management) ────────────────────
 
   ipcMain.handle("models-list", async () => {
     try {
-      const running = await isOllamaRunning();
-      if (!running) {
-        return { models: [], catalog: [], activeModel: "", system: getSystemRes() };
-      }
-
-      // Fetch installed models
-      const tagsResp = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(5000) });
-      const tagsData = (tagsResp.ok ? await tagsResp.json() : { models: [] }) as {
-        models: Array<{ name: string; size: number; digest: string; modified_at: string; details: { family: string; parameter_size: string } }>;
-      };
-
-      // Fetch running models
-      const psResp = await fetch(`${OLLAMA_BASE}/api/ps`, { signal: AbortSignal.timeout(5000) });
-      const psData = (psResp.ok ? await psResp.json() : { models: [] }) as {
-        models: Array<{ name: string; size_vram: number }>;
-      };
-      const runningMap = new Map<string, number>();
-      for (const m of psData.models) {
-        runningMap.set(normTag(m.name), m.size_vram);
-      }
+      const config = loadConfig();
+      const dataDir = config?.dataDir;
+      const localModels = listLocalModels(dataDir);
+      const chatUp = await isChatServerRunning();
 
       const CATALOG = getCatalog();
-      const catalogMap = new Map(CATALOG.map((c) => [c.tag, c]));
+      const catalogByFile = new Map(CATALOG.map((c) => [c.ggufFilename, c]));
 
-      const models = tagsData.models.map((m) => {
-        const tag = normTag(m.name);
-        const cat = catalogMap.get(tag);
-        const vram = runningMap.get(tag);
+      const models = localModels.map((m) => {
+        const cat = catalogByFile.get(m.filename);
+        const tag = cat?.tag ?? m.filename.replace(/\.gguf$/, "");
+        // Model is "loaded" if the chat server is running and this is the active model
+        const isActive = tag === (config?.chatModel ?? "");
         return {
           tag,
-          name: cat?.name ?? m.details?.family ?? tag,
-          sizeBytes: m.size,
-          digest: m.digest,
-          modifiedAt: m.modified_at,
-          status: vram !== undefined ? "loaded" : "installed",
-          ramUsageBytes: vram,
+          filename: m.filename,
+          name: cat?.name ?? m.filename.replace(/\.gguf$/, ""),
+          sizeBytes: m.sizeBytes,
+          modifiedAt: m.modifiedAt,
+          status: (chatUp && isActive) ? "loaded" : "installed",
+          ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
           catalogEntry: cat ?? undefined,
         };
       });
@@ -400,8 +410,6 @@ export function registerIpcHandlers() {
       const installedTags = new Set(models.map((m) => m.tag));
       const catalog = CATALOG.filter((c) => !c.hidden && !installedTags.has(c.tag));
 
-      // Read active model from config or env
-      const config = loadConfig();
       let activeModel = config?.chatModel ?? "";
       if (!activeModel) {
         try {
@@ -422,17 +430,24 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("models-load", async (_event, tag: string) => {
     try {
-      const resp = await fetch(`${OLLAMA_BASE}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: tag, keep_alive: "30m" }),
-        signal: AbortSignal.timeout(120_000),
-      });
-      if (!resp.ok) return { success: false, error: `Failed: HTTP ${resp.status}` };
-      await resp.text(); // consume
+      const config = loadConfig();
+      const dataDir = config?.dataDir;
+
+      // Find the GGUF file for this model
+      const CATALOG = getCatalog();
+      const catEntry = CATALOG.find(c => c.tag === tag);
+      const filename = catEntry?.ggufFilename ?? `${tag}.gguf`;
+      const modelPath = path.join(llamaModelsDir(dataDir), filename);
+
+      if (!fs.existsSync(modelPath)) {
+        return { success: false, error: `Model file not found: ${filename}` };
+      }
+
+      // Stop current chat server and start with the new model
+      await stopInstance("chat", dataDir);
+      await startInstance("chat", modelPath, dataDir);
 
       // Auto-set as active model when loaded
-      const config = loadConfig();
       if (config) {
         config.chatModel = tag;
         saveConfig(config);
@@ -446,9 +461,9 @@ export function registerIpcHandlers() {
               env += `\nCHAT_MODEL=${tag}\n`;
             }
             if (/^CHAT_BASE_URL=/m.test(env)) {
-              env = env.replace(/^CHAT_BASE_URL=.*$/m, `CHAT_BASE_URL=${OLLAMA_BASE}/v1`);
+              env = env.replace(/^CHAT_BASE_URL=.*$/m, `CHAT_BASE_URL=${CHAT_BASE_URL}/v1`);
             } else {
-              env += `CHAT_BASE_URL=${OLLAMA_BASE}/v1\n`;
+              env += `CHAT_BASE_URL=${CHAT_BASE_URL}/v1\n`;
             }
             fs.writeFileSync(envFile, env, "utf8");
           }
@@ -461,16 +476,11 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("models-unload", async (_event, tag: string) => {
+  ipcMain.handle("models-unload", async (_event, _tag: string) => {
     try {
-      const resp = await fetch(`${OLLAMA_BASE}/api/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: tag, keep_alive: "0" }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!resp.ok) return { success: false, error: `Failed: HTTP ${resp.status}` };
-      await resp.text();
+      const config = loadConfig();
+      // Stop the chat server to unload the model
+      await stopInstance("chat", config?.dataDir);
       return { success: true };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -480,49 +490,46 @@ export function registerIpcHandlers() {
   ipcMain.handle("models-delete", async (_event, tag: string) => {
     if (tag === EMBEDDING_TAG) return { success: false, error: "Cannot delete the embedding model" };
     try {
-      const resp = await fetch(`${OLLAMA_BASE}/api/delete`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: tag }),
-      });
-      if (!resp.ok) return { success: false, error: `Failed: HTTP ${resp.status}` };
+      const config = loadConfig();
+      const CATALOG = getCatalog();
+      const catEntry = CATALOG.find(c => c.tag === tag);
+      const filename = catEntry?.ggufFilename ?? `${tag}.gguf`;
+      deleteLocalModel(filename, config?.dataDir);
       return { success: true };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 
-  ipcMain.handle("models-pull", async (event, tag: string) => {
+  // Active download abort controllers
+  const activePulls = new Map<string, AbortController>();
+
+  ipcMain.handle("models-pull", async (_event, tag: string) => {
     try {
-      const resp = await fetch(`${OLLAMA_BASE}/api/pull`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: tag, stream: true }),
-      });
-      if (!resp.ok) return { success: false, error: `Failed: HTTP ${resp.status}` };
-      if (!resp.body) return { success: false, error: "No response body" };
+      const config = loadConfig();
+      const CATALOG = getCatalog();
+      const catEntry = CATALOG.find(c => c.tag === tag);
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const ev = JSON.parse(line) as { status: string; completed?: number; total?: number };
-            const percent = ev.total && ev.total > 0 ? Math.round((ev.completed ?? 0) / ev.total * 100) : undefined;
-            for (const win of BrowserWindow.getAllWindows()) {
-              try { win.webContents.send("model-pull-progress", { tag, status: ev.status, percent: percent ?? 0 }); } catch { /* frame disposed */ }
-            }
-          } catch { /* skip */ }
-        }
+      if (!catEntry) {
+        return { success: false, error: `Unknown model: ${tag}. Use GGUF import for custom models.` };
       }
+
+      const controller = new AbortController();
+      activePulls.set(tag, controller);
+
+      await downloadModel(
+        catEntry.downloadUrl,
+        catEntry.ggufFilename,
+        config?.dataDir,
+        (percent) => {
+          for (const win of BrowserWindow.getAllWindows()) {
+            try { win.webContents.send("model-pull-progress", { tag, status: "downloading", percent }); } catch { /* frame disposed */ }
+          }
+        },
+        controller.signal,
+      );
+
+      activePulls.delete(tag);
 
       // Send completion
       for (const win of BrowserWindow.getAllWindows()) {
@@ -530,6 +537,7 @@ export function registerIpcHandlers() {
       }
       return { success: true };
     } catch (err) {
+      activePulls.delete(tag);
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
@@ -551,9 +559,9 @@ export function registerIpcHandlers() {
             env += `\nCHAT_MODEL=${tag}\n`;
           }
           if (/^CHAT_BASE_URL=/m.test(env)) {
-            env = env.replace(/^CHAT_BASE_URL=.*$/m, `CHAT_BASE_URL=${OLLAMA_BASE}/v1`);
+            env = env.replace(/^CHAT_BASE_URL=.*$/m, `CHAT_BASE_URL=${CHAT_BASE_URL}/v1`);
           } else {
-            env += `CHAT_BASE_URL=${OLLAMA_BASE}/v1\n`;
+            env += `CHAT_BASE_URL=${CHAT_BASE_URL}/v1\n`;
           }
           fs.writeFileSync(envFile, env, "utf8");
         }
@@ -579,7 +587,7 @@ export function registerIpcHandlers() {
     return { path: result.filePaths[0] };
   });
 
-  /** Import a GGUF file into Ollama via `ollama create`. */
+  /** Import a GGUF file by copying it into the models directory. */
   ipcMain.handle("models-import-gguf", async (_event, ggufPath: string, modelName: string) => {
     if (!ggufPath || !modelName) return { success: false, error: "Path and model name are required" };
     if (!fs.existsSync(ggufPath)) return { success: false, error: "File not found" };
@@ -589,68 +597,48 @@ export function registerIpcHandlers() {
     const sanitized = modelName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
     if (!sanitized) return { success: false, error: "Invalid model name" };
 
-    // Create a temporary Modelfile
-    const tmpDir = os.tmpdir();
-    const modelfilePath = path.join(tmpDir, `edgebric-modelfile-${Date.now()}`);
-    fs.writeFileSync(modelfilePath, `FROM "${ggufPath}"\n`, "utf8");
-
     try {
-      // Find ollama binary
-      let ollamaBin = "ollama";
       const config = loadConfig();
-      if (config?.dataDir) {
-        const localBin = path.join(config.dataDir, ".ollama", "ollama");
-        if (fs.existsSync(localBin)) ollamaBin = localBin;
+      const destDir = llamaModelsDir(config?.dataDir);
+      fs.mkdirSync(destDir, { recursive: true });
+
+      const destFilename = `${sanitized}.gguf`;
+      const destPath = path.join(destDir, destFilename);
+
+      // Copy with progress
+      for (const win of BrowserWindow.getAllWindows()) {
+        try { win.webContents.send("model-pull-progress", { tag: sanitized, status: "Copying model file...", percent: 50 }); } catch { /* frame disposed */ }
       }
 
-      // Run `ollama create <name> -f <Modelfile>`
-      return await new Promise<{ success: boolean; error?: string }>((resolve) => {
-        const child = execFile(ollamaBin, ["create", sanitized, "-f", modelfilePath], { timeout: 300_000 }, (err, _stdout, stderr) => {
-          // Clean up Modelfile
-          try { fs.unlinkSync(modelfilePath); } catch { /* ignore */ }
+      fs.copyFileSync(ggufPath, destPath);
 
-          if (err) {
-            resolve({ success: false, error: stderr?.trim() || err.message });
-          } else {
-            // Send progress update
-            for (const win of BrowserWindow.getAllWindows()) {
-              try { win.webContents.send("model-pull-progress", { tag: sanitized, status: "done", percent: 100 }); } catch { /* frame disposed */ }
-            }
-            resolve({ success: true });
-          }
-        });
-
-        // Stream stdout for progress
-        child.stdout?.on("data", (data: Buffer) => {
-          const line = data.toString().trim();
-          if (line) {
-            for (const win of BrowserWindow.getAllWindows()) {
-              try { win.webContents.send("model-pull-progress", { tag: sanitized, status: line, percent: 50 }); } catch { /* frame disposed */ }
-            }
-          }
-        });
-      });
+      for (const win of BrowserWindow.getAllWindows()) {
+        try { win.webContents.send("model-pull-progress", { tag: sanitized, status: "done", percent: 100 }); } catch { /* frame disposed */ }
+      }
+      return { success: true };
     } catch (err) {
-      try { fs.unlinkSync(modelfilePath); } catch { /* ignore */ }
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 
-  // ─── Model Search (Ollama registry) ────────────────────────────────────────
+  // ─── Model Search (HuggingFace GGUF models) ────────────────────────────────
 
-  /** Search the Ollama model registry. Fetched from main process to avoid CORS. */
+  /** Search HuggingFace for GGUF models. Fetched from main process to avoid CORS. */
   ipcMain.handle("models-search", async (_event, query: string) => {
     if (!query || query.trim().length < 2) return { models: [] };
     try {
-      const resp = await fetch("https://ollama.com/api/tags", { signal: AbortSignal.timeout(10_000) });
+      const q = encodeURIComponent(query.trim());
+      const resp = await fetch(
+        `https://huggingface.co/api/models?search=${q}&filter=gguf&sort=downloads&direction=-1&limit=30`,
+        { signal: AbortSignal.timeout(10_000) },
+      );
       if (!resp.ok) return { models: [], error: `HTTP ${resp.status}` };
-      const data = await resp.json() as { models: Array<{ name: string; tags?: string[]; description?: string }> };
-      const q = query.trim().toLowerCase();
-      const filtered = (data.models ?? [])
-        .filter((m) => m.name.toLowerCase().includes(q))
+      const data = await resp.json() as Array<{ modelId: string; tags?: string[]; description?: string; downloads?: number }>;
+      const filtered = data
+        .filter((m) => m.tags?.includes("gguf"))
         .slice(0, 30)
         .map((m) => ({
-          name: m.name,
+          name: m.modelId,
           description: m.description ?? "",
         }));
       return { models: filtered };
@@ -666,10 +654,10 @@ export function registerIpcHandlers() {
     const config = loadConfig();
     if (!config) return { success: false, error: "No config found" };
     try {
-      // Stop server + Ollama first
+      // Stop server + llama-server first
       const { stopServer } = await import("./server.js");
       await stopServer();
-      try { await stopOllama(config.dataDir); } catch { /* may not be running */ }
+      try { await stopLlama(config.dataDir); } catch { /* may not be running */ }
 
       // Remove .env and config file, but preserve the data dir itself
       const envFile = envPath(config.dataDir);
@@ -809,9 +797,6 @@ export function registerIpcHandlers() {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function normTag(name: string): string {
-  return name.replace(/:latest$/, "");
-}
 
 function getSystemRes() {
   const ramTotalBytes = os.totalmem();
@@ -869,7 +854,7 @@ function getStorageBreakdown(dataDir?: string) {
   const dir = dataDir ?? os.homedir() + "/Edgebric";
   let dbBytes = 0;
   let uploadsBytes = 0;
-  let ollamaModelsBytes = 0;
+  let modelsBytes = 0;
   let vaultBytes = 0;
 
   // Database size
@@ -888,11 +873,11 @@ function getStorageBreakdown(dataDir?: string) {
     }
   } catch { /* ignore */ }
 
-  // Ollama models directory
+  // GGUF models directory
   try {
-    const modelsDir = path.join(dir, ".ollama", "models");
-    if (fs.existsSync(modelsDir)) {
-      ollamaModelsBytes = dirSize(modelsDir);
+    const mDir = path.join(dir, ".llama", "models");
+    if (fs.existsSync(mDir)) {
+      modelsBytes = dirSize(mDir);
     }
   } catch { /* ignore */ }
 
@@ -900,7 +885,7 @@ function getStorageBreakdown(dataDir?: string) {
   // For now vault is part of uploads total; we'd need DB queries to distinguish.
   // We'll report uploads as "Documents" and vault separately if we can detect it.
 
-  return { dbBytes, uploadsBytes, ollamaModelsBytes, vaultBytes };
+  return { dbBytes, uploadsBytes, modelsBytes, vaultBytes };
 }
 
 /** Recursively compute directory size in bytes. */
@@ -920,7 +905,7 @@ function dirSize(dirPath: string): number {
 }
 
 interface CatalogEntry {
-  tag: string; name: string; family: string; description: string;
+  tag: string; ggufFilename: string; downloadUrl: string; name: string; family: string; description: string;
   paramCount: string; downloadSizeGB: number; ramUsageGB: number;
   origin: string; tier: string; minRAMGB: number; hidden?: boolean;
 }
@@ -928,14 +913,14 @@ interface CatalogEntry {
 function getCatalog(): CatalogEntry[] {
   return [
     // Recommended
-    { tag: "qwen3:4b", name: "Qwen 3 4B", family: "Qwen", description: "Best overall for most hardware. Fast, accurate, 256K context.", paramCount: "4B", downloadSizeGB: 2.5, ramUsageGB: 5.5, origin: "Alibaba", tier: "recommended", minRAMGB: 8 },
-    { tag: "qwen3:8b", name: "Qwen 3 8B", family: "Qwen", description: "Stronger reasoning and analysis. Best for 16GB machines.", paramCount: "8B", downloadSizeGB: 5.2, ramUsageGB: 9, origin: "Alibaba", tier: "recommended", minRAMGB: 16 },
-    { tag: "qwen3:14b", name: "Qwen 3 14B", family: "Qwen", description: "Highest quality answers. Needs 32GB RAM.", paramCount: "14B", downloadSizeGB: 9.3, ramUsageGB: 15, origin: "Alibaba", tier: "recommended", minRAMGB: 32 },
+    { tag: "qwen3-4b", ggufFilename: "Qwen3-4B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf", name: "Qwen 3 4B", family: "Qwen", description: "Best overall for most hardware. Fast, accurate, 256K context.", paramCount: "4B", downloadSizeGB: 2.7, ramUsageGB: 5.5, origin: "Alibaba", tier: "recommended", minRAMGB: 8 },
+    { tag: "qwen3-8b", ggufFilename: "Qwen3-8B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf", name: "Qwen 3 8B", family: "Qwen", description: "Stronger reasoning and analysis. Best for 16GB machines.", paramCount: "8B", downloadSizeGB: 5.5, ramUsageGB: 9, origin: "Alibaba", tier: "recommended", minRAMGB: 16 },
+    { tag: "qwen3-14b", ggufFilename: "Qwen3-14B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf", name: "Qwen 3 14B", family: "Qwen", description: "Highest quality answers. Needs 32GB RAM.", paramCount: "14B", downloadSizeGB: 9.5, ramUsageGB: 15, origin: "Alibaba", tier: "recommended", minRAMGB: 32 },
     // Supported
-    { tag: "phi4-mini", name: "Phi-4 Mini", family: "Microsoft", description: "Compact, efficient, 128K context. Good for constrained setups.", paramCount: "3.8B", downloadSizeGB: 2.5, ramUsageGB: 5, origin: "Microsoft", tier: "supported", minRAMGB: 8 },
-    { tag: "gemma3:4b", name: "Gemma 3 4B", family: "Google", description: "Google's efficient model. Multimodal capable, 128K context.", paramCount: "4B", downloadSizeGB: 3.3, ramUsageGB: 6, origin: "Google", tier: "supported", minRAMGB: 8 },
-    { tag: "gemma3:12b", name: "Gemma 3 12B", family: "Google", description: "Strong document analysis. Multimodal, 128K context.", paramCount: "12B", downloadSizeGB: 8.1, ramUsageGB: 13, origin: "Google", tier: "supported", minRAMGB: 16 },
+    { tag: "phi4-mini", ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf", name: "Phi-4 Mini", family: "Microsoft", description: "Compact, efficient, 128K context. Good for constrained setups.", paramCount: "3.8B", downloadSizeGB: 2.5, ramUsageGB: 5, origin: "Microsoft", tier: "supported", minRAMGB: 8 },
+    { tag: "gemma3-4b", ggufFilename: "gemma-3-4b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf", name: "Gemma 3 4B", family: "Google", description: "Google's efficient model. Multimodal capable, 128K context.", paramCount: "4B", downloadSizeGB: 3.3, ramUsageGB: 6, origin: "Google", tier: "supported", minRAMGB: 8 },
+    { tag: "gemma3-12b", ggufFilename: "gemma-3-12b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf", name: "Gemma 3 12B", family: "Google", description: "Strong document analysis. Multimodal, 128K context.", paramCount: "12B", downloadSizeGB: 8.1, ramUsageGB: 13, origin: "Google", tier: "supported", minRAMGB: 16 },
     // Hidden infrastructure
-    { tag: "nomic-embed-text", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.27, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true },
+    { tag: "nomic-embed-text", ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf", downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.15, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true },
   ];
 }

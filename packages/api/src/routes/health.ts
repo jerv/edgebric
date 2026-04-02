@@ -33,7 +33,7 @@ healthRouter.get("/", async (req, res) => {
   // Database check — if we got here, express is running and DB was initialized
   checks.database = { status: "ok" };
 
-  // Ollama inference check
+  // Inference server check
   try {
     const t = Date.now();
     const resp = await fetch(`${runtimeChatConfig.baseUrl}/models`, {

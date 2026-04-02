@@ -1,6 +1,6 @@
 import type { SearchResult } from "@edgebric/core/rag";
 import { lookupChunk, vectorSearch } from "./chunkRegistry.js";
-import { embed } from "./ollamaClient.js";
+import { embed } from "./inferenceClient.js";
 import { getSqlite } from "../db/index.js";
 import { logger } from "../lib/logger.js";
 

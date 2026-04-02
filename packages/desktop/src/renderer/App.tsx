@@ -82,7 +82,7 @@ interface ModelsListResult {
   activeModel: string;
   system: { ramTotalBytes: number; ramAvailableBytes: number; diskFreeBytes: number; diskTotalBytes: number; edgebricRamBytes?: number };
   mode?: string;
-  storage?: { dbBytes: number; uploadsBytes: number; ollamaModelsBytes: number; vaultBytes: number };
+  storage?: { dbBytes: number; uploadsBytes: number; modelsBytes: number; vaultBytes: number };
 }
 
 export default function App() {

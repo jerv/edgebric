@@ -1,5 +1,5 @@
 import { chunkMarkdown, detectPII } from "@edgebric/core/ingestion";
-import { embed } from "../services/ollamaClient.js";
+import { embed } from "../services/inferenceClient.js";
 import { registerChunks, clearChunksForDocument, getChunkCountForDataset } from "../services/chunkRegistry.js";
 import { setDocument } from "../services/documentStore.js";
 import { refreshDocumentCount } from "../services/dataSourceStore.js";

@@ -1,4 +1,4 @@
-import { embed } from "../services/ollamaClient.js";
+import { embed } from "../services/inferenceClient.js";
 import {
   getChunksForDataset,
   clearChunksForDataset,

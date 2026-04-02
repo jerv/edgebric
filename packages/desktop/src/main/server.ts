@@ -6,14 +6,15 @@ import Bonjour from "bonjour-service";
 import { loadConfig, pidPath, logPath, envPath } from "./config.js";
 import { certsExist } from "./certs.js";
 import {
-  isOllamaInstalled,
-  downloadOllama,
-  startOllama,
-  stopOllama,
-  isOllamaRunning,
+  isLlamaInstalled,
+  downloadLlama,
+  startInstance,
+  stopLlama,
+  isLlamaRunning,
   autoUpdate,
   getInstalledVersion,
-} from "./ollama.js";
+  llamaModelsDir,
+} from "./llama-server.js";
 
 let serverProcess: ChildProcess | null = null;
 let healthCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -199,25 +200,38 @@ async function _startServer(): Promise<void> {
 
   setStatus("starting");
 
-  // Start Ollama before the API server
+  // Start llama-server before the API server
   try {
-    if (!isOllamaInstalled(config.dataDir)) {
-      await downloadOllama(undefined, config.dataDir);
+    if (!isLlamaInstalled(config.dataDir)) {
+      await downloadLlama(undefined, config.dataDir);
     }
 
-    const ollamaResult = await startOllama(config.dataDir);
-    if (ollamaResult.external) {
-      console.log("Using existing Ollama instance on port 11434");
+    const modelsDir = llamaModelsDir(config.dataDir);
+
+    // Start embedding server
+    const embeddingModel = path.join(modelsDir, "nomic-embed-text-v1.5.Q8_0.gguf");
+    if (fs.existsSync(embeddingModel)) {
+      await startInstance("embedding", embeddingModel, config.dataDir);
+    }
+
+    // Start chat server if a model is configured
+    if (config.chatModel) {
+      // Find the GGUF file for the configured model
+      const files = fs.existsSync(modelsDir) ? fs.readdirSync(modelsDir) : [];
+      const chatFile = files.find(f => f.endsWith(".gguf") && f !== "nomic-embed-text-v1.5.Q8_0.gguf");
+      if (chatFile) {
+        await startInstance("chat", path.join(modelsDir, chatFile), config.dataDir);
+      }
     }
 
     // Auto-update if enabled (non-blocking)
-    if (config.ollamaAutoUpdate !== false) {
+    if (config.llamaAutoUpdate !== false) {
       autoUpdate(config.dataDir).catch((err) => {
-        console.error("Ollama auto-update failed:", err);
+        console.error("llama-server auto-update failed:", err);
       });
     }
   } catch (err) {
-    console.error("Ollama startup failed:", err);
+    console.error("llama-server startup failed:", err);
     // Continue anyway — the API will report AI as unavailable via health endpoint
   }
 
@@ -288,9 +302,9 @@ async function _stopServer(): Promise<void> {
 
   const config = loadConfig();
 
-  // Stop Ollama (only if we started it — external instances are left alone)
+  // Stop llama-server (only if we started it — external instances are left alone)
   try {
-    await stopOllama(config?.dataDir);
+    await stopLlama(config?.dataDir);
   } catch {
     // Best effort
   }
@@ -474,9 +488,9 @@ export async function cleanup() {
       serverProcess.kill("SIGKILL");
     }
   }
-  // Stop Ollama on app quit
+  // Stop llama-server on app quit
   try {
-    await stopOllama();
+    await stopLlama();
   } catch {
     // Best effort
   }

@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     primaryEndpoint?: string;
   }) => ipcRenderer.invoke("save-setup", data),
 
-  // Ollama / AI Engine
+  // AI Engine (llama-server)
   getOllamaStatus: () => ipcRenderer.invoke("ollama-status"),
   installOllama: (version?: string) => ipcRenderer.invoke("install-ollama", version),
   startOllama: () => ipcRenderer.invoke("start-ollama"),
@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     adminEmails: string[];
   }) => ipcRenderer.invoke("instance-reconfigure-auth", data),
 
-  // Model Management (talks directly to Ollama via main process)
+  // Model Management (GGUF files via main process)
   modelsList: () => ipcRenderer.invoke("models-list"),
   modelsLoad: (tag: string) => ipcRenderer.invoke("models-load", tag),
   modelsUnload: (tag: string) => ipcRenderer.invoke("models-unload", tag),

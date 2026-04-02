@@ -50,13 +50,16 @@ export const config = {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
 
-  // Ollama inference endpoint — manages local LLM models and embeddings.
-  // Defaults to Ollama's standard port. Override with OLLAMA_BASE_URL.
-  ollama: {
-    baseUrl: process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434",
+  // Inference endpoints — llama-server instances for chat and embeddings.
+  // Chat server (port 8080) and embedding server (port 8081) run separately.
+  inference: {
+    chatBaseUrl: process.env["INFERENCE_CHAT_URL"] ?? "http://localhost:8080",
+    embeddingBaseUrl: process.env["INFERENCE_EMBEDDING_URL"] ?? "http://localhost:8081",
     embeddingModel: process.env["EMBEDDING_MODEL"] ?? "nomic-embed-text",
     /** Embedding vector dimensions. Must match the model. nomic-embed-text = 768. */
     embeddingDim: parseInt(process.env["EMBEDDING_DIM"] ?? "768", 10),
+    /** Path to models directory (for listing/managing GGUF files). */
+    modelsDir: process.env["MODELS_DIR"] ?? "",
   },
 
   // Cloud storage integrations (OAuth clients — separate from OIDC login)
@@ -71,12 +74,12 @@ export const config = {
     },
   },
 
-  // Chat inference endpoint — points to Ollama's OpenAI-compatible API by default.
-  // Can be overridden to use llama-server, vLLM, or any OpenAI-compatible endpoint.
+  // Chat inference endpoint — points to llama-server's OpenAI-compatible API.
+  // Can be overridden to use any OpenAI-compatible endpoint.
   chat: {
-    baseUrl: process.env["CHAT_BASE_URL"] ?? `${process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434"}/v1`,
-    apiKey: process.env["CHAT_API_KEY"] ?? "ollama",
-    model: process.env["CHAT_MODEL"] ?? "qwen3:4b",
+    baseUrl: process.env["CHAT_BASE_URL"] ?? `${process.env["INFERENCE_CHAT_URL"] ?? "http://localhost:8080"}/v1`,
+    apiKey: process.env["CHAT_API_KEY"] ?? "no-key",
+    model: process.env["CHAT_MODEL"] ?? "qwen3-4b",
   },
 };
 
