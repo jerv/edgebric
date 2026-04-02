@@ -74,7 +74,7 @@ vaultRouter.post("/embed", async (req, res) => {
       return;
     }
     const data = (await resp.json()) as { data: Array<{ embedding: number[] }> };
-    // Return in Ollama-compatible format for backward compat with vault client
+    // Return in legacy format for backward compat with vault client
     res.json({ embedding: data.data?.[0]?.embedding ?? [] });
   } catch {
     res.status(502).json({ error: "Could not reach AI engine" });

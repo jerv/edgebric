@@ -1,4 +1,4 @@
-> **Status: MOSTLY CURRENT** — Architecture diagrams are accurate. References to `packages/edge/` are stale (removed, replaced by Ollama client in packages/api). The tech stack section may reference old dependencies.
+> **Status: MOSTLY CURRENT** — Architecture diagrams are accurate. References to `packages/edge/` are stale (removed, replaced by llama-server client in packages/api). The tech stack section may reference old dependencies.
 
 # Technical Architecture
 
@@ -14,12 +14,12 @@
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐  │
 │  │              Edgebric Edge Node (Mac Mini / Server)     │  │
-│  │                   (Ollama + sqlite-vec)                │  │
+│  │                   (llama-server + sqlite-vec)           │  │
 │  │                                                        │  │
 │  │  ┌──────────┐  ┌──────────┐  ┌───────────┐            │  │
-│  │  │sqlite-vec│  │  Ollama  │  │    API    │            │  │
-│  │  │(vectors  │  │(local   │  │ (Express  │            │  │
-│  │  │+ FTS5)   │  │  LLM)   │  │  server)  │            │  │
+│  │  │sqlite-vec│  │  llama  │  │    API    │            │  │
+│  │  │(vectors  │  │ -server │  │ (Express  │            │  │
+│  │  │+ FTS5)   │  │ (LLM)  │  │  server)  │            │  │
 │  │  └──────────┘  └──────────┘  └───────────┘            │  │
 │  │                                                        │  │
 │  │  ┌────────────────────┐  ┌────────────────────────┐   │  │
@@ -58,7 +58,7 @@
 │  │  Benefits,     │   │  Compliance,   │   │  Policy,       │       │
 │  │  Handbook      │   │  Regulatory    │   │  Procurement   │       │
 │  │                │   │                │   │                │       │
-│  │  Ollama        │   │  Ollama        │   │  Ollama        │       │
+│  │  llama-server  │   │  llama-server  │   │  llama-server  │       │
 │  └───────┬────────┘   └───────┬────────┘   └───────┬────────┘       │
 │          │                    │                    │                │
 │          └────────────────────┼────────────────────┘                │
@@ -72,7 +72,7 @@
 │  │                                                           │     │
 │  │  Query Router: receives query → fans out to relevant      │     │
 │  │                sources → collects responses → synthesizes │     │
-│  │                answer via Ollama                          │     │
+│  │                answer via llama-server                     │     │
 │  │                                                           │     │
 │  │  API Server + Admin Dashboard + Web App                   │     │
 │  └───────────────────────────────────────────────────────────┘     │
@@ -110,7 +110,7 @@
 │  │  [NOT SHARED]    │  │  [SHARED]        │  │  [NOT SHARED]    │  │
 │  │                  │  │                  │  │                  │  │
 │  │  sqlite-vec      │  │  sqlite-vec      │  │  sqlite-vec      │  │
-│  │  Ollama          │  │  Ollama          │  │  Ollama          │  │
+│  │  llama-server    │  │  llama-server    │  │  llama-server    │  │
 │  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘  │
 │           │                     │                     │            │
 │           └─────────────────────┼─────────────────────┘            │
@@ -161,8 +161,8 @@ Employee asks: "What's our parental leave policy and does it comply with state l
   |
   v
 3. PARALLEL FAN-OUT (via HTTP)
-   |-- -> HR Node:    embed query via Ollama -> sqlite-vec search -> top-k chunks returned
-   +-- -> Legal Node: embed query via Ollama -> sqlite-vec search -> top-k chunks returned
+   |-- -> HR Node:    embed query via llama-server -> sqlite-vec search -> top-k chunks returned
+   +-- -> Legal Node: embed query via llama-server -> sqlite-vec search -> top-k chunks returned
 
    (Data never leaves its node -- only chunk text + metadata travel back)
 
@@ -171,7 +171,7 @@ Employee asks: "What's our parental leave policy and does it comply with state l
 4. RESPONSE SYNTHESIS (on coordinator)
    |-- Merge retrieved chunks from all nodes
    |-- Assemble system prompt with combined context
-   |-- Generate answer via Ollama (on coordinator)
+   |-- Generate answer via llama-server (on coordinator)
    +-- Tag citations with source name and node
 
   |
@@ -266,7 +266,7 @@ INPUT (PDF, .docx, .txt, .md)
   |
   v
 6. EMBEDDING + STORAGE
-   |-- Embedding via Ollama /api/embed endpoint (nomic-embed-text)
+   |-- Embedding via llama-server /v1/embeddings endpoint (nomic-embed-text)
    |-- Vectors stored in sqlite-vec (embedded in the SQLite database)
    |-- Full text indexed in FTS5 for BM25 keyword search
    +-- Original files stored for source link rendering
@@ -278,8 +278,8 @@ INPUT (PDF, .docx, .txt, .md)
 
 | Layer | Technology | Notes |
 |---|---|---|
-| LLM inference | Ollama | OpenAI-compatible endpoint; model-agnostic; auto-managed by desktop app |
-| Embeddings | Ollama + nomic-embed-text | 768-dim, open source, runs locally |
+| LLM inference | llama-server (llama.cpp) | OpenAI-compatible endpoint; model-agnostic; auto-managed by desktop app |
+| Embeddings | llama-server + nomic-embed-text | 768-dim, open source, runs locally |
 | Vector store | sqlite-vec | Embedded in SQLite; local per-device; no separate database |
 | Keyword search | FTS5 (SQLite) | BM25 ranking; combined with vector via Reciprocal Rank Fusion |
 | Device discovery | mDNS (Bonjour) | Zero-config, automatic on local network |
@@ -295,7 +295,7 @@ INPUT (PDF, .docx, .txt, .md)
 
 ### Recommended LLM Defaults (Model-Agnostic)
 
-Edgebric's inference layer targets the **OpenAI-compatible API spec** via Ollama. Any model available in Ollama can be used.
+Edgebric's inference layer targets the **OpenAI-compatible API spec** via llama-server. Any GGUF model from HuggingFace can be used.
 
 | Mode | Recommended | Fallback | Notes |
 |---|---|---|---|
@@ -316,26 +316,27 @@ sqlite-vec search on 50K chunks: <5ms latency, ~250MB RAM. Mac Mini idles at 3-4
 
 ---
 
-## Ollama API Summary
+## llama-server API Summary
 
-All communication with Ollama is via HTTP to `localhost:11434`.
+Edgebric runs two llama-server instances: one for chat (port 8080) and one for embeddings (port 8081). Both expose the OpenAI-compatible API.
 
-### Chat Completions
-- Endpoint: `http://localhost:11434/api/chat`
-- OpenAI-compatible mode: `http://localhost:11434/v1/chat/completions`
+### Chat Completions (port 8080)
+- Endpoint: `http://localhost:8080/v1/chat/completions`
 - Supports streaming responses
-- Model specified per request (e.g., `qwen3:4b`)
+- Model loaded at server startup (e.g., `qwen3-4b.gguf`)
 
-### Embeddings
-- Endpoint: `http://localhost:11434/api/embed`
-- OpenAI-compatible mode: `http://localhost:11434/v1/embeddings`
+### Embeddings (port 8081)
+- Endpoint: `http://localhost:8081/v1/embeddings`
 - Text → vector (768-dim with nomic-embed-text)
+- Dedicated instance avoids contention with chat inference
+
+### Health Check
+- `GET /health` — returns server health status (available on both instances)
 
 ### Model Management
-- `GET /api/tags` — list installed models
-- `POST /api/pull` — download a model (streaming progress)
-- `POST /api/delete` — remove a model
-- `GET /api/ps` — list running models with memory usage
+- Models are GGUF files downloaded from HuggingFace
+- No registry API — models are managed as local files by the desktop app
+- Model switching requires restarting llama-server with a different `--model` argument
 
 ### sqlite-vec (Embedded)
 

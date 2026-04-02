@@ -27,9 +27,9 @@ services:
       - PORT=3001
       - DATA_DIR=/app/data
       - FRONTEND_URL=http://localhost:3001
-      # Ollama runs on the HOST, not in the container.
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      - CHAT_BASE_URL=${CHAT_BASE_URL:-http://host.docker.internal:11434/v1}
+      # llama-server runs on the HOST, not in the container.
+      - INFERENCE_CHAT_URL=${INFERENCE_CHAT_URL:-http://host.docker.internal:8080/v1}
+      - INFERENCE_EMBEDDING_URL=${INFERENCE_EMBEDDING_URL:-http://host.docker.internal:8081}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

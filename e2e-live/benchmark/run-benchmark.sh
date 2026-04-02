@@ -44,11 +44,11 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-# 3. Unload any stale models from Ollama
-echo "Clearing loaded models..."
-for model in $(curl -s http://localhost:11434/api/ps | python3 -c "import sys,json; [print(m['name']) for m in json.load(sys.stdin)['models'] if 'embed' not in m['name']]" 2>/dev/null); do
-  curl -s http://localhost:11434/api/generate -d "{\"model\":\"$model\",\"keep_alive\":\"0\"}" >/dev/null
-done
+# 3. Verify inference server is reachable
+echo "Checking inference server..."
+if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
+  echo "WARNING: Chat inference server not reachable on port 8080."
+fi
 sleep 1
 
 # 4. Run benchmark

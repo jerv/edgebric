@@ -1,4 +1,4 @@
-> **Status: ASPIRATIONAL** — Demo script for showcasing mesh networking. Hardware setup is accurate but demo data is hypothetical. Model reference (Qwen3.5-4B) may not match current default (qwen3:4b).
+> **Status: ASPIRATIONAL** — Demo script for showcasing mesh networking. Hardware setup is accurate but demo data is hypothetical. Model reference (Qwen3.5-4B) may not match current default (qwen3-4b).
 
 # Demo Plan — Edgebric
 
@@ -6,7 +6,7 @@
 
 ## Context
 
-**Core message:** Edgebric demonstrates that a distributed, privacy-first knowledge platform can work entirely on local hardware using Ollama for AI inference and sqlite-vec for vector search — with no cloud dependencies.
+**Core message:** Edgebric demonstrates that a distributed, privacy-first knowledge platform can work entirely on local hardware using llama.cpp for AI inference and sqlite-vec for vector search — with no cloud dependencies.
 
 **What NOT to claim:** Don't overstate capabilities. Focus on what was built and why the distributed architecture matters. Let the product speak for itself.
 
@@ -15,9 +15,9 @@
 ## Demo Setup
 
 ### Hardware
-- **MacBook** — Coordinator node. Runs: Ollama (Qwen3.5-4B), sqlite-vec, API server, web app
-- **Device A** — Source node. Runs: Edgebric with Ollama, sqlite-vec with "Marketing Campaign" source
-- **Device B** — Source node. Runs: Edgebric with Ollama, sqlite-vec with "Legal Compliance" source
+- **MacBook** — Coordinator node. Runs: llama-server (Qwen3.5-4B), sqlite-vec, API server, web app
+- **Device A** — Source node. Runs: Edgebric with llama-server, sqlite-vec with "Marketing Campaign" source
+- **Device B** — Source node. Runs: Edgebric with llama-server, sqlite-vec with "Legal Compliance" source
 
 ### Network
 - WiFi hotspot from one device (MacBook or phone)
@@ -65,7 +65,7 @@ Current solutions force a choice: centralize everything in one place (security r
 1. Open admin dashboard, show the "Engineering — Release Notes" source
 2. Switch to employee view, ask: "What features are shipping in Q3?"
 3. Show the answer streaming in with citations (document name, section, page)
-4. Point out: "Everything here — the AI model running on Ollama, the vector database in sqlite-vec, the documents — is running on this MacBook. No cloud. No API calls to OpenAI. Fully local."
+4. Point out: "Everything here — the AI model running via llama-server, the vector database in sqlite-vec, the documents — is running on this MacBook. No cloud. No API calls to OpenAI. Fully local."
 
 "This is the foundation. A single device running local AI over local sources. Privacy by architecture — the data literally can't leave because there's nowhere for it to go. But this is just one device with one team's source."
 
@@ -73,7 +73,7 @@ Current solutions force a choice: centralize everything in one place (security r
 
 **Show:** Turn on Device A, launch Edgebric.
 
-1. Device A starts Ollama, joins the mesh via mDNS
+1. Device A starts llama-server, joins the mesh via mDNS
 2. On MacBook admin dashboard: show the new node appearing automatically
 3. "No IP addresses configured. No setup wizard. The device found the MacBook through mDNS — the same kind of zero-config discovery that makes AirDrop work."
 4. Show Device A's "Marketing Campaign" source in the node dashboard
@@ -83,7 +83,7 @@ Current solutions force a choice: centralize everything in one place (security r
 5. Second device appears in the mesh
 6. "Now we have three autonomous source nodes, each with their own data, each discovered automatically."
 
-"Each device is an autonomous node running its own Ollama instance and sqlite-vec database. They found each other without any configuration. The Marketing source lives on Device A. The Legal source lives on Device B. The Engineering source lives on this MacBook. Nothing has been copied anywhere."
+"Each device is an autonomous node running its own llama-server instance and sqlite-vec database. They found each other without any configuration. The Marketing source lives on Device A. The Legal source lives on Device B. The Engineering source lives on this MacBook. Nothing has been copied anywhere."
 
 ### Act 4: Meeting Mode — The Magic Moment (3-4 minutes)
 
@@ -127,7 +127,7 @@ Without the mesh, you'd need a central server holding all three teams' documents
 
 "Let me be direct about why this architecture matters.
 
-Edgebric runs entirely on local hardware. Ollama handles AI inference. sqlite-vec handles vector search. mDNS handles device discovery. HTTP handles cross-device communication. No cloud, no proprietary runtime, no vendor lock-in.
+Edgebric runs entirely on local hardware. llama.cpp (via llama-server) handles AI inference. sqlite-vec handles vector search. mDNS handles device discovery. HTTP handles cross-device communication. No cloud, no proprietary runtime, no vendor lock-in.
 
 The mesh architecture IS the product's privacy guarantee. Device discovery, cross-device queries, session-scoped sharing — these are what enable something no competitor offers.
 
@@ -164,11 +164,11 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 ## Pre-Demo Checklist
 
 - [ ] All devices charged and on same WiFi network
-- [ ] MacBook: Ollama running, API server started, web app accessible
+- [ ] MacBook: llama-server running, API server started, web app accessible
 - [ ] MacBook: "Engineering — Release Notes" source uploaded and indexed
-- [ ] Device A: Edgebric installed, Ollama running
+- [ ] Device A: Edgebric installed, llama-server running
 - [ ] Device A: "Marketing Campaign" source pre-loaded and indexed
-- [ ] Device B: Edgebric installed, Ollama running
+- [ ] Device B: Edgebric installed, llama-server running
 - [ ] Device B: "Legal Compliance" source pre-loaded and indexed
 - [ ] Test all 5 demo questions — verify they produce good cross-source answers
 - [ ] Test graceful degradation (pull one device, query, reconnect)
@@ -184,7 +184,7 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 |---|---|
 | WiFi hotspot drops | Have a backup hotspot ready. Demo works on any shared network. |
 | App crashes on launch | Pre-launch apps before meeting. Have a video recording of the demo as backup. |
-| Ollama inference is slow | Use Qwen3.5-4B not 9B. Pre-warm the model before demo (ask one question beforehand). |
+| llama-server inference is slow | Use Qwen3.5-4B not 9B. Pre-warm the model before demo (ask one question beforehand). |
 | Cross-device query timeout | Set generous timeout (30s). Have a fallback question that only queries 2 nodes. |
 | sqlite-vec returns no results | Pre-test every demo question. Keep backup questions that are known-good. |
 | Mesh discovery takes too long | Pre-join mesh before demo starts. The "auto-discovery" moment can be shown via the admin dashboard node list refreshing. |

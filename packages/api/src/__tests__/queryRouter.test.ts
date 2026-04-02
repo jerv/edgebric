@@ -3,7 +3,7 @@ import { setupTestApp, teardownTestApp, getDefaultOrgId } from "./helpers.js";
 import { initMeshConfig, deleteMeshConfig } from "../services/nodeRegistry.js";
 import { randomUUID } from "crypto";
 
-// Mock the search service — no real Ollama/sqlite-vec
+// Mock the search service — no real inference/sqlite-vec
 const mockHybridSearch = vi.fn();
 vi.mock("../services/searchService.js", () => ({
   hybridMultiDatasetSearch: (...args: unknown[]) => mockHybridSearch(...args),

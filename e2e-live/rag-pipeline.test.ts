@@ -13,7 +13,7 @@ import {
  * RAG Pipeline — Full end-to-end tests with real inference.
  *
  * Tests the complete flow: upload → ingest → query → answer.
- * Requires a running Edgebric instance with Ollama + a loaded model.
+ * Requires a running Edgebric instance with llama-server + a loaded model.
  */
 
 let sourceId: string;
@@ -22,7 +22,7 @@ let securityDocId: string;
 
 test.describe.serial("RAG Pipeline", () => {
   test.beforeAll(async ({ request }) => {
-    // Verify Ollama is running with a model loaded
+    // Verify the inference server is running with a model loaded
     const health = await request.get("/api/health");
     const body = await health.json();
     expect(body.status).not.toBe("unhealthy");

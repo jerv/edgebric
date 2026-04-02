@@ -121,7 +121,7 @@ pnpm dev
 - Web runs on `http://localhost:5173` (Vite dev server with hot reload)
 - Config: `packages/api/.env` (copy from `.env.example`)
 - Database: local SQLite in `packages/api/data/`
-- Chat model: Ollama on `localhost:11434` (auto-managed by desktop app)
+- Chat model: llama-server on `localhost:8080` (chat) / `localhost:8081` (embedding), auto-managed by desktop app
 
 ### Development (Docker)
 

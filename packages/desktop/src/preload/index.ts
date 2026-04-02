@@ -40,14 +40,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   }) => ipcRenderer.invoke("save-setup", data),
 
   // AI Engine (llama-server)
-  getOllamaStatus: () => ipcRenderer.invoke("ollama-status"),
-  installOllama: (version?: string) => ipcRenderer.invoke("install-ollama", version),
-  startOllama: () => ipcRenderer.invoke("start-ollama"),
-  stopOllama: () => ipcRenderer.invoke("stop-ollama"),
-  onOllamaDownloadProgress: (callback: (percent: number) => void) => {
+  getEngineStatus: () => ipcRenderer.invoke("engine-status"),
+  installEngine: (version?: string) => ipcRenderer.invoke("install-engine", version),
+  startEngine: () => ipcRenderer.invoke("start-engine"),
+  stopEngine: () => ipcRenderer.invoke("stop-engine"),
+  onEngineDownloadProgress: (callback: (percent: number) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, percent: number) => callback(percent);
-    ipcRenderer.on("ollama-download-progress", handler);
-    return () => ipcRenderer.removeListener("ollama-download-progress", handler);
+    ipcRenderer.on("engine-download-progress", handler);
+    return () => ipcRenderer.removeListener("engine-download-progress", handler);
   },
 
   // mDNS Discovery

@@ -152,7 +152,7 @@ export interface HybridSearchResult extends SearchResult {
  * Search across multiple datasets with hybrid BM25+vector retrieval.
  *
  * Pipeline:
- * 1. Embed the query via Ollama
+ * 1. Embed the query via the inference server
  * 2. Run vector search via sqlite-vec across all datasets
  * 3. Run BM25 keyword search via FTS5 in parallel
  * 4. Merge with Reciprocal Rank Fusion

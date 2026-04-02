@@ -201,9 +201,9 @@ export default function SetupWizard({ onComplete }: Props) {
   const [secondaryNodeName, setSecondaryNodeName] = useState("");
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [ollamaProgress, setOllamaProgress] = useState(-1);
-  const [ollamaStatus, setOllamaStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
-  const [ollamaError, setOllamaError] = useState("");
+  const [engineProgress, setEngineProgress] = useState(-1);
+  const [engineStatus, setEngineStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
+  const [engineError, setEngineError] = useState("");
   const [launchAtLogin, setLaunchAtLogin] = useState(true);
 
   const steps = getSteps(intent, mode, connectType);
@@ -283,7 +283,7 @@ export default function SetupWizard({ onComplete }: Props) {
         return hasServer && meshToken.trim().length >= 32 && secondaryNodeName.trim().length > 0;
       }
       case "aiEngine":
-        return ollamaStatus === "done" || ollamaStatus === "idle";
+        return engineStatus === "done" || engineStatus === "idle";
       default:
         return false;
     }
@@ -874,24 +874,24 @@ export default function SetupWizard({ onComplete }: Props) {
               Edgebric uses a local AI engine to process queries privately on this machine. No data leaves your network.
             </p>
 
-            {ollamaStatus === "idle" && (
+            {engineStatus === "idle" && (
               <div className="ai-engine-actions">
                 <button
                   className="btn btn-primary"
                   onClick={async () => {
-                    setOllamaStatus("downloading");
-                    setOllamaError("");
-                    setOllamaProgress(0);
-                    const cleanup = window.electronAPI.onOllamaDownloadProgress((percent: number) => {
-                      setOllamaProgress(percent);
+                    setEngineStatus("downloading");
+                    setEngineError("");
+                    setEngineProgress(0);
+                    const cleanup = window.electronAPI.onEngineDownloadProgress((percent: number) => {
+                      setEngineProgress(percent);
                     });
-                    const result = await window.electronAPI.installOllama();
+                    const result = await window.electronAPI.installEngine();
                     cleanup();
                     if (result.success) {
-                      setOllamaStatus("done");
+                      setEngineStatus("done");
                     } else {
-                      setOllamaStatus("error");
-                      setOllamaError(result.error ?? "Download failed");
+                      setEngineStatus("error");
+                      setEngineError(result.error ?? "Download failed");
                     }
                   }}
                 >
@@ -903,16 +903,16 @@ export default function SetupWizard({ onComplete }: Props) {
               </div>
             )}
 
-            {ollamaStatus === "downloading" && (
+            {engineStatus === "downloading" && (
               <div className="ai-engine-progress">
                 <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${ollamaProgress}%` }} />
+                  <div className="progress-fill" style={{ width: `${engineProgress}%` }} />
                 </div>
-                <p className="progress-label">Downloading... {ollamaProgress}%</p>
+                <p className="progress-label">Downloading... {engineProgress}%</p>
               </div>
             )}
 
-            {ollamaStatus === "done" && (
+            {engineStatus === "done" && (
               <div className="ai-engine-done">
                 <p className="success-message">AI engine installed successfully.</p>
                 <div style={{ marginTop: 16, padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
@@ -925,10 +925,10 @@ export default function SetupWizard({ onComplete }: Props) {
               </div>
             )}
 
-            {ollamaStatus === "error" && (
+            {engineStatus === "error" && (
               <div className="ai-engine-error">
-                <p className="error-message">{ollamaError}</p>
-                <button className="btn btn-secondary" onClick={() => setOllamaStatus("idle")}>
+                <p className="error-message">{engineError}</p>
+                <button className="btn btn-secondary" onClick={() => setEngineStatus("idle")}>
                   Try Again
                 </button>
               </div>
@@ -967,14 +967,14 @@ export default function SetupWizard({ onComplete }: Props) {
           <button
             className="btn btn-primary"
             onClick={handleNext}
-            disabled={!canProceed() || saving || ollamaStatus === "downloading"}
+            disabled={!canProceed() || saving || engineStatus === "downloading"}
           >
             {saving
               ? "Saving..."
-              : ollamaStatus === "downloading"
+              : engineStatus === "downloading"
                 ? "Downloading..."
                 : isLastStep
-                  ? ollamaStatus === "idle" ? "Skip & Finish" : "Finish"
+                  ? engineStatus === "idle" ? "Skip & Finish" : "Finish"
                   : "Next"}
           </button>
         </div>

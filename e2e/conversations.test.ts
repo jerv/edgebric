@@ -6,10 +6,10 @@ import { test, expect } from "@playwright/test";
  * Covers: query status, sending queries (SSE), conversation creation,
  * listing conversations, viewing history, archiving, bulk delete, feedback.
  *
- * Note: Actual LLM queries require Ollama running, so we test the query
+ * Note: Actual LLM queries require a running inference server, so we test the query
  * infrastructure (status check, error handling) and conversation CRUD.
  * The SSE streaming is tested by sending a query and checking the error
- * response format (since Ollama is intentionally unreachable in E2E).
+ * response format (since the inference server is intentionally unreachable in E2E).
  */
 
 test.describe("Query Infrastructure", () => {
@@ -18,7 +18,7 @@ test.describe("Query Infrastructure", () => {
     expect(res.ok()).toBe(true);
     const body = await res.json();
     expect(typeof body.ready).toBe("boolean");
-    // Ollama is unreachable in E2E, so ready should be false
+    // Inference server is unreachable in E2E, so ready should be false
     expect(body.ready).toBe(false);
   });
 
@@ -29,7 +29,7 @@ test.describe("Query Infrastructure", () => {
       },
     });
     // Should get an SSE response (text/event-stream) with an error event
-    // since Ollama is unreachable
+    // since the inference server is unreachable
     const contentType = res.headers()["content-type"] ?? "";
     // Could be SSE stream or JSON error depending on how far it gets
     expect(res.status()).toBeGreaterThanOrEqual(200);
@@ -60,7 +60,7 @@ test.describe("Query Infrastructure", () => {
 });
 
 test.describe("Conversation CRUD", () => {
-  // We can't create conversations via query (no Ollama), so we test
+  // We can't create conversations via query (no inference server), so we test
   // the list/archive endpoints and verify empty state behavior.
 
   test("lists conversations (empty initially)", async ({ request }) => {

@@ -315,7 +315,7 @@ export function registerIpcHandlers() {
 
   // ─── AI Engine (llama-server) ────────────────────────────────────────────────
 
-  ipcMain.handle("ollama-status", async () => {
+  ipcMain.handle("engine-status", async () => {
     const config = loadConfig();
     const dataDir = config?.dataDir;
     return {
@@ -325,12 +325,12 @@ export function registerIpcHandlers() {
     };
   });
 
-  ipcMain.handle("install-ollama", async (_event, version?: string) => {
+  ipcMain.handle("install-engine", async (_event, version?: string) => {
     const config = loadConfig();
     try {
       await downloadLlama(version ?? undefined, config?.dataDir, (percent) => {
         for (const win of BrowserWindow.getAllWindows()) {
-          try { win.webContents.send("ollama-download-progress", percent); } catch { /* frame disposed */ }
+          try { win.webContents.send("engine-download-progress", percent); } catch { /* frame disposed */ }
         }
       });
       return { success: true };
@@ -339,7 +339,7 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("start-ollama", async () => {
+  ipcMain.handle("start-engine", async () => {
     const config = loadConfig();
     const dataDir = config?.dataDir;
     try {
@@ -368,7 +368,7 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("stop-ollama", async () => {
+  ipcMain.handle("stop-engine", async () => {
     const config = loadConfig();
     try {
       await stopLlama(config?.dataDir);

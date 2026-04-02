@@ -15,7 +15,7 @@ import type { Document } from "@edgebric/types";
  * 2. Extract text (Mammoth for docx, pass-through for txt/md)
  * 3. Chunk the extracted markdown
  * 4. Run PII detection
- * 5. Embed each chunk via Ollama
+ * 5. Embed each chunk via the inference server
  * 6. Store chunks with embeddings in SQLite (metadata + FTS5 + sqlite-vec)
  * 7. Update document status
  */
@@ -62,7 +62,7 @@ export async function ingestDocument(
     const startIndex = getChunkCountForDataset(datasetName);
     logger.info({ docName: doc.name, startIndex, chunkCount: chunks.length }, "Ingesting document");
 
-    // Embed each chunk via Ollama
+    // Embed each chunk via the inference server
     const embeddings: number[][] = [];
     for (const chunk of chunks) {
       const embedding = await embed(chunk.content);

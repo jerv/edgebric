@@ -293,7 +293,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ## 3.10 Deployment & Infrastructure
 
 **Demo**
-- [x] Runs on macOS with Ollama for inference and sqlite-vec for vector storage
+- [x] Runs on macOS with llama-server for inference and sqlite-vec for vector storage
 - [x] Single-device setup via desktop app setup wizard
 - [x] Multi-device demo via mesh networking
 - [x] Configuration via environment file
@@ -318,7 +318,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 **Implemented:**
 - [x] Standard mode — default baseline, full features
 - [x] Private Mode — disables query tracking, anonymous queries
-- [x] Vault Mode — on-device only with AES-256-GCM encryption, Ollama local inference
+- [x] Vault Mode — on-device only with AES-256-GCM encryption, llama-server local inference
 - [x] Privacy context in UI (PrivacyContext.tsx, PrivacyTab.tsx, ExitPrivacyDialog.tsx)
 
 **V2 — Incognito Enhancements:**

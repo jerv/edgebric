@@ -6,7 +6,7 @@ Throwaway experiments that answer specific technical questions. Each spike is se
 
 ---
 
-## Spike 1 — Ollama Inference
+## Spike 1 — LLM Inference (llama.cpp)
 
 **Question:** Does Qwen3-4B run on available hardware? What's the actual throughput? Does streaming match OpenAI format?
 
@@ -34,7 +34,7 @@ Throwaway experiments that answer specific technical questions. Each spike is se
 
 ## Spike 4 — End-to-End RAG
 
-**Question:** Does the full pipeline (Ollama embeddings → sqlite-vec storage → hybrid search with FTS5 → Ollama generation) produce correct, cited answers from a real policy document?
+**Question:** Does the full pipeline (llama.cpp embeddings → sqlite-vec storage → hybrid search with FTS5 → llama.cpp generation) produce correct, cited answers from a real policy document?
 
 **This is the most important spike.** Run it before building any UI.
 

@@ -5,7 +5,7 @@ import { buildSystemPrompt, buildGeneralPrompt, NO_ANSWER_RESPONSE } from "./sys
 import { detectAnswerType, validateMarkers } from "./answerAnalysis.js";
 
 // ─── Dependency interfaces ─────────────────────────────────────────────────────
-// The orchestrator has no knowledge of Ollama, HTTP, or any specific library.
+// The orchestrator has no knowledge of llama-server, HTTP, or any specific library.
 // Real implementations are injected by the API layer.
 // Test implementations are injected by tests.
 

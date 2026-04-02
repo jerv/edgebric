@@ -54,7 +54,7 @@ What separated the working demo from a shippable product. **All items below are 
 - No stack traces in production (guarded by isDev check)
 
 **9. Health Check Endpoint** — DONE
-- `GET /api/health` — checks database, inference (Ollama), vector store, disk usage
+- `GET /api/health` — checks database, inference (llama-server), vector store, disk usage
 - Admin-only detailed view, public simple status
 
 **10. Docker Deployment** — DONE

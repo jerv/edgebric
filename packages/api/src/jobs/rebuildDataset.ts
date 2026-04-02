@@ -25,7 +25,7 @@ export function getRebuildsInProgress(): Set<string> {
  * Rebuild pipeline:
  * 1. Read remaining chunks from SQLite (deleted doc chunks already removed by caller)
  * 2. Clear all chunk registry entries (metadata + FTS5 + vectors)
- * 3. Re-embed each chunk via Ollama
+ * 3. Re-embed each chunk via the inference server
  * 4. Re-register with fresh sequential IDs and new embeddings
  *
  * Called after document deletion to ensure zero stale data.
@@ -66,7 +66,7 @@ async function executeRebuild(datasetName: string): Promise<void> {
       return;
     }
 
-    // 3. Re-embed all remaining chunks via Ollama
+    // 3. Re-embed all remaining chunks via the inference server
     const embeddings: number[][] = [];
     for (const chunk of remaining) {
       const embedding = await embed(chunk.content);

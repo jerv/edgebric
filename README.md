@@ -30,7 +30,7 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 - **Data source management**: Organize documents into data sources with per-source access control.
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
 - **Group chats**: Collaborative conversations with @bot querying, threads, and source sharing.
-- **Desktop app**: macOS menu bar app that manages Ollama, the API server, and setup — all from the tray.
+- **Desktop app**: macOS menu bar app that manages llama-server, the API server, and setup — all from the tray.
 
 ## Who It's For
 
@@ -67,8 +67,8 @@ Monorepo with four packages:
 
 ### Key tech
 
-- **AI**: Ollama for local inference (Qwen 3 4B default, supports any Ollama model)
-- **Embeddings**: nomic-embed-text (768-dim) via Ollama
+- **AI**: llama.cpp for local inference (Qwen 3 4B default, supports any GGUF model from HuggingFace)
+- **Embeddings**: nomic-embed-text (768-dim) via llama-server
 - **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval (FTS5 + Reciprocal Rank Fusion)
 - **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and full-text search in one file
 - **Auth**: OIDC/SSO (any provider — Google, Okta, Auth0, etc.). Not needed for Solo mode.
@@ -91,7 +91,7 @@ Monorepo with four packages:
 - Node.js 20+
 - pnpm 9+
 - Python 3.10+ with `docling` (for PDF extraction)
-- Ollama (auto-managed by desktop app, or install manually)
+- llama-server (auto-managed by desktop app, or install manually)
 - An OIDC provider (e.g., Google OAuth) — not needed for Solo mode
 
 ### Desktop App (recommended)
@@ -105,7 +105,7 @@ cd packages/desktop
 pnpm dev
 ```
 
-The desktop app handles Ollama lifecycle, server management, and setup. Open the web UI from the tray menu.
+The desktop app handles llama-server lifecycle, server management, and setup. Open the web UI from the tray menu.
 
 ### Manual Setup
 
@@ -116,8 +116,8 @@ pnpm install
 cp packages/api/.env.example packages/api/.env
 # Edit .env with your OIDC credentials
 
-# Start Ollama
-ollama serve
+# Start llama-server (chat instance on port 8080)
+llama-server --model path/to/qwen3-4b.gguf --port 8080
 
 # Start the API server
 cd packages/api
@@ -139,8 +139,9 @@ pnpm dev
 | `FRONTEND_URL` | Frontend URL for redirects (e.g., `http://localhost:5173`) |
 | `ADMIN_EMAILS` | Comma-separated admin email addresses |
 | `SESSION_SECRET` | Secret for signing session cookies |
-| `OLLAMA_BASE_URL` | Ollama API endpoint (default: `http://localhost:11434`) |
-| `CHAT_MODEL` | Model name for chat completions (default: `qwen3:4b`) |
+| `INFERENCE_CHAT_URL` | llama-server chat endpoint (default: `http://localhost:8080`) |
+| `INFERENCE_EMBEDDING_URL` | llama-server embedding endpoint (default: `http://localhost:8081`) |
+| `CHAT_MODEL` | Model name for chat completions (default: `qwen3-4b`) |
 | `EMBEDDING_MODEL` | Embedding model (default: `nomic-embed-text`) |
 
 ## Contributing

@@ -1,7 +1,7 @@
 /**
  * Application-layer inference queue.
  *
- * Instead of letting all concurrent requests hit Ollama's opaque FIFO,
+ * Instead of letting all concurrent requests hit the inference server's opaque FIFO,
  * we own the queue so we can:
  * - Show queue position to users via SSE before token streaming begins
  * - Prioritize interactive queries over background tasks (summarization)

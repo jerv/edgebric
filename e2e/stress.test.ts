@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
  * - All requests eventually complete (no starvation)
  * - System remains responsive under load
  *
- * Requires a running Ollama with a loaded model.
+ * Requires a running inference server with a loaded model.
  * Only runs when STRESS_TEST=1 env var is set.
  *
  * Usage: STRESS_TEST=1 pnpm exec playwright test stress.test.ts

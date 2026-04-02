@@ -10,7 +10,7 @@
 
 Edgebric is a **distributed knowledge platform** that enables organizations to build, distribute, and query data sources across multiple devices — where each device physically holds its own data, devices discover each other automatically via mDNS, and queries route across the network to find answers without any data leaving its host device.
 
-The platform uses **Ollama** for local AI inference (LLM chat and embeddings) and **sqlite-vec** for vector similarity search, all embedded within a single SQLite database per node. No cloud dependencies.
+The platform uses **llama.cpp** for local AI inference (LLM chat and embeddings) and **sqlite-vec** for vector similarity search, all embedded within a single SQLite database per node. No cloud dependencies.
 
 Edgebric is not a chatbot. It is a **distributed knowledge intelligence platform** whose privacy guarantee is enforced by physics — data lives on the device that owns it, period — not by access control policies that can be misconfigured.
 
@@ -20,7 +20,7 @@ The distributed architecture relies on standard, open technologies:
 
 - **mDNS-based device discovery** — devices on the same network find each other automatically, no IP configuration
 - **Cross-device HTTP routing** — queries travel to sources without moving data to a central point
-- **Local AI inference** — Ollama runs LLMs and embedding models on each device
+- **Local AI inference** — llama.cpp runs LLMs and embedding models on each device
 - **Local vector storage** — sqlite-vec stores vectors in the same SQLite database as all other data
 - **Hybrid search** — BM25 keyword search (FTS5) + vector similarity (sqlite-vec) merged via Reciprocal Rank Fusion
 
@@ -107,7 +107,7 @@ A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 | Pricing | Free and open source (AGPL 3.0) / pay-what-you-want download | $3,600-$20,400/yr (100 employees) | $5,000-$50,000 server |
 | Hardware cost | $599 one-time (Mac Mini) | Included in subscription | $5,000-$50,000 server |
 | GDPR/CCPA compliance | By architecture | Requires legal scaffolding | By policy (auditable) |
-| Powered by | Ollama + sqlite-vec | AWS / Azure / GCP | Bare metal / VMware |
+| Powered by | llama.cpp + sqlite-vec | AWS / Azure / GCP | Bare metal / VMware |
 
 ### Competitive Landscape
 
