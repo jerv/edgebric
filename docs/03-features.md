@@ -192,12 +192,19 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 
 ### Cloud Storage Connectors
 
-> Schema and connector framework exists (cloudConnections, cloudFolderSyncs, cloudOauthTokens tables). Supported providers in schema: google_drive, onedrive, confluence, notion.
+> Schema and connector framework exists (cloudConnections, cloudFolderSyncs, cloudOauthTokens tables).
 
-**MVP**
+**V1.0**
 - [ ] Google Drive OAuth flow + folder sync
 - [ ] OneDrive/SharePoint folder sync
+- [ ] Confluence sync
+- [ ] Notion sync
 - [ ] Admin integration settings UI (IntegrationsTab covers cloud storage)
+
+**Post-V1.0** (contributor-friendly additions)
+- [ ] Dropbox
+- [ ] Box
+- [ ] Other cloud storage providers
 
 ### Slack Bot
 
@@ -230,7 +237,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ## 3.7 Admin Dashboard
 
 **Demo**
-- [x] Secure admin login (OIDC/SSO — Google, Microsoft, Okta, OneLogin, Ping, generic OIDC)
+- [x] Secure admin login (OIDC/SSO — V1.0: Google, Microsoft. Post-V1.0: Okta, OneLogin, Ping, generic OIDC)
 - [x] Network data source management (create, upload, view, delete)
 - [x] Node status view (discovered devices and their data sources)
 
@@ -255,7 +262,7 @@ Features are organized into three release tiers: **Demo**, **MVP**, and **V2**.
 ## 3.8 Authentication & Security
 
 **MVP**
-- [x] Admin + employee login via OIDC/SSO (6 providers: Google, Microsoft, Okta, OneLogin, Ping, generic)
+- [x] Admin + employee login via OIDC/SSO (V1.0: Google, Microsoft. Post-V1.0: Okta, OneLogin, Ping, generic OIDC)
 - [x] Role by email: ADMIN_EMAILS env var determines admin access
 - [x] Post-login: anonymous queryToken UUID in session (queries not linked to identity)
 - [x] Session cookies (httpOnly, session-file-store)
