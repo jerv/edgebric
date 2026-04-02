@@ -12,13 +12,11 @@ Whether you're a solo consultant managing client files, a small law firm with co
 
 ---
 
-## Free to use. Pay if you want to support development.
+## Free and open source.
 
-Edgebric is source-available under the [Business Source License 1.1](LICENSE). You are free to use it for personal or internal business purposes at no cost. Clone it, build it, run it — no restrictions on usage.
+Edgebric is open source under the [GNU Affero General Public License v3.0](LICENSE). Use it, modify it, distribute it — for any purpose. If you find it useful, consider [sponsoring development](https://github.com/sponsors/jerv).
 
-If you find it useful, consider downloading from [edgebric.com](https://edgebric.com) — it's pay-what-you-want and directly supports continued development. But it's not required.
-
-**What you can't do:** repackage, rebrand, or sell Edgebric or derivative works. See the [full license](LICENSE) for details.
+If you modify Edgebric and distribute it or run it as a service, you must share your changes under the same license.
 
 ## What It Does
 
@@ -155,10 +153,6 @@ For enterprise support contracts, contact support@edgebric.com.
 
 ## License
 
-Business Source License 1.1
+[GNU Affero General Public License v3.0](LICENSE)
 
-- **Use:** Free for personal and internal business use. No user limits, no feature restrictions.
-- **Restriction:** No commercial redistribution. You may not repackage, rebrand, or sell Edgebric or derivative works. You may not offer Edgebric as a hosted or managed service.
-- **Change Date:** 4 years from each release. On the change date, that release converts to Apache License 2.0.
-
-The name "Edgebric" and associated logos are trademarks. Forks must use a different name and branding.
+Free to use, modify, and distribute. If you distribute modified versions or run them as a network service, you must make your source code available under the same license.

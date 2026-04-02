@@ -17,29 +17,27 @@ Last updated: 2026-03-30
 
 ## License
 
-### Business Source License 1.1 (BSL)
+### GNU Affero General Public License v3.0 (AGPL-3.0)
 
-Edgebric is **source-available** under the BSL 1.1.
+Edgebric is **open source** under the AGPL 3.0.
 
-- **Usage Grant:** Free for personal use and internal business use (no user limits, no feature restrictions)
-- **Additional Use Grant:** Non-production use (evaluation, testing, development)
-- **Restriction:** No commercial redistribution — you cannot repackage, rebrand, or sell Edgebric or derivative works. You cannot offer Edgebric as a hosted/managed service.
-- **Change Date:** 4 years from each release. On the change date, that release's code automatically converts to Apache 2.0.
-- **Change License:** Apache License 2.0
+- **Use:** Free for any purpose — personal, commercial, educational, organizational
+- **Modify:** Fork it, change it, extend it
+- **Distribute:** Share it, deploy it, host it
+- **Copyleft:** If you distribute modified versions or run them as a network service, you must share your source code under the same AGPL 3.0 license
 
-Each release gets its own change date. The latest release is always under BSL. Only old versions eventually become fully open source.
+### Why AGPL
 
-### Why BSL
-
-- Source code is publicly readable, auditable, and forkable for personal/internal use
-- Developers can clone, build, and run it themselves
-- Prevents commercial theft — nobody can rebrand and sell it
-- Simpler than open-core (no feature gating, no dual codebases)
-- Used by MariaDB, Sentry, CockroachDB — well-understood in the industry
+- True open source — OSI approved, widely recognized
+- Maximum contributor friendliness and adoption
+- Copyleft protects against proprietary forks (can't take the code closed-source)
+- No feature gating, no dual codebases, no license keys
+- Used by Mastodon, Nextcloud, Grafana — proven model for community-driven projects
+- Revenue from donations (GitHub Sponsors) and pay-what-you-want downloads
 
 ### Trademark
 
-The name "Edgebric" and associated logos are trademarks. Forks must use a different name and branding. The trademark policy will be published alongside the license.
+The name "Edgebric" and associated logos are trademarks. Forks must use a different name and branding.
 
 ## Distribution
 
@@ -190,7 +188,7 @@ At $50 recommended:
 
 ## Pre-Launch Checklist
 
-- [ ] BSL 1.1 LICENSE file added to repo root
+- [x] AGPL 3.0 LICENSE file added to repo root
 - [ ] Trademark policy drafted and published
 - [ ] Apple Developer Program enrolled
 - [ ] Code signing + notarization pipeline working
@@ -198,7 +196,9 @@ At $50 recommended:
 - [ ] Marketing site live (static, Vercel/Netlify)
 - [ ] Stripe Checkout configured (pay-what-you-want, $5 min, $50 default)
 - [ ] Re-download email lookup serverless function deployed
-- [ ] Cloudflare email routing configured (support@edgebric.com -> edgebric@gmail.com)
+- [x] Cloudflare email routing configured (support@edgebric.com -> edgebric@gmail.com)
+- [x] GitHub Sponsors enrolled
+- [x] CLA + CLA Assistant bot configured
 - [ ] Gmail "Send as" configured for support@edgebric.com
 - [ ] README updated for public audience
 - [ ] CONTRIBUTING.md added

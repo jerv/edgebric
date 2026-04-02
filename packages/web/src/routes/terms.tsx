@@ -26,14 +26,15 @@ function TermsOfService() {
         <div className="mt-8 space-y-8 text-sm text-slate-700 dark:text-gray-300 leading-relaxed">
           <Section title="1. Software license">
             <p>
-              Edgebric is source-available under the{" "}
+              Edgebric is open source under the{" "}
               <a href="https://github.com/edgebric/edgebric/blob/main/LICENSE" className="text-slate-900 dark:text-gray-100 underline">
-                Business Source License 1.1
+                GNU Affero General Public License v3.0 (AGPL-3.0)
               </a>
-              . You may use it for personal and internal business use — including production use —
+              . You may use, modify, and distribute it for any purpose —
               without limitation on the number of users or features. No license key, subscription, or
-              account is required. These terms govern your use of the Edgebric software, along with
-              any updates or documentation provided with it.
+              account is required. If you distribute modified versions or run them as a network service,
+              you must share your source code under the same license. These terms govern your use of
+              the Edgebric software, along with any updates or documentation provided with it.
             </p>
           </Section>
 
@@ -41,7 +42,7 @@ function TermsOfService() {
             <p>
               Edgebric runs entirely on infrastructure you control. All data processed by
               Edgebric — including documents, queries, conversations, and embeddings — belongs
-              to your organization. Edgebric's developers have no access to your data at any time.
+              to you. Edgebric's developers have no access to your data at any time.
             </p>
           </Section>
 
@@ -56,12 +57,11 @@ function TermsOfService() {
           </Section>
 
           <Section title="4. Restrictions">
-            <p>Under the Business Source License 1.1, you may not:</p>
+            <p>Under the AGPL 3.0 and these terms, you may not:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Repackage, rebrand, or sell Edgebric or derivative works as a commercial product</li>
-              <li>Offer Edgebric as a hosted or managed service to third parties</li>
-              <li>Remove or alter any proprietary notices, license text, or branding</li>
+              <li>Remove or alter any license text, copyright notices, or attribution</li>
               <li>Use the &quot;Edgebric&quot; name or logos for derivative works (forks must use a different name)</li>
+              <li>Distribute modified versions without making your source code available under the AGPL 3.0</li>
               <li>Use the software to process data in violation of applicable privacy laws</li>
             </ul>
           </Section>

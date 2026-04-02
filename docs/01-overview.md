@@ -91,7 +91,7 @@ HR is the hero use case — not because Edgebric is exclusively an HR tool, but 
 Meeting mode is the daily-use hook. HR queries might happen once a week. Cross-department meetings happen every day. Meeting mode gives every employee a reason to use Edgebric regularly — and every use reinforces the platform's value.
 
 ### The Hardware Story
-A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. That's a one-time hardware cost vs. $150+/month for cloud AI subscriptions. For a 100-person company, cloud HR AI costs $3,600-$20,400/year. Edgebric is source-available and free to run — pay what you want for the convenience of a signed installer.
+A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. That's a one-time hardware cost vs. $150+/month for cloud AI subscriptions. For a 100-person company, cloud HR AI costs $3,600-$20,400/year. Edgebric is open source (AGPL 3.0) and free to run — pay what you want for the convenience of a signed installer, or build from source.
 
 ### Competitive Differentiation
 
@@ -104,7 +104,7 @@ A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 | Device discovery | Automatic (mDNS) | N/A | Manual IP configuration |
 | Meeting mode | Yes — ephemeral cross-device sessions | No | No |
 | Vault sources | Yes — employee-owned, device-local, encrypted | No | No |
-| Pricing | Free (source-available) / pay-what-you-want download | $3,600-$20,400/yr (100 employees) | $5,000-$50,000 server |
+| Pricing | Free and open source (AGPL 3.0) / pay-what-you-want download | $3,600-$20,400/yr (100 employees) | $5,000-$50,000 server |
 | Hardware cost | $599 one-time (Mac Mini) | Included in subscription | $5,000-$50,000 server |
 | GDPR/CCPA compliance | By architecture | Requires legal scaffolding | By policy (auditable) |
 | Powered by | Ollama + sqlite-vec | AWS / Azure / GCP | Bare metal / VMware |

@@ -14,7 +14,7 @@ By submitting a pull request or other contribution to this project, you accept a
 
 ## 2. Grant of Copyright License
 
-You hereby grant to the Maintainer a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute your Contributions and such derivative works under any license, including the Business Source License 1.1 (BSL) or any successor license chosen by the Maintainer.
+You hereby grant to the Maintainer a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, and distribute your Contributions and such derivative works under any license, including the GNU Affero General Public License v3.0 (AGPL-3.0) or any successor license chosen by the Maintainer.
 
 ## 3. Grant of Patent License
 

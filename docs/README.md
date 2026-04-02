@@ -21,7 +21,7 @@
 | [09-demo-plan.md](09-demo-plan.md) | Demo plan | ASPIRATIONAL |
 | [10-architecture-onepager.md](10-architecture-onepager.md) | Architecture one-pager (compliance audience) | CURRENT |
 | [10-pipeline.md](10-pipeline.md) | Branch strategy, CI/CD pipeline | CURRENT |
-| [11-pricing-distribution.md](11-pricing-distribution.md) | BSL license, pay-what-you-want distribution | CURRENT |
+| [11-pricing-distribution.md](11-pricing-distribution.md) | AGPL 3.0 license, pay-what-you-want distribution | CURRENT |
 | [12-desktop-app-plan.md](12-desktop-app-plan.md) | Desktop GUI app (Electron) — current state | CURRENT |
 
 ---

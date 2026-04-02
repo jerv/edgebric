@@ -141,7 +141,7 @@ Edgebric is **software sold to customers who run it on their own hardware**. We 
 
 See [11-pricing-distribution.md](11-pricing-distribution.md) for the full plan.
 
-**Summary:** BSL 1.1 license, source-available on GitHub, pay-what-you-want download via marketing website ($5 minimum, $50 recommended), Stripe Checkout, ~$111/year fixed overhead.
+**Summary:** AGPL 3.0 license, open source on GitHub, pay-what-you-want download via marketing website ($5 minimum, $50 recommended), GitHub Sponsors, ~$111/year fixed overhead.
 
 ---
 
