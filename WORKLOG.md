@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-04-02 — agent/ci-fixes (CI fix agent)
+
+### Verified CI: all checks green
+
+Ran full CI suite (`pnpm test`, `pnpm lint`, `pnpm typecheck`) after the llama-cpp migration merge.
+
+**Results:**
+- Tests: 481 passed (91 core + 390 api), 0 failures
+- Lint: 0 errors (15 pre-existing `no-explicit-any` warnings in test files)
+- Typecheck: Clean across all 5 packages
+
+No fixes needed — the llama-cpp migration landed cleanly.
+
+---
+
 ## 2026-04-02 — agent/llama-cpp (inference agent)
 
 ### Replaced Ollama with llama-server (llama.cpp)
