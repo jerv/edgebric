@@ -8,7 +8,12 @@ Whether you're a solo consultant managing client files, a small law firm with co
 
 ---
 
-**Just want to install it?** You don't need any of what's below. Head to [edgebric.com](https://edgebric.com) to download a ready-to-use installer for macOS. No terminal, no setup — just download and run.
+**Just want to use it?** Head to [edgebric.com](https://edgebric.com) to download the macOS app. No terminal, no setup — just download and run.
+
+**Prefer the command line?**
+```bash
+curl -fsSL https://edgebric.com/install.sh | bash
+```
 
 ---
 
@@ -23,9 +28,9 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 - **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations, but no document ever leaves the machine it's stored on. This is the core of "data never moves, queries move."
 - **Document ingestion**: Upload PDF, DOCX, TXT, MD files. Automatic extraction, chunking, and embedding.
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
-- **Cloud integrations**: Sync documents from Google Drive (OneDrive, Dropbox, Notion, Confluence coming soon). Documents are pulled to your local machine — never stored in the cloud.
+- **Cloud integrations**: Sync documents from Google Drive, OneDrive, Confluence, and Notion. Documents are pulled to your local machine — never stored in the cloud.
 - **Privacy modes**: Standard (anonymous analytics), Private (no identity tracking), Vault (on-device only).
-- **SSO / OIDC authentication**: Sign in with Google, Okta, Auth0, or any OIDC provider. Not needed for Solo mode.
+- **SSO / OIDC authentication**: Sign in with Google or Microsoft. Not needed for Solo mode.
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
 - **Data source management**: Organize documents into data sources with per-source access control.
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
@@ -71,7 +76,7 @@ Monorepo with four packages:
 - **Embeddings**: nomic-embed-text (768-dim) via llama-server
 - **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval (FTS5 + Reciprocal Rank Fusion)
 - **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and full-text search in one file
-- **Auth**: OIDC/SSO (any provider — Google, Okta, Auth0, etc.). Not needed for Solo mode.
+- **Auth**: OIDC/SSO (Google, Microsoft). Not needed for Solo mode.
 - **Frontend**: Vite, React 18, TailwindCSS, shadcn/ui
 
 ## Hardware Requirements
@@ -84,40 +89,63 @@ Monorepo with four packages:
 | **Hardware** | Any Apple Silicon Mac | Mac Mini M4 24GB ($699) |
 | **Use case** | Personal / vault use | Org server (100-200 daily users) |
 
-## Building from Source
+## Install
 
-### Prerequisites
+### Option 1: Download the app
 
-- Node.js 20+
-- pnpm 9+
-- Python 3.10+ with `docling` (for PDF extraction)
-- llama-server (auto-managed by desktop app, or install manually)
-- An OIDC provider (e.g., Google OAuth) — not needed for Solo mode
+Head to [edgebric.com](https://edgebric.com) — download, drag to Applications, launch. No terminal required.
 
-### Desktop App (recommended)
+### Option 2: One-line install (for developers)
 
 ```bash
-git clone https://github.com/edgebric/edgebric.git
+curl -fsSL https://edgebric.com/install.sh | bash
+```
+
+Checks prerequisites, clones the repo, builds, and launches the desktop app. Customize the install directory:
+
+```bash
+curl -fsSL https://edgebric.com/install.sh | bash -s -- --dir ~/my-edgebric
+```
+
+### Option 3: Build from source
+
+```bash
+git clone https://github.com/jerv/edgebric.git
 cd edgebric
 pnpm install
+pnpm build
 
+# Launch the desktop app
 cd packages/desktop
 pnpm dev
 ```
 
 The desktop app handles llama-server lifecycle, server management, and setup. Open the web UI from the tray menu.
 
-### Manual Setup
+### Prerequisites (for building from source)
+
+- macOS (Apple Silicon recommended, Intel supported)
+- Node.js 20+
+- pnpm 10+
+- Python 3.10+ with `docling` (for PDF extraction, optional)
+- llama-server is auto-managed by the desktop app — no manual install needed
+- An OIDC provider (Google or Microsoft) — not needed for Solo mode
+
+### Manual setup (without desktop app)
 
 ```bash
 pnpm install
+pnpm build
 
 # Configure environment
 cp packages/api/.env.example packages/api/.env
-# Edit .env with your OIDC credentials
+# Edit .env with your settings
 
-# Start llama-server (chat instance on port 8080)
+# Start llama-server (chat model on port 8080)
 llama-server --model path/to/qwen3-4b.gguf --port 8080
+
+# In another terminal: embedding model on port 8081
+llama-server --model path/to/nomic-embed-text.gguf --port 8081 --embedding
 
 # Start the API server
 cd packages/api
@@ -146,11 +174,13 @@ pnpm dev
 
 ## Contributing
 
-Bug reports and feature requests are welcome via [GitHub Issues](https://github.com/edgebric/edgebric/issues).
+Contributions welcome! Please read the [Contributor License Agreement](CLA.md) — you'll be asked to sign it on your first pull request.
 
-Community-supported software. No SLA or guaranteed response times.
+- **Bug reports & feature requests**: [GitHub Issues](https://github.com/jerv/edgebric/issues)
+- **Questions & discussion**: [GitHub Discussions](https://github.com/jerv/edgebric/discussions)
+- **Contact**: support@edgebric.com
 
-For enterprise support contracts, contact support@edgebric.com.
+Good first issues: additional auth providers (Okta, OneLogin, generic OIDC), cloud storage connectors (Dropbox, Box), and translations.
 
 ## License
 
