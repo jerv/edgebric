@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import {
   Loader2,
   Power,
-  Monitor,
   AlertTriangle,
   ArrowLeft,
 } from "lucide-react";
@@ -15,6 +14,7 @@ import {
   useSwitchModel,
 } from "@/hooks/useModels";
 import { RAMBar, formatBytes } from "@/components/shared/ResourceBars";
+import Logo from "@/components/shared/Logo";
 import type { InstalledModel, RAMFitResult } from "@edgebric/types";
 import { EMBEDDING_MODEL_TAG, checkModelRAMFit } from "@edgebric/types";
 
@@ -240,7 +240,7 @@ export function ModelsPanel() {
         {/* Desktop app CTA */}
         <div className="rounded-2xl border border-slate-200 dark:border-gray-800 px-5 py-4">
           <div className="flex items-start gap-3">
-            <Monitor className="w-5 h-5 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
+            <Logo className="w-5 h-5 rounded mt-0.5 flex-shrink-0" />
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Install & Manage Models</h3>
               <p className="text-xs text-slate-500 dark:text-gray-400">
@@ -255,7 +255,7 @@ export function ModelsPanel() {
                 </a>
                 <span className="text-slate-300 dark:text-gray-700">|</span>
                 <a
-                  href="https://edgebric.com/download"
+                  href="https://edgebric.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs font-medium text-slate-500 dark:text-gray-400 hover:underline"
@@ -267,9 +267,9 @@ export function ModelsPanel() {
           </div>
         </div>
 
-        {/* Embedding note */}
-        <p className="text-xs text-slate-400 dark:text-gray-500">
-          Embedding model: <span className="font-mono">nomic-embed-text</span> — automatically managed, not switchable.
+        {/* Explainer */}
+        <p className="text-xs text-slate-400 dark:text-gray-500 leading-relaxed">
+          Models are the AI brains that answer your questions. Loading a model reserves memory (RAM) so it can respond instantly — unload models you're not using to free up resources.
         </p>
       </div>
     </div>

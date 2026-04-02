@@ -686,7 +686,7 @@ export default function ServerDashboard() {
                     <div className="resource-bar-item">
                       <div className="resource-bar-label">
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><rect x="2" y="3" width="20" height="13" rx="2"/></svg>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><path d="M8 11V9"/><path d="M16 11V9"/><path d="M12 11V9"/><path d="M2 15h20"/><path d="M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v1.1a2 2 0 0 0 0 3.837V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5.1a2 2 0 0 0 0-3.837Z"/></svg>
                           Memory
                         </span>
                         <span className="resource-bar-value">
@@ -890,7 +890,11 @@ export default function ServerDashboard() {
                             onClick={() => handleLoadModel(m.tag)}
                             disabled={!!modelOp || !!pullTag}
                           >
-                            {isOpTarget && modelOp?.type === "load" ? "Starting..." : "Start"}
+                            {isOpTarget && modelOp?.type === "load" ? (
+                              "Loading..."
+                            ) : (
+                              <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4 }}><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>Load</>
+                            )}
                           </button>
                           {deleteConfirmTag === m.tag ? (
                             <>
@@ -1129,6 +1133,10 @@ export default function ServerDashboard() {
 
             {/* Error */}
             {modelError && <div className="error-msg">{modelError}</div>}
+
+            <p className="hint" style={{ textAlign: "center", padding: "4px 0 8px" }}>
+              Models are the AI brains that answer your questions. Loading a model reserves memory (RAM) so it can respond instantly — unload models you're not using to free up resources.
+            </p>
           </div>
         )}
       </div>
