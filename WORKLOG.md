@@ -1,5 +1,34 @@
 # Worklog
 
+## 2026-04-02 — agent/confluence (Confluence agent)
+
+### Added Confluence Cloud connector end-to-end
+
+**Problem:** No Confluence integration existed. Users with Confluence Cloud couldn't sync their wiki pages into Edgebric for RAG search.
+
+**Changes:**
+- `packages/api/src/connectors/confluence.ts` — New CloudConnectorAdapter implementation:
+  - Atlassian 3LO OAuth 2.0 (JSON body, not URL-encoded like Google/Microsoft)
+  - `listFolders` lists Confluence spaces (composite ID: `cloudId::spaceKey`)
+  - `getChanges` initial sync: CQL search for all pages in a space, plus supported attachments (PDF, DOCX) on each page
+  - `getChanges` delta sync: CQL `lastModified>=` filter for incremental updates
+  - `downloadFile` for pages: fetches storage format (XHTML), converts to markdown via `storageToMarkdown()`
+  - `downloadFile` for attachments: binary download via encoded path in composite file ID
+  - `getConfluenceCredentials()` with same priority logic: org custom > env vars > shipped defaults
+- `packages/api/src/app.ts` — Side-effect import to register connector
+- `packages/api/src/config.ts` — Added `config.cloud.confluence` (clientId/clientSecret from env vars)
+- `packages/api/src/routes/cloudConnections.ts` — Added Confluence to credential check in `/providers`, `getBaseUrl()` helper
+- `packages/api/src/routes/integrations.ts` — Added `confluenceClientId`/`confluenceClientSecret` to Zod validation schema
+- `shared/types/src/cloud.ts` — Set Confluence `enabled: true`
+- `shared/types/src/index.ts` — Added `confluenceClientId`/`confluenceClientSecret` to `IntegrationConfig`
+- `packages/web/src/components/shared/ProviderLogos.tsx` — Added Confluence logo SVG
+- `packages/web/src/components/settings/IntegrationsTab.tsx` — Added Confluence credentials card with Atlassian Developer Console setup instructions
+- `packages/api/src/__tests__/confluence.test.ts` — 30 tests covering: getAuthUrl, exchangeCode, refreshAccessToken, listFolders, getChanges (initial + delta), downloadFile (pages + attachments), getConfluenceCredentials, storageToMarkdown, formatCqlDate
+
+**Result:** 478/478 tests pass. Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-02 — agent/onedrive-finish (OneDrive agent)
 
 ### Finished OneDrive/SharePoint integration end-to-end
