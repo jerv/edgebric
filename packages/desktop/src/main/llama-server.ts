@@ -238,11 +238,9 @@ export async function startInstance(
   }
 
   const child = spawn(bin, args, {
-    detached: true,
+    detached: false,
     stdio: "ignore",
   });
-
-  child.unref();
 
   if (role === "chat") {
     chatProcess = child;
@@ -318,6 +316,39 @@ export async function stopLlama(dataDir?: string): Promise<void> {
     stopInstance("chat", dataDir),
     stopInstance("embedding", dataDir),
   ]);
+}
+
+/** Kill any orphaned llama-server processes from previous runs. Call on app startup. */
+export function killOrphanedLlamaProcesses(dataDir?: string): void {
+  for (const role of ["chat", "embedding"] as const) {
+    const pidFile = llamaPidPath(role, dataDir);
+    if (!fs.existsSync(pidFile)) continue;
+
+    try {
+      const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10);
+      if (isNaN(pid)) continue;
+
+      // Check if process is alive
+      try {
+        process.kill(pid, 0);
+        // Process exists — kill it
+        process.kill(pid, "SIGTERM");
+        // Give it a moment, then force kill
+        setTimeout(() => {
+          try { process.kill(pid, "SIGKILL"); } catch { /* already dead */ }
+        }, 3000);
+      } catch {
+        // Process doesn't exist — just clean up PID file
+      }
+    } catch { /* can't read PID file */ }
+
+    try { fs.unlinkSync(pidFile); } catch { /* ignore */ }
+  }
+
+  // Belt and suspenders: kill any llama-server process we didn't start
+  try {
+    execSync("pkill -f llama-server 2>/dev/null", { stdio: "ignore" });
+  } catch { /* no processes found, that's fine */ }
 }
 
 /** Get the path of the currently loaded chat model. */

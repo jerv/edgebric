@@ -4,6 +4,7 @@ import { createTray, destroyTray } from "./tray.js";
 import { startServer, cleanup, getStatus, readLogs, refreshMdns } from "./server.js";
 import { isFirstRun, loadConfig } from "./config.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { killOrphanedLlamaProcesses } from "./llama-server.js";
 
 function getAppIcon(): Electron.NativeImage {
   const resourcesDir = app.isPackaged
@@ -246,6 +247,10 @@ app.whenReady().then(async () => {
   if (process.platform === "darwin") {
     app.dock?.hide();
   }
+
+  // Kill any orphaned llama-server processes from a previous crash/force-quit
+  const cfg = loadConfig();
+  killOrphanedLlamaProcesses(cfg?.dataDir);
 
   registerIpcHandlers();
   createTray();
