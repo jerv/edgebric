@@ -24,11 +24,29 @@ export function OneDriveLogo({ className }: { className?: string }) {
   );
 }
 
+export function ConfluenceLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 256 246" xmlns="http://www.w3.org/2000/svg">
+      <linearGradient id="confluence-a" x1="99.14%" x2="33.86%" y1="112.95%" y2="37.78%" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#0052CC" />
+        <stop offset=".92" stopColor="#2684FF" />
+      </linearGradient>
+      <linearGradient id="confluence-b" x1=".87%" x2="66.12%" y1="-13.04%" y2="62.08%" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#0052CC" />
+        <stop offset=".92" stopColor="#2684FF" />
+      </linearGradient>
+      <path d="M9.26 187.73c-3.69 6.04-7.83 13.09-10.58 17.62a8.17 8.17 0 0 0 2.95 11.12l56.6 34.73a8.17 8.17 0 0 0 11.23-2.74c2.4-4.08 5.74-9.94 9.47-16.26 24.58-41.59 49.39-36.55 97.14-14.05l55.44 25.94a8.17 8.17 0 0 0 10.8-4.28l26.14-58.07a8.17 8.17 0 0 0-4.1-10.68c-13.65-6.37-40.75-19.06-59.87-28.03-68.2-32.14-126.61-36.14-195.22 44.7z" fill="url(#confluence-a)" />
+      <path d="M246.74 58.4c3.69-6.05 7.83-13.1 10.58-17.63a8.17 8.17 0 0 0-2.95-11.12L197.77-5.08a8.17 8.17 0 0 0-11.23 2.74c-2.4 4.08-5.74 9.94-9.47 16.26-24.58 41.59-49.39 36.55-97.14 14.05L24.93 2.03A8.17 8.17 0 0 0 14.13 6.3L-12.01 64.38a8.17 8.17 0 0 0 4.1 10.68c13.65 6.37 40.75 19.06 59.87 28.03 68.18 32.12 126.59 36.12 194.78-44.69z" fill="url(#confluence-b)" />
+    </svg>
+  );
+}
+
 export function ProviderLogo({ provider, className }: { provider: string; className?: string }) {
   const size = className ?? "w-5 h-5";
   switch (provider) {
     case "google_drive": return <GoogleDriveLogo className={size} />;
     case "onedrive": return <OneDriveLogo className={size} />;
+    case "confluence": return <ConfluenceLogo className={size} />;
     default: return <div className={cn(size, "rounded bg-slate-200 dark:bg-gray-700")} />;
   }
 }

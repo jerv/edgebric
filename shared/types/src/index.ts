@@ -286,6 +286,9 @@ export interface IntegrationConfig {
   /** Custom OneDrive OAuth credentials (org mode). */
   onedriveClientId?: string;
   onedriveClientSecret?: string;
+  /** Custom Confluence OAuth credentials (org mode). */
+  confluenceClientId?: string;
+  confluenceClientSecret?: string;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────
