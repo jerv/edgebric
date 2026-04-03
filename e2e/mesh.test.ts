@@ -261,6 +261,66 @@ test.describe("Mesh Full Lifecycle", () => {
     expect(res.status()).toBe(403);
   });
 
+  // ─── User Group Access Control ─────────────────────────────────────
+
+  test("assigns a user to a mesh group", async ({ request }) => {
+    const res = await request.put(`/api/mesh/users/test-user-1/groups`, {
+      data: { groupIds: [groupId] },
+    });
+    expect(res.ok()).toBe(true);
+    const assignments = await res.json();
+    expect(assignments).toHaveLength(1);
+    expect(assignments[0].groupId).toBe(groupId);
+  });
+
+  test("retrieves user group assignments", async ({ request }) => {
+    const res = await request.get("/api/mesh/users/test-user-1/groups");
+    expect(res.ok()).toBe(true);
+    const assignments = await res.json();
+    expect(assignments).toHaveLength(1);
+    expect(assignments[0].groupName).toBe("E2E Pacific Region");
+  });
+
+  test("gets group members", async ({ request }) => {
+    const res = await request.get(`/api/mesh/groups/${groupId}/members`);
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.memberIds).toContain("test-user-1");
+  });
+
+  test("removes user from mesh group", async ({ request }) => {
+    const res = await request.delete(`/api/mesh/users/test-user-1/groups/${groupId}`);
+    expect(res.ok()).toBe(true);
+
+    // Verify empty
+    const check = await request.get("/api/mesh/users/test-user-1/groups");
+    const assignments = await check.json();
+    expect(assignments).toHaveLength(0);
+  });
+
+  // ─── Revocation via Peer Protocol ─────────────────────────────────
+
+  test("peer revoke-user endpoint accepts valid email", async ({ request }) => {
+    const res = await request.post("/api/mesh/peer/revoke-user", {
+      headers: {
+        Authorization: `MeshToken ${meshToken}`,
+        "X-Mesh-Node-Id": nodeId,
+      },
+      data: { email: "revoked@example.com" },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(typeof body.destroyed).toBe("number");
+  });
+
+  test("peer revoke-user rejects without auth", async ({ request }) => {
+    const res = await request.post("/api/mesh/peer/revoke-user", {
+      data: { email: "revoked@example.com" },
+    });
+    expect(res.status()).toBe(401);
+  });
+
   // ─── Token Regeneration ───────────────────────────────────────────
 
   test("regenerates mesh token", async ({ request }) => {

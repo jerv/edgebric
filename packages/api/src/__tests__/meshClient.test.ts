@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from "vitest";
 import { setupTestApp, teardownTestApp, getDefaultOrgId } from "./helpers.js";
 import { initMeshConfig, registerNode, deleteMeshConfig, updateNode, removeAllNodes } from "../services/nodeRegistry.js";
-import { searchRemoteNode, getRemoteNodeInfo, sendHeartbeat, searchAllNodes } from "../services/meshClient.js";
+import { searchRemoteNode, getRemoteNodeInfo, sendHeartbeat, searchAllNodes, broadcastRevocation } from "../services/meshClient.js";
 import { randomUUID } from "crypto";
 
 // Mock global fetch
@@ -231,6 +231,48 @@ describe("Mesh Client", () => {
 
       expect(mockFetch).not.toHaveBeenCalled();
       expect(result.nodesSearched).toBe(0);
+    });
+  });
+
+  // ─── broadcastRevocation ────────────────────────────────────────────────
+
+  describe("broadcastRevocation", () => {
+    it("sends revocation to all online nodes", async () => {
+      mockFetch.mockResolvedValue({ ok: true });
+
+      await broadcastRevocation("user@example.com");
+
+      // Should have called fetch once (one online remote node)
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://remote.local:3001/api/mesh/peer/revoke-user");
+      expect(opts.method).toBe("POST");
+      const body = JSON.parse(opts.body);
+      expect(body.email).toBe("user@example.com");
+    });
+
+    it("does not throw when a node is unreachable", async () => {
+      mockFetch.mockRejectedValue(new Error("ECONNREFUSED"));
+
+      // Should not throw — fire-and-forget
+      await expect(broadcastRevocation("user@example.com")).resolves.toBeUndefined();
+    });
+
+    it("does nothing when mesh is not configured", async () => {
+      deleteMeshConfig();
+
+      await broadcastRevocation("user@example.com");
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("skips offline nodes", async () => {
+      updateNode(nodeId, { status: "offline" });
+      mockFetch.mockResolvedValue({ ok: true });
+
+      await broadcastRevocation("user@example.com");
+
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 });

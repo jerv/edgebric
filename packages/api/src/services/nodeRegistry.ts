@@ -1,6 +1,6 @@
 import type { MeshNode, NodeGroup, MeshConfig, NodeRole } from "@edgebric/types";
 import { getDb } from "../db/index.js";
-import { meshConfig, meshNodes, nodeGroups } from "../db/schema.js";
+import { meshConfig, meshNodes, nodeGroups, userMeshGroups } from "../db/schema.js";
 import { eq, and, sql } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
 
@@ -345,5 +345,7 @@ export function deleteNodeGroup(id: string): void {
   // Move nodes in this group to Ungrouped
   db.update(meshNodes).set({ groupId: null })
     .where(eq(meshNodes.groupId, id)).run();
+  // Clean up user mesh group assignments for this group
+  db.delete(userMeshGroups).where(eq(userMeshGroups.groupId, id)).run();
   db.delete(nodeGroups).where(eq(nodeGroups.id, id)).run();
 }

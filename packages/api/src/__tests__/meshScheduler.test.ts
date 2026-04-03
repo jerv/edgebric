@@ -10,6 +10,7 @@ import {
   listNodes,
   markStaleNodesOffline,
   heartbeat,
+  updateNode,
   deleteMeshConfig,
 } from "../services/nodeRegistry.js";
 import {
@@ -110,10 +111,12 @@ describe("Mesh Scheduler", () => {
         orgId,
       });
 
-      // Simulate a heartbeat from 2 minutes ago
-      heartbeat(nodeId, 3);
-      // markStaleNodesOffline with a 0ms timeout marks any node as stale
-      const marked = markStaleNodesOffline(0);
+      // Set lastSeen to 2 minutes ago so the node is clearly stale
+      const twoMinAgo = new Date(Date.now() - 120_000).toISOString();
+      updateNode(nodeId, { status: "online", lastSeen: twoMinAgo });
+
+      // 60s timeout — node was last seen 120s ago, so it's stale
+      const marked = markStaleNodesOffline(60_000);
       expect(marked).toBe(1);
 
       const nodes = listNodes({ orgId });
