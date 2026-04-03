@@ -19,10 +19,11 @@ import {
 } from "@/components/settings/orgTabs";
 import { NetworkTab } from "@/components/settings/NetworkTab";
 import { IntegrationsTab } from "@/components/settings/IntegrationsTab";
+import { ApiKeysTab } from "@/components/settings/ApiKeysTab";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type OrgTab = "general" | "privacy" | "members" | "network" | "integrations";
+export type OrgTab = "general" | "privacy" | "members" | "network" | "integrations" | "api-keys";
 
 interface TabDef {
   id: OrgTab;
@@ -38,6 +39,7 @@ const TABS: TabDef[] = [
   { id: "members", label: "Permissions", adminOnly: true },
   { id: "network", label: "Network", adminOnly: true },
   { id: "integrations", label: "Integrations", adminOnly: true },
+  { id: "api-keys", label: "API Keys", adminOnly: true },
 ];
 
 // ─── General tab (org info + rename) ────────────────────────────────────────
@@ -273,6 +275,7 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
         {tab === "members" && isAdmin && <MembersTab />}
         {tab === "network" && isAdmin && <NetworkTab />}
         {tab === "integrations" && isAdmin && <IntegrationsTab />}
+        {tab === "api-keys" && isAdmin && <ApiKeysTab />}
       </div>
     </div>
   );

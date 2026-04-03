@@ -452,6 +452,25 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_cloud_sync_files_sync_ext ON cloud_sync_files(folder_sync_id, external_file_id);
   `);
 
+  // API keys table
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      key_hash TEXT NOT NULL,
+      org_id TEXT NOT NULL,
+      permission TEXT NOT NULL DEFAULT 'read',
+      source_scope TEXT NOT NULL DEFAULT 'all',
+      rate_limit INTEGER NOT NULL DEFAULT 300,
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT,
+      revoked INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+    CREATE INDEX IF NOT EXISTS idx_api_keys_org_id ON api_keys(org_id);
+  `);
+
   // FTS5 full-text search index for hybrid BM25+vector retrieval
   sqlite.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

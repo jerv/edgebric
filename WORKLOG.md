@@ -22,6 +22,58 @@
 
 ---
 
+## 2026-04-03 — agent/agent-api (Agent API agent)
+
+### Added universal agent API with API key authentication, OpenClaw skill, and web UI
+
+**Problem:** No programmatic API existed for AI agents or integrations to access Edgebric. All access required browser-based session auth with CSRF tokens.
+
+**Architecture decisions:**
+- **API key auth**: Keys prefixed with `eb_` (256-bit random, base64url-encoded). Only SHA-256 hash stored — raw key shown once at creation. Keys have permission levels (read / read-write / admin) and optional source scoping (all or JSON array of source IDs).
+- **Agent API v1**: Mounted at `/api/v1/` with Bearer token auth. Bypasses session/CSRF but NOT access control, safety checks, or the same ingestion pipeline as web uploads. CSRF middleware skips `/api/v1/` paths.
+- **Rate limiting**: Per-key rate limiting (default 300/min general, 60/min for /query endpoint). Separate from web rate limits. Uses in-memory sliding window.
+- **Source scoping**: Keys can be restricted to specific data sources. Scoped keys only see/access sources in their scope. Out-of-scope source IDs are silently ignored in search requests.
+
+**Changes:**
+- `packages/api/src/db/schema.ts` — Added `apiKeys` table (id, name, keyHash, orgId, permission, sourceScope, rateLimit, createdBy, createdAt, lastUsedAt, revoked)
+- `packages/api/src/db/index.ts` — Added CREATE TABLE for api_keys with indexes on key_hash and org_id
+- `packages/api/src/services/apiKeyStore.ts` — Key CRUD: createApiKey (generates eb_ prefixed key), getApiKeyByHash (lookup), listApiKeys, revokeApiKey, touchApiKey, parseScopeIds
+- `packages/api/src/middleware/apiKeyAuth.ts` — Bearer token auth middleware, per-key rate limiting with sliding window, permission check factory, audit logging helper. Augments Express Request with apiKey and apiKeySourceIds.
+- `packages/api/src/routes/apiKeys.ts` — Admin key management: POST / (create, returns raw key once), GET / (list without hashes), DELETE /:id (revoke). Session auth, admin-only.
+- `packages/api/src/routes/agentApi.ts` — Agent API v1 endpoints:
+  - GET /discover — API version, capabilities, available sources, endpoint map
+  - GET /sources — List accessible sources (filtered by key scope)
+  - GET /sources/:id/documents — List documents in a source
+  - POST /search — Hybrid BM25+vector search with citations, no LLM synthesis
+  - POST /query — Full RAG pipeline with local LLM, streaming support (SSE)
+  - POST /sources — Create data source (read-write+)
+  - POST /sources/:id/upload — Upload document with same validation pipeline as web (magic bytes, encryption, async ingestion)
+  - DELETE /documents/:id — Delete document (read-write+)
+  - DELETE /sources/:id — Delete source + all documents (admin only)
+  - GET /jobs/:id — Check ingestion job status
+- `packages/api/src/app.ts` — Mounted apiKeysRouter at /api/admin/api-keys, agentApiRouter at /api/v1. Added CSRF bypass for /api/v1/ paths.
+- `packages/api/src/services/auditLog.ts` — Added audit event types: api.search, api.query, api.upload, api.delete, api.source_create, api.source_delete, api.key_created, api.key_revoked
+- `openclaw-skill/SKILL.md` — OpenClaw skill definition with YAML frontmatter (user-invocable + model-invocable), full API documentation covering all endpoints, authentication, error handling, citation formatting, and usage tips
+- `packages/web/src/components/settings/ApiKeysTab.tsx` — React component: list keys with permission badges, create key dialog with security warning, show raw key once with copy button, revoke with confirmation modal. Dark mode support.
+- `packages/web/src/components/OrganizationPage.tsx` — Added "API Keys" admin tab
+- `packages/web/src/components/SettingsPage.tsx` — Added "API Keys" tab for solo mode
+- `packages/web/src/routes/_shell/account.tsx` — Added "api-keys" to valid tabs
+- `packages/web/src/routes/_shell/organization.tsx` — Added "api-keys" to valid tabs
+- `packages/api/src/__tests__/agentApi.test.ts` — 38 tests covering: key store CRUD, auth middleware (valid/invalid/revoked keys), permission enforcement (read can't write, source scoping), all read/write endpoints, error response format validation, key management routes, audit logging
+
+**Security constraints enforced:**
+- API keys bypass session/CSRF but NOT access control or safety checks
+- Scoped keys cannot access out-of-scope sources (tested)
+- Read keys cannot create/upload/delete (tested)
+- Revoked keys immediately rejected (tested)
+- Raw keys never stored, never logged, never in error messages
+- All uploads go through same validation pipeline as web (file type, magic bytes, encryption, PII)
+- Error responses always JSON with {error, code, status} format (tested)
+
+**Result:** 584/584 tests pass (38 new agent API). Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-03 — agent/mesh-e2e (Mesh E2E testing agent)
 
 ### Full mesh testing audit + bug fixes + missing coverage
