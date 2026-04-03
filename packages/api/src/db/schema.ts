@@ -293,6 +293,22 @@ export const integrationConfig = sqliteTable("integration_config", {
   config: text("config").notNull().default("{}"), // JSON blob
 });
 
+// ─── API Keys ──────────────────────────────────────────────────────────────
+
+export const apiKeys = sqliteTable("api_keys", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  orgId: text("org_id").notNull(),
+  permission: text("permission").notNull().default("read"), // read | read-write | admin
+  sourceScope: text("source_scope").notNull().default("all"), // "all" or JSON array of source IDs
+  rateLimit: integer("rate_limit").notNull().default(300),
+  createdBy: text("created_by").notNull(),
+  createdAt: text("created_at").notNull(),
+  lastUsedAt: text("last_used_at"),
+  revoked: integer("revoked").notNull().default(0),
+});
+
 // ─── Cloud Storage Integrations ─────────────────────────────────────────────
 
 export const cloudConnections = sqliteTable("cloud_connections", {

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { OrganizationPage } from "@/components/OrganizationPage";
 import type { OrgTab } from "@/components/OrganizationPage";
 
-const VALID_TABS: OrgTab[] = ["general", "privacy", "members", "network", "integrations"];
+const VALID_TABS: OrgTab[] = ["general", "privacy", "members", "network", "integrations", "api-keys"];
 
 function OrganizationRoute() {
   const { tab } = Route.useSearch();

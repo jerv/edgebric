@@ -11,16 +11,18 @@ import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { ConnectedAccountsTab } from "@/components/settings/ConnectedAccountsTab";
+import { ApiKeysTab } from "@/components/settings/ApiKeysTab";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type AccountTab = "general" | "notifications" | "conversations" | "connected-accounts";
+export type AccountTab = "general" | "notifications" | "conversations" | "connected-accounts" | "api-keys";
 
 const TABS: { id: AccountTab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "notifications", label: "Notifications" },
   { id: "conversations", label: "Conversations" },
   { id: "connected-accounts", label: "Connected Accounts" },
+  { id: "api-keys", label: "API Keys" },
 ];
 
 // ─── General tab (profile info) ─────────────────────────────────────────────
@@ -538,6 +540,7 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
         {tab === "notifications" && <NotificationsTab />}
         {tab === "conversations" && <ConversationsTab />}
         {tab === "connected-accounts" && <ConnectedAccountsTab />}
+        {tab === "api-keys" && <ApiKeysTab />}
       </div>
     </div>
   );

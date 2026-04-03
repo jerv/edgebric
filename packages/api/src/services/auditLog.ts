@@ -62,7 +62,15 @@ export type AuditEventType =
   | "mesh.node_removed"
   | "mesh.group_created"
   | "mesh.group_updated"
-  | "mesh.group_deleted";
+  | "mesh.group_deleted"
+  | "api.search"
+  | "api.query"
+  | "api.upload"
+  | "api.delete"
+  | "api.source_create"
+  | "api.source_delete"
+  | "api.key_created"
+  | "api.key_revoked";
 
 interface AuditEntry {
   id: string;
