@@ -24,11 +24,22 @@ export function OneDriveLogo({ className }: { className?: string }) {
   );
 }
 
+export function NotionLogo({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z" className="fill-current"/>
+      <path d="M61.35.227l-55.333 4.087C1.553 4.7 0 7.617 0 11.113v60.66c0 2.723.967 5.053 3.3 8.167l13.007 16.913c2.137 2.723 4.08 3.307 8.16 3.113l64.257-3.89c5.433-.387 6.99-2.917 6.99-7.193V20.64c0-2.21-.833-2.847-3.443-4.733L75.99 3.53c-4.273-3.107-6.02-3.5-12.64-2.917L61.35.227zM25.663 19.26c-5.21.33-6.39.403-9.35-2.077L8.927 11.2c-.78-.78-.39-1.75 1.553-1.947l51.053-3.693c4.47-.39 6.8 1.167 8.543 2.527l9.123 6.61c.39.193 1.36 1.36.193 1.36l-52.77 3.01-.96.193z" className="fill-current"/>
+      <path d="M25.663 19.26v72.553c0 2.53 1.36 3.5 4.08 3.307l56.887-3.307c2.72-.193 3.107-1.75 3.107-3.89V20.04c0-2.14-.78-3.11-2.527-2.917l-59.42 3.5c-1.943.193-2.127 1.167-2.127 2.637v-4zm55.137 5.83c.39 1.75 0 3.5-1.75 3.7l-2.72.53v53.723c-2.33 1.36-4.47 2.14-6.22 2.14-2.917 0-3.693-.973-5.833-3.5L41.407 45.653v33.577l5.833 1.36s0 3.5-4.857 3.5l-13.39.78c-.39-.78 0-2.723 1.36-3.11l3.497-.973V36.09l-4.857-.39c-.39-1.75.583-4.277 3.3-4.47l14.363-.967 24.753 37.88V37.057l-4.857-.583c-.39-2.143 1.163-3.7 3.103-3.89l13.283-.497z" fill="white"/>
+    </svg>
+  );
+}
+
 export function ProviderLogo({ provider, className }: { provider: string; className?: string }) {
   const size = className ?? "w-5 h-5";
   switch (provider) {
     case "google_drive": return <GoogleDriveLogo className={size} />;
     case "onedrive": return <OneDriveLogo className={size} />;
+    case "notion": return <NotionLogo className={size} />;
     default: return <div className={cn(size, "rounded bg-slate-200 dark:bg-gray-700")} />;
   }
 }

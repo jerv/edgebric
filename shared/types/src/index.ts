@@ -286,6 +286,9 @@ export interface IntegrationConfig {
   /** Custom OneDrive OAuth credentials (org mode). */
   onedriveClientId?: string;
   onedriveClientSecret?: string;
+  /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
+  notionClientId?: string;
+  notionClientSecret?: string;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

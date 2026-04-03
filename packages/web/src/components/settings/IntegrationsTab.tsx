@@ -42,7 +42,7 @@ export function IntegrationsTab() {
             <a href="/account?tab=connected-accounts" className="text-slate-900 dark:text-gray-100 underline">
               Account &gt; Connected Accounts
             </a>{" "}
-            to connect your Google Drive or OneDrive.
+            to connect your Google Drive, OneDrive, or Notion.
           </p>
         </div>
         <div className="border border-green-200 dark:border-green-900 rounded-xl px-4 py-3 bg-green-50 dark:bg-green-950">
@@ -67,6 +67,7 @@ export function IntegrationsTab() {
 
       <GoogleDriveCredentialsCard config={config} />
       <OneDriveCredentialsCard config={config} />
+      <NotionCredentialsCard config={config} />
     </div>
   );
 }
@@ -408,6 +409,194 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
               value={clientSecret}
               onChange={(e) => { setClientSecret(e.target.value); setSaved(false); }}
               placeholder="Client secret value"
+              className="w-full px-3 py-1.5 pr-9 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSecret(!showSecret)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+            >
+              {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {saved && <p className="text-xs text-green-600 dark:text-green-400">Credentials saved.</p>}
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving || !hasChanges || !clientId.trim() || !clientSecret.trim()}
+          className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+        {isConfigured && (
+          <button
+            onClick={handleRemove}
+            disabled={saving}
+            className="px-3 py-1.5 text-sm text-slate-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Notion Credentials Card ───────────────────────────────────────────────
+
+function NotionCredentialsCard({ config }: { config: IntegrationConfig | undefined }) {
+  const queryClient = useQueryClient();
+  const [clientId, setClientId] = useState(config?.notionClientId ?? "");
+  const [clientSecret, setClientSecret] = useState(config?.notionClientSecret ?? "");
+  const [showSecret, setShowSecret] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [showSetup, setShowSetup] = useState(false);
+
+  useEffect(() => {
+    setClientId(config?.notionClientId ?? "");
+    setClientSecret(config?.notionClientSecret ?? "");
+  }, [config?.notionClientId, config?.notionClientSecret]);
+
+  const isConfigured = !!(config?.notionClientId && config?.notionClientSecret);
+  const hasChanges = clientId !== (config?.notionClientId ?? "") || clientSecret !== (config?.notionClientSecret ?? "");
+
+  async function handleSave() {
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setError("Both OAuth Client ID and OAuth Client Secret are required");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const res = await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ notionClientId: clientId.trim(), notionClientSecret: clientSecret.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setError(data.error ?? "Failed to save");
+        return;
+      }
+      setSaved(true);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["cloud-providers"] });
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemove() {
+    setSaving(true);
+    setError("");
+    try {
+      await fetch("/api/admin/integrations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ notionClientId: "", notionClientSecret: "" }),
+      });
+      setClientId("");
+      setClientSecret("");
+      void queryClient.invalidateQueries({ queryKey: ["admin", "integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["cloud-providers"] });
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+          <ProviderLogo provider="notion" className="w-5 h-5" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Notion</h3>
+          <p className="text-xs text-slate-400 dark:text-gray-500">
+            {isConfigured ? "Custom credentials configured" : "Not configured — no built-in defaults"}
+          </p>
+        </div>
+        {isConfigured && (
+          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400">
+            <Check className="w-3 h-3" />
+            Enabled
+          </span>
+        )}
+      </div>
+
+      {/* Setup instructions */}
+      <button
+        onClick={() => setShowSetup(!showSetup)}
+        className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300 transition-colors"
+      >
+        <Info className="w-3.5 h-3.5" />
+        Setup instructions
+        <ChevronDown className={cn("w-3 h-3 transition-transform", showSetup && "rotate-180")} />
+      </button>
+
+      {showSetup && (
+        <div className="text-xs text-slate-500 dark:text-gray-400 space-y-2 bg-slate-50 dark:bg-gray-900 rounded-xl px-4 py-3 border border-slate-100 dark:border-gray-800">
+          <p className="font-medium text-slate-700 dark:text-gray-300">
+            Create a Notion integration (public OAuth):
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5 ml-1">
+            <li>Go to <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-gray-300">notion.so/my-integrations</a> and click <strong>New integration</strong></li>
+            <li>Set the type to <strong>Public</strong> (required for OAuth)</li>
+            <li>Under <strong>Capabilities</strong>, enable <strong>Read content</strong> and <strong>Read user information including email addresses</strong></li>
+            <li>Add this <strong>Redirect URI</strong>:<br/>
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+                {`${window.location.origin}/api/cloud-connections/oauth/callback`}
+              </code>
+            </li>
+            <li>Copy the <strong>OAuth client ID</strong> and <strong>OAuth client secret</strong> from the integration&apos;s Secrets tab</li>
+          </ol>
+          <div className="pt-2 border-t border-slate-200 dark:border-gray-700 mt-3">
+            <p className="flex items-start gap-1.5">
+              <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-500" />
+              <span>
+                During OAuth, users choose which pages and databases to share with Edgebric.
+                Notion does not have pre-defined scopes — access is granted per-page.
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Credential inputs */}
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">OAuth Client ID</label>
+          <input
+            type="text"
+            value={clientId}
+            onChange={(e) => { setClientId(e.target.value); setSaved(false); }}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">OAuth Client Secret</label>
+          <div className="relative">
+            <input
+              type={showSecret ? "text" : "password"}
+              value={clientSecret}
+              onChange={(e) => { setClientSecret(e.target.value); setSaved(false); }}
+              placeholder="secret_..."
               className="w-full px-3 py-1.5 pr-9 text-sm border border-slate-200 dark:border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 dark:bg-gray-950 dark:text-gray-100 font-mono"
             />
             <button
