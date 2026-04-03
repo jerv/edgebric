@@ -214,11 +214,24 @@ export function ApiKeysTab() {
             {/* Security warning */}
             <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                This key gives <strong>{PERMISSION_LABELS[newKeyPerm]?.toLowerCase()}</strong> access to{" "}
-                <strong>{newKeyScopeMode === "all" ? "all sources" : `${selectedSourceIds.size} selected source${selectedSourceIds.size !== 1 ? "s" : ""}`}</strong>.
-                Any application with this key can access this data. Edgebric is not responsible for how third-party applications use your data.
-              </p>
+              <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5">
+                <p>
+                  <strong>This key allows AI agents and external applications to access your private data.</strong>
+                </p>
+                <p>
+                  With <strong>{PERMISSION_LABELS[newKeyPerm]?.toLowerCase()}</strong> permission on{" "}
+                  <strong>{newKeyScopeMode === "all" ? "all sources" : `${selectedSourceIds.size} selected source${selectedSourceIds.size !== 1 ? "s" : ""}`}</strong>,
+                  {newKeyPerm === "read"
+                    ? " any agent with this key can search and read your documents."
+                    : newKeyPerm === "read-write"
+                      ? " any agent with this key can search, read, upload, and delete your documents."
+                      : " any agent with this key has full control: search, read, upload, delete documents, and manage sources."}
+                </p>
+                <p>
+                  Your data stays on this device, but agents may send your document content to external AI models for processing.
+                  Edgebric cannot control how third-party agents handle your data once they retrieve it.
+                </p>
+              </div>
             </div>
 
             {createMutation.isError && (
