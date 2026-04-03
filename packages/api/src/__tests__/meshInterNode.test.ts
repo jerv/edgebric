@@ -300,4 +300,35 @@ describe("Mesh Inter-Node API", () => {
       expect(validProviders).toContain(res.body.provider);
     });
   });
+
+  // ─── POST /api/mesh/peer/revoke-user ──────────────────────────────────────
+
+  describe("POST /api/mesh/peer/revoke-user", () => {
+    it("accepts a valid revocation request", async () => {
+      const res = await authedPost("/api/mesh/peer/revoke-user")
+        .send({ email: "revoked@example.com" });
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(typeof res.body.destroyed).toBe("number");
+    });
+
+    it("rejects invalid email", async () => {
+      const res = await authedPost("/api/mesh/peer/revoke-user")
+        .send({ email: "not-an-email" });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects missing email", async () => {
+      const res = await authedPost("/api/mesh/peer/revoke-user")
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 0 destroyed for unknown user (no sessions)", async () => {
+      const res = await authedPost("/api/mesh/peer/revoke-user")
+        .send({ email: "nobody@example.com" });
+      expect(res.status).toBe(200);
+      expect(res.body.destroyed).toBe(0);
+    });
+  });
 });
