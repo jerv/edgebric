@@ -39,6 +39,7 @@ import { recordAuditEvent } from "../services/auditLog.js";
 import { config } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getGoogleCredentials } from "../connectors/googleDrive.js";
+import { getOnedriveCredentials } from "../connectors/oneDrive.js";
 import { logger } from "../lib/logger.js";
 import type { CloudProvider } from "@edgebric/types";
 import { CLOUD_PROVIDERS } from "@edgebric/types";
@@ -564,6 +565,13 @@ function getBaseUrl(_req: { protocol: string; get: (name: string) => string | un
   // (their hostname). They registered matching redirect URIs in their console.
   if (provider === "google_drive") {
     const { isCustom } = getGoogleCredentials();
+    if (isCustom) {
+      const url = new URL(config.frontendUrl);
+      return url.origin;
+    }
+  }
+  if (provider === "onedrive") {
+    const { isCustom } = getOnedriveCredentials();
     if (isCustom) {
       const url = new URL(config.frontendUrl);
       return url.origin;
