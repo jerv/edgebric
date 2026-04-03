@@ -1,5 +1,43 @@
 # Worklog
 
+## 2026-04-02 — agent/release-pipeline (release agent)
+
+### Added auto-update system, release CI/CD, and release script
+
+**Auto-updater (`packages/desktop/src/main/updater.ts`):**
+- Uses `electron-updater` with GitHub Releases as the update server
+- Checks for updates 10s after app launch (packaged builds only)
+- Downloads updates in the background, prompts user to restart
+- "Skip this version" preference persisted to disk
+- "Check for Updates..." tray menu item with dynamic label (shows download progress / restart prompt)
+
+**electron-builder config (`packages/desktop/electron-builder.yml`):**
+- Added `publish.provider: github` for electron-updater auto-update detection
+- Builds DMG + zip for both arm64 and x64
+- Hardened runtime + notarization config (entitlements plist)
+- DMG branding: window size, icon positions, background image placeholder
+
+**Release workflow (`.github/workflows/release.yml`):**
+- Triggers on `v*` tags
+- Builds on `macos-latest` with pnpm + Node 22
+- Imports Apple Developer ID certificate into temporary keychain
+- Runs `electron-builder --mac --arm64 --x64 --publish always`
+- Notarizes via electron-builder's built-in `notarize` config
+- Creates GitHub Release with DMG, zip, and `latest-mac.yml` artifacts
+- Auto-generated changelog from commits
+
+**Release script (`scripts/release.sh`):**
+- Usage: `./scripts/release.sh 1.0.0`
+- Validates semver, bumps version in root + desktop `package.json`
+- Commits, tags, and pushes to trigger the release workflow
+
+**New files:** `updater.ts`, `entitlements.mac.plist`, `resources/dmg-background.png` (placeholder), `scripts/release.sh`
+**Modified:** `electron-builder.yml`, `release.yml`, `package.json`, `index.ts`, `tray.ts`, `pnpm-lock.yaml`
+**Dependencies added:** `electron-updater@^6.3.0`, `electron-log@^5.3.0`
+**Result:** Typecheck clean.
+
+---
+
 ## 2026-04-02 — agent/gdrive-finish (cloud sync agent)
 
 ### Fixed orphaned documents on file modify + added sync tests

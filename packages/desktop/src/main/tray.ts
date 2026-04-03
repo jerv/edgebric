@@ -13,6 +13,7 @@ import {
 import { openMainWindow, openLogWindow, openMainWindowToSettings, openMainWindowToModels } from "./index.js";
 import { loadConfig } from "./config.js";
 import { certsExist } from "./certs.js";
+import { checkForUpdatesManual, isUpdateDownloaded, isDownloadingUpdate } from "./updater.js";
 
 let tray: Tray | null = null;
 
@@ -173,6 +174,28 @@ function buildContextMenu(): Menu {
       click: () => {
         openMainWindowToSettings();
       },
+    },
+    { type: "separator" as const },
+    {
+      label: isDownloadingUpdate()
+        ? "Downloading Update..."
+        : isUpdateDownloaded()
+          ? "Restart to Update"
+          : "Check for Updates...",
+      enabled: !isDownloadingUpdate(),
+      click: () => {
+        if (isUpdateDownloaded()) {
+          import("electron-updater").then(({ autoUpdater }) => {
+            autoUpdater.quitAndInstall(false, true);
+          });
+        } else {
+          checkForUpdatesManual();
+        }
+      },
+    },
+    {
+      label: `Version ${app.getVersion()}`,
+      enabled: false,
     },
     { type: "separator" as const },
     {

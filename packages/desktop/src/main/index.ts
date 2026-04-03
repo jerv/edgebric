@@ -5,6 +5,7 @@ import { startServer, cleanup, getStatus, readLogs, refreshMdns } from "./server
 import { isFirstRun, loadConfig } from "./config.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { killOrphanedLlamaProcesses } from "./llama-server.js";
+import { initAutoUpdater } from "./updater.js";
 
 function getAppIcon(): Electron.NativeImage {
   const resourcesDir = app.isPackaged
@@ -271,6 +272,9 @@ app.whenReady().then(async () => {
     } catch (err) {
       console.error("Failed to start server:", err);
     }
+
+    // Check for updates after server is up
+    initAutoUpdater();
   }
 
   // Re-publish mDNS after sleep/wake so the service record is fresh
