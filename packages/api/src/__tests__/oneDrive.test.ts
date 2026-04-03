@@ -28,6 +28,11 @@ vi.mock("../lib/logger.js", () => ({
   },
 }));
 
+// Mock integrationConfigStore — returns empty config by default (falls back to env/shipped creds)
+vi.mock("../services/integrationConfigStore.js", () => ({
+  getIntegrationConfig: vi.fn(() => ({})),
+}));
+
 // Mock registerConnector so importing the module doesn't require the full registry
 vi.mock("../connectors/registry.js", () => ({
   registerConnector: vi.fn(),
@@ -35,7 +40,8 @@ vi.mock("../connectors/registry.js", () => ({
 
 // ─── Import after mocks ─────────────────────────────────────────────────────
 
-import { oneDriveAdapter } from "../connectors/oneDrive.js";
+import { oneDriveAdapter, getOnedriveCredentials } from "../connectors/oneDrive.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 
 // ─── Fetch mock helpers ─────────────────────────────────────────────────────
 
@@ -672,6 +678,39 @@ describe("OneDrive connector", () => {
       await expect(
         oneDriveAdapter.downloadFile("access-tok", "file-id"),
       ).rejects.toThrow("OneDrive download failed (500): report.pdf");
+    });
+  });
+
+  // ─── getOnedriveCredentials ─────────────────────────────────────────────
+
+  describe("getOnedriveCredentials", () => {
+    it("returns env-var credentials when integrationConfig is empty", () => {
+      vi.mocked(getIntegrationConfig).mockReturnValue({});
+      const creds = getOnedriveCredentials();
+      expect(creds.clientId).toBe("test-client-id");
+      expect(creds.clientSecret).toBe("test-client-secret");
+      expect(creds.isCustom).toBe(false);
+    });
+
+    it("prefers org-level custom credentials over env vars", () => {
+      vi.mocked(getIntegrationConfig).mockReturnValue({
+        onedriveClientId: "custom-id",
+        onedriveClientSecret: "custom-secret",
+      });
+      const creds = getOnedriveCredentials();
+      expect(creds.clientId).toBe("custom-id");
+      expect(creds.clientSecret).toBe("custom-secret");
+      expect(creds.isCustom).toBe(true);
+    });
+
+    it("falls back to env vars when only one custom field is set", () => {
+      vi.mocked(getIntegrationConfig).mockReturnValue({
+        onedriveClientId: "custom-id",
+        // clientSecret missing
+      });
+      const creds = getOnedriveCredentials();
+      expect(creds.clientId).toBe("test-client-id");
+      expect(creds.isCustom).toBe(false);
     });
   });
 

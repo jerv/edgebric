@@ -71,7 +71,7 @@ export interface CloudProviderInfo {
 /** Available providers with their current support status. */
 export const CLOUD_PROVIDERS: CloudProviderInfo[] = [
   { id: "google_drive", name: "Google Drive", description: "Sync files from Google Drive folders", enabled: true },
-  { id: "onedrive", name: "OneDrive / SharePoint", description: "Sync files from Microsoft OneDrive or SharePoint", enabled: false },
+  { id: "onedrive", name: "OneDrive / SharePoint", description: "Sync files from Microsoft OneDrive or SharePoint", enabled: true },
   { id: "dropbox", name: "Dropbox", description: "Sync files from Dropbox folders", enabled: false },
   { id: "notion", name: "Notion", description: "Sync pages from Notion workspaces", enabled: false },
   { id: "confluence", name: "Confluence", description: "Sync pages from Confluence spaces", enabled: false },

@@ -9,6 +9,7 @@
  */
 import { config } from "../config.js";
 import { registerConnector } from "./registry.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { logger } from "../lib/logger.js";
 import type { CloudConnectorAdapter, ConnectorSyncResult, OAuthTokens } from "./types.js";
 import type { CloudFolder } from "@edgebric/types";
@@ -29,16 +30,32 @@ const SUPPORTED_MIME_TYPES = new Set([
 /** File extensions we support (OneDrive often provides these more reliably than MIME types). */
 const SUPPORTED_EXTENSIONS = new Set([".pdf", ".docx", ".txt", ".md"]);
 
+/**
+ * Resolve OneDrive OAuth credentials.
+ * Priority: org-level custom credentials > env vars > shipped defaults.
+ * Returns `isCustom: true` when org provided their own (affects redirect URI).
+ */
+export function getOnedriveCredentials(): { clientId: string; clientSecret: string; isCustom: boolean } {
+  const integrationCfg = getIntegrationConfig();
+  if (integrationCfg.onedriveClientId && integrationCfg.onedriveClientSecret) {
+    return {
+      clientId: integrationCfg.onedriveClientId,
+      clientSecret: integrationCfg.onedriveClientSecret,
+      isCustom: true,
+    };
+  }
+  const clientId = config.cloud.onedrive.clientId;
+  const clientSecret = config.cloud.onedrive.clientSecret;
+  if (!clientId || !clientSecret) throw new Error("OneDrive OAuth credentials not configured");
+  return { clientId, clientSecret, isCustom: false };
+}
+
 function getClientId(): string {
-  const id = config.cloud.onedrive.clientId;
-  if (!id) throw new Error("ONEDRIVE_CLIENT_ID not configured");
-  return id;
+  return getOnedriveCredentials().clientId;
 }
 
 function getClientSecret(): string {
-  const secret = config.cloud.onedrive.clientSecret;
-  if (!secret) throw new Error("ONEDRIVE_CLIENT_SECRET not configured");
-  return secret;
+  return getOnedriveCredentials().clientSecret;
 }
 
 /** Check if a file is supported by MIME type or extension. */
