@@ -1,5 +1,37 @@
 # Worklog
 
+## 2026-04-03 — agent/mesh-e2e (Mesh E2E testing agent)
+
+### Full mesh testing audit + bug fixes + missing coverage
+
+**Test audit (7 files):** All existing mesh tests are meaningful — no weak tests deleted. Tests cover: mesh config CRUD, node CRUD, group CRUD, mesh client (searchRemoteNode, getRemoteNodeInfo, sendHeartbeat, searchAllNodes), mesh inter-node protocol (auth, search, heartbeat, info), mesh scheduler lifecycle + stale detection, query router (local-only, fan-out, dedup, group filtering), Playwright E2E full lifecycle, and e2e-live vault+mesh tests.
+
+**Bug fixed:**
+- `deleteNodeGroup` in `nodeRegistry.ts` did not clean up `userMeshGroups` rows when a group was deleted. Users kept orphaned group assignments with dangling foreign keys. Fixed by adding `db.delete(userMeshGroups).where(eq(userMeshGroups.groupId, id))` before the group deletion.
+
+**Flaky test fixed:**
+- `meshScheduler.test.ts` "marks old nodes as offline" used `markStaleNodesOffline(0)` right after `heartbeat()`, causing a same-millisecond race condition. Fixed by explicitly setting `lastSeen` to 2 minutes ago and using a 60s timeout.
+
+**New tests added (33 tests):**
+- `packages/api/src/__tests__/userMeshGroups.test.ts` — 25 tests: assignUserToGroup (success, idempotent, multi-group), getUserGroups, getUserGroupIds, removeUserFromGroup, removeAllUserGroups, setUserGroups (replace, clear), getGroupMembers, deleteNodeGroup cascade cleanup, plus API route tests for PUT/GET/POST/DELETE `/api/mesh/users/:userId/groups` and GET `/api/mesh/groups/:id/members`
+- `meshClient.test.ts` — 4 new tests: broadcastRevocation (sends to online nodes, handles unreachable nodes, no-op when unconfigured, skips offline nodes)
+- `meshInterNode.test.ts` — 4 new tests: POST `/api/mesh/peer/revoke-user` (valid email, invalid email, missing email, unknown user returns 0)
+- `e2e/mesh.test.ts` — 7 new tests: user group assignment/retrieval/members/removal, peer revoke-user endpoint with and without auth
+
+**Code quality review (8 implementation files):**
+- `meshAuth.ts` — Good. Uses `timingSafeEqual` for token comparison.
+- `nodeRegistry.ts` — Good after bug fix. Batch group name loading avoids N+1.
+- `meshClient.ts` — Good. Proper timeout handling, response validation, Promise.allSettled for graceful degradation.
+- `meshScheduler.ts` — Good. Clean interval management, unref() for process exit.
+- `queryRouter.ts` — Good. Clean merge/dedup/cap logic.
+- `userMeshGroupStore.ts` — Good. Proper idempotency in assignUserToGroup.
+- `mesh.ts` (routes) — Good. Audit logging on all mutations, Zod validation, token masking.
+- `meshInterNode.ts` — Good. Proper search access model (group control on requesting side).
+
+**Note:** `chunkId` parsing in both `meshInterNode.ts:92` and `queryRouter.ts:75` uses `/-(\d+)$/` regex. If a dataset name contains a hyphen followed by digits (e.g., "data-2024"), this could extract the wrong chunk index. Not fixing here as it's not in scope — just flagging for awareness.
+
+**Result:** 637/637 tests pass (91 core + 546 api). 0 failures.
+
 ## 2026-04-02 — agent/confluence (Confluence agent)
 
 ### Added Confluence Cloud connector end-to-end
