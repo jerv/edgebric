@@ -19,6 +19,7 @@ import {
   getFolderSyncCursor,
   updateFolderSync,
   upsertSyncFile,
+  getSyncFileByExternalId,
   listSyncFiles,
 } from "../services/cloudConnectionStore.js";
 import { refreshDocumentCount } from "../services/dataSourceStore.js";
@@ -71,6 +72,20 @@ async function processFileChange(
   const connector = getConnector(provider)!;
   const { buffer, name: downloadedName } = await connector.downloadFile(accessToken, file.id);
   const finalName = downloadedName || file.name;
+
+  // For modified files, clean up the old document before creating a new one
+  if (change.type === "modified") {
+    const existingSyncFile = getSyncFileByExternalId(folderSyncId, file.id);
+    if (existingSyncFile?.documentId) {
+      const oldDoc = getDocument(existingSyncFile.documentId);
+      if (oldDoc) {
+        clearChunksForDocument(oldDoc.id);
+        deleteDocument(oldDoc.id);
+        const oldPath = path.join(config.dataDir, oldDoc.storageKey);
+        try { fsNode.unlinkSync(oldPath); } catch { /* file may already be gone */ }
+      }
+    }
+  }
 
   const uploadsDir = path.join(config.dataDir, "uploads");
   fsNode.mkdirSync(uploadsDir, { recursive: true });

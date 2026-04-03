@@ -339,6 +339,14 @@ export function listSyncFiles(folderSyncId: string): CloudSyncFile[] {
   return rows.map(rowToSyncFile);
 }
 
+export function getSyncFileByExternalId(folderSyncId: string, externalFileId: string): CloudSyncFile | undefined {
+  const db = getDb();
+  const row = db.select().from(cloudSyncFiles)
+    .where(and(eq(cloudSyncFiles.folderSyncId, folderSyncId), eq(cloudSyncFiles.externalFileId, externalFileId)))
+    .get();
+  return row ? rowToSyncFile(row) : undefined;
+}
+
 export function deleteSyncFile(id: string): void {
   const db = getDb();
   db.delete(cloudSyncFiles).where(eq(cloudSyncFiles.id, id)).run();

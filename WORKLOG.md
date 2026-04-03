@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-04-02 — agent/gdrive-finish (cloud sync agent)
+
+### Fixed orphaned documents on file modify + added sync tests
+
+**Bug:** When a Google Drive file was modified and re-synced, `processFileChange` created a new document without cleaning up the old one. Old document, chunks, and storage file were orphaned in the database and on disk.
+
+**Fix:** Before creating the replacement document for "modified" changes, look up the existing sync file by external ID, delete the old document's chunks, document record, and storage file.
+
+**New store helper:** `getSyncFileByExternalId(folderSyncId, externalFileId)` in `cloudConnectionStore.ts`.
+
+**Tests:** Added `syncConnection.test.ts` with 9 tests covering added/deleted/modified files, unsupported MIME types, empty syncs, error handling, and Google Docs MIME mapping.
+
+**UI:** Replaced duplicate `GoogleDriveLogo` in `CloudDriveSyncSection.tsx` with shared `ProviderLogos` component.
+
+**Result:** 399/399 tests pass. Typecheck clean.
+
+---
+
 ## 2026-04-02 — agent/ci-fixes (CI fix agent)
 
 ### Verified CI: all checks green
