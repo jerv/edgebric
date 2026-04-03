@@ -22,6 +22,8 @@ const updateConfigSchema = z.object({
   googleDriveClientSecret: z.string().optional(),
   onedriveClientId: z.string().optional(),
   onedriveClientSecret: z.string().optional(),
+  confluenceClientId: z.string().optional(),
+  confluenceClientSecret: z.string().optional(),
 });
 
 // GET /api/admin/integrations — get integration config

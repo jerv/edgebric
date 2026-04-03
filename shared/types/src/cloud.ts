@@ -74,5 +74,5 @@ export const CLOUD_PROVIDERS: CloudProviderInfo[] = [
   { id: "onedrive", name: "OneDrive / SharePoint", description: "Sync files from Microsoft OneDrive or SharePoint", enabled: true },
   { id: "dropbox", name: "Dropbox", description: "Sync files from Dropbox folders", enabled: false },
   { id: "notion", name: "Notion", description: "Sync pages from Notion workspaces", enabled: false },
-  { id: "confluence", name: "Confluence", description: "Sync pages from Confluence spaces", enabled: false },
+  { id: "confluence", name: "Confluence", description: "Sync pages from Confluence spaces", enabled: true },
 ];

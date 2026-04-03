@@ -40,6 +40,7 @@ import { config } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getGoogleCredentials } from "../connectors/googleDrive.js";
 import { getOnedriveCredentials } from "../connectors/oneDrive.js";
+import { getConfluenceCredentials } from "../connectors/confluence.js";
 import { logger } from "../lib/logger.js";
 import type { CloudProvider } from "@edgebric/types";
 import { CLOUD_PROVIDERS } from "@edgebric/types";
@@ -65,6 +66,10 @@ cloudConnectionsRouter.get("/providers", (_req, res) => {
     onedrive: !!(
       (config.cloud.onedrive.clientId && config.cloud.onedrive.clientSecret) ||
       (integrationCfg.onedriveClientId && integrationCfg.onedriveClientSecret)
+    ),
+    confluence: !!(
+      (config.cloud.confluence.clientId && config.cloud.confluence.clientSecret) ||
+      (integrationCfg.confluenceClientId && integrationCfg.confluenceClientSecret)
     ),
   };
   const providers = CLOUD_PROVIDERS.map((p) => ({
@@ -572,6 +577,13 @@ function getBaseUrl(_req: { protocol: string; get: (name: string) => string | un
   }
   if (provider === "onedrive") {
     const { isCustom } = getOnedriveCredentials();
+    if (isCustom) {
+      const url = new URL(config.frontendUrl);
+      return url.origin;
+    }
+  }
+  if (provider === "confluence") {
+    const { isCustom } = getConfluenceCredentials();
     if (isCustom) {
       const url = new URL(config.frontendUrl);
       return url.origin;

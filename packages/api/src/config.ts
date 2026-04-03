@@ -72,6 +72,10 @@ export const config = {
       clientId: process.env["ONEDRIVE_CLIENT_ID"] ?? "",
       clientSecret: process.env["ONEDRIVE_CLIENT_SECRET"] ?? "",
     },
+    confluence: {
+      clientId: process.env["CONFLUENCE_CLIENT_ID"] ?? "",
+      clientSecret: process.env["CONFLUENCE_CLIENT_SECRET"] ?? "",
+    },
   },
 
   // Chat inference endpoint — points to llama-server's OpenAI-compatible API.
