@@ -24,6 +24,8 @@ const updateConfigSchema = z.object({
   onedriveClientSecret: z.string().optional(),
   confluenceClientId: z.string().optional(),
   confluenceClientSecret: z.string().optional(),
+  notionClientId: z.string().optional(),
+  notionClientSecret: z.string().optional(),
 });
 
 // GET /api/admin/integrations — get integration config

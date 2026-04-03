@@ -41,6 +41,7 @@ import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getGoogleCredentials } from "../connectors/googleDrive.js";
 import { getOnedriveCredentials } from "../connectors/oneDrive.js";
 import { getConfluenceCredentials } from "../connectors/confluence.js";
+import { getNotionCredentials } from "../connectors/notion.js";
 import { logger } from "../lib/logger.js";
 import type { CloudProvider } from "@edgebric/types";
 import { CLOUD_PROVIDERS } from "@edgebric/types";
@@ -71,6 +72,7 @@ cloudConnectionsRouter.get("/providers", (_req, res) => {
       (config.cloud.confluence.clientId && config.cloud.confluence.clientSecret) ||
       (integrationCfg.confluenceClientId && integrationCfg.confluenceClientSecret)
     ),
+    notion: !!(integrationCfg.notionClientId && integrationCfg.notionClientSecret),
   };
   const providers = CLOUD_PROVIDERS.map((p) => ({
     ...p,
@@ -587,6 +589,18 @@ function getBaseUrl(_req: { protocol: string; get: (name: string) => string | un
     if (isCustom) {
       const url = new URL(config.frontendUrl);
       return url.origin;
+    }
+  }
+  if (provider === "notion") {
+    // Notion has no shipped defaults — always custom credentials.
+    try {
+      const { isCustom } = getNotionCredentials();
+      if (isCustom) {
+        const url = new URL(config.frontendUrl);
+        return url.origin;
+      }
+    } catch {
+      // Credentials not configured — fall through to localhost
     }
   }
   // Shipped credentials: always use localhost (desktop app, single redirect URI

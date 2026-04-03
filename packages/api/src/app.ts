@@ -35,6 +35,7 @@ import path from "path";
 import "./connectors/googleDrive.js";
 import "./connectors/oneDrive.js";
 import "./connectors/confluence.js";
+import "./connectors/notion.js";
 
 // ─── Session type augmentation ────────────────────────────────────────────────
 

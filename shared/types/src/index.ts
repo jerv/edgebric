@@ -289,6 +289,9 @@ export interface IntegrationConfig {
   /** Custom Confluence OAuth credentials (org mode). */
   confluenceClientId?: string;
   confluenceClientSecret?: string;
+  /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
+  notionClientId?: string;
+  notionClientSecret?: string;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────
