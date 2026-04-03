@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-04-02 — agent/ms-auth (Microsoft auth agent)
+
+### Verified Microsoft Entra ID OIDC auth + added multi-tenant support + tests
+
+**Review:** Audited the full Microsoft OIDC auth flow: setup wizard, OIDC discovery, login redirect, callback, token validation, claims extraction, Graph API avatar fetch. Core flow was solid — no bugs found.
+
+**Multi-tenant support:** Updated the setup wizard to mention both single-tenant and multi-tenant options. Added `isMicrosoftMultiTenant()` and `validateMicrosoftIssuer()` helpers to `oidcProviders.ts` for issuer URL validation. The `openid-client` v5 library handles the `{tenantid}` template pattern in Microsoft's multi-tenant discovery documents, so the callback flow works for both single-tenant (UUID) and multi-tenant (`common`/`organizations`) issuer URLs.
+
+**Changes:**
+- `packages/api/src/lib/oidcProviders.ts` — Added `isMicrosoftMultiTenant()` and `validateMicrosoftIssuer()` exports
+- `packages/desktop/src/renderer/pages/SetupWizard.tsx` — Added multi-tenant option in supported account types step; added `organizations` alternative in issuer URL hint
+- `packages/api/src/__tests__/auth.test.ts` — Added 43 new Microsoft-specific tests covering: provider definition validation, claims extraction (email/preferred_username/upn fallbacks, guest users, B2B accounts, edge cases), multi-tenant issuer detection, issuer URL validation, scope configuration
+
+**Result:** 91/91 auth tests pass (up from 48). Typecheck clean across api + desktop.
+
+---
+
 ## 2026-04-02 — agent/gdrive-finish (cloud sync agent)
 
 ### Fixed orphaned documents on file modify + added sync tests

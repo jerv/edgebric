@@ -708,7 +708,7 @@ export default function SetupWizard({ onComplete }: Props) {
                     <li>Go to{" "}<a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="docs-link">Microsoft Entra admin center &gt; App registrations</a></li>
                     <li>Click <strong>+ New registration</strong></li>
                     <li>Name: <strong>Edgebric</strong></li>
-                    <li>Supported account types: <strong>Accounts in this organizational directory only</strong> (single tenant)</li>
+                    <li>Supported account types: <strong>Accounts in this organizational directory only</strong> (single tenant) — or choose <strong>Accounts in any organizational directory</strong> for multi-tenant</li>
                     <li>Redirect URI: select <strong>Web</strong>, paste the redirect URI from the form</li>
                     <li>Click <strong>Register</strong></li>
                     <li>Copy the <strong>Application (client) ID</strong> (a UUID) from the overview page</li>
@@ -790,7 +790,7 @@ export default function SetupWizard({ onComplete }: Props) {
                   <div className="field">
                     <label htmlFor="oidcIssuer">Issuer URL</label>
                     <input id="oidcIssuer" type="text" value={oidcIssuer} onChange={(e) => setOidcIssuer(e.target.value)} placeholder={selectedProvider.issuerHint ?? "https://your-provider.com"} />
-                    {authProvider === "microsoft" && <p className="hint">Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code> &mdash; replace TENANT-ID with your Directory (tenant) ID.</p>}
+                    {authProvider === "microsoft" && <p className="hint">Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code> &mdash; replace TENANT-ID with your Directory (tenant) ID. For multi-tenant apps, use <code>organizations</code> instead of a specific tenant ID.</p>}
                     {authProvider === "okta" && <p className="hint">Your Okta domain, e.g. <code>https://your-company.okta.com</code></p>}
                     {authProvider === "onelogin" && <p className="hint">Format: <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code></p>}
                   </div>
