@@ -34,18 +34,18 @@ function PrivacyPolicy() {
           </Section>
 
           <Section title="What data Edgebric processes">
-            <p>When deployed within your organization, Edgebric processes:</p>
+            <p>Edgebric processes the following data locally on your hardware:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
               <li>
                 <strong>Documents</strong> you upload to sources (PDFs, Word documents, text files).
                 These are chunked and embedded locally for search.
               </li>
               <li>
-                <strong>Queries</strong> employees submit through the chat interface. Queries are processed
+                <strong>Queries</strong> submitted through the chat interface. Queries are processed
                 by a local language model and are not sent to any external service.
               </li>
               <li>
-                <strong>Authentication tokens</strong> from your identity provider (e.g., Google Workspace, Okta)
+                <strong>Authentication tokens</strong> from your identity provider (e.g., Google, Microsoft)
                 used solely for sign-in. Edgebric stores a session cookie — not your IdP credentials.
               </li>
               <li>
@@ -73,9 +73,9 @@ function PrivacyPolicy() {
             <p>
               By default, Edgebric uses <strong>no third-party services</strong>. All AI inference
               runs locally via llama.cpp, an open-source model runtime bundled with the application.
-              If your administrator configures a custom LLM endpoint (e.g., an internal API gateway),
+              If you configure a custom LLM endpoint (e.g., an internal API gateway),
               queries will be sent to that endpoint — but this is an explicit opt-in configuration
-              controlled by your organization.
+              that you control.
             </p>
           </Section>
 
@@ -90,7 +90,7 @@ function PrivacyPolicy() {
           <Section title="PII protection">
             <p>Edgebric includes multiple layers of protection against personal data exposure:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Documents containing personal employee records should not be uploaded to shared sources.</li>
+              <li>Documents containing personal records should not be uploaded to shared sources.</li>
               <li>PII detection scans queries for names and sensitive terms before processing.</li>
               <li>System prompts instruct the AI model to never disclose personal information.</li>
               <li>Query-time filters provide an additional safety net.</li>
@@ -100,29 +100,24 @@ function PrivacyPolicy() {
           <Section title="edgebric.com website">
             <p>
               The Edgebric marketing website (edgebric.com) is separate from the Edgebric software.
-              If you purchase a download from edgebric.com, payment is processed by{" "}
-              <a href="https://stripe.com/privacy" className="text-slate-900 dark:text-gray-100 underline">
-                Stripe
-              </a>
-              . Edgebric does not store credit card numbers. Stripe retains your email address and
-              payment details under their own privacy policy. No analytics, tracking pixels, or
-              third-party scripts are used on edgebric.com.
+              No analytics, tracking pixels, or third-party scripts are used on edgebric.com.
+              If you make a donation via GitHub Sponsors, that transaction is governed by GitHub's
+              privacy policy.
             </p>
           </Section>
 
           <Section title="Your rights">
             <p>
-              Since your organization controls the Edgebric deployment, data subject requests
-              (access, deletion, portability) should be directed to your organization's data
-              protection officer or IT administrator. They have full access to all stored data
-              and can fulfill these requests directly.
+              Since you control the Edgebric deployment, you have full access to all stored data.
+              You can export, modify, or delete any data at any time. If you are a user on someone
+              else's Edgebric instance, direct data requests to the administrator of that instance.
             </p>
           </Section>
 
           <Section title="Contact">
             <p>
               For questions about this privacy policy or Edgebric's data practices, contact
-              your organization's IT administrator or the Edgebric team at{" "}
+              the Edgebric team at{" "}
               <a href="mailto:support@edgebric.com" className="text-slate-900 dark:text-gray-100 underline">
                 support@edgebric.com
               </a>.

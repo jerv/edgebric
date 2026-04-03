@@ -173,7 +173,7 @@ At $50 recommended:
 - EU AI Act / HIPAA / data sovereignty compliant by architecture
 - Total cost (hardware + download) < 1 month of cloud alternatives
 
-### vs. Other Source-Available / Open Source (PrivateGPT, AnythingLLM)
+### vs. Other Open Source (PrivateGPT, AnythingLLM)
 
 - No technical setup required — GUI installer, no CLI
 - Enterprise features included (SSO, vault encryption, group chats, audit)

@@ -1,8 +1,8 @@
 # Edgebric
 
-**Private knowledge platform for individuals and organizations.** Upload sensitive documents, ask questions with AI, and get cited answers — all running on your own hardware. Zero data leaves the building.
+**Private knowledge platform that runs on your hardware.** Upload documents, ask questions with AI, and get cited answers — nothing leaves your machine. Ever.
 
-Whether you're a solo consultant managing client files, a small law firm with confidential case documents, or a 200-person company with department-level data isolation needs — Edgebric runs locally on a single Mac and scales from one user to hundreds.
+Whether you're organizing family documents, managing client files, building a personal research library, or running a 200-person company with department-level data isolation — Edgebric runs locally on a Mac and scales from one user to hundreds.
 
 > *"Data never moves. Queries move."*
 
@@ -39,10 +39,11 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 
 ## Who It's For
 
-- **Solo professionals**: Consultants, freelancers, and independent practitioners with sensitive client documents
-- **Small businesses**: Law firms, medical practices, accounting firms, HR departments — anyone handling confidential information
-- **Teams and departments**: Organizations that need department-level data isolation enforced by architecture, not just access controls
-- **Privacy-conscious orgs**: Companies in regulated industries (healthcare, legal, finance) where data residency is non-negotiable
+- **Individuals**: Personal document libraries, research archives, family records, tax documents, medical files — anything you want to search privately
+- **Solo professionals**: Consultants, freelancers, and practitioners with sensitive client documents
+- **Teams and small businesses**: Law firms, medical practices, accounting firms, HR departments — anyone handling confidential information
+- **Organizations**: Department-level data isolation enforced by architecture, not just access controls. Mesh networking for multi-site deployments
+- **AI agents**: Edgebric works as a private knowledge backend for AI agents (OpenClaw skill available)
 
 ## Mesh Networking — Data Never Moves
 

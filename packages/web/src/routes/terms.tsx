@@ -27,7 +27,7 @@ function TermsOfService() {
           <Section title="1. Software license">
             <p>
               Edgebric is open source under the{" "}
-              <a href="https://github.com/edgebric/edgebric/blob/main/LICENSE" className="text-slate-900 dark:text-gray-100 underline">
+              <a href="https://github.com/jerv/edgebric/blob/main/LICENSE" className="text-slate-900 dark:text-gray-100 underline">
                 GNU Affero General Public License v3.0 (AGPL-3.0)
               </a>
               . You may use, modify, and distribute it for any purpose —
@@ -49,8 +49,8 @@ function TermsOfService() {
           <Section title="3. Permitted use">
             <p>You may use Edgebric to:</p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
-              <li>Build and manage internal sources for your organization</li>
-              <li>Enable employees to query organizational knowledge through the AI-powered interface</li>
+              <li>Build and manage private knowledge sources for personal, team, or organizational use</li>
+              <li>Query your documents through the AI-powered interface</li>
               <li>Process and embed documents for retrieval-augmented generation</li>
               <li>Manage user access and permissions through your identity provider</li>
             </ul>
@@ -77,7 +77,7 @@ function TermsOfService() {
 
           <Section title="6. Administrator responsibilities">
             <p>
-              Organization administrators are responsible for:
+              If you manage an Edgebric instance for others, you are responsible for:
             </p>
             <ul className="mt-2 space-y-1.5 list-disc pl-5">
               <li>Ensuring uploaded documents comply with applicable laws and internal policies</li>
@@ -110,7 +110,7 @@ function TermsOfService() {
             <p>
               Software updates are provided on a best-effort basis. Community support is available
               through{" "}
-              <a href="https://github.com/edgebric/edgebric/issues" className="text-slate-900 dark:text-gray-100 underline">
+              <a href="https://github.com/jerv/edgebric/issues" className="text-slate-900 dark:text-gray-100 underline">
                 GitHub Issues
               </a>
               . No SLA or guaranteed response times. For enterprise support contracts,
