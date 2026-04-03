@@ -1,5 +1,34 @@
 # Worklog
 
+## 2026-04-02 — agent/notion (Notion agent)
+
+### Added Notion connector end-to-end
+
+**Problem:** Notion was listed as a cloud provider but disabled (`enabled: false`) with no connector implementation.
+
+**Architecture decisions:**
+- Notion's content model differs from file-based connectors (Google Drive, OneDrive). "Folders" = databases + workspace-level pages. "Files" = individual pages downloaded as markdown.
+- Notion tokens don't expire and have no refresh tokens — `refreshAccessToken` throws (should never be called).
+- Notion uses Basic auth (base64 `clientId:clientSecret`) for token exchange, not form-encoded credentials.
+- No shipped OAuth defaults — admin must create a public Notion integration and configure credentials. This is because Notion requires per-workspace authorization.
+- Delta sync uses `last_edited_time` filter (ISO timestamp cursor) instead of change tokens.
+- Page content is assembled by fetching blocks recursively (up to 3 levels deep) and converting to markdown.
+
+**Changes:**
+- `packages/api/src/connectors/notion.ts` — Full `CloudConnectorAdapter` implementation: OAuth flow, `listFolders` (databases + workspace pages), `getChanges` (database query + page sync with delta), `downloadFile` (blocks → markdown), `richTextToMarkdown`, `pageToMarkdown`. Handles all common block types (headings, lists, todos, code, quotes, dividers, images, bookmarks, tables, child pages).
+- `packages/api/src/app.ts` — Side-effect import to register connector.
+- `packages/api/src/routes/cloudConnections.ts` — Added `notion` to `credentialsConfigured` map, imported `getNotionCredentials`, added Notion case to `getBaseUrl` helper.
+- `packages/api/src/routes/integrations.ts` — Added `notionClientId`, `notionClientSecret` to Zod validation schema.
+- `shared/types/src/cloud.ts` — Set Notion `enabled: true`.
+- `shared/types/src/index.ts` — Added `notionClientId`, `notionClientSecret` to `IntegrationConfig`.
+- `packages/web/src/components/shared/ProviderLogos.tsx` — Added `NotionLogo` SVG and `notion` case to `ProviderLogo` switch.
+- `packages/web/src/components/settings/IntegrationsTab.tsx` — Added `NotionCredentialsCard` with setup instructions (public integration creation, redirect URI, capabilities). Updated solo-mode text to mention Notion.
+- `packages/api/src/__tests__/notion.test.ts` — 35 tests covering: credentials resolution, `richTextToMarkdown` (plain, bold, italic, code, strikethrough, links, combined), `extractPageTitle`, `getAuthUrl`, `exchangeCode` (Basic auth, missing email, failure), `refreshAccessToken` (throws), `listFolders` (databases + pages, pagination, errors), `getChanges` for databases (initial + delta + archived), `getChanges` for pages (with children, delta skip), `downloadFile` (markdown output, filename sanitization, errors), `pageToMarkdown` (block types, recursive children, errors).
+
+**Result:** 476/477 tests pass (35 Notion). 1 pre-existing meshScheduler flake. Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-02 — agent/onedrive-finish (OneDrive agent)
 
 ### Finished OneDrive/SharePoint integration end-to-end
