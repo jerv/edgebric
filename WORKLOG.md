@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-04-02 — agent/onedrive-finish (OneDrive agent)
+
+### Finished OneDrive/SharePoint integration end-to-end
+
+**Problem:** OneDrive connector existed but had no org-level custom credential support (unlike Google Drive), no setup instructions in the admin UI, no Remove button, and was marked `enabled: false` in shared types.
+
+**Changes:**
+- `packages/api/src/connectors/oneDrive.ts` — Added `getOnedriveCredentials()` with same priority logic as Google Drive: org-level integrationConfig > env vars > shipped defaults. Exports `isCustom` flag for redirect URI resolution.
+- `packages/api/src/routes/cloudConnections.ts` — Updated `getBaseUrl()` to use org's `frontendUrl` when OneDrive has custom credentials (matching Google Drive behavior).
+- `packages/web/src/components/settings/IntegrationsTab.tsx` — Added setup instructions (Azure Entra ID app registration steps, redirect URI, API permissions, SharePoint note), added Remove button, improved label/placeholder text.
+- `shared/types/src/cloud.ts` — Set OneDrive `enabled: true`.
+- `packages/api/src/__tests__/oneDrive.test.ts` — Added 3 tests for `getOnedriveCredentials` (env fallback, custom credentials priority, partial config fallback).
+
+**Result:** 399/399 tests pass (29 OneDrive). Typecheck clean (api, web, types).
+
+---
+
 ## 2026-04-02 — agent/gdrive-finish (cloud sync agent)
 
 ### Fixed orphaned documents on file modify + added sync tests
