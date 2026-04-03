@@ -143,6 +143,33 @@ function findClaim(claims: Record<string, unknown>, keys: string[]): string | nu
 }
 
 /**
+ * Check if a Microsoft Entra ID issuer URL is a multi-tenant endpoint.
+ * Multi-tenant apps use "common" or "organizations" instead of a specific tenant ID.
+ */
+export function isMicrosoftMultiTenant(issuerUrl: string): boolean {
+  const url = issuerUrl.toLowerCase();
+  return /login\.microsoftonline\.com\/(common|organizations)\b/.test(url);
+}
+
+/**
+ * Validate a Microsoft Entra ID issuer URL format.
+ * Returns an error message if invalid, or null if valid.
+ */
+export function validateMicrosoftIssuer(issuerUrl: string): string | null {
+  if (!issuerUrl) return "Issuer URL is required";
+  const url = issuerUrl.toLowerCase().trim();
+  if (!url.includes("login.microsoftonline.com")) {
+    return "Microsoft issuer URL must be on login.microsoftonline.com";
+  }
+  // Must match: https://login.microsoftonline.com/{tenant}/v2.0
+  const pattern = /^https:\/\/login\.microsoftonline\.com\/[a-z0-9-]+\/v2\.0\/?$/;
+  if (!pattern.test(url)) {
+    return "Expected format: https://login.microsoftonline.com/{tenant-id}/v2.0";
+  }
+  return null;
+}
+
+/**
  * Auto-detect provider ID from the OIDC issuer URL.
  * Used as fallback when OIDC_PROVIDER env var is not set.
  */

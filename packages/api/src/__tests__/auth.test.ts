@@ -4,6 +4,8 @@ import {
   extractClaims,
   detectProvider,
   OIDC_PROVIDERS,
+  isMicrosoftMultiTenant,
+  validateMicrosoftIssuer,
 } from "../lib/oidcProviders.js";
 import { upsertUser } from "../services/userStore.js";
 
@@ -435,6 +437,248 @@ describe("OIDC Provider Utilities", () => {
 
     it("Google has default issuer set", () => {
       expect(OIDC_PROVIDERS.google.defaultIssuer).toBe("https://accounts.google.com");
+    });
+  });
+
+  // ─── Microsoft Entra ID specific tests ──────────────────────────────────────
+
+  describe("Microsoft Entra ID", () => {
+    describe("provider definition", () => {
+      const ms = OIDC_PROVIDERS.microsoft;
+
+      it("has correct id and name", () => {
+        expect(ms.id).toBe("microsoft");
+        expect(ms.name).toBe("Microsoft Entra ID");
+      });
+
+      it("has no default issuer (tenant-specific)", () => {
+        expect(ms.defaultIssuer).toBeUndefined();
+      });
+
+      it("has User.Read in extraScopes for Graph API photo fetch", () => {
+        expect(ms.extraScopes).toEqual(["User.Read"]);
+      });
+
+      it("has no imgSrcDomains (avatars served locally)", () => {
+        expect(ms.imgSrcDomains).toEqual([]);
+      });
+
+      it("has empty picture claims mapping (fetched via Graph API)", () => {
+        expect(ms.claimsMapping.picture).toEqual([]);
+      });
+
+      it("has three email fallback claims in priority order", () => {
+        expect(ms.claimsMapping.email).toEqual(["email", "preferred_username", "upn"]);
+      });
+
+      it("maps name from standard name claim", () => {
+        expect(ms.claimsMapping.name).toEqual(["name"]);
+      });
+    });
+
+    describe("claims extraction", () => {
+      const ms = OIDC_PROVIDERS.microsoft;
+
+      it("extracts email from standard email claim", () => {
+        const claims = extractClaims(
+          { sub: "ms-1", email: "user@contoso.com", name: "User One" },
+          ms,
+        );
+        expect(claims.email).toBe("user@contoso.com");
+      });
+
+      it("falls back to preferred_username when email is missing", () => {
+        const claims = extractClaims(
+          { sub: "ms-2", preferred_username: "user@contoso.com", name: "User Two" },
+          ms,
+        );
+        expect(claims.email).toBe("user@contoso.com");
+      });
+
+      it("falls back to upn when email and preferred_username are missing", () => {
+        const claims = extractClaims(
+          { sub: "ms-3", upn: "user@contoso.onmicrosoft.com", name: "User Three" },
+          ms,
+        );
+        expect(claims.email).toBe("user@contoso.onmicrosoft.com");
+      });
+
+      it("uses first available email claim in priority order", () => {
+        const claims = extractClaims(
+          {
+            sub: "ms-4",
+            email: "primary@contoso.com",
+            preferred_username: "alt@contoso.com",
+            upn: "upn@contoso.com",
+            name: "User Four",
+          },
+          ms,
+        );
+        expect(claims.email).toBe("primary@contoso.com");
+      });
+
+      it("skips empty string email and uses next fallback", () => {
+        const claims = extractClaims(
+          { sub: "ms-5", email: "", preferred_username: "fallback@contoso.com" },
+          ms,
+        );
+        expect(claims.email).toBe("fallback@contoso.com");
+      });
+
+      it("returns undefined picture (fetched via Graph API separately)", () => {
+        const claims = extractClaims(
+          { sub: "ms-6", email: "user@contoso.com", name: "User Six" },
+          ms,
+        );
+        expect(claims.picture).toBeUndefined();
+      });
+
+      it("normalizes Microsoft email to lowercase", () => {
+        const claims = extractClaims(
+          { sub: "ms-7", email: "User@CONTOSO.COM" },
+          ms,
+        );
+        expect(claims.email).toBe("user@contoso.com");
+      });
+
+      it("throws when no email claim is available from any fallback", () => {
+        expect(() =>
+          extractClaims({ sub: "ms-8", name: "No Email" }, ms),
+        ).toThrow("No email found");
+      });
+
+      it("handles guest user claims (external email via preferred_username)", () => {
+        const claims = extractClaims(
+          {
+            sub: "ms-guest-1",
+            preferred_username: "guest@external.com",
+            name: "Guest User",
+          },
+          ms,
+        );
+        expect(claims.email).toBe("guest@external.com");
+        expect(claims.name).toBe("Guest User");
+      });
+
+      it("handles B2B guest with onmicrosoft.com UPN", () => {
+        const claims = extractClaims(
+          {
+            sub: "ms-b2b-1",
+            upn: "guest_external.com#EXT#@contoso.onmicrosoft.com",
+          },
+          ms,
+        );
+        expect(claims.email).toBe("guest_external.com#ext#@contoso.onmicrosoft.com");
+      });
+
+      it("extracts sub claim as pairwise identifier", () => {
+        const claims = extractClaims(
+          { sub: "aBcDeFgHiJkLmN-1234567890", email: "user@contoso.com" },
+          ms,
+        );
+        expect(claims.sub).toBe("aBcDeFgHiJkLmN-1234567890");
+      });
+    });
+
+    describe("isMicrosoftMultiTenant", () => {
+      it("detects common endpoint as multi-tenant", () => {
+        expect(isMicrosoftMultiTenant("https://login.microsoftonline.com/common/v2.0")).toBe(true);
+      });
+
+      it("detects organizations endpoint as multi-tenant", () => {
+        expect(isMicrosoftMultiTenant("https://login.microsoftonline.com/organizations/v2.0")).toBe(true);
+      });
+
+      it("returns false for single-tenant with UUID", () => {
+        expect(isMicrosoftMultiTenant("https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0")).toBe(false);
+      });
+
+      it("returns false for non-Microsoft URLs", () => {
+        expect(isMicrosoftMultiTenant("https://accounts.google.com")).toBe(false);
+      });
+
+      it("is case-insensitive", () => {
+        expect(isMicrosoftMultiTenant("https://LOGIN.MICROSOFTONLINE.COM/COMMON/v2.0")).toBe(true);
+      });
+
+      it("returns false for consumers endpoint", () => {
+        expect(isMicrosoftMultiTenant("https://login.microsoftonline.com/consumers/v2.0")).toBe(false);
+      });
+    });
+
+    describe("validateMicrosoftIssuer", () => {
+      it("accepts valid single-tenant URL", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0")).toBeNull();
+      });
+
+      it("accepts common multi-tenant URL", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/common/v2.0")).toBeNull();
+      });
+
+      it("accepts organizations multi-tenant URL", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/organizations/v2.0")).toBeNull();
+      });
+
+      it("accepts URL with trailing slash", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/common/v2.0/")).toBeNull();
+      });
+
+      it("rejects empty URL", () => {
+        expect(validateMicrosoftIssuer("")).toBe("Issuer URL is required");
+      });
+
+      it("rejects non-Microsoft URL", () => {
+        expect(validateMicrosoftIssuer("https://accounts.google.com")).toBe("Microsoft issuer URL must be on login.microsoftonline.com");
+      });
+
+      it("rejects URL without v2.0", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/common")).toContain("Expected format");
+      });
+
+      it("rejects URL with v1.0 endpoint", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/common/v1.0")).toContain("Expected format");
+      });
+
+      it("rejects URL without tenant segment", () => {
+        expect(validateMicrosoftIssuer("https://login.microsoftonline.com/v2.0")).toContain("Expected format");
+      });
+    });
+
+    describe("detectProvider with Microsoft URLs", () => {
+      it("detects single-tenant URL", () => {
+        expect(detectProvider("https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0")).toBe("microsoft");
+      });
+
+      it("detects common (multi-tenant) URL", () => {
+        expect(detectProvider("https://login.microsoftonline.com/common/v2.0")).toBe("microsoft");
+      });
+
+      it("detects organizations (multi-tenant) URL", () => {
+        expect(detectProvider("https://login.microsoftonline.com/organizations/v2.0")).toBe("microsoft");
+      });
+
+      it("detects consumers URL", () => {
+        expect(detectProvider("https://login.microsoftonline.com/consumers/v2.0")).toBe("microsoft");
+      });
+
+      it("detects login.microsoft.com variant", () => {
+        expect(detectProvider("https://login.microsoft.com/common/v2.0")).toBe("microsoft");
+      });
+    });
+
+    describe("scopes for Microsoft OIDC flow", () => {
+      it("builds correct scope string with User.Read", () => {
+        const providerDef = OIDC_PROVIDERS.microsoft;
+        const scopes = ["openid", "email", "profile", ...providerDef.extraScopes].join(" ");
+        expect(scopes).toBe("openid email profile User.Read");
+      });
+
+      it("User.Read scope enables Graph API profile photo access", () => {
+        // User.Read is required to call GET /me/photo/$value on Microsoft Graph
+        expect(OIDC_PROVIDERS.microsoft.extraScopes).toContain("User.Read");
+        // No other unexpected scopes
+        expect(OIDC_PROVIDERS.microsoft.extraScopes).toHaveLength(1);
+      });
     });
   });
 });
