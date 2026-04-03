@@ -4,6 +4,10 @@ copyright: Copyright © 2026 Edgebric
 directories:
   output: release
   buildResources: assets
+publish:
+  provider: github
+  owner: jerv
+  repo: edgebric
 mac:
   category: public.app-category.business
   target:
@@ -11,8 +15,31 @@ mac:
       arch:
         - arm64
         - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
   icon: assets/icon.icns
   darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  notarize:
+    teamId: ${env.APPLE_TEAM_ID}
 dmg:
   title: Edgebric
   artifactName: Edgebric-${version}-${arch}.dmg
+  icon: assets/icon.icns
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 140
+      y: 180
+      type: file
+    - x: 400
+      y: 180
+      type: link
+      path: /Applications
+  background: resources/dmg-background.png
