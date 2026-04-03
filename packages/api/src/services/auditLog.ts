@@ -70,7 +70,8 @@ export type AuditEventType =
   | "api.source_create"
   | "api.source_delete"
   | "api.key_created"
-  | "api.key_revoked";
+  | "api.key_revoked"
+  | "api.auth_failure";
 
 interface AuditEntry {
   id: string;

@@ -17,6 +17,7 @@ import { validateBody } from "../middleware/validate.js";
 import {
   createDataSource,
   getDataSource,
+  dataSourceBelongsToOrg,
   listDataSources,
   archiveDataSource,
   refreshDocumentCount,
@@ -83,13 +84,13 @@ function resolveDatasets(
 
 /**
  * Check if a source is accessible to the API key.
+ * Always verifies org membership to prevent cross-org access.
  */
 function isSourceAccessible(sourceId: string, req: Request): boolean {
+  const orgId = req.apiKey!.orgId;
+  if (!dataSourceBelongsToOrg(sourceId, orgId)) return false;
   const scopeIds = req.apiKeySourceIds;
-  if (!scopeIds) {
-    const ds = getDataSource(sourceId);
-    return !!ds;
-  }
+  if (!scopeIds) return true; // "all" scope, org verified
   return scopeIds.includes(sourceId);
 }
 
@@ -483,7 +484,7 @@ agentApiRouter.delete("/documents/:id", writePermission, (req: Request, res: Res
     res.status(404).json({ error: "Document not found", code: "NOT_FOUND", status: 404 });
     return;
   }
-  if (doc.dataSourceId && !isSourceAccessible(doc.dataSourceId, req)) {
+  if (!doc.dataSourceId || !isSourceAccessible(doc.dataSourceId, req)) {
     res.status(404).json({ error: "Document not found", code: "NOT_FOUND", status: 404 });
     return;
   }

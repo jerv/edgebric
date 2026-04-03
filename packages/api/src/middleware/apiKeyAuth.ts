@@ -50,16 +50,32 @@ function checkRateLimit(keyId: string, limit: number): { allowed: boolean; retry
   }
 
   // Remove timestamps outside window
-  bucket.timestamps = bucket.timestamps.filter((t) => t > windowStart);
+  bucket.timestamps = bucket.timestamps.filter((t) => t >= windowStart);
 
   if (bucket.timestamps.length >= limit) {
     const oldest = bucket.timestamps[0]!;
-    const retryAfter = Math.ceil((oldest + windowMs - now) / 1000);
+    const retryAfter = Math.max(1, Math.ceil((oldest + windowMs - now) / 1000));
     return { allowed: false, retryAfter };
   }
 
   bucket.timestamps.push(now);
   return { allowed: true };
+}
+
+/** Log auth failure to audit trail (never logs raw key). */
+function logAuthFailure(req: Request, reason: string): void {
+  try {
+    recordAuditEvent({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      eventType: "api.auth_failure" as any,
+      actorIp: req.ip,
+      resourceType: "api_key",
+      details: {
+        reason,
+        endpoint: `${req.method} ${req.originalUrl}`,
+      },
+    });
+  } catch { /* audit logging should never crash the app */ }
 }
 
 /**
@@ -76,6 +92,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
 
   const rawKey = authHeader.slice(7);
   if (!rawKey.startsWith("eb_")) {
+    logAuthFailure(req, "invalid_format");
     res.status(401).json({ error: "Invalid API key format", code: "INVALID_KEY", status: 401 });
     return;
   }
@@ -84,6 +101,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
   const apiKey = getApiKeyByHash(keyHash);
 
   if (!apiKey) {
+    logAuthFailure(req, "invalid_or_revoked");
     res.status(401).json({ error: "Invalid or revoked API key", code: "INVALID_KEY", status: 401 });
     return;
   }
@@ -95,13 +113,14 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
   const rateResult = checkRateLimit(rateLimitKey, limit);
 
   if (!rateResult.allowed) {
+    const retryAfter = Math.max(1, rateResult.retryAfter ?? 1);
+    res.setHeader("Retry-After", String(retryAfter));
     res.status(429).json({
       error: "Rate limit exceeded",
       code: "RATE_LIMITED",
       status: 429,
-      retryAfter: rateResult.retryAfter,
+      retryAfter,
     });
-    res.setHeader("Retry-After", String(rateResult.retryAfter));
     return;
   }
 

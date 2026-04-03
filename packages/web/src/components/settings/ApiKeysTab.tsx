@@ -33,11 +33,18 @@ const PERMISSION_COLORS: Record<string, string> = {
   admin: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
 };
 
+interface SourceInfo {
+  id: string;
+  name: string;
+}
+
 export function ApiKeysTab() {
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyPerm, setNewKeyPerm] = useState<"read" | "read-write" | "admin">("read");
+  const [newKeyScopeMode, setNewKeyScopeMode] = useState<"all" | "selected">("all");
+  const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyInfo | null>(null);
@@ -51,8 +58,17 @@ export function ApiKeysTab() {
       }),
   });
 
+  const { data: sources = [] } = useQuery<SourceInfo[]>({
+    queryKey: ["data-sources"],
+    queryFn: () =>
+      fetch("/api/data-sources", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return [] as SourceInfo[];
+        return r.json() as Promise<SourceInfo[]>;
+      }),
+  });
+
   const createMutation = useMutation({
-    mutationFn: async (body: { name: string; permission: string; sourceScope: string }) => {
+    mutationFn: async (body: { name: string; permission: string; sourceScope: string | string[] }) => {
       const res = await fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -68,6 +84,8 @@ export function ApiKeysTab() {
     onSuccess: (data) => {
       setCreatedKey(data.rawKey);
       setNewKeyName("");
+      setNewKeyScopeMode("all");
+      setSelectedSourceIds(new Set());
       void queryClient.invalidateQueries({ queryKey: ["admin", "api-keys"] });
     },
   });
@@ -145,11 +163,60 @@ export function ApiKeysTab() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">Source access</label>
+              <div className="flex gap-3 mb-2">
+                <label className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-gray-300 cursor-pointer">
+                  <input
+                    type="radio" name="scopeMode" value="all"
+                    checked={newKeyScopeMode === "all"}
+                    onChange={() => setNewKeyScopeMode("all")}
+                    className="accent-slate-900 dark:accent-gray-100"
+                  />
+                  All sources
+                </label>
+                <label className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-gray-300 cursor-pointer">
+                  <input
+                    type="radio" name="scopeMode" value="selected"
+                    checked={newKeyScopeMode === "selected"}
+                    onChange={() => setNewKeyScopeMode("selected")}
+                    className="accent-slate-900 dark:accent-gray-100"
+                  />
+                  Specific sources
+                </label>
+              </div>
+              {newKeyScopeMode === "selected" && (
+                <div className="border border-slate-200 dark:border-gray-800 rounded-lg max-h-40 overflow-y-auto">
+                  {sources.length === 0 ? (
+                    <p className="text-xs text-slate-400 dark:text-gray-500 p-3">No data sources available.</p>
+                  ) : (
+                    sources.map((s) => (
+                      <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedSourceIds.has(s.id)}
+                          onChange={(e) => {
+                            const next = new Set(selectedSourceIds);
+                            if (e.target.checked) next.add(s.id);
+                            else next.delete(s.id);
+                            setSelectedSourceIds(next);
+                          }}
+                          className="accent-slate-900 dark:accent-gray-100"
+                        />
+                        <span className="text-xs text-slate-700 dark:text-gray-300 truncate">{s.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Security warning */}
             <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                This key gives <strong>{PERMISSION_LABELS[newKeyPerm]?.toLowerCase()}</strong> access to <strong>all sources</strong>.
+                This key gives <strong>{PERMISSION_LABELS[newKeyPerm]?.toLowerCase()}</strong> access to{" "}
+                <strong>{newKeyScopeMode === "all" ? "all sources" : `${selectedSourceIds.size} selected source${selectedSourceIds.size !== 1 ? "s" : ""}`}</strong>.
                 Any application with this key can access this data. Edgebric is not responsible for how third-party applications use your data.
               </p>
             </div>
@@ -160,8 +227,11 @@ export function ApiKeysTab() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => createMutation.mutate({ name: newKeyName.trim(), permission: newKeyPerm, sourceScope: "all" })}
-                disabled={!newKeyName.trim() || createMutation.isPending}
+                onClick={() => {
+                  const scope = newKeyScopeMode === "all" ? "all" : [...selectedSourceIds];
+                  createMutation.mutate({ name: newKeyName.trim(), permission: newKeyPerm, sourceScope: scope });
+                }}
+                disabled={!newKeyName.trim() || createMutation.isPending || (newKeyScopeMode === "selected" && selectedSourceIds.size === 0)}
                 className="px-3 py-1.5 text-sm bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-200 disabled:opacity-50"
               >
                 {createMutation.isPending ? "Creating..." : "Create key"}
@@ -235,7 +305,7 @@ export function ApiKeysTab() {
                 <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">
                   Created {new Date(key.createdAt).toLocaleDateString()}
                   {key.lastUsedAt && <> &middot; Last used {new Date(key.lastUsedAt).toLocaleDateString()}</>}
-                  {key.sourceScope !== "all" && <> &middot; Scoped to {JSON.parse(key.sourceScope).length} sources</>}
+                  {key.sourceScope !== "all" && <> &middot; Scoped to {(() => { try { return (JSON.parse(key.sourceScope) as string[]).length; } catch { return "?"; } })()} sources</>}
                 </p>
               </div>
               <button
