@@ -10,7 +10,7 @@
  * (when mesh is toggled on/off at runtime).
  */
 import { isMeshEnabled, getMeshConfig, listNodes, markStaleNodesOffline } from "./nodeRegistry.js";
-import { sendHeartbeat } from "./meshClient.js";
+import { sendHeartbeat, meshHttpsFetch } from "./meshClient.js";
 import { listDataSources } from "./dataSourceStore.js";
 import { logger } from "../lib/logger.js";
 
@@ -62,9 +62,10 @@ async function checkPrimaryReachable(
 ): Promise<boolean> {
   try {
     const url = `${endpoint.replace(/\/$/, "")}/api/mesh/peer/info`;
-    const resp = await fetch(url, {
+    const resp = await meshHttpsFetch(url, {
       method: "GET",
       headers: {
+        "Content-Type": "application/json",
         Authorization: `MeshToken ${meshToken}`,
         "X-Mesh-Node-Id": nodeId,
       },

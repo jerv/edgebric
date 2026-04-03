@@ -15,6 +15,7 @@ import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { ensureDefaultOrg, getDefaultOrg, getOrg, getOrgsForUser } from "../services/orgStore.js";
 import { upsertUser, getUserInOrg, getUsersByEmail, updateUserName, updateUserNotifPrefs } from "../services/userStore.js";
 import { getMeshConfig, listNodes } from "../services/nodeRegistry.js";
+import { meshHttpsFetch } from "../services/meshClient.js";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100).transform((s) => s.trim()),
@@ -588,10 +589,12 @@ authRouter.get("/provider", async (_req, res) => {
   const meshCfg = getMeshConfig();
   if (meshCfg?.enabled && meshCfg.role === "secondary" && meshCfg.primaryEndpoint) {
     try {
-      const resp = await fetch(
+      const resp = await meshHttpsFetch(
         `${meshCfg.primaryEndpoint}/api/mesh/peer/auth-info`,
         {
+          method: "GET",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `MeshToken ${meshCfg.meshToken}`,
             "X-Mesh-Node-Id": meshCfg.nodeId,
           },

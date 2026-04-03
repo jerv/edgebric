@@ -20,7 +20,7 @@ import { DEFAULT_DATA_DIR } from "./config.js";
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 /** Pinned llama.cpp build number — tested and known to work with Edgebric. */
-const PINNED_BUILD = "b5710";
+const PINNED_BUILD = "b8660";
 
 const LLAMA_HOST = "127.0.0.1";
 const CHAT_PORT = 8080;
@@ -78,8 +78,8 @@ export async function downloadLlama(
   fs.mkdirSync(llamaModelsDir(dataDir), { recursive: true });
 
   const arch = os.arch() === "arm64" ? "arm64" : "x64";
-  const assetName = `llama-${build}-bin-macos-${arch}.zip`;
-  const url = `https://github.com/ggerganov/llama.cpp/releases/download/${build}/${assetName}`;
+  const assetName = `llama-${build}-bin-macos-${arch}.tar.gz`;
+  const url = `https://github.com/ggml-org/llama.cpp/releases/download/${build}/${assetName}`;
 
   const tmpPath = path.join(dir, assetName);
   const finalPath = llamaBinaryPath(dataDir);
@@ -118,19 +118,41 @@ export async function downloadLlama(
         file.on("finish", () => {
           file.close(() => {
             try {
-              // Extract llama-server from the zip
-              // The zip contains build/bin/llama-server among other binaries
+              // Extract llama-server and its shared libraries from the tar.gz
+              // Archive extracts to llama-b{BUILD}/ containing binaries and dylibs
               const extractDir = path.join(dir, "extract-tmp");
               fs.mkdirSync(extractDir, { recursive: true });
-              execSync(`unzip -o "${tmpPath}" "build/bin/llama-server" -d "${extractDir}"`, { timeout: 30_000 });
+              execSync(`tar xzf "${tmpPath}" -C "${extractDir}"`, { timeout: 30_000 });
 
-              const extracted = path.join(extractDir, "build", "bin", "llama-server");
+              // Find the llama-server binary in the extracted directory
+              const archiveDir = path.join(extractDir, `llama-${build}`);
+              const extracted = fs.existsSync(path.join(archiveDir, "llama-server"))
+                ? path.join(archiveDir, "llama-server")
+                : path.join(extractDir, "build", "bin", "llama-server"); // fallback for older archives
               if (!fs.existsSync(extracted)) {
                 throw new Error("llama-server binary not found in archive");
               }
 
               fs.copyFileSync(extracted, finalPath);
               fs.chmodSync(finalPath, 0o755);
+
+              // Copy shared libraries (dylibs) required by llama-server
+              const sourceDir = path.dirname(extracted);
+              for (const entry of fs.readdirSync(sourceDir)) {
+                if (entry.endsWith(".dylib")) {
+                  const srcPath = path.join(sourceDir, entry);
+                  const destPath = path.join(dir, entry);
+                  // Preserve symlinks
+                  const stat = fs.lstatSync(srcPath);
+                  if (stat.isSymbolicLink()) {
+                    const target = fs.readlinkSync(srcPath);
+                    try { fs.unlinkSync(destPath); } catch { /* ignore */ }
+                    fs.symlinkSync(target, destPath);
+                  } else {
+                    fs.copyFileSync(srcPath, destPath);
+                  }
+                }
+              }
 
               // Cleanup
               fs.rmSync(extractDir, { recursive: true, force: true });
@@ -415,7 +437,7 @@ export async function checkForUpdate(dataDir?: string): Promise<UpdateCheckResul
   const currentVersion = getInstalledVersion(dataDir);
 
   try {
-    const resp = await fetch("https://api.github.com/repos/ggerganov/llama.cpp/releases/latest", {
+    const resp = await fetch("https://api.github.com/repos/ggml-org/llama.cpp/releases/latest", {
       signal: AbortSignal.timeout(10_000),
       headers: { "User-Agent": "Edgebric" },
     });

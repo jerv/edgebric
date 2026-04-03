@@ -109,6 +109,7 @@ const updateMeshSchema = z.object({
   enabled: z.boolean().optional(),
   nodeName: z.string().min(1).max(200).optional(),
   groupId: z.string().uuid().nullable().optional(),
+  meshToken: z.string().length(64).regex(/^[0-9a-f]+$/).optional(),
 });
 
 /** PATCH /api/mesh/config — update mesh settings (admin only) */
@@ -120,6 +121,7 @@ meshRouter.patch("/config", requireAdmin, validateBody(updateMeshSchema), (req, 
     ...(data.enabled !== undefined && { enabled: data.enabled }),
     ...(data.nodeName !== undefined && { nodeName: data.nodeName.trim() }),
     ...(data.groupId !== undefined && { groupId: data.groupId }),
+    ...(data.meshToken !== undefined && { meshToken: data.meshToken }),
   });
 
   if (!updated) {

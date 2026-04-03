@@ -200,6 +200,8 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
       if (CSRF_SAFE_METHODS.has(req.method)) return next();
       if (req.path === "/api/auth/callback") return next();
       if (req.path === "/api/health") return next();
+      // Mesh peer endpoints use MeshToken auth, not browser sessions — skip CSRF
+      if (req.path.startsWith("/api/mesh/peer")) return next();
 
       const cookieToken = req.cookies?.[CSRF_COOKIE];
       const headerToken = req.headers[CSRF_HEADER];
