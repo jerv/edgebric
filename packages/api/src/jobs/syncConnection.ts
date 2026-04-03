@@ -26,7 +26,7 @@ import { refreshDocumentCount } from "../services/dataSourceStore.js";
 import { setDocument, getDocument, deleteDocument } from "../services/documentStore.js";
 import { clearChunksForDocument } from "../services/chunkRegistry.js";
 import { ingestDocument } from "./ingestDocument.js";
-import type { Document, DocumentType, CloudProvider } from "@edgebric/types";
+import type { Document, DocumentType, CloudProvider, PIIMode } from "@edgebric/types";
 import type { ConnectorChange } from "../connectors/types.js";
 
 /** Map provider MIME types to supported document types. */
@@ -54,6 +54,7 @@ async function processFileChange(
   dataSourceId: string,
   datasetName: string,
   accessToken: string,
+  piiMode?: PIIMode,
 ): Promise<void> {
   const { file } = change;
   const docType = mimeToDocType(file.mimeType, file.name);
@@ -121,7 +122,7 @@ async function processFileChange(
   });
 
   try {
-    await ingestDocument(doc, { datasetName });
+    await ingestDocument(doc, { datasetName, ...(piiMode && { piiMode }) });
     upsertSyncFile(folderSyncId, file.id, {
       externalName: finalName,
       externalModified: file.modifiedAt,
@@ -212,6 +213,7 @@ export async function syncFolderSync(folderSyncId: string): Promise<{
           folderSync.dataSourceId,
           ds.datasetName,
           accessToken,
+          ds.piiMode,
         );
         if (change.type === "added") stats.added++;
         else stats.modified++;

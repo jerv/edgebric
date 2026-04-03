@@ -1,5 +1,27 @@
 # Worklog
 
+## 2026-04-03 — agent/pii-settings (PII agent)
+
+### Added per-source PII detection mode (off/warn/block)
+
+**Problem:** PII detection was all-or-nothing — every document was scanned and blocked on PII detection. No way to configure per-source behavior. PII warnings were only visible deep inside individual document views.
+
+**Changes:**
+- `shared/types/src/index.ts` — Added `PIIMode` type (`"off" | "warn" | "block"`) and `piiMode` field to `DataSource` interface
+- `packages/api/src/db/schema.ts` — Added `piiMode` column to `dataSources` table
+- `packages/api/src/db/index.ts` — Added `pii_mode` to CREATE TABLE and ALTER TABLE migration
+- `packages/api/src/services/dataSourceStore.ts` — `createDataSource` and `updateDataSource` accept `piiMode`; `rowToDataSource` maps the column
+- `packages/api/src/routes/dataSources.ts` — `PUT /:id` accepts `piiMode`; upload route passes `piiMode` to ingestion; added `GET /pii-summary` endpoint (returns per-source document count with PII warnings)
+- `packages/api/src/jobs/ingestDocument.ts` — Accepts `piiMode` option: `"off"` skips PII detection, `"warn"` stores warnings but sets status `"ready"`, `"block"` halts at `"pii_review"` (previous behavior)
+- `packages/api/src/jobs/syncConnection.ts` — Passes data source's `piiMode` to `ingestDocument` during cloud sync
+- `packages/web/src/components/layout/Sidebar.tsx` — Amber warning dot on Data Sources nav icon when any source has PII warnings
+- `packages/web/src/components/admin/DataSourcePanel.tsx` — Warning triangle + count on source list rows; PII mode dropdown in source detail security settings
+- `packages/api/src/__tests__/piiMode.test.ts` — 16 tests: default modes, API update/validation, PII summary endpoint, ingestDocument behavior for all three modes
+
+**Result:** 562/562 tests pass. Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-03 — agent/mesh-e2e (Mesh E2E testing agent)
 
 ### Full mesh testing audit + bug fixes + missing coverage

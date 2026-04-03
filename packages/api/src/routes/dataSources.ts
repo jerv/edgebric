@@ -12,6 +12,7 @@ import {
   getDataSource,
   dataSourceBelongsToOrg,
   listAccessibleDataSources,
+  listDataSources,
   updateDataSource,
   archiveDataSource,
   refreshDocumentCount,
@@ -22,6 +23,7 @@ import { getDocumentsByDataSource, setDocument } from "../services/documentStore
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getUserInOrg, getUserByEmail } from "../services/userStore.js";
 import { clearChunksForDataset, getChunksForDataset } from "../services/chunkRegistry.js";
+import { getSqlite } from "../db/index.js";
 import { getRebuildsInProgress } from "../jobs/rebuildDataset.js";
 import { revokeSharesForDataSource, revokeSharesForRemovedUsers } from "../services/groupChatStore.js";
 import { config } from "../config.js";
@@ -50,6 +52,7 @@ const updateDataSourceSchema = z.object({
   accessList: z.array(z.string().email()).optional(),
   allowSourceViewing: z.boolean().optional(),
   allowVaultSync: z.boolean().optional(),
+  piiMode: z.enum(["off", "warn", "block"]).optional(),
 });
 
 // ─── Data Source Routes ──────────────────────────────────────────────────────
@@ -127,6 +130,26 @@ dataSourcesRouter.post("/", requireOrg, validateBody(createDataSourceSchema), (r
   res.status(201).json({ ...final, accessList: accessList ?? [] });
 });
 
+// PII summary — accessible to any org member (for sidebar badge + source card warnings)
+// Must be registered BEFORE /:id to avoid Express matching "pii-summary" as an :id param
+dataSourcesRouter.get("/pii-summary", requireOrg, (_req, res) => {
+  const sqlite = getSqlite();
+  const rows = sqlite.prepare(`
+    SELECT data_source_id, COUNT(*) as count
+    FROM documents
+    WHERE pii_warnings IS NOT NULL AND pii_warnings != '[]' AND data_source_id IS NOT NULL
+    GROUP BY data_source_id
+  `).all() as Array<{ data_source_id: string; count: number }>;
+
+  const summary: Record<string, number> = {};
+  let total = 0;
+  for (const row of rows) {
+    summary[row.data_source_id] = row.count;
+    total += row.count;
+  }
+  res.json({ summary, total });
+});
+
 // GET /:id — any org member can view data source details (read-only)
 dataSourcesRouter.get("/:id", requireOrg, (req, res) => {
   const dsId = req.params["id"] as string;
@@ -169,7 +192,7 @@ dataSourcesRouter.put("/:id", validateBody(updateDataSourceSchema), (req, res) =
     res.status(404).json({ error: "Data source not found" });
     return;
   }
-  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync } = req.body as z.infer<typeof updateDataSourceSchema>;
+  const { name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, piiMode } = req.body as z.infer<typeof updateDataSourceSchema>;
 
   // Only the owner or an admin can change source type
   if (type !== undefined) {
@@ -187,6 +210,7 @@ dataSourcesRouter.put("/:id", validateBody(updateDataSourceSchema), (req, res) =
     ...(accessMode !== undefined && { accessMode: accessMode as DataSourceAccessMode }),
     ...(allowSourceViewing !== undefined && { allowSourceViewing }),
     ...(allowVaultSync !== undefined && { allowVaultSync }),
+    ...(piiMode !== undefined && { piiMode }),
   });
   if (!updated) {
     res.status(404).json({ error: "Data source not found" });
@@ -332,7 +356,7 @@ dataSourcesRouter.post("/:id/documents/upload", upload.single("file"), async (re
 
   // Kick off ingestion with data source-scoped dataset name
   void import("../jobs/ingestDocument.js").then(({ ingestDocument }) =>
-    ingestDocument(doc, { datasetName: ds.datasetName }),
+    ingestDocument(doc, { datasetName: ds.datasetName, piiMode: ds.piiMode }),
   );
 });
 

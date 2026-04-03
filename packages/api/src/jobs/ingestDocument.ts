@@ -5,7 +5,7 @@ import { setDocument } from "../services/documentStore.js";
 import { refreshDocumentCount } from "../services/dataSourceStore.js";
 import { extractDocument } from "./extractors.js";
 import { logger } from "../lib/logger.js";
-import type { Document } from "@edgebric/types";
+import type { Document, PIIMode } from "@edgebric/types";
 
 /**
  * Background ingestion job.
@@ -14,14 +14,14 @@ import type { Document } from "@edgebric/types";
  * 1. Read file from disk
  * 2. Extract text (Mammoth for docx, pass-through for txt/md)
  * 3. Chunk the extracted markdown
- * 4. Run PII detection
+ * 4. Run PII detection (respects piiMode: off/warn/block)
  * 5. Embed each chunk via the inference server
  * 6. Store chunks with embeddings in SQLite (metadata + FTS5 + sqlite-vec)
  * 7. Update document status
  */
 export async function ingestDocument(
   doc: Document,
-  options?: { skipPII?: boolean; datasetName?: string },
+  options?: { skipPII?: boolean; datasetName?: string; piiMode?: PIIMode },
 ): Promise<void> {
   try {
     const { markdown, headingPageMap } = await extractDocument(doc.storageKey, doc.type);
@@ -35,20 +35,28 @@ export async function ingestDocument(
       }
     }
 
-    const piiWarnings = options?.skipPII ? [] : detectPII(chunks);
+    // Resolve effective PII mode: explicit option > skipPII flag > default "block"
+    const effectivePiiMode: PIIMode = options?.piiMode ?? (options?.skipPII ? "off" : "block");
+    const piiWarnings = effectivePiiMode === "off" ? [] : detectPII(chunks);
+
     if (piiWarnings.length > 0) {
-      logger.warn({ docName: doc.name, count: piiWarnings.length }, "PII detected in document");
-      const paused: Document = {
-        ...doc,
-        status: "pii_review",
-        updatedAt: new Date(),
-        piiWarnings,
-        sectionHeadings: [
-          ...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean)),
-        ],
-      };
-      setDocument(paused);
-      return; // Halt — admin must approve before ingestion continues
+      logger.warn({ docName: doc.name, count: piiWarnings.length, piiMode: effectivePiiMode }, "PII detected in document");
+
+      if (effectivePiiMode === "block") {
+        // Halt ingestion — admin must approve before proceeding
+        const paused: Document = {
+          ...doc,
+          status: "pii_review",
+          updatedAt: new Date(),
+          piiWarnings,
+          sectionHeadings: [
+            ...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean)),
+          ],
+        };
+        setDocument(paused);
+        return;
+      }
+      // "warn" mode: store warnings on the document but continue ingestion
     }
 
     // Use data-source-scoped dataset name, or fall back to the legacy shared dataset.
@@ -92,6 +100,8 @@ export async function ingestDocument(
       sectionHeadings: [
         ...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean)),
       ],
+      // Persist PII warnings from "warn" mode so they're surfaced in the UI
+      ...(piiWarnings.length > 0 && { piiWarnings }),
     };
     setDocument(updated);
 

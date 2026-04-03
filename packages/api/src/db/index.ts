@@ -83,6 +83,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       allow_source_viewing INTEGER NOT NULL DEFAULT 1,
       allow_vault_sync INTEGER NOT NULL DEFAULT 1,
       allow_external_access INTEGER NOT NULL DEFAULT 1,
+      pii_mode TEXT NOT NULL DEFAULT 'block',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -243,6 +244,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE group_chat_messages ADD COLUMN answer_type TEXT",
     // Cloud connections refactor: add folder_sync_id to cloud_sync_files
     "ALTER TABLE cloud_sync_files ADD COLUMN folder_sync_id TEXT NOT NULL DEFAULT ''",
+    // Per-source PII detection mode (off | warn | block)
+    "ALTER TABLE data_sources ADD COLUMN pii_mode TEXT NOT NULL DEFAULT 'block'",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

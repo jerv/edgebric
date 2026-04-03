@@ -271,6 +271,18 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
     refetchInterval: (query) => query.state.data?.some((ds) => ds.rebuilding) ? 3000 : false,
   });
 
+  // PII warning summary — used for warning badges on source rows
+  const { data: piiSummary } = useQuery<{ summary: Record<string, number>; total: number }>({
+    queryKey: ["pii-summary"],
+    queryFn: () =>
+      fetch("/api/data-sources/pii-summary", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return { summary: {}, total: 0 };
+        return r.json() as Promise<{ summary: Record<string, number>; total: number }>;
+      }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   // Mesh status — used to show node name in Storage column/selector
   const { data: meshStatus } = useQuery<{ enabled: boolean; nodeName: string | null }>({
     queryKey: ["mesh-status"],
@@ -756,6 +768,12 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                     {ds.rebuilding && (
                       <Loader2 className="w-3 h-3 text-blue-500 dark:text-blue-400 animate-spin" />
                     )}
+                    {(piiSummary?.summary[ds.id] ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400" title={`${piiSummary!.summary[ds.id]} document(s) with PII warnings`}>
+                        <AlertTriangle className="w-3 h-3" />
+                        <span className="text-[10px] font-medium">{piiSummary!.summary[ds.id]}</span>
+                      </span>
+                    )}
                   </span>
                   <span className="relative group/storage">
                     <span
@@ -888,7 +906,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean }) =>
+    mutationFn: (body: { name?: string; description?: string; type?: "organization" | "personal"; accessMode?: string; accessList?: string[]; allowSourceViewing?: boolean; allowVaultSync?: boolean; piiMode?: "off" | "warn" | "block" }) =>
       fetch(`/api/data-sources/${ds.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -1169,6 +1187,29 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                     onChange={(v) => updateMutation.mutate({ allowVaultSync: v })}
                     disabled={updateMutation.isPending}
                   />
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-medium text-slate-700 dark:text-gray-300">PII Detection</label>
+                    <div className="relative inline-block">
+                      <select
+                        value={data?.piiMode ?? ds.piiMode ?? "block"}
+                        onChange={(e) => updateMutation.mutate({ piiMode: e.target.value as "off" | "warn" | "block" })}
+                        disabled={updateMutation.isPending}
+                        className="appearance-none bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-lg px-3 py-1.5 pr-8 text-sm text-slate-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-gray-600 disabled:opacity-50"
+                      >
+                        <option value="off">Off — no scanning</option>
+                        <option value="warn">Warn — scan, flag warnings, continue ingestion</option>
+                        <option value="block">Block — scan, halt ingestion if PII found</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-gray-500" />
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-gray-500">
+                      {(data?.piiMode ?? ds.piiMode) === "off"
+                        ? "Documents will be ingested without PII scanning."
+                        : (data?.piiMode ?? ds.piiMode) === "warn"
+                          ? "Documents with PII will be ingested with warnings attached."
+                          : "Documents with PII will require admin approval before ingestion."}
+                    </p>
+                  </div>
                 </div>
               )}
 
