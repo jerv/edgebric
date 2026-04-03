@@ -54,6 +54,9 @@ export type DataSourceStatus = "active" | "archived";
 
 export type DataSourceAccessMode = "all" | "restricted";
 
+/** PII detection mode for a data source. */
+export type PIIMode = "off" | "warn" | "block";
+
 export interface DataSource {
   id: string;
   name: string;
@@ -76,6 +79,8 @@ export interface DataSource {
   allowSourceViewing: boolean;
   /** Can this source's chunks be synced to member devices for Vault Mode? (default: true) */
   allowVaultSync: boolean;
+  /** PII detection mode: "off" skips scanning, "warn" scans but continues, "block" halts on PII. */
+  piiMode: PIIMode;
 
   /** True when the dataset is being rebuilt (populated by API, not stored). */
   rebuilding?: boolean;

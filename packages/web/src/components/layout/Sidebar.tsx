@@ -15,6 +15,7 @@ import {
   LogOut,
   MessageSquare,
   Activity,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/contexts/UserContext";
@@ -215,6 +216,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     enabled: isAdmin,
   });
 
+  // PII warning count for sidebar badge on Data Sources
+  const { data: piiSummary } = useQuery<{ summary: Record<string, number>; total: number }>({
+    queryKey: ["pii-summary"],
+    queryFn: () =>
+      fetch("/api/data-sources/pii-summary", { credentials: "same-origin" }).then((r) => {
+        if (!r.ok) return { summary: {}, total: 0 };
+        return r.json() as Promise<{ summary: Record<string, number>; total: number }>;
+      }),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
   const ServiceIcon = ({ className }: { className?: string }) => {
     const dotColor = !healthStatus
       ? "bg-gray-400"
@@ -231,8 +244,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     );
   };
 
+  const DataSourcesIcon = ({ className }: { className?: string }) => {
+    const hasPiiWarnings = (piiSummary?.total ?? 0) > 0;
+    return (
+      <div className={cn("relative", className)}>
+        <Database className="w-4 h-4" />
+        {hasPiiWarnings && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500 border border-white dark:border-gray-950" />
+        )}
+      </div>
+    );
+  };
+
   const adminNavItems: NavItem[] = [
-    { href: "/library", label: "Data Sources", icon: Database },
+    { href: "/library", label: "Data Sources", icon: DataSourcesIcon },
     { href: "/service", label: "Service", icon: ServiceIcon, adminOnly: true },
   ];
 

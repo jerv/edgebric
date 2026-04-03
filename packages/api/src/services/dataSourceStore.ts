@@ -1,4 +1,4 @@
-import type { DataSource, DataSourceType, DataSourceAccessMode } from "@edgebric/types";
+import type { DataSource, DataSourceType, DataSourceAccessMode, PIIMode } from "@edgebric/types";
 import { getDb } from "../db/index.js";
 import { dataSources, documents, dataSourceAccess } from "../db/schema.js";
 import { eq, and, sql } from "drizzle-orm";
@@ -16,6 +16,7 @@ function rowToDataSource(row: typeof dataSources.$inferSelect): DataSource {
     accessMode: (row.accessMode ?? "all") as DataSourceAccessMode,
     allowSourceViewing: row.allowSourceViewing !== 0,
     allowVaultSync: row.allowVaultSync !== 0,
+    piiMode: (row.piiMode ?? "block") as PIIMode,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
   };
@@ -32,6 +33,7 @@ export function createDataSource(opts: {
   ownerId: string;
   orgId?: string;
   datasetName?: string;
+  piiMode?: PIIMode;
 }): DataSource {
   const db = getDb();
   const id = randomUUID();
@@ -51,6 +53,7 @@ export function createDataSource(opts: {
       documentCount: 0,
       status: "active",
       accessMode: "all",
+      piiMode: opts.piiMode ?? "block",
       createdAt: now,
       updatedAt: now,
     })
@@ -153,6 +156,7 @@ export function updateDataSource(
     avatarUrl?: string;
     allowSourceViewing?: boolean;
     allowVaultSync?: boolean;
+    piiMode?: PIIMode;
   },
 ): DataSource | undefined {
   const db = getDb();
@@ -169,6 +173,7 @@ export function updateDataSource(
       ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       ...(data.allowSourceViewing !== undefined && { allowSourceViewing: data.allowSourceViewing ? 1 : 0 }),
       ...(data.allowVaultSync !== undefined && { allowVaultSync: data.allowVaultSync ? 1 : 0 }),
+      ...(data.piiMode !== undefined && { piiMode: data.piiMode }),
       updatedAt: now,
     })
     .where(eq(dataSources.id, id))
