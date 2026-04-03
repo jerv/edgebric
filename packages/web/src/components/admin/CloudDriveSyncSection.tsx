@@ -28,22 +28,8 @@ import {
   useSyncFolderSync,
   useUpdateFolderSync,
 } from "@/hooks/useCloudConnections";
+import { ProviderLogo } from "@/components/shared/ProviderLogos";
 import type { CloudFolder, CloudFolderSync } from "@edgebric/types";
-
-// ─── Brand Logos ─────────────────────────────────────────────────────────────
-
-function GoogleDriveLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/>
-      <path d="M43.65 25.15L29.9 1.35c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0-1.2 4.5h27.5l16.15-28z" fill="#00AC47"/>
-      <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75L86.1 57.7c.8-1.4 1.2-2.95 1.2-4.5H59.8l6.1 11.8 7.65 11.8z" fill="#EA4335"/>
-      <path d="M43.65 25.15L57.4 1.35a9.39 9.39 0 0 0-4.5-1.35H34.4c-1.6 0-3.15.45-4.5 1.35l13.75 23.8z" fill="#00832D"/>
-      <path d="M59.8 53.15h-32.3L13.75 76.95c1.35.8 2.9 1.25 4.5 1.25h22.5c1.6 0 3.15-.45 4.5-1.25l14.55-23.8z" fill="#2684FC"/>
-      <path d="M73.4 26.5l-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25.15l16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/>
-    </svg>
-  );
-}
 
 // ─── Folder Picker Dialog ────────────────────────────────────────────────────
 
@@ -151,7 +137,7 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-gray-800">
-      <GoogleDriveLogo className="w-4 h-4 flex-shrink-0" />
+      <ProviderLogo provider="google_drive" className="w-4 h-4 flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-900 dark:text-gray-100 truncate">
@@ -304,7 +290,7 @@ export function CloudDriveSyncSection({ dataSourceId }: { dataSourceId: string }
           }}
           className="flex items-center gap-2 w-full px-4 py-3 rounded-xl border border-dashed border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors text-left"
         >
-          <GoogleDriveLogo className="w-4 h-4 flex-shrink-0" />
+          <ProviderLogo provider="google_drive" className="w-4 h-4 flex-shrink-0" />
           <span className="text-sm text-slate-600 dark:text-gray-400">
             Sync a Google Drive folder
           </span>
@@ -315,7 +301,7 @@ export function CloudDriveSyncSection({ dataSourceId }: { dataSourceId: string }
           disabled={connectMutation.isPending}
           className="flex items-center gap-2 w-full px-4 py-3 rounded-xl border border-dashed border-slate-200 dark:border-gray-800 hover:border-slate-300 dark:hover:border-gray-700 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors text-left"
         >
-          <GoogleDriveLogo className="w-4 h-4 flex-shrink-0" />
+          <ProviderLogo provider="google_drive" className="w-4 h-4 flex-shrink-0" />
           <span className="text-sm text-slate-600 dark:text-gray-400">
             {connectMutation.isPending ? "Connecting..." : "Connect Google Drive to sync files"}
           </span>
