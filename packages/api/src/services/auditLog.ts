@@ -71,7 +71,8 @@ export type AuditEventType =
   | "api.source_delete"
   | "api.key_created"
   | "api.key_revoked"
-  | "api.auth_failure";
+  | "api.auth_failure"
+  | "tool.execute";
 
 interface AuditEntry {
   id: string;

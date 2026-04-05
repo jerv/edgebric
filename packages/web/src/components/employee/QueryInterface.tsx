@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Wrench, ChevronRight } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -37,6 +37,8 @@ interface Message {
   meshNodesSearched?: number;
   /** Number of mesh nodes that were unreachable. */
   meshNodesUnavailable?: number;
+  /** Tool uses during this query (only when model has tool use capability). */
+  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
 }
 
 
@@ -88,6 +90,65 @@ function ThinkingIndicator({ queuePosition }: { queuePosition?: number | null })
         >
           {THINKING_WORDS[index]}
         </span>
+      )}
+    </div>
+  );
+}
+
+// ─── Tool Use Panel ─────────────────────────────────────────────────────────
+
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  search_knowledge: "Search Knowledge",
+  list_sources: "List Sources",
+  list_documents: "List Documents",
+  get_source_summary: "Source Summary",
+  create_source: "Create Source",
+  upload_document: "Upload Document",
+  delete_document: "Delete Document",
+  delete_source: "Delete Source",
+  save_to_vault: "Save to Vault",
+  compare_documents: "Compare Documents",
+  cite_check: "Verify Claim",
+  find_related: "Find Related",
+  web_search: "Web Search",
+  read_url: "Read URL",
+};
+
+function ToolUsePanel({ toolUses }: { toolUses: Message["toolUses"] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!toolUses || toolUses.length === 0) return null;
+
+  return (
+    <div className="mt-2 mb-1">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <Wrench className="h-3 w-3" />
+        <span>
+          Used {toolUses.length} {toolUses.length === 1 ? "tool" : "tools"}:{" "}
+          {toolUses.map((t) => TOOL_DISPLAY_NAMES[t.name] ?? t.name).join(", ")}
+        </span>
+        <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
+      </button>
+      {expanded && (
+        <div className="mt-1.5 space-y-1.5 pl-4 border-l-2 border-muted">
+          {toolUses.map((tu, i) => (
+            <div key={i} className="text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  tu.result.success ? "bg-emerald-500" : "bg-red-500",
+                )} />
+                <span className="font-medium text-foreground">
+                  {TOOL_DISPLAY_NAMES[tu.name] ?? tu.name}
+                </span>
+                <span className="text-muted-foreground">→ {tu.result.summary}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -723,6 +784,23 @@ export function ChatPanel() {
                 setQueuePosition(parsed.position as number);
                 continue;
               }
+              if ("tool" in parsed && "summary" in parsed) {
+                // Tool use event — model is calling a tool
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "assistant") {
+                    const toolUses = [...(last.toolUses ?? []), {
+                      name: parsed.tool as string,
+                      arguments: {},
+                      result: { success: parsed.success as boolean, summary: parsed.summary as string },
+                    }];
+                    updated[updated.length - 1] = { ...last, toolUses };
+                  }
+                  return updated;
+                });
+                continue;
+              }
               if ("delta" in parsed) {
                 setQueuePosition(null); // First token arrived — no longer queued
                 setMessages((prev) => {
@@ -772,6 +850,7 @@ export function ChatPanel() {
                       retrievalScore: parsed.retrievalScore,
                       meshNodesSearched: parsed.meshNodesSearched,
                       meshNodesUnavailable: parsed.meshNodesUnavailable,
+                      toolUses: parsed.toolUses ?? last.toolUses,
                       isStreaming: false,
                     };
                   }
@@ -1027,6 +1106,11 @@ export function ChatPanel() {
                       </>
                     )}
                   </div>
+
+                  {/* Tool use transparency */}
+                  {!message.isStreaming && message.toolUses && message.toolUses.length > 0 && (
+                    <ToolUsePanel toolUses={message.toolUses} />
+                  )}
 
                   {/* Citations */}
                   {!message.isStreaming && (

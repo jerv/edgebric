@@ -1,5 +1,42 @@
 # Worklog
 
+## 2026-04-04 — agent/local-tools (Tools agent)
+
+### Added local model tool use framework with 14 tools + web search/read
+
+**Problem:** Local models had no way to autonomously search knowledge, browse the web, or manage documents. All RAG was a fixed pipeline: search → context → generate. Models with tool-calling capability couldn't use it.
+
+**Architecture:**
+- **Tool runner framework** (`toolRunner.ts`): Tool interface with name/description/parameters (JSON schema), registry (register/list/get), lightweight arg validation, execution with audit logging, and OpenAI-compatible tool definition builder for llama-server.
+- **Capability-gated**: Tool use only activates when the loaded model has `toolUse: true` in its catalog capabilities. Models without tool support use the existing RAG pipeline unchanged.
+- **Multi-turn loop**: Model can call up to 5 rounds of tools before producing a final answer. Each round: model responds with `tool_calls` → tools execute → results fed back as `tool` role messages.
+
+**Changes:**
+- `packages/api/src/services/toolRunner.ts` — Tool interface, registry, validation, execution with audit logging, `buildToolDefinitions()` for OpenAI-compatible format, `parseToolCalls()` for response parsing.
+- `packages/api/src/services/tools/knowledge.ts` — 12 knowledge tools: `search_knowledge` (hybrid BM25+vector), `list_sources`, `list_documents`, `get_source_summary`, `create_source`, `upload_document`, `delete_document`, `delete_source`, `save_to_vault`, `compare_documents`, `cite_check`, `find_related`. All respect data source access control.
+- `packages/api/src/services/tools/web.ts` — 2 web tools: `web_search` (DuckDuckGo HTML API, no key needed), `read_url` (fetch + HTML-to-text extraction, 10KB limit). Includes HTML parser and DuckDuckGo result parser.
+- `packages/api/src/services/tools/index.ts` — Tool registration entry point.
+- `packages/api/src/services/chatClient.ts` — Added `chatWithTools()` method: non-streaming chat completion with tool definitions for the tool-calling loop. Existing `chatStream()` unchanged.
+- `packages/api/src/routes/query.ts` — Added tool use branch in standard mode: checks `isToolUseEnabled()` via MODEL_CATALOG_MAP, builds tool messages from conversation history with system prompt, runs `runToolLoop()`, streams final answer with `tool_use` SSE events for transparency. Falls through to existing RAG pipeline when tools disabled.
+- `packages/api/src/services/auditLog.ts` — Added `tool.execute` audit event type.
+- `shared/types/src/index.ts` — Added `toolUses` field to `AnswerResponse` interface.
+- `packages/web/src/components/employee/QueryInterface.tsx` — Added `ToolUsePanel` component: collapsible section showing which tools were called with success/failure indicators and result summaries. Handles `tool_use` SSE events during streaming. Collapsed by default.
+
+**Tests (56 new):**
+- `toolRunner.test.ts` — 20 tests: registration (CRUD, overwrite, clear), execution (success, unknown tool, missing params, type validation for string/number/boolean/array, error handling, context passing, extra params), tool definitions (OpenAI format, empty), parseToolCalls (valid, empty, malformed JSON, multiple).
+- `knowledgeTools.test.ts` — 20 tests: registration (all 12 tools), list_sources (admin access), list_documents (success, not found, access denied), get_source_summary, create_source (success, missing params), delete_source (admin only, non-admin denied, not found), compare_documents (section diff, missing docs), upload_document/save_to_vault/search_knowledge/cite_check/find_related/delete_document (validation).
+- `webTools.test.ts` — 16 tests: htmlToText (tags, scripts, entities, br, whitespace, empty, noscript), parseDuckDuckGoResults (uddg redirect, direct URL, empty, limit 8), registration, read_url (invalid URL, missing param), web_search (missing param).
+
+**What's NOT changed:**
+- Agent API endpoints (agents still call tools via HTTP)
+- Model management, auth, mesh, desktop app
+- PII detection pipeline
+- Existing RAG pipeline (unchanged when model lacks tool use capability)
+
+**Result:** 747/747 tests pass (91 core + 656 api, including 56 new). Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-04 — agent/model-capabilities (Model capabilities agent)
 
 ### Added model capability detection, Qwen 3.5 catalog, capability badges
