@@ -471,6 +471,32 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_api_keys_org_id ON api_keys(org_id);
   `);
 
+  // Webhooks table (agent API webhook registrations)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      events TEXT NOT NULL DEFAULT '[]',
+      org_id TEXT NOT NULL,
+      api_key_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_webhooks_org_id ON webhooks(org_id);
+    CREATE INDEX IF NOT EXISTS idx_webhooks_api_key_id ON webhooks(api_key_id);
+  `);
+
+  // Source summaries (cached AI-generated summaries)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS source_summaries (
+      data_source_id TEXT PRIMARY KEY,
+      summary TEXT NOT NULL,
+      top_topics TEXT NOT NULL DEFAULT '[]',
+      document_count INTEGER NOT NULL DEFAULT 0,
+      generated_at TEXT NOT NULL,
+      source_updated_at TEXT NOT NULL
+    );
+  `);
+
   // FTS5 full-text search index for hybrid BM25+vector retrieval
   sqlite.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(

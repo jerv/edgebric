@@ -16,6 +16,31 @@ const tagSchema = z.object({
 
 export const modelsRouter: IRouter = Router();
 
+// ─── GET /api/admin/models/capabilities ─────────────────────────────────────
+// Returns the current model's capabilities. This is a stub — needs to be
+// wired to real model capability detection (e.g., from GGUF metadata or
+// a known-models lookup table).
+// This endpoint does NOT require admin — any authenticated user can check.
+
+import { requireOrg } from "../middleware/auth.js";
+
+const capabilitiesRouter: IRouter = Router();
+capabilitiesRouter.use(requireOrg);
+
+capabilitiesRouter.get("/capabilities", (_req, res) => {
+  // Stub: returns conservative defaults. A future agent should wire this
+  // to actual model metadata (GGUF tags, llama-server /props, or catalog lookup).
+  res.json({
+    vision: false,
+    toolUse: false,
+    reasoning: false,
+    activeModel: runtimeChatConfig.model || null,
+  });
+});
+
+// Export for mounting at /api/admin/models/capabilities (see app.ts)
+export { capabilitiesRouter };
+
 modelsRouter.use(requireAdmin);
 
 // Track in-progress pull so UI can show download state
