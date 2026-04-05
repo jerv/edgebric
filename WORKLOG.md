@@ -1,5 +1,41 @@
 # Worklog
 
+## 2026-04-04 — agent/agent-enhancements (Enhancements agent)
+
+### Added agent API enhancements: /ask, source summaries, webhooks, file upload, tool use
+
+**Problem:** The agent API had search and query endpoints but lacked simpler integration options, event callbacks, and file upload support for the chat interface.
+
+**New agent API endpoints:**
+- `packages/api/src/routes/agentApi.ts` — `POST /api/v1/ask`: simplified one-field question answering that auto-selects all accessible sources. Returns `{ answer, citations, sourcesSearched }`. Easiest possible integration — one endpoint, one field.
+- `packages/api/src/routes/agentApi.ts` — `GET /api/v1/sources/:id/summary`: AI-generated summary with top topics. Calls local LLM with sampled chunks as context. Response cached in DB, regenerated when source's `updatedAt` changes.
+- `packages/api/src/routes/agentApi.ts` — `POST /api/v1/webhooks` + `DELETE /api/v1/webhooks/:id` + `GET /api/v1/webhooks`: register/delete/list webhook URLs for ingestion event callbacks (`ingestion.complete`, `ingestion.failed`).
+
+**Webhook system:**
+- `packages/api/src/db/schema.ts` — Added `webhooks` and `sourceSummaries` tables
+- `packages/api/src/db/index.ts` — Added CREATE TABLE + indexes for both new tables
+- `packages/api/src/services/webhookStore.ts` — CRUD, event filtering, async fire with 10s timeout. Uses `Promise.allSettled` for graceful multi-webhook delivery.
+- `packages/api/src/services/sourceSummaryStore.ts` — Cache layer for AI-generated summaries with staleness detection via `sourceUpdatedAt` snapshot.
+- `packages/api/src/jobs/ingestDocument.ts` — Fires webhooks after status changes to "ready" (ingestion.complete) or "failed" (ingestion.failed). Payload includes documentId, documentName, sourceId, sourceName.
+
+**Chat file/image upload:**
+- `packages/api/src/routes/query.ts` — `POST /api/query/with-file`: multipart form data endpoint. Images → base64 for vision models. Documents (PDF, DOCX, TXT, MD) → text extraction via existing extractors, truncated to ~8K chars, included as inline context.
+- `packages/web/src/components/employee/QueryInterface.tsx` — Paperclip button next to chat input. Fetches model capabilities on mount. Shows image upload only if vision: true. Inline preview for images, filename+badge for documents. Clears attachment after send.
+- `packages/web/src/components/shared/ChatInput.tsx` — No changes needed (file button is external).
+
+**Model capabilities:**
+- `packages/api/src/routes/models.ts` — Added `capabilitiesRouter` with `GET /capabilities` stub (returns `{ vision: false, toolUse: false, reasoning: false }`). Non-admin accessible. Needs future wiring to real model metadata (GGUF tags, llama-server /props, or catalog lookup).
+- `packages/api/src/app.ts` — Mounted `capabilitiesRouter` before admin-only `modelsRouter` at `/api/admin/models`
+
+**Local tool use (prepared, not yet active):**
+- `packages/api/src/services/localToolUse.ts` — Tool definitions (`search_knowledge`, `list_sources`), execution engine, system prompt builder. Only activates when model capability `toolUse: true` (currently always false from stub).
+
+**Tests:** `packages/api/src/__tests__/agentEnhancements.test.ts` — 36 tests covering: webhook store CRUD (create, get, list, delete, event filtering, invalid events), source summary store (upsert, update, missing), webhook API endpoints (create with permissions, invalid URL/events, list, delete, 404), /ask endpoint (validation, inference unavailable), source summary endpoint (cached, empty, 404), model capabilities (admin and non-admin), file upload (missing query/file, unsupported type, text/markdown/image processing), discover endpoint updates, source-scoped webhook access.
+
+**Result:** 727/727 tests pass (91 core + 636 api, 36 new). Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-03 — agent/pii-settings (PII agent)
 
 ### Added per-source PII detection mode (off/warn/block)
