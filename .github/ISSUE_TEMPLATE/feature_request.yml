@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe what you'd like and why.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the feature you'd like.
+      placeholder: What should Edgebric do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: How would you use this feature? What problem does it solve?
+      placeholder: I need this because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you found a workaround, or considered other approaches?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Edgebric does this relate to?
+      options:
+        - Document ingestion
+        - Search & querying
+        - Group chats
+        - Mesh networking
+        - Cloud sync / integrations
+        - Authentication
+        - Admin dashboard
+        - Desktop app
+        - Privacy modes
+        - API
+        - Models
+        - Other
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who would benefit?
+      options:
+        - Individual users
+        - Teams / organizations
+        - Developers / API users
+        - AI agents
+        - Everyone
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Mockups, examples, links, or anything else that helps explain the idea.

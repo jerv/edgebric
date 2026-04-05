@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-04-04 — agent/docs-site (Docs agent)
+
+### Scaffolded VitePress documentation site with full content
+
+VitePress site with dark mode, local search, 21 docs covering guide, API reference, admin, and contributing. CONTRIBUTING.md, GitHub Actions deploy workflow, issue templates.
+
+---
+
 ## 2026-04-04 — agent/local-tools (Tools agent)
 
 ### Added local model tool use framework with 14 tools + web search/read
