@@ -1,7 +1,5 @@
 # Edgebric
 
-> **v0.9 Beta** — Edgebric is in public beta. It's functional and actively developed, but expect rough edges. [Report bugs](https://github.com/jerv/edgebric/issues) and help us get to v1.0.
-
 **Private knowledge platform that runs on your hardware.** Upload documents, ask questions with AI, and get cited answers — nothing leaves your machine. Ever.
 
 Whether you're organizing family documents, managing client files, building a personal research library, or running a 200-person company with department-level data isolation — Edgebric runs locally on a Mac and scales from one user to hundreds.
