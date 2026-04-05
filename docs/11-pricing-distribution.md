@@ -65,85 +65,18 @@ The name "Edgebric" and associated logos are trademarks. Forks must use a differ
 
 ## Revenue Model
 
-### Pay-What-You-Want Download
+- **Pay-what-you-want download** — convenience installer for non-technical users ($5 minimum, $50 recommended)
+- **GitHub Sponsors** — recurring donations
+- Source code always available free on GitHub
+- Not a paywall — technical users build from source
 
-The marketing website offers a paid download for non-technical users who want a simple, normal install experience. Technical users can always build from source for free.
+## Support
 
-- **Minimum:** $5
-- **Recommended (anchored):** $50
-- **Preset buttons:** $30 | $50 (recommended) | $100 | Custom amount
-- **Payment processor:** Stripe Checkout (no monthly fee, ~2.9% + $0.30 per transaction)
+- **Contact:** support@edgebric.com
+- Community-supported software. Bug reports welcome on GitHub. No SLA or guaranteed response times.
+- Enterprise support contracts available on request.
 
-This is a convenience/support fee, not a paywall. The source code and GitHub Releases are public. The pay-what-you-want model captures value from non-technical users who prefer a guided download experience, and from supporters who want to fund development.
-
-### Post-Purchase UX
-
-1. User clicks "Download" on marketing site
-2. Stripe Checkout opens with pay-what-you-want (preset at $50)
-3. Payment completes -> redirect to thank-you page with download link
-4. Stripe receipt email also includes the download link
-5. Download link points to latest GitHub Release (.dmg)
-
-### Re-Download Flow
-
-For users who need to download again after purchase:
-
-1. User visits "Already purchased?" page on marketing site
-2. Enters the email they used at checkout
-3. Serverless function queries Stripe API for matching customer
-4. **Match found:** shows download link for latest release
-5. **No match:** friendly message suggesting they check the email address or contact support
-6. Rate-limited at 3 requests per IP per hour
-
-### Enterprise Support Contracts
-
-- Available on request via support@edgebric.com
-- No published pricing — negotiated per engagement
-- For organizations that want guaranteed response times or deployment assistance
-- Not expected to be a significant revenue stream — exists as an option
-
-## Email
-
-- **support@edgebric.com** — public-facing contact
-- Cloudflare Email Routing forwards to edgebric@gmail.com
-- Gmail "Send as" configured so replies come from support@edgebric.com
-- Cost: $0
-
-## Support Policy
-
-> Community-supported software. Bug reports welcome on GitHub. No SLA or guaranteed response times.
-
-This messaging appears on:
-- The marketing website download page
-- The GitHub README
-- The Stripe receipt / thank-you page
-
-For organizations needing guaranteed support, the enterprise support contracts option is available.
-
-## Overhead
-
-| Item | Cost/year |
-|---|---|
-| Domain (edgebric.com) | $12 |
-| Apple Developer Program | $99 |
-| Stripe fees (per transaction) | ~2.9% + $0.30 |
-| Email (Cloudflare routing) | $0 |
-| Site hosting (Vercel/Netlify free tier) | $0 |
-| DMG hosting (GitHub Releases) | $0 |
-| Update infrastructure (GitHub Releases) | $0 |
-| **Total fixed overhead** | **~$111/year** |
-
-## Break-Even
-
-At the $15 minimum (conservative — most sales will be minimum):
-- Net per sale after Stripe: ~$14.07
-- **8 sales/year to break even** on $111 fixed cost
-
-At $50 recommended:
-- Net per sale after Stripe: ~$48.25
-- **3 sales/year to break even**
-
-## Hardware Requirements (Published to Users)
+## Hardware Requirements
 
 ### Minimum (Personal Use)
 
@@ -196,7 +129,7 @@ At $50 recommended:
 - [ ] Marketing site live (static, Vercel/Netlify)
 - [ ] Stripe Checkout configured (pay-what-you-want, $5 min, $50 default)
 - [ ] Re-download email lookup serverless function deployed
-- [x] Cloudflare email routing configured (support@edgebric.com -> edgebric@gmail.com)
+- [x] Cloudflare email routing configured (support@edgebric.com -> personal email)
 - [x] GitHub Sponsors enrolled
 - [x] CLA + CLA Assistant bot configured
 - [ ] Gmail "Send as" configured for support@edgebric.com
