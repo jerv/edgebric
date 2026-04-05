@@ -3,14 +3,23 @@
 export type ModelStatus = "not_installed" | "installed" | "loaded" | "downloading";
 export type ModelTier = "recommended" | "supported" | "community";
 
+export interface ModelCapabilities {
+  /** Can analyze images and screenshots */
+  vision: boolean;
+  /** Can use tools like search and file management */
+  toolUse: boolean;
+  /** Enhanced step-by-step reasoning */
+  reasoning: boolean;
+}
+
 export interface ModelCatalogEntry {
-  /** Unique model tag (e.g., "qwen3-4b") — used as identifier */
+  /** Unique model tag (e.g., "qwen3.5-4b") — used as identifier */
   tag: string;
-  /** GGUF filename on disk (e.g., "Qwen3-4B-Q4_K_M.gguf") */
+  /** GGUF filename on disk (e.g., "Qwen3.5-4B-Q4_K_M.gguf") */
   ggufFilename: string;
   /** HuggingFace download URL for the GGUF file */
   downloadUrl: string;
-  /** Display name (e.g., "Qwen 3 4B") */
+  /** Display name (e.g., "Qwen 3.5 4B") */
   name: string;
   /** Model family / vendor (e.g., "Qwen", "Meta", "Microsoft", "Google") */
   family: string;
@@ -30,6 +39,10 @@ export interface ModelCatalogEntry {
   minRAMGB: number;
   /** If true, model is auto-installed and hidden from user (e.g., embedding models) */
   hidden?: boolean;
+  /** Model capabilities (vision, tool use, reasoning) */
+  capabilities: ModelCapabilities;
+  /** Link to the model's HuggingFace page */
+  huggingFaceUrl: string;
 }
 
 export interface InstalledModel {
@@ -49,6 +62,8 @@ export interface InstalledModel {
   ramUsageBytes?: number | undefined;
   /** Matched catalog entry, if any (undefined for community models) */
   catalogEntry?: ModelCatalogEntry | undefined;
+  /** Model capabilities (from catalog match or inferred from HuggingFace tags) */
+  capabilities?: ModelCapabilities | undefined;
 }
 
 export interface SystemResources {
@@ -91,48 +106,70 @@ export interface PullProgressEvent {
 export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   // ── Recommended (curated, tested with Edgebric) ──
   {
-    tag: "qwen3-4b",
-    ggufFilename: "Qwen3-4B-Q4_K_M.gguf",
-    downloadUrl: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
-    name: "Qwen 3 4B",
+    tag: "qwen3.5-4b",
+    ggufFilename: "Qwen3.5-4B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf",
+    name: "Qwen 3.5 4B",
     family: "Qwen",
-    description: "Best overall for most hardware. Fast, accurate, 256K context.",
+    description: "Best overall for most hardware. Vision + tool use, 256K context.",
     paramCount: "4B",
     downloadSizeGB: 2.7,
     ramUsageGB: 5.5,
     origin: "Alibaba",
     tier: "recommended",
     minRAMGB: 8,
+    capabilities: { vision: true, toolUse: true, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-4B",
   },
   {
-    tag: "qwen3-8b",
-    ggufFilename: "Qwen3-8B-Q4_K_M.gguf",
-    downloadUrl: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
-    name: "Qwen 3 8B",
+    tag: "qwen3.5-9b",
+    ggufFilename: "Qwen3.5-9B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+    name: "Qwen 3.5 9B",
     family: "Qwen",
-    description: "Stronger reasoning and analysis. Best for 16GB machines.",
-    paramCount: "8B",
+    description: "Stronger reasoning and analysis. Vision + tool use. Best for 16GB machines.",
+    paramCount: "9B",
+    downloadSizeGB: 5.9,
+    ramUsageGB: 9.5,
+    origin: "Alibaba",
+    tier: "recommended",
+    minRAMGB: 16,
+    capabilities: { vision: true, toolUse: true, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-9B",
+  },
+  {
+    tag: "qwen3.5-35b-a3b",
+    ggufFilename: "Qwen3.5-35B-A3B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf",
+    name: "Qwen 3.5 35B-A3B MoE",
+    family: "Qwen",
+    description: "35B params, only 3B active. Thinks like a big model, runs like a small one. Vision + tool use.",
+    paramCount: "35B (3B active)",
     downloadSizeGB: 5.5,
     ramUsageGB: 9,
     origin: "Alibaba",
     tier: "recommended",
     minRAMGB: 16,
-  },
-  {
-    tag: "qwen3-14b",
-    ggufFilename: "Qwen3-14B-Q4_K_M.gguf",
-    downloadUrl: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
-    name: "Qwen 3 14B",
-    family: "Qwen",
-    description: "Highest quality answers. Needs 32GB RAM.",
-    paramCount: "14B",
-    downloadSizeGB: 9.5,
-    ramUsageGB: 15,
-    origin: "Alibaba",
-    tier: "recommended",
-    minRAMGB: 32,
+    capabilities: { vision: true, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-35B-A3B",
   },
   // ── Supported (alternatives, known to work) ──
+  {
+    tag: "qwen3.5-27b",
+    ggufFilename: "Qwen3.5-27B-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf",
+    name: "Qwen 3.5 27B",
+    family: "Qwen",
+    description: "Highest quality dense model. Vision + tool use. For 32GB machines.",
+    paramCount: "27B",
+    downloadSizeGB: 16.5,
+    ramUsageGB: 22,
+    origin: "Alibaba",
+    tier: "supported",
+    minRAMGB: 32,
+    capabilities: { vision: true, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-27B",
+  },
   {
     tag: "phi4-mini",
     ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf",
@@ -146,6 +183,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     origin: "Microsoft",
     tier: "supported",
     minRAMGB: 8,
+    capabilities: { vision: false, toolUse: true, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-mini-instruct",
   },
   {
     tag: "gemma3-4b",
@@ -160,6 +199,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     origin: "Google",
     tier: "supported",
     minRAMGB: 8,
+    capabilities: { vision: true, toolUse: false, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/google/gemma-3-4b-it",
   },
   {
     tag: "gemma3-12b",
@@ -174,6 +215,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     origin: "Google",
     tier: "supported",
     minRAMGB: 16,
+    capabilities: { vision: true, toolUse: false, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/google/gemma-3-12b-it",
   },
   // ── Hidden infrastructure ──
   {
@@ -190,6 +233,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     tier: "recommended",
     minRAMGB: 4,
     hidden: true,
+    capabilities: { vision: false, toolUse: false, reasoning: false },
+    huggingFaceUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
   },
 ];
 
@@ -205,9 +250,25 @@ export const MODEL_FILENAME_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Ma
 
 /** Returns the recommended model tag based on available RAM (in GB). */
 export function getRecommendedModelTag(ramGB: number): string {
-  if (ramGB < 12) return "qwen3-4b";
-  if (ramGB < 24) return "qwen3-8b";
-  return "qwen3-14b";
+  if (ramGB < 12) return "qwen3.5-4b";
+  if (ramGB < 24) return "qwen3.5-35b-a3b"; // MoE: 35B quality with only 3B active params
+  return "qwen3.5-27b";
+}
+
+/**
+ * Infer model capabilities from HuggingFace tags.
+ * Used for community models discovered via search.
+ */
+export function inferCapabilitiesFromTags(tags: string[], modelId: string): ModelCapabilities {
+  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+  const id = modelId.toLowerCase();
+
+  const vision = tagSet.has("image-text-to-text") || tagSet.has("vision");
+  const toolUse = tagSet.has("tool-use") || tagSet.has("function-calling")
+    || /qwen3\.5|llama-3\.[1-9]|mistral/.test(id);
+  const reasoning = tagSet.has("reasoning") || /\breasonin/.test(id);
+
+  return { vision, toolUse, reasoning };
 }
 
 /** User-visible catalog (excludes hidden models like embedding). */

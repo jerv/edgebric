@@ -44,10 +44,10 @@ test.describe("Model Management", () => {
     expect(typeof body.activeModel).toBe("string");
   });
 
-  test("catalog contains recommended model (qwen3-4b)", async ({ request }) => {
+  test("catalog contains recommended model (qwen3.5-4b)", async ({ request }) => {
     const res = await request.get("/api/admin/models");
     const body = await res.json();
-    const qwen = body.catalog.find((m: { tag: string }) => m.tag === "qwen3-4b");
+    const qwen = body.catalog.find((m: { tag: string }) => m.tag === "qwen3.5-4b");
     expect(qwen).toBeDefined();
     expect(qwen.tier).toBe("recommended");
     expect(qwen.family).toBeTruthy();
@@ -63,16 +63,16 @@ test.describe("Model Management", () => {
 
   test("set active model endpoint works", async ({ request }) => {
     const res = await request.put("/api/admin/models/active", {
-      data: { tag: "qwen3-4b" },
+      data: { tag: "qwen3.5-4b" },
     });
     expect(res.ok()).toBe(true);
     const body = await res.json();
-    expect(body.activeModel).toBe("qwen3-4b");
+    expect(body.activeModel).toBe("qwen3.5-4b");
   });
 
   test("pull model returns SSE stream (will error since inference server unreachable)", async ({ request }) => {
     const res = await request.post("/api/admin/models/pull", {
-      data: { tag: "qwen3-4b" },
+      data: { tag: "qwen3.5-4b" },
     });
     // Should get SSE stream with error event since inference server is down
     const contentType = res.headers()["content-type"] ?? "";
@@ -85,7 +85,7 @@ test.describe("Model Management", () => {
 
   test("load model fails gracefully when inference server unreachable", async ({ request }) => {
     const res = await request.post("/api/admin/models/load", {
-      data: { tag: "qwen3-4b" },
+      data: { tag: "qwen3.5-4b" },
     });
     // Should fail since inference server is unreachable
     expect(res.ok()).toBe(false);
@@ -93,13 +93,13 @@ test.describe("Model Management", () => {
 
   test("unload model fails gracefully when inference server unreachable", async ({ request }) => {
     const res = await request.post("/api/admin/models/unload", {
-      data: { tag: "qwen3-4b" },
+      data: { tag: "qwen3.5-4b" },
     });
     expect(res.ok()).toBe(false);
   });
 
   test("delete model fails gracefully when inference server unreachable", async ({ request }) => {
-    const res = await request.delete("/api/admin/models/qwen3-4b");
+    const res = await request.delete("/api/admin/models/qwen3.5-4b");
     expect(res.ok()).toBe(false);
   });
 });

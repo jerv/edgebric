@@ -7,7 +7,7 @@ import { requireAdmin } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import * as inference from "../services/inferenceClient.js";
 import { OFFICIAL_CATALOG, EMBEDDING_MODEL_TAG, getVisibleCatalog, MODEL_CATALOG_MAP, checkModelRAMFit } from "@edgebric/types";
-import type { InstalledModel, ModelsResponse } from "@edgebric/types";
+import type { InstalledModel, ModelsResponse, ModelCapabilities } from "@edgebric/types";
 import { saveLastModel, clearLastModel } from "../services/modelPersistence.js";
 
 const tagSchema = z.object({
@@ -46,14 +46,16 @@ modelsRouter.get("/", async (_req, res) => {
       inference.listRunning(),
     ]);
 
-    // Merge installed list with running status
+    // Merge installed list with running status + capabilities
     const models: InstalledModel[] = installed.map((m) => {
       const runInfo = running.get(m.tag);
       const isDownloading = activePulls.has(m.tag);
+      const catalogEntry = MODEL_CATALOG_MAP.get(m.tag);
       return {
         ...m,
         status: isDownloading ? "downloading" as const : runInfo ? "loaded" as const : "installed" as const,
         ramUsageBytes: runInfo?.ramUsageBytes,
+        capabilities: catalogEntry?.capabilities,
       };
     });
 
@@ -288,7 +290,17 @@ modelsRouter.post("/unload", validateBody(tagSchema), async (req, res) => {
   }
 });
 
-// ─── PUT /api/admin/models/active ────────────────────────────────────────────
+// ─── GET /api/admin/models/active/capabilities ──────────────────────────────
+// Returns the active model's capabilities (for UI feature gating).
+
+modelsRouter.get("/active/capabilities", (_req, res) => {
+  const tag = runtimeChatConfig.model;
+  const catalogEntry = MODEL_CATALOG_MAP.get(tag);
+  const capabilities: ModelCapabilities = catalogEntry?.capabilities ?? { vision: false, toolUse: false, reasoning: false };
+  res.json({ tag, capabilities });
+});
+
+// ─── PUT /api/admin/models/active ──────��────────────────────��────────────────
 // Set the active (default) chat model. Does NOT load it into RAM — just sets
 // which model to use for queries.
 

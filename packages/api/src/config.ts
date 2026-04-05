@@ -83,7 +83,7 @@ export const config = {
   chat: {
     baseUrl: process.env["CHAT_BASE_URL"] ?? `${process.env["INFERENCE_CHAT_URL"] ?? "http://localhost:8080"}/v1`,
     apiKey: process.env["CHAT_API_KEY"] ?? "no-key",
-    model: process.env["CHAT_MODEL"] ?? "qwen3-4b",
+    model: process.env["CHAT_MODEL"] ?? "qwen3.5-4b",
   },
 };
 

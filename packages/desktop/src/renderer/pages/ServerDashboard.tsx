@@ -77,6 +77,12 @@ const AUTH_PROVIDER_OPTIONS: AuthProviderDef[] = [
   { id: "generic", name: "Custom OIDC Provider", defaultIssuer: "", issuerHint: "https://your-provider.com", clientIdHint: "", icon: <OidcIcon /> },
 ];
 
+interface ModelCapabilities {
+  vision: boolean;
+  toolUse: boolean;
+  reasoning: boolean;
+}
+
 interface CatalogEntry {
   tag: string;
   name: string;
@@ -89,6 +95,8 @@ interface CatalogEntry {
   tier: string;
   minRAMGB: number;
   hidden?: boolean;
+  capabilities?: ModelCapabilities;
+  huggingFaceUrl?: string;
 }
 
 interface InstalledModel {
@@ -100,6 +108,7 @@ interface InstalledModel {
   status: ModelStatus;
   ramUsageBytes?: number;
   catalogEntry?: CatalogEntry;
+  capabilities?: ModelCapabilities;
 }
 
 interface SystemResources {
@@ -129,6 +138,9 @@ interface ModelsData {
 interface RegistryModel {
   name: string;
   description: string;
+  tags?: string[];
+  huggingFaceUrl?: string;
+  capabilities?: ModelCapabilities;
 }
 
 const STATUS_CONFIG: Record<ServerStatus, { label: string; dot: string }> = {
@@ -150,6 +162,40 @@ function formatBytes(bytes: number): string {
 
 function formatGB(bytes: number): string {
   return `${(bytes / (1024 ** 3)).toFixed(1)} GB`;
+}
+
+function CapabilityBadges({ capabilities, huggingFaceUrl }: { capabilities?: ModelCapabilities; huggingFaceUrl?: string }) {
+  if (!capabilities) return null;
+  const badges: JSX.Element[] = [];
+  if (capabilities.vision) {
+    badges.push(
+      <span key="vision" className="model-badge" title="Can analyze images and screenshots" style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", marginLeft: 4, cursor: "default" }}>
+        <span aria-hidden>&#x1f441;</span> Vision
+      </span>
+    );
+  }
+  if (capabilities.toolUse) {
+    badges.push(
+      <span key="tools" className="model-badge" title="Can use tools like search and file management" style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", marginLeft: 4, cursor: "default" }}>
+        <span aria-hidden>&#x1f527;</span> Tools
+      </span>
+    );
+  }
+  if (capabilities.reasoning) {
+    badges.push(
+      <span key="reasoning" className="model-badge" title="Enhanced step-by-step reasoning" style={{ background: "#faf5ff", color: "#9333ea", border: "1px solid #e9d5ff", marginLeft: 4, cursor: "default" }}>
+        <span aria-hidden>&#x1f9e0;</span> Reasoning
+      </span>
+    );
+  }
+  if (huggingFaceUrl) {
+    badges.push(
+      <a key="hf" href={huggingFaceUrl} target="_blank" rel="noopener noreferrer" title="View on HuggingFace" className="model-badge" style={{ background: "#fefce8", color: "#a16207", border: "1px solid #fde68a", marginLeft: 4, textDecoration: "none", cursor: "pointer" }}>
+        &#x1f517;
+      </a>
+    );
+  }
+  return <>{badges}</>;
 }
 
 type RAMFitLevel = "ok" | "tight" | "exceeds";
@@ -817,6 +863,7 @@ export default function ServerDashboard() {
                           <div className="model-item-name">
                             {modelDisplayName(m)}
                             <span className="model-badge model-badge-active">Running</span>
+                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} huggingFaceUrl={m.catalogEntry?.huggingFaceUrl} />
                           </div>
                           <span className="model-item-meta">
                             {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
@@ -876,6 +923,7 @@ export default function ServerDashboard() {
                             {fit.level === "tight" && (
                               <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
                             )}
+                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} huggingFaceUrl={m.catalogEntry?.huggingFaceUrl} />
                           </div>
                           <span className="model-item-meta">{m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{formatBytes(m.sizeBytes)} on disk</span>
                           {fit.level !== "ok" && (
@@ -970,6 +1018,7 @@ export default function ServerDashboard() {
                         {fit.level === "tight" && (
                           <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
                         )}
+                        <CapabilityBadges capabilities={c.capabilities} huggingFaceUrl={c.huggingFaceUrl} />
                       </div>
                       <span className="model-item-meta">by {c.family} · {c.description}</span>
                       <span className="model-item-meta">
@@ -1047,7 +1096,10 @@ export default function ServerDashboard() {
                   {searchResults.map((m) => (
                     <div key={m.name} className="model-item">
                       <div className="model-item-left">
-                        <div className="model-item-name">{m.name}</div>
+                        <div className="model-item-name">
+                          {m.name}
+                          <CapabilityBadges capabilities={m.capabilities} huggingFaceUrl={m.huggingFaceUrl} />
+                        </div>
                         {m.description && <span className="model-item-meta">{m.description}</span>}
                       </div>
                       <button
