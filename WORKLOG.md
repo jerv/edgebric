@@ -1,5 +1,29 @@
 # Worklog
 
+## 2026-04-04 — agent/docs-site (Docs agent)
+
+### Scaffolded VitePress documentation site with full content
+
+**New files:**
+- `docs-site/` — VitePress site with dark mode, local search, 4-section sidebar (Guide, API Reference, Admin, Contributing)
+- `docs-site/guide/` — 10 user-facing docs: getting-started, models, data-sources, cloud-sync, querying, group-chats, mesh, privacy, family-setup, tools
+- `docs-site/api/` — 3 API docs: agent-api (full /api/v1/ reference), openclaw skill, webhooks
+- `docs-site/admin/` — 4 admin docs: auth (Google/Microsoft OIDC step-by-step), users & roles, security, integrations
+- `docs-site/contributing/` — 4 contributor docs: development setup, testing, architecture, adding integrations
+- `docs-site/index.md` — Landing page with hero, feature cards, quick start
+- `CONTRIBUTING.md` — Repo-root contributing guide
+- `.github/workflows/docs.yml` — GitHub Actions to build and deploy to GitHub Pages (docs.edgebric.com)
+- `.github/ISSUE_TEMPLATE/` — Bug report form, feature request form, config with discussions link
+
+**Modified files:**
+- `pnpm-workspace.yaml` — Added `docs-site` to workspace
+
+**Content sourced from:** README.md, CLAUDE.md, docs/*.md, packages/api/src/routes/, shared/types/src/
+
+**Build:** `pnpm build` in docs-site/ passes clean.
+
+---
+
 ## 2026-04-04 — agent/agent-enhancements (Enhancements agent)
 
 ### Added agent API enhancements: /ask, source summaries, webhooks, file upload, tool use
