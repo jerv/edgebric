@@ -2,13 +2,33 @@
  * Chat Client — OpenAI-compatible streaming chat via llama-server.
  *
  * Handles SSE streaming, Qwen /nothink injection, and <think> block filtering.
- * Provides streaming chat completions for the RAG pipeline.
+ * Provides streaming chat completions and tool-calling for the RAG pipeline.
  */
 import type { Message } from "@edgebric/core/rag";
 import { runtimeChatConfig } from "../config.js";
+import type { ToolParameters } from "./toolRunner.js";
+import { logger } from "../lib/logger.js";
 
 export interface ChatClient {
   chatStream(messages: Message[]): AsyncIterable<string>;
+  /** Non-streaming call with tool definitions. Returns the assistant message. */
+  chatWithTools(
+    messages: ToolMessage[],
+    tools: Array<{ type: "function"; function: { name: string; description: string; parameters: ToolParameters } }>,
+  ): Promise<ToolResponseMessage>;
+}
+
+export interface ToolMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> | undefined;
+  tool_call_id?: string | undefined;
+}
+
+export interface ToolResponseMessage {
+  role: "assistant";
+  content: string | null;
+  tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> | undefined;
 }
 
 /**
@@ -104,5 +124,67 @@ export function createChatClient(): ChatClient {
     }
   }
 
-  return { chatStream };
+  /**
+   * Non-streaming chat completion with tool definitions.
+   * Used for tool-calling flow where we need the full response
+   * to check for tool_calls before deciding what to do next.
+   */
+  async function chatWithTools(
+    messages: ToolMessage[],
+    tools: Array<{ type: "function"; function: { name: string; description: string; parameters: ToolParameters } }>,
+  ): Promise<ToolResponseMessage> {
+    // Inject /nothink for the last user message
+    const msgs = messages.map((m, i) => {
+      if (m.role === "user" && i === messages.length - 1 && m.content) {
+        return { ...m, content: m.content + " /nothink" };
+      }
+      return m;
+    });
+
+    const response = await fetch(`${runtimeChatConfig.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runtimeChatConfig.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: runtimeChatConfig.model,
+        messages: msgs,
+        tools,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Chat inference failed (HTTP ${response.status}): ${body}`);
+    }
+
+    const json = await response.json() as {
+      choices: Array<{
+        message: {
+          role: "assistant";
+          content: string | null;
+          tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
+        };
+      }>;
+    };
+
+    const msg = json.choices[0]?.message;
+    if (!msg) throw new Error("No message in chat completion response");
+
+    // Strip <think> blocks from content if present
+    let content = msg.content;
+    if (content) {
+      content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    }
+
+    return {
+      role: "assistant",
+      content,
+      tool_calls: msg.tool_calls,
+    };
+  }
+
+  return { chatStream, chatWithTools };
 }

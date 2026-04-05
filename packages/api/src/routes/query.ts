@@ -28,8 +28,14 @@ import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { getUserGroupIds } from "../services/userMeshGroupStore.js";
 import { getUserInOrg } from "../services/userStore.js";
 import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
+import { MODEL_CATALOG_MAP } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
+import { buildToolDefinitions, executeTool, parseToolCalls, listTools } from "../services/toolRunner.js";
+import type { ToolMessage } from "../services/chatClient.js";
+import type { ToolContext } from "../services/toolRunner.js";
+import { registerAllTools } from "../services/tools/index.js";
+import { runtimeChatConfig } from "../config.js";
 
 const queryBodySchema = z.object({
   query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
@@ -98,6 +104,132 @@ export const queryRouter: IRouter = Router();
 // Chat client — uses llama-server's OpenAI-compatible API for streaming inference.
 import { createChatClient } from "../services/chatClient.js";
 const chatClient = createChatClient();
+
+// Register all tools on module load
+registerAllTools();
+
+/** Check if the active model supports tool calling. */
+function isToolUseEnabled(): boolean {
+  const tag = runtimeChatConfig.model;
+  const catalogEntry = MODEL_CATALOG_MAP.get(tag);
+  return catalogEntry?.capabilities?.toolUse === true;
+}
+
+const MAX_TOOL_ROUNDS = 5;
+
+/**
+ * Tool use information for UI transparency — tracks which tools were called
+ * and their results during a single query.
+ */
+export interface ToolUseInfo {
+  name: string;
+  arguments: Record<string, unknown>;
+  result: { success: boolean; summary: string };
+}
+
+/**
+ * Run the tool-calling loop: send messages with tool definitions to the model,
+ * execute any tool calls, feed results back, repeat until the model produces
+ * a final text response or we hit the max rounds.
+ */
+async function runToolLoop(
+  messages: ToolMessage[],
+  ctx: ToolContext,
+  sendEvent: (event: string, data: unknown) => void,
+): Promise<{ answer: string; toolUses: ToolUseInfo[] }> {
+  const tools = buildToolDefinitions();
+  const toolUses: ToolUseInfo[] = [];
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const response = await chatClient.chatWithTools(messages, tools);
+
+    const toolCalls = parseToolCalls(response);
+
+    if (toolCalls.length === 0) {
+      // Model produced a final text response — we're done
+      return { answer: response.content ?? "", toolUses };
+    }
+
+    // Add the assistant message with tool_calls to conversation
+    messages.push({
+      role: "assistant",
+      content: response.content,
+      tool_calls: response.tool_calls,
+    });
+
+    // Execute each tool call and add results as tool messages
+    for (const tc of toolCalls) {
+      const result = await executeTool(tc.name, tc.arguments, ctx);
+
+      // Summarize result for UI transparency
+      const summary = result.success
+        ? summarizeToolResult(tc.name, result.data)
+        : `Error: ${result.error}`;
+
+      toolUses.push({
+        name: tc.name,
+        arguments: tc.arguments,
+        result: { success: result.success, summary },
+      });
+
+      // Send tool use event to client for real-time transparency
+      sendEvent("tool_use", {
+        tool: tc.name,
+        success: result.success,
+        summary,
+      });
+
+      // Add tool result message for the model
+      const resultContent = result.success
+        ? JSON.stringify(result.data)
+        : JSON.stringify({ error: result.error });
+
+      messages.push({
+        role: "tool",
+        content: resultContent,
+        tool_call_id: tc.id,
+      });
+    }
+  }
+
+  // Hit max rounds — return whatever we have
+  return { answer: "I've gathered information using multiple tools. Let me summarize what I found.", toolUses };
+}
+
+/** Create a short human-readable summary of a tool result for the UI. */
+function summarizeToolResult(toolName: string, data: unknown): string {
+  if (!data || typeof data !== "object") return "Done";
+  const d = data as Record<string, unknown>;
+
+  switch (toolName) {
+    case "search_knowledge":
+      return `${d["resultCount"] ?? 0} results found`;
+    case "list_sources":
+      return `${d["sourceCount"] ?? 0} sources`;
+    case "list_documents":
+      return `${d["documentCount"] ?? 0} documents`;
+    case "web_search":
+      return `${d["resultCount"] ?? 0} web results`;
+    case "read_url":
+      return `Fetched ${d["contentLength"] ?? 0} chars${d["truncated"] ? " (truncated)" : ""}`;
+    case "cite_check":
+      return `${d["evidenceCount"] ?? 0} evidence items, verdict: ${d["verdict"] ?? "unknown"}`;
+    case "find_related":
+      return `${(d["related"] as unknown[])?.length ?? 0} related documents`;
+    case "save_to_vault":
+      return `Saved "${d["title"]}"`;
+    case "create_source":
+      return `Created "${d["name"]}"`;
+    case "upload_document":
+      return `Uploaded "${d["filename"]}"`;
+    case "delete_document":
+      return `Deleted "${d["deleted"]}"`;
+    case "delete_source":
+      return `Deleted "${d["deleted"]}", ${d["documentsDeleted"]} documents removed`;
+    default:
+      return "Done";
+  }
+}
 
 queryRouter.use(requireOrg);
 
@@ -490,79 +622,164 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   };
   req.on("close", () => { clientDisconnected = true; });
 
-  // Search runs outside the inference queue — doesn't need the LLM
+  // ─── Tool Use Mode ───────────────────────────────────────────────────────
+  // When the active model supports tool calling, use the tool loop instead of
+  // the standard RAG pipeline. The model autonomously decides which tools to
+  // call (search_knowledge, web_search, etc.) based on the user's query.
+
   let releaseSlotFn: (() => void) | undefined;
   try {
-    const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-    const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
+    if (isToolUseEnabled() && listTools().length > 0) {
+      // Acquire inference slot
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+      try {
+        releaseSlotFn = await acquireSlot(
+          conversation.id,
+          "high",
+          (position) => sendEvent("queued", { position }),
+          abortController.signal,
+        );
+      } catch (err) {
+        if (err instanceof QueueFullError) {
+          sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+          try { res.end(); } catch { /* already closed */ }
+          return;
+        }
+        throw err;
+      }
 
-    // Acquire inference slot — waits if all slots busy, sends queue position via SSE
-    const abortController = new AbortController();
-    req.on("close", () => abortController.abort());
-    try {
-      releaseSlotFn = await acquireSlot(
-        conversation.id,
-        "high",
-        (position) => sendEvent("queued", { position }),
-        abortController.signal,
+      // Build tool messages from conversation history
+      const toolMessages: ToolMessage[] = [];
+
+      // System prompt for tool-using model
+      const toolSystemPrompt = [
+        "You are a helpful AI assistant with access to tools for searching knowledge bases, managing documents, and browsing the web.",
+        "Use tools when the user's question requires information from documents, the web, or data management.",
+        "For simple questions that don't need tools (greetings, math, general knowledge), answer directly without calling tools.",
+        strict ? "You must only answer from information found via tools — do not use general knowledge." : "",
+        "Always cite your sources when using information from search results.",
+      ].filter(Boolean).join(" ");
+
+      toolMessages.push({ role: "system", content: toolSystemPrompt });
+
+      // Add conversation history
+      for (const m of sessionMessages) {
+        toolMessages.push({ role: m.role as "user" | "assistant", content: m.content });
+      }
+
+      const toolCtx: ToolContext = {
+        userEmail: userEmail,
+        isAdmin,
+        orgId,
+      };
+
+      const { answer, toolUses } = await runToolLoop(toolMessages, toolCtx, sendEvent);
+
+      // Stream the final answer character by character for progressive UI
+      const CHUNK_SIZE = 20;
+      for (let i = 0; i < answer.length; i += CHUNK_SIZE) {
+        sendEvent("delta", { delta: answer.slice(i, i + CHUNK_SIZE) });
+      }
+
+      // Save assistant message
+      const assistantMsgId = randomUUID();
+      const assistantMsg: PersistedMessage = {
+        id: assistantMsgId,
+        conversationId: conversation.id,
+        role: "assistant",
+        content: answer,
+        hasConfidentAnswer: true,
+        answerType: toolUses.length > 0 ? "grounded" : "general",
+        createdAt: new Date(),
+      };
+      addMessage(assistantMsg);
+      updateConversationTimestamp(conversation.id);
+
+      sendEvent("done", {
+        answer,
+        citations: [],
+        hasConfidentAnswer: true,
+        sessionId: conversation.id,
+        conversationId: conversation.id,
+        messageId: assistantMsgId,
+        answerType: toolUses.length > 0 ? "grounded" : "general",
+        toolUses,
+      });
+    } else {
+      // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
+
+      const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
+
+      // Acquire inference slot — waits if all slots busy, sends queue position via SSE
+      const abortController = new AbortController();
+      req.on("close", () => abortController.abort());
+      try {
+        releaseSlotFn = await acquireSlot(
+          conversation.id,
+          "high",
+          (position) => sendEvent("queued", { position }),
+          abortController.signal,
+        );
+      } catch (err) {
+        if (err instanceof QueueFullError) {
+          sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+          try { res.end(); } catch { /* already closed */ }
+          return;
+        }
+        throw err;
+      }
+
+      const stream = answerStream(
+        query,
+        session,
+        {
+          datasetName: datasetNames[0]!,
+          datasetNames,
+          topK: 10,
+          similarityThreshold: 0.3,
+          candidateCount,
+          hybridBoost,
+          strict,
+        },
+        {
+          search: async () => searchResults,
+          generate: (messages) => chatClient.chatStream(messages),
+        },
       );
-    } catch (err) {
-      if (err instanceof QueueFullError) {
-        sendEvent("error", { message: "The system is busy. Please try again in a moment." });
-        try { res.end(); } catch { /* already closed */ }
-        return;
-      }
-      throw err;
-    }
 
-    const stream = answerStream(
-      query,
-      session,
-      {
-        datasetName: datasetNames[0]!,
-        datasetNames,
-        topK: 10,
-        similarityThreshold: 0.3,
-        candidateCount,
-        hybridBoost,
-        strict,
-      },
-      {
-        search: async () => searchResults,
-        generate: (messages) => chatClient.chatStream(messages),
-      },
-    );
+      for await (const chunk of stream) {
+        if (chunk.delta) {
+          sendEvent("delta", { delta: chunk.delta });
+        }
+        if (chunk.final) {
+          enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
 
-    for await (const chunk of stream) {
-      if (chunk.delta) {
-        sendEvent("delta", { delta: chunk.delta });
-      }
-      if (chunk.final) {
-        enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
+          // Save assistant message to DB
+          const assistantMsgId = randomUUID();
+          const assistantMsg: PersistedMessage = {
+            id: assistantMsgId,
+            conversationId: conversation.id,
+            role: "assistant",
+            content: chunk.final.answer,
+            citations: chunk.final.citations,
+            hasConfidentAnswer: chunk.final.hasConfidentAnswer,
+            ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
+            createdAt: new Date(),
+          };
+          addMessage(assistantMsg);
+          updateConversationTimestamp(conversation.id);
 
-        // Save assistant message to DB
-        const assistantMsgId = randomUUID();
-        const assistantMsg: PersistedMessage = {
-          id: assistantMsgId,
-          conversationId: conversation.id,
-          role: "assistant",
-          content: chunk.final.answer,
-          citations: chunk.final.citations,
-          hasConfidentAnswer: chunk.final.hasConfidentAnswer,
-          ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
-          createdAt: new Date(),
-        };
-        addMessage(assistantMsg);
-        updateConversationTimestamp(conversation.id);
-
-        // Emit done event with conversation + message IDs + mesh info
-        sendEvent("done", {
-          ...chunk.final,
-          conversationId: conversation.id,
-          messageId: assistantMsgId,
-          meshNodesSearched,
-          meshNodesUnavailable,
-        });
+          // Emit done event with conversation + message IDs + mesh info
+          sendEvent("done", {
+            ...chunk.final,
+            conversationId: conversation.id,
+            messageId: assistantMsgId,
+            meshNodesSearched,
+            meshNodesUnavailable,
+          });
+        }
       }
     }
   } catch (err) {

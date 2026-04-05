@@ -206,6 +206,12 @@ export interface AnswerResponse {
     /** Whether conversation history was truncated to fit. */
     truncated: boolean;
   };
+  /** Tool uses during this query (only present when model has tool use capability). */
+  toolUses?: Array<{
+    name: string;
+    arguments: Record<string, unknown>;
+    result: { success: boolean; summary: string };
+  }>;
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────
