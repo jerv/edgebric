@@ -66,7 +66,7 @@ declare global {
       modelsSetActive: (tag: string) => Promise<{ success: boolean }>;
       modelsPickGguf: () => Promise<{ path: string | null }>;
       modelsImportGguf: (ggufPath: string, modelName: string) => Promise<{ success: boolean; error?: string }>;
-      modelsSearch: (query: string) => Promise<{ models: Array<{ name: string; description: string }>; error?: string }>;
+      modelsSearch: (query: string) => Promise<{ models: Array<{ name: string; description: string; tags?: string[]; huggingFaceUrl?: string; capabilities?: { vision: boolean; toolUse: boolean; reasoning: boolean } }>; error?: string }>;
       onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => () => void;
     };
   }

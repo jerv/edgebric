@@ -15,8 +15,36 @@ import {
 } from "@/hooks/useModels";
 import { RAMBar, formatBytes } from "@/components/shared/ResourceBars";
 import Logo from "@/components/shared/Logo";
-import type { InstalledModel, RAMFitResult } from "@edgebric/types";
+import type { InstalledModel, RAMFitResult, ModelCapabilities } from "@edgebric/types";
 import { EMBEDDING_MODEL_TAG, checkModelRAMFit } from "@edgebric/types";
+
+function CapabilityBadges({ capabilities, huggingFaceUrl }: { capabilities?: ModelCapabilities; huggingFaceUrl?: string }) {
+  if (!capabilities) return null;
+  return (
+    <>
+      {capabilities.vision && (
+        <span title="Can analyze images and screenshots" className="text-[11px] bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full font-medium">
+          &#x1f441; Vision
+        </span>
+      )}
+      {capabilities.toolUse && (
+        <span title="Can use tools like search and file management" className="text-[11px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full font-medium">
+          &#x1f527; Tools
+        </span>
+      )}
+      {capabilities.reasoning && (
+        <span title="Enhanced step-by-step reasoning" className="text-[11px] bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full font-medium">
+          &#x1f9e0; Reasoning
+        </span>
+      )}
+      {huggingFaceUrl && (
+        <a href={huggingFaceUrl} target="_blank" rel="noopener noreferrer" title="View on HuggingFace" className="text-[11px] bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-medium no-underline hover:underline">
+          &#x1f517;
+        </a>
+      )}
+    </>
+  );
+}
 
 function RAMWarningBanner({ fit }: { fit: RAMFitResult }) {
   if (fit.level === "ok") return null;
@@ -90,6 +118,7 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
               Low RAM
             </span>
           )}
+          <CapabilityBadges capabilities={catalogEntry?.capabilities ?? model.capabilities} huggingFaceUrl={catalogEntry?.huggingFaceUrl} />
         </div>
         <span className="text-xs text-slate-500 dark:text-gray-400">
           {catalogEntry?.family ? `by ${catalogEntry.family} · ` : ""}

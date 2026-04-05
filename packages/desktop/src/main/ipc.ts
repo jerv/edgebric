@@ -637,10 +637,23 @@ export function registerIpcHandlers() {
       const filtered = data
         .filter((m) => m.tags?.includes("gguf"))
         .slice(0, 30)
-        .map((m) => ({
-          name: m.modelId,
-          description: m.description ?? "",
-        }));
+        .map((m) => {
+          const tags = m.tags ?? [];
+          const id = m.modelId.toLowerCase();
+          const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+          return {
+            name: m.modelId,
+            description: m.description ?? "",
+            tags,
+            huggingFaceUrl: `https://huggingface.co/${m.modelId}`,
+            capabilities: {
+              vision: tagSet.has("image-text-to-text") || tagSet.has("vision"),
+              toolUse: tagSet.has("tool-use") || tagSet.has("function-calling")
+                || /qwen3\.5|llama-3\.[1-9]|mistral/.test(id),
+              reasoning: tagSet.has("reasoning") || /\breasonin/.test(id),
+            },
+          };
+        });
       return { models: filtered };
     } catch (err) {
       return { models: [], error: err instanceof Error ? err.message : String(err) };
@@ -904,23 +917,31 @@ function dirSize(dirPath: string): number {
   return total;
 }
 
+interface ModelCapabilities {
+  vision: boolean;
+  toolUse: boolean;
+  reasoning: boolean;
+}
+
 interface CatalogEntry {
   tag: string; ggufFilename: string; downloadUrl: string; name: string; family: string; description: string;
   paramCount: string; downloadSizeGB: number; ramUsageGB: number;
   origin: string; tier: string; minRAMGB: number; hidden?: boolean;
+  capabilities: ModelCapabilities; huggingFaceUrl: string;
 }
 
 function getCatalog(): CatalogEntry[] {
   return [
     // Recommended
-    { tag: "qwen3-4b", ggufFilename: "Qwen3-4B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf", name: "Qwen 3 4B", family: "Qwen", description: "Best overall for most hardware. Fast, accurate, 256K context.", paramCount: "4B", downloadSizeGB: 2.7, ramUsageGB: 5.5, origin: "Alibaba", tier: "recommended", minRAMGB: 8 },
-    { tag: "qwen3-8b", ggufFilename: "Qwen3-8B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf", name: "Qwen 3 8B", family: "Qwen", description: "Stronger reasoning and analysis. Best for 16GB machines.", paramCount: "8B", downloadSizeGB: 5.5, ramUsageGB: 9, origin: "Alibaba", tier: "recommended", minRAMGB: 16 },
-    { tag: "qwen3-14b", ggufFilename: "Qwen3-14B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/Qwen/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf", name: "Qwen 3 14B", family: "Qwen", description: "Highest quality answers. Needs 32GB RAM.", paramCount: "14B", downloadSizeGB: 9.5, ramUsageGB: 15, origin: "Alibaba", tier: "recommended", minRAMGB: 32 },
+    { tag: "qwen3.5-4b", ggufFilename: "Qwen3.5-4B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf", name: "Qwen 3.5 4B", family: "Qwen", description: "Best overall for most hardware. Vision + tool use, 256K context.", paramCount: "4B", downloadSizeGB: 2.7, ramUsageGB: 5.5, origin: "Alibaba", tier: "recommended", minRAMGB: 8, capabilities: { vision: true, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-4B" },
+    { tag: "qwen3.5-9b", ggufFilename: "Qwen3.5-9B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", name: "Qwen 3.5 9B", family: "Qwen", description: "Stronger reasoning and analysis. Vision + tool use. Best for 16GB machines.", paramCount: "9B", downloadSizeGB: 5.9, ramUsageGB: 9.5, origin: "Alibaba", tier: "recommended", minRAMGB: 16, capabilities: { vision: true, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-9B" },
+    { tag: "qwen3.5-35b-a3b", ggufFilename: "Qwen3.5-35B-A3B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf", name: "Qwen 3.5 35B-A3B MoE", family: "Qwen", description: "35B params, only 3B active. Thinks like a big model, runs like a small one. Vision + tool use.", paramCount: "35B (3B active)", downloadSizeGB: 5.5, ramUsageGB: 9, origin: "Alibaba", tier: "recommended", minRAMGB: 16, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-35B-A3B" },
     // Supported
-    { tag: "phi4-mini", ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf", name: "Phi-4 Mini", family: "Microsoft", description: "Compact, efficient, 128K context. Good for constrained setups.", paramCount: "3.8B", downloadSizeGB: 2.5, ramUsageGB: 5, origin: "Microsoft", tier: "supported", minRAMGB: 8 },
-    { tag: "gemma3-4b", ggufFilename: "gemma-3-4b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf", name: "Gemma 3 4B", family: "Google", description: "Google's efficient model. Multimodal capable, 128K context.", paramCount: "4B", downloadSizeGB: 3.3, ramUsageGB: 6, origin: "Google", tier: "supported", minRAMGB: 8 },
-    { tag: "gemma3-12b", ggufFilename: "gemma-3-12b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf", name: "Gemma 3 12B", family: "Google", description: "Strong document analysis. Multimodal, 128K context.", paramCount: "12B", downloadSizeGB: 8.1, ramUsageGB: 13, origin: "Google", tier: "supported", minRAMGB: 16 },
+    { tag: "qwen3.5-27b", ggufFilename: "Qwen3.5-27B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf", name: "Qwen 3.5 27B", family: "Qwen", description: "Highest quality dense model. Vision + tool use. For 32GB machines.", paramCount: "27B", downloadSizeGB: 16.5, ramUsageGB: 22, origin: "Alibaba", tier: "supported", minRAMGB: 32, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-27B" },
+    { tag: "phi4-mini", ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf", name: "Phi-4 Mini", family: "Microsoft", description: "Compact, efficient, 128K context. Good for constrained setups.", paramCount: "3.8B", downloadSizeGB: 2.5, ramUsageGB: 5, origin: "Microsoft", tier: "supported", minRAMGB: 8, capabilities: { vision: false, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-mini-instruct" },
+    { tag: "gemma3-4b", ggufFilename: "gemma-3-4b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf", name: "Gemma 3 4B", family: "Google", description: "Google's efficient model. Multimodal capable, 128K context.", paramCount: "4B", downloadSizeGB: 3.3, ramUsageGB: 6, origin: "Google", tier: "supported", minRAMGB: 8, capabilities: { vision: true, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/google/gemma-3-4b-it" },
+    { tag: "gemma3-12b", ggufFilename: "gemma-3-12b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf", name: "Gemma 3 12B", family: "Google", description: "Strong document analysis. Multimodal, 128K context.", paramCount: "12B", downloadSizeGB: 8.1, ramUsageGB: 13, origin: "Google", tier: "supported", minRAMGB: 16, capabilities: { vision: true, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/google/gemma-3-12b-it" },
     // Hidden infrastructure
-    { tag: "nomic-embed-text", ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf", downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.15, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true },
+    { tag: "nomic-embed-text", ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf", downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.15, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true, capabilities: { vision: false, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5" },
   ];
 }

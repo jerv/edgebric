@@ -1,5 +1,24 @@
 # Worklog
 
+## 2026-04-04 — agent/model-capabilities (Model capabilities agent)
+
+### Added model capability detection, Qwen 3.5 catalog, capability badges
+
+**Changes:**
+- `shared/types/src/models.ts` — Added `ModelCapabilities` interface (`vision`, `toolUse`, `reasoning`), added `capabilities` and `huggingFaceUrl` fields to `ModelCatalogEntry` and optional `capabilities` to `InstalledModel`. Added `inferCapabilitiesFromTags()` helper for HuggingFace tag mapping. Replaced Qwen 3 catalog entries (4B/8B/14B) with Qwen 3.5 (4B/9B/35B-A3B MoE recommended + 27B supported). Added capabilities to all catalog entries (Phi-4, Gemma 3, nomic-embed).
+- `shared/types/src/index.ts` — Re-exported new types and functions.
+- `packages/api/src/routes/models.ts` — GET `/api/admin/models` now includes `capabilities` on each `InstalledModel`. Added `GET /api/admin/models/active/capabilities` endpoint for web UI feature gating.
+- `packages/api/src/config.ts` — Default chat model updated from `qwen3-4b` to `qwen3.5-4b`.
+- `packages/desktop/src/main/ipc.ts` — Updated duplicate catalog to Qwen 3.5 with capabilities. `models-search` handler now passes HuggingFace tags, inferred capabilities, and `huggingFaceUrl` through to renderer.
+- `packages/desktop/src/preload/index.ts` + `packages/desktop/src/renderer/App.tsx` — Updated search result types with optional `tags`, `capabilities`, `huggingFaceUrl`.
+- `packages/desktop/src/renderer/pages/ServerDashboard.tsx` — Added `CapabilityBadges` component: colored pill badges (👁 Vision blue, 🔧 Tools green, 🧠 Reasoning purple) with tooltips + HuggingFace link. Badges shown on loaded models, installed models, catalog models, and search results.
+- `packages/web/src/components/admin/ModelsPanel.tsx` — Same capability badges for web admin panel.
+- `packages/api/src/__tests__/models.test.ts` + `e2e/models.test.ts` — Updated all `qwen3-4b` references to `qwen3.5-4b`.
+
+**Result:** 600/600 tests pass. Typecheck clean across all 5 packages.
+
+---
+
 ## 2026-04-03 — agent/pii-settings (PII agent)
 
 ### Added per-source PII detection mode (off/warn/block)

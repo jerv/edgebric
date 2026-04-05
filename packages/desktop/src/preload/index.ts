@@ -88,7 +88,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   modelsSetActive: (tag: string) => ipcRenderer.invoke("models-set-active", tag),
   modelsPickGguf: () => ipcRenderer.invoke("models-pick-gguf") as Promise<{ path: string | null }>,
   modelsImportGguf: (ggufPath: string, modelName: string) => ipcRenderer.invoke("models-import-gguf", ggufPath, modelName) as Promise<{ success: boolean; error?: string }>,
-  modelsSearch: (query: string) => ipcRenderer.invoke("models-search", query) as Promise<{ models: Array<{ name: string; description: string }>; error?: string }>,
+  modelsSearch: (query: string) => ipcRenderer.invoke("models-search", query) as Promise<{ models: Array<{ name: string; description: string; tags?: string[]; huggingFaceUrl?: string; capabilities?: { vision: boolean; toolUse: boolean; reasoning: boolean } }>; error?: string }>,
   onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { tag: string; status: string; percent: number }) => callback(data);
     ipcRenderer.on("model-pull-progress", handler);

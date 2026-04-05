@@ -6,9 +6,9 @@ vi.mock("../services/inferenceClient.js", () => ({
   isRunning: vi.fn().mockResolvedValue(true),
   listInstalled: vi.fn().mockResolvedValue([
     {
-      tag: "qwen3-4b",
-      filename: "Qwen3-4B-Q4_K_M.gguf",
-      name: "Qwen 3 4B",
+      tag: "qwen3.5-4b",
+      filename: "Qwen3.5-4B-Q4_K_M.gguf",
+      name: "Qwen 3.5 4B",
       sizeBytes: 2_700_000_000,
       modifiedAt: "2026-03-20T00:00:00Z",
       status: "installed",
@@ -23,7 +23,7 @@ vi.mock("../services/inferenceClient.js", () => ({
     },
   ]),
   listRunning: vi.fn().mockResolvedValue(
-    new Map([["qwen3-4b", { ramUsageBytes: 3_500_000_000 }]]),
+    new Map([["qwen3.5-4b", { ramUsageBytes: 3_500_000_000 }]]),
   ),
   loadModel: vi.fn().mockResolvedValue(undefined),
   unloadModel: vi.fn().mockResolvedValue(undefined),
@@ -74,7 +74,7 @@ describe("Models API", () => {
 
     it("includes loaded status on running models", async () => {
       const res = await adminAgent(orgId).get("/api/admin/models");
-      const qwen = res.body.models.find((m: any) => m.tag === "qwen3-4b");
+      const qwen = res.body.models.find((m: any) => m.tag === "qwen3.5-4b");
       expect(qwen).toBeDefined();
       expect(qwen.status).toBe("loaded");
       expect(typeof qwen.ramUsageBytes).toBe("number");
@@ -111,11 +111,11 @@ describe("Models API", () => {
     it("loads a model and sets it as active", async () => {
       const res = await adminAgent(orgId)
         .post("/api/admin/models/load")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
       expect(res.status).toBe(200);
       expect(res.body.loaded).toBe(true);
-      expect(res.body.tag).toBe("qwen3-4b");
-      expect(res.body.activeModel).toBe("qwen3-4b");
+      expect(res.body.tag).toBe("qwen3.5-4b");
+      expect(res.body.activeModel).toBe("qwen3.5-4b");
     });
 
     it("rejects empty tag", async () => {
@@ -148,24 +148,24 @@ describe("Models API", () => {
 
       const res = await adminAgent(orgId)
         .post("/api/admin/models/unload")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
       expect(res.status).toBe(200);
       expect(res.body.unloaded).toBe(true);
-      expect(res.body.tag).toBe("qwen3-4b");
+      expect(res.body.tag).toBe("qwen3.5-4b");
     });
 
     it("unloads the active model and auto-switches", async () => {
       // Set active model back
       await adminAgent(orgId)
         .put("/api/admin/models/active")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
 
       const res = await adminAgent(orgId)
         .post("/api/admin/models/unload")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
       expect(res.status).toBe(200);
       expect(res.body.unloaded).toBe(true);
-      expect(res.body.tag).toBe("qwen3-4b");
+      expect(res.body.tag).toBe("qwen3.5-4b");
     });
   });
 
@@ -193,10 +193,10 @@ describe("Models API", () => {
   describe("DELETE /api/admin/models/:tag", () => {
     it("deletes a model", async () => {
       const res = await adminAgent(orgId)
-        .delete("/api/admin/models/qwen3-4b");
+        .delete("/api/admin/models/qwen3.5-4b");
       expect(res.status).toBe(200);
       expect(res.body.deleted).toBe(true);
-      expect(res.body.tag).toBe("qwen3-4b");
+      expect(res.body.tag).toBe("qwen3.5-4b");
     });
 
     it("prevents deleting the embedding model", async () => {
@@ -231,7 +231,7 @@ describe("Models API", () => {
 
       const res = await adminAgent(orgId)
         .post("/api/admin/models/pull")
-        .send({ tag: "qwen3-4b" })
+        .send({ tag: "qwen3.5-4b" })
         .buffer(true)
         .parse((res: any, cb: any) => {
           let data = "";
@@ -255,7 +255,7 @@ describe("Models API", () => {
 
       const res = await adminAgent(orgId)
         .post("/api/admin/models/pull")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
       expect(res.status).toBe(503);
       expect(res.body.error).toContain("not running");
     });
@@ -266,7 +266,7 @@ describe("Models API", () => {
 
       const res = await adminAgent(orgId)
         .post("/api/admin/models/pull")
-        .send({ tag: "qwen3-4b" })
+        .send({ tag: "qwen3.5-4b" })
         .buffer(true)
         .parse((res: any, cb: any) => {
           let data = "";
@@ -287,7 +287,7 @@ describe("Models API", () => {
     it("returns 404 when no active download exists", async () => {
       const res = await adminAgent(orgId)
         .post("/api/admin/models/pull/cancel")
-        .send({ tag: "qwen3-4b" });
+        .send({ tag: "qwen3.5-4b" });
       expect(res.status).toBe(404);
       expect(res.body.error).toContain("No active download");
     });
