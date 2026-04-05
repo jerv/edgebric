@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { htmlToText, parseDuckDuckGoResults } from "../services/tools/web.js";
 import { registerWebTools } from "../services/tools/web.js";
-import { clearTools, executeTool, getTool, listTools } from "../services/toolRunner.js";
+import { clearTools, executeTool, getTool } from "../services/toolRunner.js";
 import type { ToolContext } from "../services/toolRunner.js";
 import { setupTestApp, teardownTestApp } from "./helpers.js";
 

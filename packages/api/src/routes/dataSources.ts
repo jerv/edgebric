@@ -12,7 +12,6 @@ import {
   getDataSource,
   dataSourceBelongsToOrg,
   listAccessibleDataSources,
-  listDataSources,
   updateDataSource,
   archiveDataSource,
   refreshDocumentCount,

@@ -7,12 +7,10 @@ import {
   createFolderSync,
   getFolderSync,
   getSyncFileByExternalId,
-  listSyncFiles,
-  upsertSyncFile,
 } from "../services/cloudConnectionStore.js";
 import { createDataSource } from "../services/dataSourceStore.js";
 import { saveTokens } from "../services/cloudTokenStore.js";
-import { getDocument, setDocument } from "../services/documentStore.js";
+import { getDocument } from "../services/documentStore.js";
 import { registerConnector } from "../connectors/registry.js";
 import type { CloudConnectorAdapter, OAuthTokens, ConnectorSyncResult } from "../connectors/types.js";
 import type { CloudFolder } from "@edgebric/types";
@@ -25,7 +23,7 @@ vi.mock("../jobs/ingestDocument.js", () => ({
 }));
 
 vi.mock("../lib/crypto.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/crypto.js")>();
+  const actual: Record<string, unknown> = await importOriginal();
   return {
     ...actual,
     // encryptFile is called on the downloaded file — skip actual encryption in tests

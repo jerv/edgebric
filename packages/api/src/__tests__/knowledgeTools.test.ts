@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { clearTools, executeTool, getTool, listTools } from "../services/toolRunner.js";
+import { clearTools, executeTool, getTool } from "../services/toolRunner.js";
 import { registerKnowledgeTools } from "../services/tools/knowledge.js";
 import { createDataSource, getDataSource, deleteDataSource } from "../services/dataSourceStore.js";
-import { setDocument, getDocument, getDocumentsByDataSource } from "../services/documentStore.js";
+import { setDocument } from "../services/documentStore.js";
 import type { ToolContext } from "../services/toolRunner.js";
 import type { Document } from "@edgebric/types";
 import { setupTestApp, teardownTestApp, getDefaultOrgId } from "./helpers.js";

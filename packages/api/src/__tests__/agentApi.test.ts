@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import express from "express";
 import supertest from "supertest";
 import { setupTestApp, teardownTestApp, adminAgent, getDefaultOrgId } from "./helpers.js";
 import { createApiKey, hashKey, getApiKey, listApiKeys, revokeApiKey } from "../services/apiKeyStore.js";
@@ -34,9 +33,6 @@ describe("Agent API", () => {
   let readKey: string;
   let readWriteKey: string;
   let adminKey: string;
-  let readKeyId: string;
-  let readWriteKeyId: string;
-  let adminKeyId: string;
 
   beforeAll(() => {
     setupTestApp();
@@ -45,15 +41,12 @@ describe("Agent API", () => {
     // Create API keys for testing
     const rk = createApiKey({ name: "Read Key", orgId, permission: "read", createdBy: "admin@test.com" });
     readKey = rk.rawKey;
-    readKeyId = rk.id;
 
     const rwk = createApiKey({ name: "RW Key", orgId, permission: "read-write", createdBy: "admin@test.com" });
     readWriteKey = rwk.rawKey;
-    readWriteKeyId = rwk.id;
 
     const ak = createApiKey({ name: "Admin Key", orgId, permission: "admin", createdBy: "admin@test.com" });
     adminKey = ak.rawKey;
-    adminKeyId = ak.id;
   });
 
   afterAll(() => { teardownTestApp(); });
@@ -72,7 +65,7 @@ describe("Agent API", () => {
 
     it("stores key as SHA-256 hash", () => {
       const key = createApiKey({ name: "Hash Test", orgId, permission: "read", createdBy: "test@test.com" });
-      const hash = hashKey(key.rawKey);
+      hashKey(key.rawKey);
       // The hash should match what we can look up
       const found = getApiKey(key.id);
       expect(found).toBeDefined();
@@ -436,7 +429,7 @@ describe("Agent API", () => {
 
     it("DELETE /api/admin/api-keys/:id returns 404 for wrong org", async () => {
       // Create key in our org, try to revoke from "wrong" org
-      const createRes = await adminAgent(orgId)
+      await adminAgent(orgId)
         .post("/api/admin/api-keys")
         .send({ name: "Wrong Org", permission: "read" });
 
