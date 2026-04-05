@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Edgebric
-  text: Private Knowledge Platform
-  tagline: Upload documents, ask questions with AI, get cited answers. Nothing leaves your machine.
+  text: Private Knowledge Platform (Beta)
+  tagline: Upload documents, ask questions with AI, get cited answers. Nothing leaves your machine. Currently in v0.9 public beta.
   actions:
     - theme: brand
       text: Get Started
