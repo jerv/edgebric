@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Image, Wrench, ChevronRight } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Key, Plus, Trash2, Copy, Check, AlertTriangle, Loader2, Eye, EyeOff,
+  Key, Plus, Trash2, Copy, Check, AlertTriangle, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

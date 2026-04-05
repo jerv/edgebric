@@ -5,7 +5,7 @@
 import { randomUUID } from "crypto";
 import { getDb } from "../db/index.js";
 import { webhooks } from "../db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
 export type WebhookEvent = "ingestion.complete" | "ingestion.failed";

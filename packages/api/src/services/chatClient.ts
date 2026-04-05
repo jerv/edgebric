@@ -7,7 +7,7 @@
 import type { Message } from "@edgebric/core/rag";
 import { runtimeChatConfig } from "../config.js";
 import type { ToolParameters } from "./toolRunner.js";
-import { logger } from "../lib/logger.js";
+
 
 export interface ChatClient {
   chatStream(messages: Message[]): AsyncIterable<string>;

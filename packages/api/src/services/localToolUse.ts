@@ -76,7 +76,7 @@ export async function executeToolCall(
       case "search_knowledge": {
         const args = JSON.parse(argsStr) as { query: string; sourceIds?: string[] };
         const targetDatasets = args.sourceIds
-          ? opts.datasetNames.filter((_, i) => {
+          ? opts.datasetNames.filter((_, _i) => {
               // Filter by source IDs if provided (simplified — in practice would map IDs to datasets)
               return true;
             })

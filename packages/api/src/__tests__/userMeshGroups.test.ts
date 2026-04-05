@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { randomUUID } from "crypto";
 import {
   setupTestApp,
   teardownTestApp,
@@ -12,7 +11,6 @@ import {
   deleteMeshConfig,
   createNodeGroup,
   deleteNodeGroup,
-  registerNode,
 } from "../services/nodeRegistry.js";
 import {
   getUserGroups,

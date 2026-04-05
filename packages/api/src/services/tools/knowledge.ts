@@ -2,7 +2,7 @@
  * Knowledge Tools — 13 tools for searching, managing, and analyzing
  * documents and data sources via the local RAG pipeline.
  */
-import type { Tool, ToolContext, ToolResult } from "../toolRunner.js";
+import type { Tool, ToolResult } from "../toolRunner.js";
 import { registerTool } from "../toolRunner.js";
 import { hybridMultiDatasetSearch } from "../searchService.js";
 import {
@@ -13,7 +13,7 @@ import {
   refreshDocumentCount,
 } from "../dataSourceStore.js";
 import { getDocument, getDocumentsByDataSource, deleteDocument, setDocument } from "../documentStore.js";
-import { vectorSearch, clearChunksForDocument, lookupChunk } from "../chunkRegistry.js";
+import { vectorSearch, clearChunksForDocument } from "../chunkRegistry.js";
 import { embed } from "../inferenceClient.js";
 import { ingestDocument } from "../../jobs/ingestDocument.js";
 import { rebuildDataset } from "../../jobs/rebuildDataset.js";

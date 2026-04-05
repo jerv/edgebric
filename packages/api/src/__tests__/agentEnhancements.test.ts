@@ -32,10 +32,7 @@ describe("Agent API Enhancements", () => {
   let orgId: string;
   let readKey: string;
   let readWriteKey: string;
-  let adminKey: string;
-  let readKeyId: string;
   let readWriteKeyId: string;
-  let adminKeyId: string;
   let testSourceId: string;
 
   beforeAll(() => {
@@ -44,15 +41,12 @@ describe("Agent API Enhancements", () => {
 
     const rk = createApiKey({ name: "Read Key", orgId, permission: "read", createdBy: "admin@test.com" });
     readKey = rk.rawKey;
-    readKeyId = rk.id;
 
     const rwk = createApiKey({ name: "RW Key", orgId, permission: "read-write", createdBy: "admin@test.com" });
     readWriteKey = rwk.rawKey;
     readWriteKeyId = rwk.id;
 
-    const ak = createApiKey({ name: "Admin Key", orgId, permission: "admin", createdBy: "admin@test.com" });
-    adminKey = ak.rawKey;
-    adminKeyId = ak.id;
+    createApiKey({ name: "Admin Key", orgId, permission: "admin", createdBy: "admin@test.com" });
 
     // Create a test data source with a document
     const ds = createDataSource({ name: "Test Source", ownerId: "admin@test.com", orgId });
