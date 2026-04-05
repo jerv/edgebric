@@ -310,6 +310,28 @@ export const apiKeys = sqliteTable("api_keys", {
   revoked: integer("revoked").notNull().default(0),
 });
 
+// ─── Webhooks ─────────────────────────────────────────────────────────────
+
+export const webhooks = sqliteTable("webhooks", {
+  id: text("id").primaryKey(),
+  url: text("url").notNull(),
+  events: text("events").notNull().default("[]"), // JSON array of event types
+  orgId: text("org_id").notNull(),
+  apiKeyId: text("api_key_id").notNull(), // FK to api_keys.id
+  createdAt: text("created_at").notNull(),
+});
+
+// ─── Source Summaries (cached AI-generated summaries) ─────────────────────
+
+export const sourceSummaries = sqliteTable("source_summaries", {
+  dataSourceId: text("data_source_id").primaryKey(), // FK to data_sources.id
+  summary: text("summary").notNull(),
+  topTopics: text("top_topics").notNull().default("[]"), // JSON array of strings
+  documentCount: integer("document_count").notNull().default(0),
+  generatedAt: text("generated_at").notNull(),
+  sourceUpdatedAt: text("source_updated_at").notNull(), // snapshot of data_sources.updated_at — regenerate if changed
+});
+
 // ─── Cloud Storage Integrations ─────────────────────────────────────────────
 
 export const cloudConnections = sqliteTable("cloud_connections", {

@@ -1,11 +1,15 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
 import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
+import { config } from "../config.js";
 import { isRunning as isInferenceRunning, listRunning as listRunningModels } from "../services/inferenceClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
@@ -568,5 +572,77 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     releaseSlotFn?.();
     broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: false });
     try { res.end(); } catch { /* already closed */ }
+  }
+});
+
+// ─── File Upload Query ──────────────────────────────────────────────────────
+// POST /api/query/with-file — multipart form data with file + query text.
+// For images: included as-is in chat request (if model has vision).
+// For documents: text extracted inline and included as context.
+
+const fileUpload = multer({
+  dest: path.join(config.dataDir, "uploads", "chat"),
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowed = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".docx", ".txt", ".md"];
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error(`Unsupported file type: ${ext}`));
+  },
+});
+
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+const DOC_EXTENSIONS = new Set([".pdf", ".docx", ".txt", ".md"]);
+
+queryRouter.post("/with-file", requireOrg, fileUpload.single("file"), async (req, res) => {
+  const query = (req.body.query as string ?? "").trim();
+  if (!query) {
+    res.status(400).json({ error: "Query is required" });
+    return;
+  }
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" });
+    return;
+  }
+
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  const isImage = IMAGE_EXTENSIONS.has(ext);
+  const isDocument = DOC_EXTENSIONS.has(ext);
+
+  let augmentedQuery = query;
+  let imageBase64: string | undefined;
+
+  try {
+    if (isImage) {
+      // Read image as base64 for vision models
+      const imageBuffer = await fs.readFile(req.file.path);
+      imageBase64 = imageBuffer.toString("base64");
+    } else if (isDocument) {
+      // Extract text from document
+      const { extractDocument } = await import("../jobs/extractors.js");
+      const docType = ext.slice(1) as "pdf" | "docx" | "txt" | "md";
+      const { markdown } = await extractDocument(req.file.path, docType);
+      // Truncate to ~8000 chars to fit in context
+      const truncated = markdown.length > 8000 ? markdown.slice(0, 8000) + "\n\n[...document truncated...]" : markdown;
+      augmentedQuery = `The user has attached a document "${req.file.originalname}". Here is its content:\n\n---\n${truncated}\n---\n\nUser's question: ${query}`;
+    }
+
+    // Clean up the uploaded file
+    await fs.unlink(req.file.path).catch(() => {});
+
+    // For now, return the augmented query info. The frontend will use this
+    // with the regular /api/query endpoint (sending the extracted text as part of the query).
+    res.json({
+      augmentedQuery,
+      fileType: isImage ? "image" : "document",
+      fileName: req.file.originalname,
+      // Image base64 is only returned for vision-capable models (frontend checks capabilities first)
+      ...(imageBase64 && { imageBase64: `data:image/${ext.slice(1)};base64,${imageBase64}` }),
+    });
+  } catch (err) {
+    logger.error({ err }, "File upload query processing failed");
+    // Clean up on error
+    await fs.unlink(req.file.path).catch(() => {});
+    res.status(500).json({ error: "Failed to process uploaded file" });
   }
 });

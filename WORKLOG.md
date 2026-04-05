@@ -1,5 +1,24 @@
 # Worklog
 
+## 2026-04-04 — agent/agent-enhancements (Enhancements agent)
+
+### Added agent API enhancements: /ask, source summaries, webhooks, file upload, tool use
+
+**Problem:** The agent API had search and query endpoints but lacked simpler integration options, event callbacks, and file upload support for the chat interface.
+
+**New agent API endpoints:**
+- `POST /api/v1/ask`: simplified one-field question answering that auto-selects all accessible sources
+- `GET /api/v1/sources/:id/summary`: AI-generated summary with top topics, cached in DB
+- `POST /api/v1/webhooks` + `DELETE /api/v1/webhooks/:id` + `GET /api/v1/webhooks`: webhook registration for ingestion events
+
+**Chat file/image upload:** Paperclip button gated by model capabilities. Images for vision models, document text extraction for others.
+
+**Local tool use:** Framework prepared (search_knowledge, list_sources), activates when model has toolUse capability.
+
+**Result:** 727/727 tests pass. Typecheck clean.
+
+---
+
 ## 2026-04-04 — agent/model-capabilities (Model capabilities agent)
 
 ### Added model capability detection, Qwen 3.5 catalog, capability badges

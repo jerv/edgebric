@@ -4,6 +4,10 @@ import { registerChunks, clearChunksForDocument, getChunkCountForDataset } from 
 import { setDocument } from "../services/documentStore.js";
 import { refreshDocumentCount } from "../services/dataSourceStore.js";
 import { extractDocument } from "./extractors.js";
+import { fireWebhooks } from "../services/webhookStore.js";
+import { getDb } from "../db/index.js";
+import { dataSources } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import type { Document, PIIMode } from "@edgebric/types";
 
@@ -111,9 +115,39 @@ export async function ingestDocument(
     }
 
     logger.info({ docName: doc.name, chunkCount: chunks.length }, "Ingestion complete");
+
+    // Fire webhooks for ingestion completion
+    if (doc.dataSourceId) {
+      const dsRow = getDb().select({ orgId: dataSources.orgId, name: dataSources.name })
+        .from(dataSources).where(eq(dataSources.id, doc.dataSourceId)).get();
+      if (dsRow?.orgId) {
+        void fireWebhooks(dsRow.orgId, "ingestion.complete", {
+          documentId: doc.id,
+          documentName: doc.name,
+          sourceId: doc.dataSourceId,
+          sourceName: dsRow.name,
+          chunkCount: chunks.length,
+        });
+      }
+    }
   } catch (err) {
     logger.error({ err, docName: doc.name }, "Ingestion failed");
     const failed: Document = { ...doc, status: "failed", updatedAt: new Date() };
     setDocument(failed);
+
+    // Fire webhooks for ingestion failure
+    if (doc.dataSourceId) {
+      const dsRow = getDb().select({ orgId: dataSources.orgId, name: dataSources.name })
+        .from(dataSources).where(eq(dataSources.id, doc.dataSourceId)).get();
+      if (dsRow?.orgId) {
+        void fireWebhooks(dsRow.orgId, "ingestion.failed", {
+          documentId: doc.id,
+          documentName: doc.name,
+          sourceId: doc.dataSourceId,
+          sourceName: dsRow.name,
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
   }
 }

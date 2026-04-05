@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Image } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -202,6 +202,9 @@ export function ChatPanel() {
   } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [targetDataSources, setTargetDataSources] = useState<DSTarget[]>([]);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [dsSelectorOpen, setDsSelectorOpen] = useState(false);
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
@@ -221,6 +224,61 @@ export function ChatPanel() {
   const privacyRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const prevUrlConvIdRef = useRef<string | undefined>(urlConvId);
+
+  // Model capabilities — determines if file upload button is shown
+  const { data: modelCapabilities } = useQuery({
+    queryKey: ["model-capabilities"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/models/capabilities", { credentials: "same-origin" });
+      if (!res.ok) return { vision: false, toolUse: false, reasoning: false };
+      return res.json() as Promise<{ vision: boolean; toolUse: boolean; reasoning: boolean }>;
+    },
+    staleTime: 60_000,
+  });
+
+  const IMAGE_EXTS = useMemo(() => new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]), []);
+  const DOC_EXTS = useMemo(() => new Set([".pdf", ".docx", ".txt", ".md"]), []);
+  // Show file upload if vision is supported (images) or always for documents
+  const showFileUpload = true; // Documents always supported; images only if vision: true
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    const isImage = IMAGE_EXTS.has(ext);
+    const isDoc = DOC_EXTS.has(ext);
+
+    if (isImage && !modelCapabilities?.vision) {
+      // Images not supported without vision model — reject
+      setAttachedFile(null);
+      setAttachedPreview(null);
+      return;
+    }
+
+    if (!isImage && !isDoc) {
+      setAttachedFile(null);
+      setAttachedPreview(null);
+      return;
+    }
+
+    setAttachedFile(file);
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = () => setAttachedPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setAttachedPreview(null);
+    }
+
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  }, [modelCapabilities, IMAGE_EXTS, DOC_EXTS]);
+
+  const clearAttachment = useCallback(() => {
+    setAttachedFile(null);
+    setAttachedPreview(null);
+  }, []);
 
   // Sync with URL changes (clicking sidebar conversation links)
   useEffect(() => {
@@ -650,14 +708,38 @@ export function ChatPanel() {
           ? undefined // @all = search everything (same as default until personal data sources exist)
           : targetDataSources.filter((t) => t.type !== "shortcut").map((t) => t.id);
 
+      // If a file is attached, process it first
+      let effectiveQuery = query;
+      const currentFile = attachedFile;
+      if (currentFile) {
+        clearAttachment();
+        try {
+          const formData = new FormData();
+          formData.append("file", currentFile);
+          formData.append("query", query);
+          const fileRes = await fetch("/api/query/with-file", {
+            method: "POST",
+            credentials: "same-origin",
+            body: formData,
+            signal: abort.signal,
+          });
+          if (fileRes.ok) {
+            const fileData = await fileRes.json() as { augmentedQuery?: string };
+            if (fileData.augmentedQuery) effectiveQuery = fileData.augmentedQuery;
+          }
+        } catch {
+          // If file processing fails, just use the original query
+        }
+      }
+
       const requestBody = isPrivacyMode
         ? {
-            query,
+            query: effectiveQuery,
             private: true,
             messages: messages.slice(-4).map((m) => ({ role: m.role, content: m.content })),
             dataSourceIds: resolvedDSIds,
           }
-        : { query, conversationId, dataSourceIds: resolvedDSIds };
+        : { query: effectiveQuery, conversationId, dataSourceIds: resolvedDSIds };
 
       const response = await fetch("/api/query", {
         method: "POST",
@@ -1276,6 +1358,53 @@ export function ChatPanel() {
                 </div>
               )}
 
+              {/* File attachment preview */}
+              {attachedFile && (
+                <div className="flex items-center gap-2 px-1 py-1.5">
+                  <div className="flex items-center gap-2 rounded-lg bg-slate-100 dark:bg-gray-800 px-3 py-1.5 text-xs">
+                    {attachedPreview ? (
+                      <img src={attachedPreview} alt={attachedFile.name} className="w-8 h-8 rounded object-cover" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+                    )}
+                    <span className="text-slate-700 dark:text-gray-300 max-w-[200px] truncate">{attachedFile.name}</span>
+                    <span className="text-slate-400 dark:text-gray-500">
+                      {attachedPreview ? "Image will be analyzed by AI" : "Text will be extracted"}
+                    </span>
+                    <button type="button" onClick={clearAttachment} className="text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-400">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-end gap-1.5">
+                {/* File upload button */}
+                {showFileUpload && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={modelCapabilities?.vision
+                        ? ".png,.jpg,.jpeg,.gif,.webp,.pdf,.docx,.txt,.md"
+                        : ".pdf,.docx,.txt,.md"
+                      }
+                      onChange={handleFileSelect}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading}
+                      className="self-end p-2.5 rounded-xl text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40"
+                      title={modelCapabilities?.vision ? "Attach file or image" : "Attach document"}
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                <div className="flex-1 min-w-0">
               <ChatInput
                 ref={inputRef}
                 value={input}
@@ -1298,6 +1427,8 @@ export function ChatPanel() {
                   ) : undefined
                 }
               />
+                </div>
+              </div>
             </form>
           </div>
         )}
