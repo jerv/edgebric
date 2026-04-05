@@ -1,0 +1,99 @@
+name: Bug Report
+description: Report a bug in Edgebric
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the details below to help us fix it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: macOS Version
+      description: "e.g., macOS 15.2 (Sequoia)"
+      placeholder: macOS 15.2
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: "e.g., Mac Mini M4 24GB, MacBook Pro M2 16GB"
+      placeholder: Mac Mini M4 24GB
+
+  - type: input
+    id: version
+    attributes:
+      label: Edgebric Version
+      description: Check the menu bar app or About page
+      placeholder: "0.1.0"
+
+  - type: input
+    id: model
+    attributes:
+      label: Active AI Model
+      description: Which model was active when the bug occurred?
+      placeholder: "Qwen 3.5 4B"
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Setup Mode
+      options:
+        - Solo
+        - Admin (single node)
+        - Admin (mesh / multi-node)
+        - Member (connecting to a server)
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Paste any error messages or logs here. This will be formatted as code.
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem.

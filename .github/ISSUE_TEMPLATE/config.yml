@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussion
+    url: https://github.com/jerv/edgebric/discussions
+    about: Ask questions, share ideas, or get help from the community.
+  - name: Documentation
+    url: https://docs.edgebric.com
+    about: Check the docs before opening an issue — your answer might already be there.
