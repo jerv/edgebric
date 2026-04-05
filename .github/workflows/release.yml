@@ -55,7 +55,9 @@ jobs:
         run: pnpm build
 
       # Import the Apple Developer ID certificate into a temporary keychain
+      # Skipped when APPLE_CERTIFICATE_BASE64 is not set (unsigned build)
       - name: Import code signing certificate
+        if: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' }}
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -89,9 +91,10 @@ jobs:
       - name: Build Electron app
         working-directory: packages/desktop
         env:
-          # Code signing
-          CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
-          # Notarization
+          # Code signing (skipped if secrets not set)
+          CSC_KEYCHAIN: ${{ secrets.APPLE_CERTIFICATE_BASE64 != '' && format('{0}/app-signing.keychain-db', runner.temp) || '' }}
+          CSC_LINK: ""
+          # Notarization (skipped if secrets not set)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
