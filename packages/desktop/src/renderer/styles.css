@@ -570,12 +570,18 @@ body {
   margin-bottom: 16px;
 }
 
-/* Step 3 side-by-side layout */
+/* Step 3 side-by-side layout — parent must top-align when this is present */
+.wizard-step:has(.step3-split) {
+  justify-content: flex-start;
+}
+
 .step3-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 28px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 
 .step3-guide {
@@ -583,6 +589,8 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px 18px;
+  overflow-y: auto;
+  max-height: 100%;
 }
 
 .guide-heading {
@@ -1012,13 +1020,13 @@ body {
     border-color: #1e293b;
   }
   .provider-option:hover {
-    border-color: #f1f5f9;
+    border-color: #475569;
     background: #1a1a1a;
   }
   .provider-option.selected {
-    border-color: #f1f5f9;
+    border-color: #475569;
     background: #1a1a1a;
-    box-shadow: 0 0 0 1px #f1f5f9;
+    box-shadow: 0 0 0 1px #475569;
   }
   .provider-icon { background: #1e293b; }
   .provider-option.selected .provider-icon { background: #334155; }

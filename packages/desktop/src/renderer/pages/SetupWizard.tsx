@@ -43,41 +43,6 @@ function MicrosoftIcon() {
   );
 }
 
-function OktaIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="9" fill="#007DC1" />
-      <circle cx="10" cy="10" r="4" fill="white" />
-    </svg>
-  );
-}
-
-function OneLoginIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M10 1C6.5 1 3 2.5 3 5.5V9.5C3 14 6 17.5 10 19C14 17.5 17 14 17 9.5V5.5C17 2.5 13.5 1 10 1Z" fill="#232F6A" />
-    </svg>
-  );
-}
-
-function PingIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M4 2L16 10L4 18V2Z" fill="#B31B34" />
-    </svg>
-  );
-}
-
-function OidcIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      <circle cx="12" cy="16" r="1"/>
-    </svg>
-  );
-}
-
 const AUTH_PROVIDERS: AuthProvider[] = [
   {
     id: "google",
@@ -97,42 +62,6 @@ const AUTH_PROVIDERS: AuthProvider[] = [
     docsUrl: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
     clientIdHint: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     icon: <MicrosoftIcon />,
-  },
-  {
-    id: "okta",
-    name: "Okta",
-    issuerUrl: "",
-    issuerHint: "https://your-domain.okta.com/oauth2/default",
-    instructions: "Create an OIDC Web App integration in Okta. Follow the numbered steps below.",
-    docsUrl: "https://login.okta.com/",
-    icon: <OktaIcon />,
-  },
-  {
-    id: "onelogin",
-    name: "OneLogin",
-    issuerUrl: "",
-    issuerHint: "https://your-subdomain.onelogin.com/oidc/2",
-    instructions: "Create an OpenID Connect app in OneLogin. Follow the numbered steps below.",
-    docsUrl: "https://app.onelogin.com/apps",
-    icon: <OneLoginIcon />,
-  },
-  {
-    id: "ping",
-    name: "Ping Identity",
-    issuerUrl: "",
-    issuerHint: "https://auth.pingone.com/<environment-id>/as",
-    instructions: "Create an OIDC application in PingOne or PingFederate. Follow the numbered steps below.",
-    docsUrl: "https://console.pingone.com/",
-    icon: <PingIcon />,
-  },
-  {
-    id: "generic",
-    name: "Custom OIDC Provider",
-    issuerUrl: "",
-    issuerHint: "https://your-provider.com",
-    instructions: "Enter the issuer URL and OAuth credentials from your OIDC-compatible identity provider.",
-    docsUrl: "",
-    icon: <OidcIcon />,
   },
 ];
 
@@ -605,7 +534,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
             {renderDiscoveryUI()}
 
-            <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 20, paddingTop: 20 }}>
+            <div className="card-section-divider" style={{ marginTop: 20 }}>
               <div className="field">
                 <label htmlFor="secondaryNodeName">Node Name</label>
                 <input
@@ -705,83 +634,15 @@ export default function SetupWizard({ onComplete }: Props) {
                 <div className="step3-guide">
                   <h3 className="guide-heading">Setup Guide</h3>
                   <ol className="setup-steps">
-                    <li>Go to{" "}<a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="docs-link">Microsoft Entra admin center &gt; App registrations</a></li>
-                    <li>Click <strong>+ New registration</strong></li>
-                    <li>Name: <strong>Edgebric</strong></li>
-                    <li>Supported account types: <strong>Accounts in this organizational directory only</strong> (single tenant) — or choose <strong>Accounts in any organizational directory</strong> for multi-tenant</li>
-                    <li>Redirect URI: select <strong>Web</strong>, paste the redirect URI from the form</li>
-                    <li>Click <strong>Register</strong></li>
-                    <li>Copy the <strong>Application (client) ID</strong> (a UUID) from the overview page</li>
-                    <li>Copy the <strong>Directory (tenant) ID</strong> and paste it below to build the issuer URL</li>
-                    <li>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>+ New client secret</strong> &gt; <strong>Add</strong></li>
-                    <li>Copy the <strong>Value</strong> (not the Secret ID) immediately &mdash; it's only shown once</li>
-                    <li>Go to <strong>API permissions</strong> &gt; <strong>+ Add a permission</strong> &gt; <strong>Microsoft Graph</strong> &gt; <strong>Delegated</strong> &gt; search <strong>User.Read</strong> &gt; <strong>Add permissions</strong></li>
-                    <li>Go to <strong>Token configuration</strong> &gt; <strong>+ Add optional claim</strong> &gt; Token type: <strong>ID</strong> &gt; select <strong>email</strong> &gt; <strong>Add</strong>. If prompted, check "Turn on the Microsoft Graph email permission".</li>
+                    <li>Go to{" "}<a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="docs-link">Entra admin center &gt; App registrations</a></li>
+                    <li>Click <strong>+ New registration</strong>, name it <strong>Edgebric</strong></li>
+                    <li>Account types: <strong>Accounts in this organizational directory only</strong></li>
+                    <li>Redirect URI: select <strong>Web</strong>, paste the URI from the form</li>
+                    <li>Click <strong>Register</strong>, then copy the <strong>Client ID</strong> and <strong>Tenant ID</strong> from the overview</li>
+                    <li>Go to <strong>Certificates &amp; secrets</strong> &gt; <strong>+ New client secret</strong>, copy the <strong>Value</strong> immediately</li>
+                    <li>Go to <strong>API permissions</strong> &gt; add <strong>Microsoft Graph &gt; User.Read</strong> (delegated)</li>
+                    <li>Go to <strong>Token configuration</strong> &gt; add optional claim: ID token &gt; <strong>email</strong></li>
                   </ol>
-                  <p className="hint" style={{ marginTop: 8 }}>
-                    Steps 11-12 are critical: User.Read enables profile photo sync, and the email claim ensures Entra includes the user's email in the ID token.
-                  </p>
-                </div>
-              )}
-              {authProvider === "okta" && (
-                <div className="step3-guide">
-                  <h3 className="guide-heading">Setup Guide</h3>
-                  <ol className="setup-steps">
-                    <li>Sign in to your{" "}<a href="https://login.okta.com/" target="_blank" rel="noopener noreferrer" className="docs-link">Okta admin console</a></li>
-                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
-                    <li>Click <strong>Create App Integration</strong></li>
-                    <li>Sign-in method: <strong>OIDC - OpenID Connect</strong></li>
-                    <li>Application type: <strong>Web Application</strong> &gt; <strong>Next</strong></li>
-                    <li>App integration name: <strong>Edgebric</strong></li>
-                    <li>Sign-in redirect URIs: paste the redirect URI from the form</li>
-                    <li>Under <strong>Assignments</strong>, select <strong>Allow everyone in your organization to access</strong></li>
-                    <li>Click <strong>Save</strong></li>
-                    <li>Copy the <strong>Client ID</strong> and <strong>Client secret</strong> from the app's <strong>General</strong> tab</li>
-                  </ol>
-                  <p className="hint" style={{ marginTop: 8 }}>
-                    Your issuer URL is typically <code>https://your-company.okta.com/oauth2/default</code>.
-                  </p>
-                </div>
-              )}
-              {authProvider === "onelogin" && (
-                <div className="step3-guide">
-                  <h3 className="guide-heading">Setup Guide</h3>
-                  <ol className="setup-steps">
-                    <li>Sign in to your{" "}<a href="https://app.onelogin.com/apps" target="_blank" rel="noopener noreferrer" className="docs-link">OneLogin admin portal</a></li>
-                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
-                    <li>Click <strong>Add App</strong></li>
-                    <li>Search for <strong>OpenID Connect (OIDC)</strong> and select it</li>
-                    <li>Display name: <strong>Edgebric</strong> &gt; <strong>Save</strong></li>
-                    <li>Go to the <strong>Configuration</strong> tab</li>
-                    <li>Redirect URI: paste the redirect URI from the form</li>
-                    <li>Set <strong>Token Endpoint</strong> authentication method to <strong>POST</strong></li>
-                    <li>Click <strong>Save</strong></li>
-                    <li>Go to the <strong>SSO</strong> tab</li>
-                    <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
-                  </ol>
-                  <p className="hint" style={{ marginTop: 8 }}>
-                    Your issuer URL is <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code>.
-                  </p>
-                </div>
-              )}
-              {authProvider === "ping" && (
-                <div className="step3-guide">
-                  <h3 className="guide-heading">Setup Guide</h3>
-                  <ol className="setup-steps">
-                    <li>Sign in to your{" "}<a href="https://console.pingone.com/" target="_blank" rel="noopener noreferrer" className="docs-link">PingOne admin console</a></li>
-                    <li>Go to <strong>Applications</strong> &gt; <strong>Applications</strong></li>
-                    <li>Click <strong>+</strong> to add an application</li>
-                    <li>Name: <strong>Edgebric</strong>, Application type: <strong>OIDC Web App</strong></li>
-                    <li>Click <strong>Configure</strong></li>
-                    <li>Redirect URIs: paste the redirect URI from the form</li>
-                    <li>Grant type: <strong>Authorization Code</strong></li>
-                    <li>Click <strong>Save</strong></li>
-                    <li>On the app's <strong>Configuration</strong> tab, copy the <strong>Client ID</strong> and <strong>Client Secret</strong></li>
-                    <li>Note the <strong>Issuer</strong> URL from your environment settings</li>
-                  </ol>
-                  <p className="hint" style={{ marginTop: 8 }}>
-                    PingOne issuer URL varies by region: <code>auth.pingone.com</code> (US), <code>auth.pingone.eu</code> (EU), <code>auth.pingone.ca</code> (Canada), <code>auth.pingone.asia</code> (Asia).
-                  </p>
                 </div>
               )}
 
@@ -790,9 +651,7 @@ export default function SetupWizard({ onComplete }: Props) {
                   <div className="field">
                     <label htmlFor="oidcIssuer">Issuer URL</label>
                     <input id="oidcIssuer" type="text" value={oidcIssuer} onChange={(e) => setOidcIssuer(e.target.value)} placeholder={selectedProvider.issuerHint ?? "https://your-provider.com"} />
-                    {authProvider === "microsoft" && <p className="hint">Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code> &mdash; replace TENANT-ID with your Directory (tenant) ID. For multi-tenant apps, use <code>organizations</code> instead of a specific tenant ID.</p>}
-                    {authProvider === "okta" && <p className="hint">Your Okta domain, e.g. <code>https://your-company.okta.com</code></p>}
-                    {authProvider === "onelogin" && <p className="hint">Format: <code>https://YOUR-SUBDOMAIN.onelogin.com/oidc/2</code></p>}
+                    {authProvider === "microsoft" && <p className="hint">Format: <code>https://login.microsoftonline.com/TENANT-ID/v2.0</code> &mdash; replace TENANT-ID with your Directory (tenant) ID.</p>}
                   </div>
                 )}
                 <div className="field">
@@ -915,9 +774,9 @@ export default function SetupWizard({ onComplete }: Props) {
             {engineStatus === "done" && (
               <div className="ai-engine-done">
                 <p className="success-message">AI engine installed successfully.</p>
-                <div style={{ marginTop: 16, padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                <div className="card" style={{ marginTop: 16, padding: "12px 16px" }}>
                   <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Recommended model for your system</p>
-                  <p style={{ fontSize: 12, color: "#718096" }}>
+                  <p className="hint">
                     Edgebric will automatically download the best model for your hardware when the server starts.
                     You can change models anytime from Settings &gt; Models.
                   </p>
@@ -934,10 +793,10 @@ export default function SetupWizard({ onComplete }: Props) {
               </div>
             )}
 
-            <div style={{ marginTop: 20, padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div className="card" style={{ marginTop: 20, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Launch at Login</p>
-                <p style={{ fontSize: 12, color: "#718096" }}>
+                <p className="hint">
                   Recommended. Starts Edgebric automatically when you log in so it's always ready.
                 </p>
               </div>
