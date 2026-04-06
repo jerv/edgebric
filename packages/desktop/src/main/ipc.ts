@@ -22,7 +22,7 @@ import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 
 const EMBEDDING_TAG = "nomic-embed-text";
 
@@ -61,7 +61,7 @@ export function registerIpcHandlers() {
     try {
       const config = loadConfig();
       const dir = config?.dataDir ?? os.homedir();
-      const output = execSync(`df -k "${dir}" 2>/dev/null`, { encoding: "utf8" });
+      const output = execFileSync("df", ["-k", dir], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
       const lines = output.trim().split("\n");
       if (lines.length >= 2) {
         const parts = lines[1]!.split(/\s+/);
@@ -118,6 +118,11 @@ export function registerIpcHandlers() {
   ipcMain.handle("get-default-data-dir", () => {
     return DEFAULT_DATA_DIR;
   });
+
+  /** Sanitize a value for .env file — strip newlines and control chars to prevent injection. */
+  function sanitizeEnvValue(value: string): string {
+    return value.replace(/[\n\r\0]/g, "").trim();
+  }
 
   // Setup wizard — save config
   ipcMain.handle("save-setup", (_event, setupData: {
@@ -213,12 +218,12 @@ export function registerIpcHandlers() {
     } else if (!isSolo) {
       // Primary / admin node: full OIDC config
       envLines.push(
-        `OIDC_PROVIDER=${config.oidcProvider ?? "generic"}`,
-        `OIDC_ISSUER=${config.oidcIssuer ?? ""}`,
-        `OIDC_CLIENT_ID=${config.oidcClientId ?? ""}`,
-        `OIDC_CLIENT_SECRET=${config.oidcClientSecret ?? ""}`,
+        `OIDC_PROVIDER=${sanitizeEnvValue(config.oidcProvider ?? "generic")}`,
+        `OIDC_ISSUER=${sanitizeEnvValue(config.oidcIssuer ?? "")}`,
+        `OIDC_CLIENT_ID=${sanitizeEnvValue(config.oidcClientId ?? "")}`,
+        `OIDC_CLIENT_SECRET=${sanitizeEnvValue(config.oidcClientSecret ?? "")}`,
         `OIDC_REDIRECT_URI=${protocol}://localhost:${config.port}/api/auth/callback`,
-        `ADMIN_EMAILS=${(config.adminEmails ?? []).join(",")}`,
+        `ADMIN_EMAILS=${sanitizeEnvValue((config.adminEmails ?? []).join(","))}`,
         `FRONTEND_URL=${protocol}://${hostname}:${config.port}`,
         `TLS_CERT=${certs.serverCert}`,
         `TLS_KEY=${certs.serverKey}`,
@@ -230,9 +235,9 @@ export function registerIpcHandlers() {
       );
     }
 
-    if (config.chatBaseUrl) envLines.push(`CHAT_BASE_URL=${config.chatBaseUrl}`);
-    if (config.chatModel) envLines.push(`CHAT_MODEL=${config.chatModel}`);
-    if (config.orgServerUrl) envLines.push(`ORG_SERVER_URL=${config.orgServerUrl}`);
+    if (config.chatBaseUrl) envLines.push(`CHAT_BASE_URL=${sanitizeEnvValue(config.chatBaseUrl)}`);
+    if (config.chatModel) envLines.push(`CHAT_MODEL=${sanitizeEnvValue(config.chatModel)}`);
+    if (config.orgServerUrl) envLines.push(`ORG_SERVER_URL=${sanitizeEnvValue(config.orgServerUrl)}`);
 
     const envContent = [...envLines,
       "",
@@ -841,7 +846,7 @@ function getSystemRes() {
       const pid = fs.readFileSync(pidFile, "utf8").trim();
       if (pid) {
         // ps -o rss= returns RSS in KB
-        const rssKB = parseInt(execSync(`ps -o rss= -p ${pid} 2>/dev/null`, { encoding: "utf8" }).trim(), 10);
+        const rssKB = parseInt(execFileSync("ps", ["-o", "rss=", "-p", String(pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(), 10);
         if (!isNaN(rssKB)) edgebricRamBytes += rssKB * 1024;
       }
     }

@@ -10,7 +10,7 @@ import { logger } from "../lib/logger.js";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getDocument } from "../services/documentStore.js";
-import { listDataSources } from "../services/dataSourceStore.js";
+import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { createChatClient } from "../services/chatClient.js";
@@ -268,8 +268,11 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     const gcOrgConfig = getIntegrationConfig();
     const strict = !(gcOrgConfig.generalAnswersEnabled ?? true);
 
-    // Resolve datasets from shared data sources
-    const datasetNames = getSharedDatasetNames(chatId);
+    // Resolve datasets from shared data sources, filtered by user's ACL
+    const allSharedDatasets = getSharedDatasetNames(chatId);
+    const userAccessible = listAccessibleDataSources(email, req.session.isAdmin ?? false, req.session.orgId);
+    const userDatasetNames = new Set(userAccessible.map((ds) => ds.datasetName));
+    const datasetNames = allSharedDatasets.filter((dsName) => userDatasetNames.has(dsName));
     if (datasetNames.length === 0) {
       // No data sources shared — bot can't answer
       const botMsg = addMessage({

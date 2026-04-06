@@ -41,7 +41,26 @@ export async function ingestDocument(
 
     // Resolve effective PII mode: explicit option > skipPII flag > default "block"
     const effectivePiiMode: PIIMode = options?.piiMode ?? (options?.skipPII ? "off" : "block");
-    const piiWarnings = effectivePiiMode === "off" ? [] : detectPII(chunks);
+    let piiWarnings: ReturnType<typeof detectPII> = [];
+    if (effectivePiiMode !== "off") {
+      try {
+        piiWarnings = detectPII(chunks);
+      } catch (piiErr) {
+        // PII detection crash must NOT bypass the review gate — halt ingestion
+        logger.error({ err: piiErr, docName: doc.name }, "PII detection failed — blocking document");
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { piiWarnings: _oldPii, ...docRest } = doc;
+        const blocked: Document = {
+          ...docRest,
+          status: "pii_review",
+          updatedAt: new Date(),
+          piiWarnings: [{ chunkIndex: -1, excerpt: "", pattern: "PII detection failed. Manual review required." }],
+          sectionHeadings: [...new Set(chunks.map((c) => c.metadata.heading).filter(Boolean))],
+        };
+        setDocument(blocked);
+        return;
+      }
+    }
 
     if (piiWarnings.length > 0) {
       logger.warn({ docName: doc.name, count: piiWarnings.length, piiMode: effectivePiiMode }, "PII detected in document");
