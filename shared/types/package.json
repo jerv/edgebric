@@ -1,5 +1,6 @@
 {
   "name": "@edgebric/types",
+  "description": "Shared TypeScript types and model catalog",
   "version": "0.0.1",
   "private": true,
   "type": "module",

@@ -1,5 +1,6 @@
 {
   "name": "@edgebric/docs",
+  "description": "User-facing documentation site (VitePress)",
   "version": "0.1.0",
   "private": true,
   "type": "module",
