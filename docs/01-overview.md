@@ -6,7 +6,7 @@
 
 ## Vision
 
-> **"Data never moves. Queries move."**
+> **"Your data. Your hardware. Your AI."**
 
 Edgebric is a **distributed knowledge platform** that enables organizations to build, distribute, and query data sources across multiple devices — where each device physically holds its own data, devices discover each other automatically via mDNS, and queries route across the network to find answers without any data leaving its host device.
 
@@ -82,7 +82,7 @@ Existing AI solutions introduce serious compliance and security risk:
 *"If it's private enough for HR, it's private enough for anything."*
 
 ### Positioning Statement
-For organizations that handle sensitive internal knowledge across departments, Edgebric is the distributed knowledge platform where data physically stays on the device that owns it and queries move across the mesh to find answers. Unlike cloud AI or even traditional on-prem solutions, Edgebric's privacy is enforced by architecture — not by access controls, not by contracts, not by policy.
+For organizations that handle sensitive internal knowledge across departments, Edgebric is the distributed knowledge platform where data physically stays on the device that owns it and queries route across the mesh to find answers. Unlike cloud AI or even traditional on-prem solutions, Edgebric's privacy is enforced by architecture — not by access controls, not by contracts, not by policy.
 
 ### The HR-First Story
 HR is the hero use case — not because Edgebric is exclusively an HR tool, but because HR represents the highest-stakes environment for employee trust and data sensitivity. A product that earns trust in HR earns it everywhere. Marketing leads with HR; the platform serves any team with sensitive documentation.
@@ -98,7 +98,7 @@ A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. Tha
 | | Edgebric | Cloud AI (Leena, Moveworks, Copilot) | Traditional On-Prem |
 |---|---|---|---|
 | Data location | Each device holds its own data | Third-party cloud servers | Central on-prem server |
-| Privacy guarantee | Physical isolation (data never moves) | Contractual (policy-based) | Access control (bypassable) |
+| Privacy guarantee | Physical isolation (your data stays on your hardware) | Contractual (policy-based) | Access control (bypassable) |
 | Cross-department queries | Yes — mesh routes queries, not data | Yes — but all data centralized | Siloed or centralized |
 | Works offline | Yes | No | Yes |
 | Device discovery | Automatic (mDNS) | N/A | Manual IP configuration |
