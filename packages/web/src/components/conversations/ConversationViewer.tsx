@@ -90,12 +90,12 @@ export function ConversationViewer() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="p-1.5 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800"
+            className="p-2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800"
             title="Back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -144,12 +144,12 @@ export function ConversationViewer() {
                 className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
               >
                 {msg.role === "user" ? (
-                  <div className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4 py-3 max-w-xl text-sm">
+                  <div className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85vw] sm:max-w-xl text-sm">
                     {msg.content}
                   </div>
                 ) : (
                   <div
-                    className="max-w-2xl w-full space-y-3"
+                    className="max-w-[85vw] sm:max-w-2xl w-full space-y-3"
                   >
                     <div
                       className={cn(
