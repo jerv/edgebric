@@ -105,7 +105,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the AGPL-3.0 License.',
-      copyright: 'Copyright 2024-present Edgebric',
+      copyright: 'Copyright 2025-present Edgebric',
     },
   },
 
