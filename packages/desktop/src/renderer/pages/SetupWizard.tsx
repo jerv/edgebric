@@ -134,6 +134,7 @@ export default function SetupWizard({ onComplete }: Props) {
   const [engineStatus, setEngineStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
   const [engineError, setEngineError] = useState("");
   const [launchAtLogin, setLaunchAtLogin] = useState(true);
+  const [autoUpdate, setAutoUpdate] = useState(true);
 
   const steps = getSteps(intent, mode, connectType);
   const currentStep = steps[stepIndex];
@@ -279,6 +280,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
     // Final step
     await window.electronAPI.setLaunchAtLogin(launchAtLogin);
+    await window.electronAPI.setAutoUpdateEnabled(autoUpdate);
     onComplete();
   }
 
@@ -805,6 +807,23 @@ export default function SetupWizard({ onComplete }: Props) {
                 onClick={() => setLaunchAtLogin(!launchAtLogin)}
                 type="button"
                 aria-pressed={launchAtLogin}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
+
+            <div className="card" style={{ marginTop: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Automatic Updates</p>
+                <p className="hint">
+                  Check for updates automatically when Edgebric starts.
+                </p>
+              </div>
+              <button
+                className={`toggle-btn ${autoUpdate ? "toggle-on" : ""}`}
+                onClick={() => setAutoUpdate(!autoUpdate)}
+                type="button"
+                aria-pressed={autoUpdate}
               >
                 <span className="toggle-knob" />
               </button>
