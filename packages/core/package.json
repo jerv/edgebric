@@ -1,5 +1,6 @@
 {
   "name": "@edgebric/core",
+  "description": "Core RAG orchestrator, system prompts, and ingestion pipeline",
   "version": "0.0.1",
   "private": true,
   "type": "module",
