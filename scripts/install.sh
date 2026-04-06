@@ -201,7 +201,7 @@ ok "Download complete"
 echo ""
 info "Installing Edgebric..."
 
-MOUNT_OUTPUT=$(hdiutil attach "$DMG_PATH" -nobrowse -quiet 2>&1) || fail "Failed to mount DMG: ${MOUNT_OUTPUT}"
+MOUNT_OUTPUT=$(hdiutil attach "$DMG_PATH" -nobrowse 2>&1) || fail "Failed to mount DMG:\n${MOUNT_OUTPUT}"
 
 # Find the mount point
 MOUNT_POINT=$(echo "$MOUNT_OUTPUT" | grep -o '/Volumes/.*' | head -1 | sed 's/[[:space:]]*$//')
