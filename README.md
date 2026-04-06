@@ -10,11 +10,6 @@ Whether you're organizing family documents, managing client files, building a pe
 
 **Just want to use it?** Head to [edgebric.com](https://edgebric.com) to download the macOS app. No terminal, no setup — just download and run.
 
-**Prefer the command line?**
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash
-```
-
 ---
 
 ## Free and open source.
@@ -96,19 +91,7 @@ Monorepo with four packages:
 
 Head to [edgebric.com](https://edgebric.com) — download, drag to Applications, launch. No terminal required.
 
-### Option 2: One-line install (for developers)
-
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash
-```
-
-Checks prerequisites, clones the repo, builds, and launches the desktop app. Customize the install directory:
-
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash -s -- --dir ~/my-edgebric
-```
-
-### Option 3: Build from source
+### Option 2: Build from source
 
 ```bash
 git clone https://github.com/jerv/edgebric.git

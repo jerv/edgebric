@@ -37,6 +37,8 @@ declare global {
       startEngine: () => Promise<{ success: boolean; external?: boolean; error?: string }>;
       stopEngine: () => Promise<{ success: boolean; error?: string }>;
       onEngineDownloadProgress: (callback: (percent: number) => void) => () => void;
+      // Recommended Model (setup wizard)
+      getRecommendedModel: () => Promise<{ tag: string; name: string; downloadSizeGB: number; description: string } | null>;
       // mDNS Discovery
       discoverInstances: () => Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>;
       // Settings

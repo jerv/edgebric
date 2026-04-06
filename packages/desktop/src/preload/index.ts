@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     adminEmails: string[];
   }) => ipcRenderer.invoke("instance-reconfigure-auth", data),
 
+  // Recommended Model (setup wizard)
+  getRecommendedModel: () => ipcRenderer.invoke("get-recommended-model") as Promise<{ tag: string; name: string; downloadSizeGB: number; description: string } | null>,
+
   // Model Management (GGUF files via main process)
   modelsList: () => ipcRenderer.invoke("models-list"),
   modelsLoad: (tag: string) => ipcRenderer.invoke("models-load", tag),
