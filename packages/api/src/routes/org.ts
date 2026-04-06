@@ -132,7 +132,9 @@ orgRouter.delete("/avatar", (req, res) => {
   // Delete file (best effort)
   if (avatarUrl) {
     const filename = avatarUrl.split("/").pop();
-    if (filename) void fs.unlink(path.join(avatarDir, filename)).catch(() => {});
+    if (filename && /^[a-zA-Z0-9_.-]+$/.test(filename)) {
+      void fs.unlink(path.join(avatarDir, filename)).catch(() => {});
+    }
   }
 
   res.json({ ok: true });

@@ -51,6 +51,7 @@ declare module "express-session" {
     orgId?: string; // currently selected org
     orgSlug?: string; // slug of currently selected org
     oidcState?: string; // transient — cleared after callback
+    oidcNonce?: string; // transient — cleared after callback (replay protection)
     codeVerifier?: string; // transient — cleared after callback
     meshReturnTo?: string; // transient — secondary node URL to redirect after OIDC
     cloudOAuthNonce?: string; // transient — cleared after cloud OAuth callback

@@ -40,7 +40,7 @@ describe("Sync API", () => {
       expect(typeof res.body.version).toBe("string");
       expect(typeof res.body.chunkCount).toBe("number");
       expect(res.body.revoked).toBe(false);
-      expect(Array.isArray(res.body.accessibleChunkIds)).toBe(true);
+      // accessibleChunkIds intentionally removed for security (prevents enumeration)
     });
 
     it("GET /api/sync/chunks returns NDJSON content type", async () => {

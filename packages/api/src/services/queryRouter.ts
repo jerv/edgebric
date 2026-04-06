@@ -40,6 +40,7 @@ export async function routedSearch(
   queryText: string,
   maxCandidates = 20,
   allowedGroupIds?: string[],
+  allowedDataSourceIds?: string[],
 ): Promise<RoutedSearchResponse> {
   const meshEnabled = isMeshEnabled();
   const cfg = meshEnabled ? getMeshConfig() : undefined;
@@ -55,6 +56,7 @@ export async function routedSearch(
   const meshPromise = meshEnabled && allowedGroupIds?.length !== 0
     ? searchAllNodes(queryText, {
         ...(allowedGroupIds != null && { groupIds: allowedGroupIds }),
+        ...(allowedDataSourceIds != null && { allowedDataSourceIds }),
         topN: maxCandidates,
       })
     : Promise.resolve({ results: [], nodesSearched: 0, nodesUnavailable: 0 });

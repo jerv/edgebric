@@ -192,9 +192,11 @@ authRouter.get("/login", async (req, res) => {
     const codeVerifier = generators.codeVerifier();
     const codeChallenge = generators.codeChallenge(codeVerifier);
     const state = generators.state();
+    const nonce = generators.nonce();
 
     req.session.codeVerifier = codeVerifier;
     req.session.oidcState = state;
+    req.session.oidcNonce = nonce;
 
     // If a secondary node sent a meshReturnTo param, store it in session
     // so the callback knows where to redirect after OIDC completes.
@@ -222,6 +224,7 @@ authRouter.get("/login", async (req, res) => {
     const url = client.authorizationUrl({
       scope: scopes,
       state,
+      nonce,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
       prompt: "select_account",
@@ -253,6 +256,7 @@ authRouter.get("/callback", async (req, res) => {
 
     const tokenSet = await client.callback(config.oidc.redirectUri, params, {
       state: req.session.oidcState,
+      nonce: req.session.oidcNonce,
       code_verifier: req.session.codeVerifier,
     });
 
@@ -364,6 +368,12 @@ authRouter.get("/callback", async (req, res) => {
     }
   } catch (err) {
     logger.error({ err }, "OIDC callback error");
+    // Audit: log failed authentication attempt
+    recordAuditEvent({
+      eventType: "auth.login" as "auth.login",
+      actorIp: req.ip,
+      details: { success: false, reason: err instanceof Error ? err.message : "Unknown OIDC error" },
+    });
     // Redirect to frontend (not /api/auth/login) to avoid infinite loop when
     // Google auto-selects the account on retry. The frontend will detect the
     // missing session and show the login page.
@@ -621,7 +631,7 @@ authRouter.get("/provider", async (_req, res) => {
 authRouter.get("/avatar/:userId", (req, res) => {
   const avatarDir = path.join(config.dataDir, "avatars");
   const userId = req.params["userId"];
-  if (!userId || userId.includes("..") || userId.includes("/")) {
+  if (!userId || !/^[a-zA-Z0-9_-]+$/.test(userId)) {
     res.status(400).json({ error: "Invalid user ID" });
     return;
   }

@@ -56,3 +56,14 @@ Check these mount paths before writing tests — don't guess the prefix.
 ## Service Layer
 
 Business logic lives in `src/services/`. Routes are thin — they validate input (Zod), call services, return responses. Don't put business logic in route handlers.
+
+## Security Conventions
+
+- **ACL enforcement**: All tool functions (`services/tools/*.ts`) MUST check `listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId)` before accessing documents. No document operation without ACL.
+- **Mesh protocol**: Mesh inter-node search (`/api/mesh/peer/search`) supports `allowedDataSourceIds` for server-side ACL. Always forward the requesting user's accessible data source IDs.
+- **Prompt injection**: Document chunks in RAG prompts are wrapped in `<context>/<source>` XML tags with sanitized content. Use `sanitizeChunkContent()` and `sanitizeMetadata()` in `systemPrompt.ts`.
+- **Audit log**: `audit_log` table has SQLite triggers preventing DELETE/UPDATE. Log `document.view` events on content access. Log failed auth attempts.
+- **Encryption**: Encrypted buffers include a 1-byte key version prefix for rotation support. Use `encryptText`/`decryptText` for DB fields, `encryptFile`/`decryptFile` for files.
+- **Cloud secrets**: All cloud OAuth credentials (Google Drive, OneDrive, Confluence) require env vars — no hardcoded fallbacks.
+- **Input validation**: ALL routes must use `validateBody()`/`validateQuery()` with Zod schemas. No raw `req.body as T` without validation.
+- **Path safety**: Avatar/file deletion uses whitelist regex (`/^[a-zA-Z0-9_.-]+$/`) not blacklist checks.

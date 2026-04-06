@@ -74,8 +74,7 @@ syncRouter.get("/version", (req, res) => {
     hash.update(chunk.chunkId);
     hash.update(chunk.content);
   }
-  const accessibleChunkIds = new Set(chunks.map((c) => c.chunkId));
-  res.json({ version: hash.digest("hex"), chunkCount: chunks.length, revoked: false, accessibleChunkIds: [...accessibleChunkIds] });
+  res.json({ version: hash.digest("hex"), chunkCount: chunks.length, revoked: false });
 });
 
 // ─── GET /api/sync/chunks ───────────────────────────────────────────────────

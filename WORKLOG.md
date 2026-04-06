@@ -490,3 +490,39 @@ No fixes needed — the llama-cpp migration landed cleanly.
 - `packages/web/src/components/settings/NetworkTab.tsx` — changed scan icon from `Wifi` to `Radar`
 
 **Status**: All 34 mesh route tests passing, web typecheck clean.
+
+## 2026-04-05 — agent/security (Security agent)
+
+### Deep security audit + comprehensive remediation
+
+**Audit findings:** 7 Critical, 12 High, 9 Medium, 4 Low vulnerabilities. Full report in `SECURITY_AUDIT.md`.
+
+**Fixes applied (all findings):**
+
+1. **Data Isolation (Critical):** Added ACL enforcement to `delete_document` and `compare_documents` tools. Added data source ACL checks to document content/file endpoints. Mesh search now forwards and enforces `allowedDataSourceIds` server-side. Removed chunk ID exposure from sync version endpoint.
+
+2. **Mesh Token Security (Critical/High):** Added per-node rate limiting (30 searches/min) on mesh inter-node search. Encrypted mesh tokens at rest via AES-256-GCM (backward-compatible with legacy plaintext). Full token only shown on creation.
+
+3. **RAG Prompt Injection (Critical):** Replaced weak `---` delimiters with structured XML `<context>/<source>` tags. Added chunk content sanitization (null bytes, length truncation). Added metadata sanitization (newline/control char stripping). Added anti-injection instruction to system prompt. Sanitized filename in `/with-file` endpoint.
+
+4. **Electron (High):** Added hostname regex validation in `certs.ts` to prevent shell command injection via `execSync`.
+
+5. **Hardcoded Secrets (High):** Removed Google Drive OAuth client secret from `config.ts`. Now requires env var (empty default).
+
+6. **Encryption (Medium):** Added key version byte to encrypted buffers for future key rotation support. Backward-compatible decryption.
+
+7. **Input Validation (High):** Added Zod validation to audit route query params (with bounded limit/offset). Added Zod validation to vault `/embed` and `/chat` endpoints. Replaced blacklist path validation with whitelist regex for avatar file operations.
+
+8. **Audit Log Integrity (Critical/High):** Added SQLite triggers to prevent DELETE/UPDATE on `audit_log` table. Added `document.view` audit event on content access. Added failed OIDC auth audit logging.
+
+9. **Auth (Low):** Added OIDC nonce generation and validation for defense-in-depth.
+
+10. **Dependencies (High):** Added pnpm overrides for `tar>=7.5.11` and `flatted>=3.4.0`.
+
+**Tests:** All 783 tests pass (91 core + 692 api). TypeScript compiles clean.
+
+**Breaking changes:**
+- `GET /api/sync/version` no longer returns `accessibleChunkIds` array
+- Google Drive integration requires `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` env vars (no more hardcoded defaults)
+- Mesh search protocol extended with optional `allowedDataSourceIds` field (backward-compatible)
+- Encryption format adds 1-byte version prefix (backward-compatible decryption)
