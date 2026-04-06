@@ -28,13 +28,13 @@ RUN pnpm build
 # ─── Stage 3: Production runtime ─────────────────────────────────────────────
 FROM node:22-slim AS runtime
 
-RUN corepack enable pnpm
-
 WORKDIR /app
 
-# Copy everything from the build stage (node_modules + built code).
-# tsx is a devDependency but required at runtime for TypeScript execution.
+# Copy everything from the build stage (node_modules + built code)
 COPY --from=build /app/ /app/
+
+# tsx is needed at runtime for TypeScript execution
+RUN npm install -g tsx
 
 # Data directory (mount a volume here for persistence)
 RUN mkdir -p /app/data
@@ -42,8 +42,10 @@ RUN mkdir -p /app/data
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
 ENV PORT=3001
+ENV LISTEN_HOST=0.0.0.0
+ENV CONTAINER=1
 
 EXPOSE 3001
 
 # Run the API server with tsx (TypeScript execution)
-CMD ["npx", "tsx", "packages/api/src/server.ts"]
+CMD ["tsx", "packages/api/src/server.ts"]
