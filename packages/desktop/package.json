@@ -1,6 +1,6 @@
 {
   "name": "@edgebric/desktop",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "Edgebric — Private knowledge platform that runs on your hardware",
   "author": "Edgebric",
