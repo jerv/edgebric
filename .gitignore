@@ -20,14 +20,10 @@ shared/*/src/**/*.d.ts.map
 *.zip
 *.gguf
 # Model files (large binaries)
-spikes/*/models/
 # Runtime data (DB, sessions, uploads)
 packages/api/data/
 # TanStack Router build cache
 packages/web/.tanstack/
-# Large test PDFs/outputs — generated artifacts
-spikes/spike-docling/test-docs/*.pdf
-spikes/spike-docling/test-docs/*.md
 # Playwright
 /test-results/
 /playwright-report/
@@ -37,3 +33,10 @@ spikes/spike-docling/test-docs/*.md
 # SQLite databases (dev artifacts)
 *.db
 e2e-live/benchmark/results/
+# Certificates and private keys
+*.p12
+*.pfx
+*.key
+*.pem
+*.cer
+*.crt
