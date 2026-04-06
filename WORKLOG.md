@@ -526,3 +526,20 @@ No fixes needed — the llama-cpp migration landed cleanly.
 - Google Drive integration requires `GOOGLE_DRIVE_CLIENT_ID` and `GOOGLE_DRIVE_CLIENT_SECRET` env vars (no more hardcoded defaults)
 - Mesh search protocol extended with optional `allowedDataSourceIds` field (backward-compatible)
 - Encryption format adds 1-byte version prefix (backward-compatible decryption)
+
+### Pass 2 — Second audit wave fixes
+
+**7 files, 64 insertions:**
+- Agent API: routedSearch() now passes empty groupIds + accessible DS IDs (was unscoped on mesh)
+- Group chat: ACL check before sharing data sources + ACL filter on group chat queries
+- PII pipeline: detectPII() crash now sends doc to pii_review (not "failed")
+- Cloud OAuth: returnTo restricted to paths starting with "/"
+- Electron IPC: sanitizeEnvValue() strips newlines before .env write; execSync → execFileSync for df/ps
+- Session store: sessions dir set to 0o700 on startup
+
+### Pass 3 — Critical infrastructure fixes
+
+**6 files, 103 insertions:**
+- llama-server auth: random 256-bit API key per instance, passed via --api-key flag
+- DNS rebinding: Host header validation middleware rejects unknown hosts
+- PII search filter: search results filtered to only "ready" documents
