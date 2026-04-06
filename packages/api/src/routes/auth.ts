@@ -370,7 +370,7 @@ authRouter.get("/callback", async (req, res) => {
     logger.error({ err }, "OIDC callback error");
     // Audit: log failed authentication attempt
     recordAuditEvent({
-      eventType: "auth.login" as "auth.login",
+      eventType: "auth.login" as const,
       actorIp: req.ip,
       details: { success: false, reason: err instanceof Error ? err.message : "Unknown OIDC error" },
     });

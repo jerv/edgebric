@@ -63,7 +63,7 @@ vaultRouter.post("/embed", validateBody(embedSchema), async (req, res) => {
     return;
   }
 
-  const { model, prompt } = req.body as z.infer<typeof embedSchema>;
+  const { prompt } = req.body as z.infer<typeof embedSchema>;
 
   try {
     const resp = await fetch(`${embeddingServerUrl()}/v1/embeddings`, {
