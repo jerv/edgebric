@@ -145,7 +145,7 @@ export function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 w-full max-w-lg p-8">
+      <div className="bg-white dark:bg-gray-950 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-800 w-full max-w-lg p-4 sm:p-8">
         <div className="text-center mb-8">
           <Logo className="w-12 h-12 rounded-xl mx-auto mb-3" />
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>
@@ -214,7 +214,7 @@ export function OnboardingWizard() {
             <button
               onClick={() => saveOrgMutation.mutate()}
               disabled={!orgName.trim() || saveOrgMutation.isPending}
-              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
               {saveOrgMutation.isPending ? "Saving..." : "Continue"}
             </button>
@@ -250,7 +250,7 @@ export function OnboardingWizard() {
             <button
               onClick={() => createDSMutation.mutate()}
               disabled={!dsName.trim() || createDSMutation.isPending}
-              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              className="w-full bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
             >
               {createDSMutation.isPending ? "Creating..." : "Create Data Source"}
             </button>
@@ -315,7 +315,7 @@ export function OnboardingWizard() {
               {uploadStatus !== "done" && (
                 <button
                   onClick={() => completeOnboarding.mutate()}
-                  className="flex-1 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-400 rounded-lg py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
+                  className="flex-1 border border-slate-300 dark:border-gray-600 text-slate-600 dark:text-gray-400 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
                 >
                   Skip for now
                 </button>
@@ -324,7 +324,7 @@ export function OnboardingWizard() {
                 <button
                   onClick={() => completeOnboarding.mutate()}
                   disabled={completeOnboarding.isPending}
-                  className="flex-1 bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                  className="flex-1 bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
                 >
                   {completeOnboarding.isPending ? "Finishing..." : "Get Started"}
                 </button>

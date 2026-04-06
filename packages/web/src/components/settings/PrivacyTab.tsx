@@ -417,7 +417,7 @@ function VaultSetupWizard() {
               <button
                 onClick={() => void checkEngine()}
                 disabled={engineStatus === "checking"}
-                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-2 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 {engineStatus === "checking" && (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -548,7 +548,7 @@ function VaultSetupWizard() {
               </p>
               <button
                 onClick={() => void startSync()}
-                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-1.5 hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-white dark:text-gray-900 bg-slate-900 dark:bg-gray-100 rounded-lg px-3 py-2 hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors"
               >
                 Retry Sync
               </button>

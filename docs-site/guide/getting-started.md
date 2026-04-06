@@ -87,7 +87,16 @@ Edgebric downloads a default AI model (Qwen 3.5 4B, about 2.6 GB) from HuggingFa
 
 If you chose Admin mode, you'll configure an identity provider (Google or Microsoft) so your team members can sign in. See [Authentication Setup](/admin/auth) for detailed instructions.
 
-### Step 5: Ready
+### Step 5: AI Engine & Preferences
+
+The final step lets you download the local AI engine and configure two preferences:
+
+- **Launch at Login** — Start Edgebric automatically when you log in (recommended).
+- **Automatic Updates** — Check for updates when Edgebric starts. You can always check manually from the tray menu or Settings.
+
+Both default to on. You can change these later in **Dashboard > Settings**.
+
+### Step 6: Ready
 
 Once setup completes:
 
@@ -107,8 +116,21 @@ Click the icon to:
 
 - Open the web interface
 - View server status
+- Check for updates / restart to update
 - Restart services
 - Quit Edgebric
+
+## Updates
+
+Edgebric checks for updates automatically on startup (if enabled). You can also check manually via the tray menu or **Dashboard > Settings > Updates**.
+
+When an update is available, Edgebric downloads it in the background and prompts you to restart. You can skip a version if you prefer.
+
+To disable automatic checks, toggle **Automatic Updates** off in Settings. Manual checks via "Check for Updates" still work when auto-update is off.
+
+::: tip CLI / Docker users
+The desktop auto-updater only runs in packaged Electron builds. If you run from source or Docker, pull updates via `git pull` or `docker pull`. The updater gracefully no-ops in non-packaged environments.
+:::
 
 ## Next Steps
 

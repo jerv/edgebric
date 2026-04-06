@@ -257,11 +257,13 @@ Saved to: `~/.edgebric.json`
 
 Licensing/feature gating has been removed. All features are free. Revenue from pay-what-you-want downloads and GitHub Sponsors.
 
-### Phase D4 — Auto-Update NOT STARTED
+### Phase D4 — Auto-Update MOSTLY DONE
 
-- [ ] electron-updater integration
-- [ ] Update check on launch + "Check for Updates" menu item
-- [ ] Background download + prompt to restart
+- [x] electron-updater integration
+- [x] Update check on launch + "Check for Updates" menu item
+- [x] Background download + prompt to restart
+- [x] User-controllable auto-update preference (setup wizard + settings dashboard)
+- [x] Read-only `GET /api/health/version` endpoint for agents
 - [ ] GitHub Releases or S3 hosting
 - [ ] Code signing + notarization in CI
 

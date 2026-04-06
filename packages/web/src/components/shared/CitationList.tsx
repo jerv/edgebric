@@ -119,7 +119,7 @@ export function CitationList({ citations, onSourceClick }: CitationListProps) {
               return (
                 <button
                   key={j}
-                  className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1 text-left hover:text-slate-700 dark:hover:text-gray-300 transition-colors group/cite truncate max-w-full"
+                  className="text-xs text-slate-500 dark:text-gray-400 flex items-center gap-1 py-1.5 text-left hover:text-slate-700 dark:hover:text-gray-300 transition-colors group/cite truncate max-w-full"
                   title={isStale ? `${fullText} (may be outdated)` : fullText}
                   onClick={() => onSourceClick({
                     documentId: citation.documentId,

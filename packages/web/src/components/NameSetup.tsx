@@ -42,7 +42,7 @@ export function NameSetup({ onComplete }: NameSetupProps) {
 
   return (
     <div className="h-screen flex items-center justify-center bg-white dark:bg-gray-950">
-      <div className="w-full max-w-sm mx-auto px-6">
+      <div className="w-full max-w-sm mx-auto px-4 sm:px-6">
         <div className="flex items-center gap-3 mb-1">
           <Logo className="w-10 h-10 rounded-xl" />
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>

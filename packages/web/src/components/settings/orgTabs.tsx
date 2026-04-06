@@ -316,7 +316,7 @@ export function MembersTab() {
             Import CSV
           </button>
         </div>
-        <div className="flex gap-2 items-end">
+        <div className="flex flex-col sm:flex-row gap-2 items-end">
           <div className="flex-1">
             <input
               type="email"
@@ -380,6 +380,7 @@ export function MembersTab() {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800">
@@ -568,7 +569,7 @@ export function MembersTab() {
                         {isSelf ? null : (
                           <button
                             onClick={() => { setRemoveTarget(m); setRemoveTyped(""); }}
-                            className="text-slate-300 dark:text-gray-600 hover:text-red-500 transition-colors p-1"
+                            className="text-slate-300 dark:text-gray-600 hover:text-red-500 transition-colors p-1.5"
                             title="Remove user"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -580,6 +581,7 @@ export function MembersTab() {
                 })}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -592,7 +594,7 @@ export function MembersTab() {
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={currentPage === 0}
-                    className="p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -602,7 +604,7 @@ export function MembersTab() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                     disabled={currentPage >= totalPages - 1}
-                    className="p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1.5 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>

@@ -21,11 +21,11 @@ function formatExpiry(chat: GroupChat): string {
 function statusBadge(status: GroupChat["status"]) {
   switch (status) {
     case "active":
-      return <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded-full">Active</span>;
+      return <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded-full">Active</span>;
     case "expired":
-      return <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 rounded-full">Expired</span>;
+      return <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 rounded-full">Expired</span>;
     case "archived":
-      return <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">Archived</span>;
+      return <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">Archived</span>;
   }
 }
 
@@ -92,10 +92,10 @@ export function GroupChatList() {
                   <h3 className="text-sm font-medium text-slate-900 dark:text-gray-100">{chat.name}</h3>
                   {statusBadge(chat.status)}
                 </div>
-                <span className="text-[11px] text-slate-400 dark:text-gray-500">{formatExpiry(chat)}</span>
+                <span className="text-xs text-slate-400 dark:text-gray-500">{formatExpiry(chat)}</span>
               </div>
 
-              <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-gray-400">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-xs text-slate-500 dark:text-gray-400">
                 <span className="flex items-center gap-1">
                   <Users className="w-3.5 h-3.5" />
                   {chat.members.length} member{chat.members.length !== 1 ? "s" : ""}
@@ -116,14 +116,14 @@ export function GroupChatList() {
                   {chat.members.slice(0, 5).map((m) => (
                     <span
                       key={m.userEmail}
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-gray-800 text-[10px] font-medium text-slate-600 dark:text-gray-400"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-gray-800 text-xs font-medium text-slate-600 dark:text-gray-400"
                       title={m.userName ?? m.userEmail}
                     >
                       {(m.userName ?? m.userEmail).charAt(0).toUpperCase()}
                     </span>
                   ))}
                   {chat.members.length > 5 && (
-                    <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-1">+{chat.members.length - 5}</span>
+                    <span className="text-xs text-slate-400 dark:text-gray-500 ml-1">+{chat.members.length - 5}</span>
                   )}
                 </div>
               )}

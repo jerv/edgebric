@@ -262,6 +262,7 @@ async function _startServer(): Promise<void> {
       ...process.env,
       DOTENV_CONFIG_PATH: envFile,
       SERVE_STATIC: "1",
+      EDGEBRIC_VERSION: app.getVersion(),
       ...(llamaChatKey && { CHAT_API_KEY: llamaChatKey }),
       ...(llamaEmbeddingKey && { EMBEDDING_API_KEY: llamaEmbeddingKey }),
     },

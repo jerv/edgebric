@@ -292,3 +292,25 @@ All errors follow a consistent format:
 | 404 | Not found |
 | 429 | Rate limit exceeded |
 | 500 | Internal server error |
+
+## Version Endpoint
+
+A lightweight, unauthenticated endpoint for checking the running Edgebric version. Useful for monitoring, health checks, and agent version awareness.
+
+```
+GET /api/health/version
+```
+
+No authentication required.
+
+**Response:**
+
+```json
+{
+  "version": "0.9.0"
+}
+```
+
+::: info Read-only
+This endpoint only reports the current version. There are no API endpoints to change update settings — update preferences are a user-level decision controlled via the desktop app.
+:::

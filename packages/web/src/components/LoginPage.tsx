@@ -90,11 +90,11 @@ export function LoginPage() {
     <div className="h-screen w-screen relative overflow-hidden bg-white dark:bg-gray-950">
       <DotGrid />
       <div className="relative z-10 h-full flex items-center justify-center">
-        <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border border-slate-200 dark:border-gray-800 rounded-2xl shadow-lg px-10 py-12 text-center space-y-8">
+        <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border border-slate-200 dark:border-gray-800 rounded-2xl shadow-lg px-6 sm:px-10 py-10 sm:py-12 text-center space-y-8 mx-4 max-w-[calc(100vw-2rem)]">
           <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center gap-3">
-              <Logo className="w-16 h-16 rounded-xl" />
-              <h1 className="text-6xl font-bold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
+            <div className="flex items-center gap-3 flex-wrap justify-center">
+              <Logo className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl" />
+              <h1 className="text-4xl sm:text-6xl font-bold text-slate-900 dark:text-gray-100 tracking-tight">Edgebric</h1>
             </div>
             <p className="text-sm text-slate-400 dark:text-gray-500 mt-2">AI that never leaves your network.</p>
           </div>
@@ -105,7 +105,7 @@ export function LoginPage() {
             <Icon />
             Sign in with {providerName}
           </a>
-          <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-gray-500">
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-gray-500 flex-wrap">
             <Link to="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</Link>
             <span>·</span>
             <Link to="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</Link>

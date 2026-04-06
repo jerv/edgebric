@@ -139,7 +139,7 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
                 <button
                   onClick={onSetDefault}
                   disabled={loading}
-                  className="text-xs px-2.5 py-1 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+                  className="text-xs px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
                 >
                   Set default
                 </button>
@@ -148,7 +148,7 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
                 onClick={handleStopClick}
                 disabled={loading}
                 className={cn(
-                  "text-xs px-2.5 py-1 rounded-lg transition-colors",
+                  "text-xs px-2.5 py-1.5 rounded-lg transition-colors",
                   confirmUnload
                     ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 font-medium"
                     : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800",
@@ -161,7 +161,7 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
             <button
               onClick={onLoad}
               disabled={loading}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
             >
               {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Power className="w-3 h-3" />}
               Load
@@ -206,12 +206,12 @@ export function ModelsPanel() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Header with back button */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-600 dark:hover:text-gray-400 transition-colors"
+            className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-600 dark:hover:text-gray-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
