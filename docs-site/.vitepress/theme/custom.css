@@ -1,0 +1,107 @@
+/* Edgebric brand overrides — slate/neutral palette, no purple/blue */
+
+/* Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Font */
+  --vp-font-family-base: 'Space Grotesk', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Brand colors — slate tones */
+  --vp-c-brand-1: #334155;
+  --vp-c-brand-2: #475569;
+  --vp-c-brand-3: #64748b;
+  --vp-c-brand-soft: rgba(51, 65, 85, 0.14);
+
+  /* Tip / info — warm slate instead of blue/green */
+  --vp-c-tip-1: #64748b;
+  --vp-c-tip-2: #94a3b8;
+  --vp-c-tip-3: #cbd5e1;
+  --vp-c-tip-soft: rgba(100, 116, 139, 0.14);
+
+  /* Accent overrides */
+  --vp-c-indigo-1: #334155;
+  --vp-c-indigo-2: #475569;
+  --vp-c-indigo-3: #64748b;
+  --vp-c-indigo-soft: rgba(51, 65, 85, 0.14);
+
+  --vp-c-purple-1: #334155;
+  --vp-c-purple-2: #475569;
+  --vp-c-purple-3: #64748b;
+  --vp-c-purple-soft: rgba(51, 65, 85, 0.14);
+
+  /* Button */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #f8fafc;
+  --vp-button-brand-bg: #1e293b;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #f8fafc;
+  --vp-button-brand-hover-bg: #334155;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #f8fafc;
+  --vp-button-brand-active-bg: #0f172a;
+
+  /* Home hero name gradient */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #1e293b 0%, #475569 50%, #64748b 100%);
+
+  /* Hero image glow */
+  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(30, 41, 59, 0.3) 0%, rgba(100, 116, 139, 0.2) 100%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+  /* Brand colors — lighter slate for dark mode */
+  --vp-c-brand-1: #cbd5e1;
+  --vp-c-brand-2: #94a3b8;
+  --vp-c-brand-3: #64748b;
+  --vp-c-brand-soft: rgba(203, 213, 225, 0.14);
+
+  /* Tip */
+  --vp-c-tip-1: #94a3b8;
+  --vp-c-tip-2: #64748b;
+  --vp-c-tip-3: #475569;
+  --vp-c-tip-soft: rgba(148, 163, 184, 0.14);
+
+  /* Accent overrides */
+  --vp-c-indigo-1: #cbd5e1;
+  --vp-c-indigo-2: #94a3b8;
+  --vp-c-indigo-3: #64748b;
+  --vp-c-indigo-soft: rgba(203, 213, 225, 0.14);
+
+  --vp-c-purple-1: #cbd5e1;
+  --vp-c-purple-2: #94a3b8;
+  --vp-c-purple-3: #64748b;
+  --vp-c-purple-soft: rgba(203, 213, 225, 0.14);
+
+  /* Button */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #0f172a;
+  --vp-button-brand-bg: #e2e8f0;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #0f172a;
+  --vp-button-brand-hover-bg: #f1f5f9;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #0f172a;
+  --vp-button-brand-active-bg: #cbd5e1;
+
+  /* Hero name gradient — lighter for dark mode */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #cbd5e1 100%);
+
+  --vp-home-hero-image-background-image: linear-gradient(135deg, rgba(203, 213, 225, 0.2) 0%, rgba(100, 116, 139, 0.15) 100%);
+}
+
+/* Feature icons — size them nicely */
+.VPFeature .VPImage,
+.VPFeature .icon {
+  width: 48px;
+  height: 48px;
+}
+
+/* Logo sizing in nav */
+.VPNavBarTitle .logo {
+  width: 32px;
+  height: 32px;
+}
