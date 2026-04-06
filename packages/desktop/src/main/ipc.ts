@@ -3,6 +3,7 @@ import { readLogs, getStatus, getErrorMsg, getPort, getHostname, getUptime, star
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
 import { openLogWindow } from "./index.js";
+import { getAutoUpdateEnabled, setAutoUpdateEnabled, getUpdateStatus, checkForUpdatesManual } from "./updater.js";
 import {
   isLlamaInstalled,
   isLlamaRunning,
@@ -305,6 +306,30 @@ export function registerIpcHandlers() {
       saveConfig(config);
     }
     return { success: true };
+  });
+
+  // ─── Auto-Update ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle("get-auto-update-enabled", () => {
+    return getAutoUpdateEnabled();
+  });
+
+  ipcMain.handle("set-auto-update-enabled", (_event, enabled: boolean) => {
+    setAutoUpdateEnabled(enabled);
+    return { success: true };
+  });
+
+  ipcMain.handle("check-for-updates", async () => {
+    await checkForUpdatesManual();
+    return getUpdateStatus();
+  });
+
+  ipcMain.handle("get-app-version", () => {
+    return app.getVersion();
+  });
+
+  ipcMain.handle("get-update-status", () => {
+    return getUpdateStatus();
   });
 
   // ─── Log Window ──────────────────────────────────────────────────────────────

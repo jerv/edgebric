@@ -70,6 +70,12 @@ declare global {
       modelsImportGguf: (ggufPath: string, modelName: string) => Promise<{ success: boolean; error?: string }>;
       modelsSearch: (query: string) => Promise<{ models: Array<{ name: string; description: string; tags?: string[]; huggingFaceUrl?: string; capabilities?: { vision: boolean; toolUse: boolean; reasoning: boolean } }>; error?: string }>;
       onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => () => void;
+      // Auto-update
+      getAutoUpdateEnabled: () => Promise<boolean>;
+      setAutoUpdateEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+      checkForUpdates: () => Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>;
+      getAppVersion: () => Promise<string>;
+      getUpdateStatus: () => Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>;
     };
   }
 }

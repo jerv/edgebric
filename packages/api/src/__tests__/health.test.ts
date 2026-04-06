@@ -40,3 +40,24 @@ describe("GET /api/health", () => {
     expect(["ok", "degraded", "unavailable"]).toContain(res.body.checks.vectorStore.status);
   });
 });
+
+describe("GET /api/health/version", () => {
+  beforeAll(() => { setupTestApp(); });
+  afterAll(() => { teardownTestApp(); });
+
+  it("returns version without authentication", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agent = createAgent({ queryToken: undefined, email: undefined } as any);
+    const res = await agent.get("/api/health/version");
+    expect(res.status).toBe(200);
+    expect(typeof res.body.version).toBe("string");
+    expect(res.body.version.length).toBeGreaterThan(0);
+  });
+
+  it("does not expose write endpoints", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const agent = createAgent({ queryToken: undefined, email: undefined } as any);
+    const postRes = await agent.post("/api/health/version").send({ autoUpdate: true });
+    expect([404, 405]).toContain(postRes.status);
+  });
+});

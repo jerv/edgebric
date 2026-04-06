@@ -27,6 +27,14 @@ function getDiskUsage(): { availableBytes: number; usedPercent: number } | null 
   }
 }
 
+/** Read-only version endpoint for agents and monitoring tools. */
+healthRouter.get("/version", (_req, res) => {
+  // EDGEBRIC_VERSION is set by the desktop app when spawning the API server.
+  // Falls back to API package version for standalone/Docker deployments.
+  const version = process.env.EDGEBRIC_VERSION ?? process.env.npm_package_version ?? "0.0.1";
+  res.json({ version });
+});
+
 healthRouter.get("/", async (req, res) => {
   const checks: Record<string, { status: string; latencyMs?: number; error?: string; detail?: string }> = {};
 
