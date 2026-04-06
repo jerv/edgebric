@@ -88,7 +88,7 @@ function FolderPickerDialog({ connectionId, onSelect, onClose }: {
             data.folders.map((folder) => (
               <div
                 key={folder.id}
-                className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-gray-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-gray-900"
+                className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-gray-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-gray-900"
               >
                 <FolderOpen className="w-4 h-4 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                 <span className="text-sm text-slate-700 dark:text-gray-300 flex-1 truncate">{folder.name}</span>
@@ -144,17 +144,17 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
             {sync.folderName}
           </span>
           {isPaused && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-500">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-gray-800 text-slate-500 dark:text-gray-500">
               Paused
             </span>
           )}
           {isError && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400">
               Error
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5 flex-wrap">
           {sync.accountEmail && <span className="truncate">{sync.accountEmail}</span>}
           {sync.syncedFileCount !== undefined && sync.syncedFileCount > 0 && (
             <>
@@ -176,7 +176,7 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
           onClick={() => updateMutation.mutate({ id: sync.id, status: isPaused ? "active" : "paused" })}
-          className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+          className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
           title={isPaused ? "Resume" : "Pause"}
         >
           {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
@@ -184,7 +184,7 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
         <button
           onClick={() => syncMutation.mutate(sync.id)}
           disabled={syncMutation.isPending}
-          className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+          className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
           title="Sync now"
         >
           {syncMutation.isPending ? (
@@ -197,13 +197,13 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
           <span className="flex items-center gap-1 text-xs">
             <button
               onClick={() => deleteMutation.mutate(sync.id)}
-              className="text-red-600 dark:text-red-400 hover:underline"
+              className="text-red-600 dark:text-red-400 hover:underline py-1 px-2"
             >
               Remove
             </button>
             <button
               onClick={() => setConfirmDelete(false)}
-              className="text-slate-400 dark:text-gray-500 hover:underline"
+              className="text-slate-400 dark:text-gray-500 hover:underline py-1 px-2"
             >
               Cancel
             </button>
@@ -211,7 +211,7 @@ function FolderSyncRow({ sync }: { sync: CloudFolderSync }) {
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
             title="Remove sync"
           >
             <Trash2 className="w-3.5 h-3.5" />

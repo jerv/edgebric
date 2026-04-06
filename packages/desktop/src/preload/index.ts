@@ -58,6 +58,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getLaunchAtLogin: () => ipcRenderer.invoke("get-launch-at-login") as Promise<boolean>,
   setLaunchAtLogin: (enabled: boolean) => ipcRenderer.invoke("set-launch-at-login", enabled) as Promise<{ success: boolean }>,
 
+  // Auto-update
+  getAutoUpdateEnabled: () => ipcRenderer.invoke("get-auto-update-enabled") as Promise<boolean>,
+  setAutoUpdateEnabled: (enabled: boolean) => ipcRenderer.invoke("set-auto-update-enabled", enabled) as Promise<{ success: boolean }>,
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates") as Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>,
+  getAppVersion: () => ipcRenderer.invoke("get-app-version") as Promise<string>,
+  getUpdateStatus: () => ipcRenderer.invoke("get-update-status") as Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>,
+
   // Log window
   openLogWindow: () => ipcRenderer.invoke("open-log-window"),
 
@@ -78,6 +85,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     oidcClientSecret: string;
     adminEmails: string[];
   }) => ipcRenderer.invoke("instance-reconfigure-auth", data),
+
+  // Recommended Model (setup wizard)
+  getRecommendedModel: () => ipcRenderer.invoke("get-recommended-model") as Promise<{ tag: string; name: string; downloadSizeGB: number; description: string } | null>,
 
   // Model Management (GGUF files via main process)
   modelsList: () => ipcRenderer.invoke("models-list"),

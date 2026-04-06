@@ -1,12 +1,35 @@
 # Worklog
 
-## 2026-04-05 — agent/model-docs (Model docs agent)
+## 2026-04-05 — agent/mobile (Mobile responsiveness agent)
 
-### Model compatibility guide and evaluation checklist
+### Full mobile responsiveness pass across the web frontend
 
-**docs-site/guide/models.md** — Expanded from a basic model picker guide to a comprehensive compatibility reference. Covers: what makes a model compatible vs good with Edgebric (GGUF format, chat templates, tool calling, context length, RAM sizing), compatibility tiers (recommended/supported/community) with explanations, common failure modes for community models (broken tool calls, short context, missing templates, bad quantization, altered output formats), RAM estimation formula, and recommended GGUF sources (unsloth, bartowski, official repos).
+**Scope:** 35 files modified across all component directories
 
-**MODEL_EVALUATION.md** — Internal checklist for maintainers/contributors evaluating new models for the catalog. Covers: HuggingFace model card fields to check, finding Q4_K_M GGUFs, RAM calculation formula with examples, step-by-step test procedure (loading, chat template, tool calling with 5 specific test queries, RAG quality, edge cases), TypeScript template for OFFICIAL_CATALOG entries, tier guidelines, when to update `inferCapabilitiesFromTags` and `getRecommendedModelTag`, and re-evaluation triggers.
+**Commits:**
+- `c80b314` — Primary flows: Sidebar, QueryInterface, ChatInput, DataSourcePanel, settings tabs, shared components, route pages, dialogs
+- `45e9cfb` — Remaining pages: LoginPage, OnboardingWizard, SettingsPage, OrganizationPage, GroupChat suite (6 files), ConversationViewer
+- `2997594` — PWA home screen polish: manifest background_color fix, iOS/Android meta tags
+
+**Key fixes:**
+- Sidebar hover-only delete/leave buttons now touch-accessible
+- All primary flow touch targets brought to 44px minimum
+- Container padding responsive (`px-4 sm:px-6`) across all pages
+- Members table and DataSourcePanel grid scroll horizontally on mobile
+- Message bubbles viewport-capped to prevent overflow
+- QueryInterface header wraps selectors on narrow screens
+- Fixed-width popovers/dropdowns capped at viewport width
+- Group chat dialogs (setup, invite, share DS) all mobile-friendly
+- LoginPage title/logo scale down, card padding responsive
+- Tab bars on Settings/Organization pages scroll horizontally
+- PWA manifest background_color fixed (was white, now dark)
+- Apple/Android home screen meta tags added
+
+**Also updated:**
+- CLAUDE.md: Added comprehensive mobile-responsive design rules to UI/Design Rules section
+- Memory: Saved mobile-responsive standard as feedback memory for all future agents
+
+**Audit report:** `MOBILE_AUDIT.md` in repo root (created before fixes, covers all findings)
 
 ---
 

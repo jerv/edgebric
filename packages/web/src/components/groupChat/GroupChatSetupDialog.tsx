@@ -224,7 +224,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
               {isConvert ? "Invite to Chat" : "New Group Chat"}
             </h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">
+          <button onClick={onClose} className="p-2 -m-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -268,7 +268,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
                     {user.name ?? user.email}
                     <button
                       onClick={() => removeUser(user.email)}
-                      className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-0.5"
+                      className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-1"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -382,7 +382,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
             )}
 
             {expirationMode === "expires" && (
-              <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-1.5">
+              <p className="text-xs text-slate-400 dark:text-gray-500 mt-1.5">
                 After expiration, shared data sources are no longer queryable and the chat becomes read-only.
               </p>
             )}
@@ -427,7 +427,7 @@ export function GroupChatSetupDialog({ convertFromConversationId, defaultName, o
                           <div className="min-w-0 flex-1">
                             <span className="text-xs truncate block">{ds.name}</span>
                             {isOrgWide && (
-                              <span className="text-[10px] text-slate-400 dark:text-gray-500 block">Shared org-wide — always included</span>
+                              <span className="text-xs text-slate-400 dark:text-gray-500 block">Shared org-wide — always included</span>
                             )}
                           </div>
                           {isSelected && !isOrgWide && <Check className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}

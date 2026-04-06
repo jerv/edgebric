@@ -11,6 +11,24 @@ autoUpdater.logger = log;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// ── Auto-update preference persistence ─────────────────────────────────────
+
+function getAutoUpdateFile(): string {
+  return path.join(app.getPath("userData"), ".auto-update-enabled");
+}
+
+export function getAutoUpdateEnabled(): boolean {
+  try {
+    return fs.readFileSync(getAutoUpdateFile(), "utf8").trim() !== "false";
+  } catch {
+    return true; // default: enabled
+  }
+}
+
+export function setAutoUpdateEnabled(enabled: boolean): void {
+  fs.writeFileSync(getAutoUpdateFile(), String(enabled), "utf8");
+}
+
 // ── Skip-version persistence ────────────────────────────────────────────────
 
 function getSkipFile(): string {
@@ -51,9 +69,25 @@ export function isDownloadingUpdate(): boolean {
   return downloadingUpdate;
 }
 
+export function getAvailableVersion(): string | null {
+  return availableUpdate?.version ?? null;
+}
+
+let checkingForUpdate = false;
+
+export function getUpdateStatus(): { checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null } {
+  return {
+    checking: checkingForUpdate,
+    downloading: downloadingUpdate,
+    downloaded: updateDownloaded,
+    availableVersion: availableUpdate?.version ?? null,
+  };
+}
+
 // ── Event handlers ──────────────────────────────────────────────────────────
 
 autoUpdater.on("update-available", (info: UpdateInfo) => {
+  checkingForUpdate = false;
   availableUpdate = info;
 
   // Respect "skip this version"
@@ -74,6 +108,7 @@ autoUpdater.on("update-available", (info: UpdateInfo) => {
 });
 
 autoUpdater.on("update-not-available", () => {
+  checkingForUpdate = false;
   log.info("No updates available");
 });
 
@@ -90,6 +125,7 @@ autoUpdater.on("update-downloaded", (info: UpdateInfo) => {
 });
 
 autoUpdater.on("error", (err) => {
+  checkingForUpdate = false;
   downloadingUpdate = false;
   log.error("Auto-updater error:", err);
 });
@@ -142,9 +178,17 @@ export function initAutoUpdater(): void {
     return;
   }
 
+  // Respect user preference
+  if (!getAutoUpdateEnabled()) {
+    log.info("Auto-update disabled by user preference");
+    return;
+  }
+
   // Delay initial check to let the app settle
   setTimeout(() => {
+    checkingForUpdate = true;
     autoUpdater.checkForUpdates().catch((err) => {
+      checkingForUpdate = false;
       log.error("Update check failed:", err);
     });
   }, 10_000);
@@ -173,7 +217,9 @@ export async function checkForUpdatesManual(): Promise<void> {
   clearSkippedVersion();
 
   try {
+    checkingForUpdate = true;
     const result = await autoUpdater.checkForUpdates();
+    checkingForUpdate = false;
     if (!result || !result.updateInfo || result.updateInfo.version === app.getVersion()) {
       dialog.showMessageBox({
         type: "info",
@@ -183,6 +229,7 @@ export async function checkForUpdatesManual(): Promise<void> {
     }
     // If an update IS available, the "update-available" event handler takes over
   } catch (err) {
+    checkingForUpdate = false;
     log.error("Manual update check failed:", err);
     dialog.showMessageBox({
       type: "error",

@@ -257,6 +257,9 @@ export default function ServerDashboard() {
   const [switchAdminEmails, setSwitchAdminEmails] = useState("");
   const [showPortHint, setShowPortHint] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  const [appVersion, setAppVersion] = useState("");
+  const [updateStatus, setUpdateStatus] = useState<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>({ checking: false, downloading: false, downloaded: false, availableVersion: null });
   const [isDark, setIsDark] = useState(() => window.matchMedia("(prefers-color-scheme: dark)").matches);
   const [headerScrolled, setHeaderScrolled] = useState(false);
 
@@ -319,6 +322,9 @@ export default function ServerDashboard() {
       if (s.errorMsg) setErrorMsg(s.errorMsg);
     });
     window.electronAPI.getLaunchAtLogin().then(setLaunchAtLogin);
+    window.electronAPI.getAutoUpdateEnabled().then(setAutoUpdateEnabled);
+    window.electronAPI.getAppVersion().then(setAppVersion);
+    window.electronAPI.getUpdateStatus().then(setUpdateStatus);
   }, []);
 
   useEffect(() => {
@@ -1294,6 +1300,69 @@ export default function ServerDashboard() {
                   <p className="success-msg">Saved. Restart the server for changes to take effect.</p>
                 )}
                 {errorMsg && <div className="error-msg">{errorMsg}</div>}
+              </section>
+
+              <section className="card">
+                <h3 className="card-heading">Updates</h3>
+                <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <label style={{ marginBottom: 0 }}>Edgebric {appVersion ? `v${appVersion}` : ""}</label>
+                    <p className="hint" style={{ marginTop: 2 }}>
+                      {updateStatus.availableVersion
+                        ? `Update available: v${updateStatus.availableVersion}`
+                        : "You're on the latest version."}
+                    </p>
+                  </div>
+                </div>
+                <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <label style={{ marginBottom: 0 }}>Automatic Updates</label>
+                    <p className="hint" style={{ marginTop: 2 }}>Check for updates automatically when Edgebric starts.</p>
+                  </div>
+                  <button
+                    className={`toggle-btn ${autoUpdateEnabled ? "toggle-on" : ""}`}
+                    onClick={async () => {
+                      const newVal = !autoUpdateEnabled;
+                      setAutoUpdateEnabled(newVal);
+                      await window.electronAPI.setAutoUpdateEnabled(newVal);
+                    }}
+                    type="button"
+                    aria-pressed={autoUpdateEnabled}
+                  >
+                    <span className="toggle-knob" />
+                  </button>
+                </div>
+                <div className="field">
+                  {updateStatus.downloaded ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="success-msg" style={{ margin: 0 }}>Update ready — restart to install</span>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          window.electronAPI.checkForUpdates();
+                        }}
+                      >
+                        Restart Now
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={updateStatus.checking || updateStatus.downloading}
+                      onClick={async () => {
+                        setUpdateStatus(prev => ({ ...prev, checking: true }));
+                        const result = await window.electronAPI.checkForUpdates();
+                        setUpdateStatus(result);
+                      }}
+                    >
+                      {updateStatus.checking
+                        ? "Checking..."
+                        : updateStatus.downloading
+                          ? "Downloading update..."
+                          : "Check for Updates"}
+                    </button>
+                  )}
+                </div>
               </section>
 
               <section className="card card-danger">
