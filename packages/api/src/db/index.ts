@@ -534,6 +534,20 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_email);
   `);
 
+  // Immutability triggers — prevent tampering with audit log via direct DB access
+  sqlite.exec(`
+    CREATE TRIGGER IF NOT EXISTS audit_log_no_delete
+      BEFORE DELETE ON audit_log
+      BEGIN
+        SELECT RAISE(ABORT, 'Audit log entries cannot be deleted');
+      END;
+    CREATE TRIGGER IF NOT EXISTS audit_log_no_update
+      BEFORE UPDATE ON audit_log
+      BEGIN
+        SELECT RAISE(ABORT, 'Audit log entries cannot be modified');
+      END;
+  `);
+
   // Multi-org: create indexes on new org_id columns
   try {
     sqlite.exec(`

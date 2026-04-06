@@ -261,10 +261,18 @@ const deleteDocumentTool: Tool = {
     },
     required: ["documentId"],
   },
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const documentId = args["documentId"] as string;
     const doc = getDocument(documentId);
     if (!doc) return { success: false, error: "Document not found" };
+
+    // Verify user has access to the document's data source
+    if (doc.dataSourceId) {
+      const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+      if (!accessible.some((a) => a.id === doc.dataSourceId)) {
+        return { success: false, error: "Access denied" };
+      }
+    }
 
     const dsId = doc.dataSourceId;
     const datasetName = doc.datasetName ?? (dsId ? getDataSource(dsId)?.datasetName : undefined);
@@ -388,7 +396,7 @@ const compareDocuments: Tool = {
     },
     required: ["docId1", "docId2"],
   },
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const docId1 = args["docId1"] as string;
     const docId2 = args["docId2"] as string;
 
@@ -396,6 +404,16 @@ const compareDocuments: Tool = {
     const doc2 = getDocument(docId2);
     if (!doc1) return { success: false, error: `Document ${docId1} not found` };
     if (!doc2) return { success: false, error: `Document ${docId2} not found` };
+
+    // Verify user has access to both documents' data sources
+    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessibleIds = new Set(accessible.map((a) => a.id));
+    if (doc1.dataSourceId && !accessibleIds.has(doc1.dataSourceId)) {
+      return { success: false, error: "Access denied to first document" };
+    }
+    if (doc2.dataSourceId && !accessibleIds.has(doc2.dataSourceId)) {
+      return { success: false, error: "Access denied to second document" };
+    }
 
     return {
       success: true,

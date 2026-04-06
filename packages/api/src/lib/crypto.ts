@@ -25,6 +25,8 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96-bit IV recommended for GCM
 const KEY_LENGTH = 32; // 256-bit key
 const AUTH_TAG_LENGTH = 16;
+/** Version byte prepended to new encryptions for future key rotation. */
+const KEY_VERSION = 0x01;
 
 let _masterKey: Buffer | null = null;
 
@@ -68,7 +70,9 @@ function getMasterKey(): Buffer {
 }
 
 /**
- * Encrypt a Buffer. Returns [IV (12) + ciphertext + authTag (16)].
+ * Encrypt a Buffer. Returns [keyVersion (1) + IV (12) + ciphertext + authTag (16)].
+ * The key version byte enables future key rotation — the decryptor can select
+ * the correct key based on this version.
  */
 export function encryptBuffer(plaintext: Buffer): Buffer {
   const key = getMasterKey();
@@ -78,22 +82,32 @@ export function encryptBuffer(plaintext: Buffer): Buffer {
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
-  return Buffer.concat([iv, encrypted, authTag]);
+  return Buffer.concat([Buffer.from([KEY_VERSION]), iv, encrypted, authTag]);
 }
 
 /**
  * Decrypt a Buffer produced by encryptBuffer.
+ * Handles both versioned (v1+) and legacy (unversioned) encrypted data.
  */
 export function decryptBuffer(data: Buffer): Buffer {
   const key = getMasterKey();
 
-  if (data.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+  let offset = 0;
+  // Check for key version byte — versioned data starts with KEY_VERSION
+  if (data.length > 0 && data[0] === KEY_VERSION) {
+    // Versioned format: [version(1) + IV(12) + ciphertext + authTag(16)]
+    offset = 1;
+    // Future: select key based on version byte for key rotation
+  }
+
+  const payload = data.subarray(offset);
+  if (payload.length < IV_LENGTH + AUTH_TAG_LENGTH) {
     throw new Error("Encrypted data too short");
   }
 
-  const iv = data.subarray(0, IV_LENGTH);
-  const authTag = data.subarray(data.length - AUTH_TAG_LENGTH);
-  const ciphertext = data.subarray(IV_LENGTH, data.length - AUTH_TAG_LENGTH);
+  const iv = payload.subarray(0, IV_LENGTH);
+  const authTag = payload.subarray(payload.length - AUTH_TAG_LENGTH);
+  const ciphertext = payload.subarray(IV_LENGTH, payload.length - AUTH_TAG_LENGTH);
 
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(authTag);

@@ -427,7 +427,9 @@ dataSourcesRouter.delete("/:id/avatar", async (req, res) => {
 
   if (ds.avatarUrl) {
     const filename = ds.avatarUrl.split("/").pop();
-    if (filename) await fs.unlink(path.join(config.dataDir, "avatars", filename)).catch(() => {});
+    if (filename && /^[a-zA-Z0-9_.-]+$/.test(filename)) {
+      await fs.unlink(path.join(config.dataDir, "avatars", filename)).catch(() => {});
+    }
   }
   updateDataSource(ds.id, { avatarUrl: "" });
   res.json({ ok: true });

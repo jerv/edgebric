@@ -192,7 +192,9 @@ agentApiRouter.post("/search", readPermission, validateBody(searchSchema), async
 
   try {
     const maxCandidates = topK ?? 10;
-    const { results } = await routedSearch(datasetNames, query, maxCandidates);
+    // Pass empty groupIds to prevent unscoped mesh search — API keys have no mesh group assignment
+    const accessibleDSIds = accessibleSources.map((ds) => ds.id);
+    const { results } = await routedSearch(datasetNames, query, maxCandidates, [], accessibleDSIds);
 
     let finalResults = results;
     if (isRerankerAvailable() && results.length > 1) {
@@ -269,7 +271,8 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
       return;
     }
 
-    const { results: searchResults, candidateCount, hybridBoost } = await routedSearch(datasetNames, query, 20);
+    const accessibleDSIdsQ = accessibleSources.map((ds) => ds.id);
+    const { results: searchResults, candidateCount, hybridBoost } = await routedSearch(datasetNames, query, 20, [], accessibleDSIdsQ);
 
     let finalResults = searchResults;
     if (isRerankerAvailable() && searchResults.length > 1) {
@@ -390,7 +393,8 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
       return;
     }
 
-    const { results: searchResults, candidateCount, hybridBoost } = await routedSearch(datasetNames, question, 20);
+    const accessibleDSIdsA = accessibleSources.map((ds) => ds.id);
+    const { results: searchResults, candidateCount, hybridBoost } = await routedSearch(datasetNames, question, 20, [], accessibleDSIdsA);
 
     let finalResults = searchResults;
     if (isRerankerAvailable() && searchResults.length > 1) {

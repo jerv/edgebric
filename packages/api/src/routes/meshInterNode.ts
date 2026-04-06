@@ -8,7 +8,7 @@
  * - GET  /api/mesh/peer/info — get this node's info
  */
 import { Router } from "express";
-import type { Router as IRouter } from "express";
+import type { Router as IRouter, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { requireMeshToken, type MeshRequest } from "../middleware/meshAuth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -26,6 +26,27 @@ import { logger } from "../lib/logger.js";
 
 export const meshInterNodeRouter: IRouter = Router();
 
+// ─── Per-node rate limiting for mesh search ─────────────────────────────────
+const MESH_SEARCH_LIMIT = 30; // max searches per node per window
+const MESH_SEARCH_WINDOW_MS = 60_000; // 1 minute
+const meshSearchCounters = new Map<string, { count: number; resetAt: number }>();
+
+function meshSearchRateLimit(req: Request, res: Response, next: NextFunction): void {
+  const nodeId = (req as MeshRequest).meshNode?.id ?? "unknown";
+  const now = Date.now();
+  let entry = meshSearchCounters.get(nodeId);
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + MESH_SEARCH_WINDOW_MS };
+    meshSearchCounters.set(nodeId, entry);
+  }
+  entry.count++;
+  if (entry.count > MESH_SEARCH_LIMIT) {
+    res.status(429).json({ error: "Mesh search rate limit exceeded" });
+    return;
+  }
+  next();
+}
+
 // All inter-node endpoints require valid mesh token
 meshInterNodeRouter.use(requireMeshToken);
 
@@ -34,6 +55,8 @@ meshInterNodeRouter.use(requireMeshToken);
 const searchSchema = z.object({
   query: z.string().min(1).max(10000),
   datasetNames: z.array(z.string()).optional(),
+  /** Data source IDs the requesting user has access to. When provided, results are filtered to only these sources. */
+  allowedDataSourceIds: z.array(z.string()).optional(),
   topN: z.number().int().min(1).max(50).optional().default(10),
 });
 
@@ -46,9 +69,9 @@ const searchSchema = z.object({
  *
  * If datasetNames is omitted, searches ALL sources on this node.
  */
-meshInterNodeRouter.post("/search", validateBody(searchSchema), async (req, res) => {
+meshInterNodeRouter.post("/search", meshSearchRateLimit, validateBody(searchSchema), async (req, res) => {
   const meshReq = req as MeshRequest;
-  const { query, datasetNames, topN } = req.body as z.infer<typeof searchSchema>;
+  const { query, datasetNames, allowedDataSourceIds, topN } = req.body as z.infer<typeof searchSchema>;
   const cfg = getMeshConfig();
 
   if (!cfg) {
@@ -57,8 +80,14 @@ meshInterNodeRouter.post("/search", validateBody(searchSchema), async (req, res)
   }
 
   try {
-    // All sources on this node are mesh-searchable (access controlled by groups on the requesting side)
-    const localSources = listDataSources({ orgId: cfg.orgId });
+    let localSources = listDataSources({ orgId: cfg.orgId });
+
+    // Server-side ACL enforcement: if the requesting node forwards allowedDataSourceIds,
+    // filter local sources so we only return results from sources the user can access.
+    if (allowedDataSourceIds && allowedDataSourceIds.length > 0) {
+      const allowedSet = new Set(allowedDataSourceIds);
+      localSources = localSources.filter((ds) => allowedSet.has(ds.id));
+    }
 
     // If specific datasets requested, filter to those
     let targetDatasets: string[];

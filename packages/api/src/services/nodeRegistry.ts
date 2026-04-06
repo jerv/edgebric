@@ -3,6 +3,19 @@ import { getDb } from "../db/index.js";
 import { meshConfig, meshNodes, nodeGroups, userMeshGroups } from "../db/schema.js";
 import { eq, and, sql } from "drizzle-orm";
 import { randomUUID, randomBytes } from "crypto";
+import { encryptText, decryptText } from "../lib/crypto.js";
+
+/** Decrypt mesh token from DB. Handles both legacy plaintext and encrypted tokens. */
+function decryptMeshToken(stored: string): string {
+  // Legacy plaintext tokens are 64-char hex strings (256-bit)
+  if (/^[0-9a-f]{64}$/i.test(stored)) return stored;
+  try {
+    return decryptText(stored);
+  } catch {
+    // Fallback: treat as plaintext if decryption fails (migration path)
+    return stored;
+  }
+}
 
 // ─── Mesh Config (single-row) ────────────────────────────────────────────────
 
@@ -14,7 +27,7 @@ export function getMeshConfig(): MeshConfig | undefined {
     enabled: row.enabled === 1,
     role: row.role as NodeRole,
     primaryEndpoint: row.primaryEndpoint,
-    meshToken: row.meshToken,
+    meshToken: decryptMeshToken(row.meshToken),
     nodeId: row.nodeId,
     nodeName: row.nodeName,
     groupId: row.groupId,
@@ -45,7 +58,7 @@ export function initMeshConfig(opts: {
     enabled: 1,
     role: opts.role,
     primaryEndpoint: opts.primaryEndpoint ?? null,
-    meshToken,
+    meshToken: encryptText(meshToken),
     nodeId,
     nodeName: opts.nodeName,
     groupId: opts.groupId ?? null,
@@ -72,7 +85,7 @@ export function updateMeshConfig(data: {
     ...(data.role !== undefined && { role: data.role }),
     ...(data.nodeName !== undefined && { nodeName: data.nodeName }),
     ...(data.primaryEndpoint !== undefined && { primaryEndpoint: data.primaryEndpoint }),
-    ...(data.meshToken !== undefined && { meshToken: data.meshToken }),
+    ...(data.meshToken !== undefined && { meshToken: encryptText(data.meshToken) }),
     ...(data.groupId !== undefined && { groupId: data.groupId }),
   }).where(eq(meshConfig.key, "main")).run();
 
@@ -87,7 +100,7 @@ export function deleteMeshConfig(): void {
 export function regenerateMeshToken(): string {
   const db = getDb();
   const newToken = randomBytes(32).toString("hex");
-  db.update(meshConfig).set({ meshToken: newToken }).where(eq(meshConfig.key, "main")).run();
+  db.update(meshConfig).set({ meshToken: encryptText(newToken) }).where(eq(meshConfig.key, "main")).run();
   return newToken;
 }
 

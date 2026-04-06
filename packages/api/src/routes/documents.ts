@@ -12,7 +12,7 @@ import { recordAuditEvent } from "../services/auditLog.js";
 import { getAllDocuments, getDocument, setDocument, deleteDocument, getDocumentsByOrg, documentBelongsToOrg } from "../services/documentStore.js";
 import { clearChunksForDocument, getChunksForDocument } from "../services/chunkRegistry.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { ensureDefaultDataSource, refreshDocumentCount, getDataSource } from "../services/dataSourceStore.js";
+import { ensureDefaultDataSource, refreshDocumentCount, getDataSource, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { rebuildDataset } from "../jobs/rebuildDataset.js";
 import type { Document } from "@edgebric/types";
 
@@ -86,13 +86,31 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
     return;
   }
 
-  // Enforce per-data-source viewing toggle — admins bypass this restriction
+  // Enforce per-data-source ACL — verify user has access to the document's data source
   if (doc?.dataSourceId && !req.session.isAdmin) {
+    const accessible = listAccessibleDataSources(req.session.email ?? "", false, req.session.orgId);
+    if (!accessible.some((a) => a.id === doc.dataSourceId)) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
     const ds = getDataSource(doc.dataSourceId);
     if (ds && !ds.allowSourceViewing) {
       res.status(403).json({ error: "Source document viewing is disabled for this data source" });
       return;
     }
+  }
+
+  // Audit: log document view
+  if (doc) {
+    recordAuditEvent({
+      eventType: "document.view",
+      actorEmail: req.session.email,
+      actorIp: req.ip,
+      resourceType: "document",
+      resourceId: doc.id,
+      details: { name: doc.name },
+    });
   }
 
   res.json({
@@ -119,8 +137,14 @@ documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
     return;
   }
 
-  // Enforce per-data-source viewing toggle — admins bypass this restriction
+  // Enforce per-data-source ACL + viewing toggle — admins bypass
   if (doc.dataSourceId && !req.session.isAdmin) {
+    const accessible = listAccessibleDataSources(req.session.email ?? "", false, req.session.orgId);
+    if (!accessible.some((a) => a.id === doc.dataSourceId)) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+
     const ds = getDataSource(doc.dataSourceId);
     if (ds && !ds.allowSourceViewing) {
       res.status(403).json({ error: "Source document viewing is disabled for this data source" });
