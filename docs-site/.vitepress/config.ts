@@ -6,11 +6,17 @@ export default defineConfig({
   lang: 'en-US',
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo-light.svg' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
+    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
+    ['link', { href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap', rel: 'stylesheet' }],
   ],
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: {
+      light: '/logo-light.svg',
+      dark: '/logo-dark.svg',
+    },
 
     nav: [
       { text: 'Guide', link: '/guide/getting-started' },
