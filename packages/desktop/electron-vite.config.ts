@@ -4,6 +4,13 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      // Embed cloud OAuth credentials at build time so they're in the compiled
+      // binary, not in the source code. Set these env vars in CI or .env.local.
+      // Users get one-click "Connect Google Drive" without manual config.
+      "BUILTIN_GOOGLE_DRIVE_CLIENT_ID": JSON.stringify(process.env["GOOGLE_DRIVE_CLIENT_ID"] ?? ""),
+      "BUILTIN_GOOGLE_DRIVE_CLIENT_SECRET": JSON.stringify(process.env["GOOGLE_DRIVE_CLIENT_SECRET"] ?? ""),
+    },
     build: {
       rollupOptions: {
         input: "src/main/index.ts",

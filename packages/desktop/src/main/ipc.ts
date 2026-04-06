@@ -239,6 +239,14 @@ export function registerIpcHandlers() {
     if (config.chatModel) envLines.push(`CHAT_MODEL=${sanitizeEnvValue(config.chatModel)}`);
     if (config.orgServerUrl) envLines.push(`ORG_SERVER_URL=${sanitizeEnvValue(config.orgServerUrl)}`);
 
+    // Inject build-time cloud OAuth credentials so users get one-click Google Drive
+    // setup without manual configuration. Admin UI overrides take priority at runtime.
+    // These are replaced at build time by electron-vite's `define` config.
+    const builtinGoogleClientId: string = BUILTIN_GOOGLE_DRIVE_CLIENT_ID;
+    const builtinGoogleClientSecret: string = BUILTIN_GOOGLE_DRIVE_CLIENT_SECRET;
+    if (builtinGoogleClientId) envLines.push(`GOOGLE_DRIVE_CLIENT_ID=${sanitizeEnvValue(builtinGoogleClientId)}`);
+    if (builtinGoogleClientSecret) envLines.push(`GOOGLE_DRIVE_CLIENT_SECRET=${sanitizeEnvValue(builtinGoogleClientSecret)}`);
+
     const envContent = [...envLines,
       "",
     ].join("\n");
