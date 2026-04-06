@@ -321,12 +321,14 @@ async function searchWithHybrid(
   datasetNames: string[],
   queryText: string,
   allowedGroupIds?: string[],
+  allowedDataSourceIds?: string[],
 ): Promise<{ results: RoutedSearchResult[]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
   const { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await routedSearch(
     datasetNames,
     queryText,
     20, // Retrieve 20 candidates for reranking/adaptive-K
     allowedGroupIds,
+    allowedDataSourceIds,
   );
 
   // Optional cross-encoder reranking (local results only — remote results already ranked)
@@ -481,7 +483,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     try {
       const orgId = req.session.orgId;
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
+      // Forward accessible data source IDs for server-side ACL enforcement on mesh nodes
+      const accessibleDSIds = listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIds);
 
       // Acquire inference slot
       const abortController = new AbortController();
@@ -710,7 +714,8 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
 
       const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds);
+      const accessibleDSIdsStd = listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIdsStd);
 
       // Acquire inference slot — waits if all slots busy, sends queue position via SSE
       const abortController = new AbortController();
@@ -841,7 +846,9 @@ queryRouter.post("/with-file", requireOrg, fileUpload.single("file"), async (req
       const { markdown } = await extractDocument(req.file.path, docType);
       // Truncate to ~8000 chars to fit in context
       const truncated = markdown.length > 8000 ? markdown.slice(0, 8000) + "\n\n[...document truncated...]" : markdown;
-      augmentedQuery = `The user has attached a document "${req.file.originalname}". Here is its content:\n\n---\n${truncated}\n---\n\nUser's question: ${query}`;
+      // Sanitize filename to prevent prompt structure injection
+      const safeName = req.file.originalname.replace(/[\n\r\t"]/g, "_").slice(0, 100);
+      augmentedQuery = `The user has attached a document "${safeName}".\n\n<attached_document>\n${truncated}\n</attached_document>\n\nUser's question: ${query}`;
     }
 
     // Clean up the uploaded file

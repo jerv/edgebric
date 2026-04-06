@@ -20,7 +20,7 @@ import {
   getThreadMessages,
 } from "../services/groupChatStore.js";
 import { getUserInOrg, listUsers } from "../services/userStore.js";
-import { getDataSource, dataSourceBelongsToOrg } from "../services/dataSourceStore.js";
+import { getDataSource, dataSourceBelongsToOrg, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { broadcastToChat } from "./groupChatQuery.js";
 import { broadcastToUser } from "../services/notificationStore.js";
 
@@ -272,6 +272,14 @@ groupChatsRouter.post("/:id/shared-data-sources", validateBody(shareDataSourceSc
   const ds = getDataSource(req.body.dataSourceId);
   if (!ds || !dataSourceBelongsToOrg(req.body.dataSourceId, orgId)) {
     res.status(404).json({ error: "Data source not found" });
+    return;
+  }
+
+  // Verify user has access to this data source before sharing
+  const isAdmin = req.session.isAdmin ?? false;
+  const accessible = listAccessibleDataSources(email, isAdmin, orgId);
+  if (!accessible.some((a) => a.id === req.body.dataSourceId)) {
+    res.status(403).json({ error: "You do not have access to this data source" });
     return;
   }
 

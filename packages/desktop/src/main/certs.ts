@@ -39,6 +39,11 @@ export function certsExist(dataDir: string): boolean {
  * The CA cert is trusted in the macOS keychain so browsers don't show warnings.
  */
 export function generateCerts(dataDir: string, hostname: string, port: number): CertPaths {
+  // Validate hostname to prevent command injection in openssl shell commands
+  if (!/^[a-zA-Z0-9._-]+$/.test(hostname)) {
+    throw new Error(`Invalid hostname: "${hostname}". Only alphanumeric characters, dots, hyphens, and underscores are allowed.`);
+  }
+
   const p = certPaths(dataDir);
   const certsDir = path.dirname(p.caCert);
   fs.mkdirSync(certsDir, { recursive: true });

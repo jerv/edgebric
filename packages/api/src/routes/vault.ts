@@ -1,6 +1,8 @@
 import { Router } from "express";
 import type { Router as IRouter } from "express";
+import { z } from "zod";
 import { requireOrg } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
 import { config } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 
@@ -49,18 +51,19 @@ vaultRouter.get("/engine-status", async (req, res) => {
  * Proxy an embedding request to the local AI engine.
  * Avoids CORS issues from browser-direct requests.
  */
-vaultRouter.post("/embed", async (req, res) => {
+const embedSchema = z.object({
+  model: z.string().min(1).max(200),
+  prompt: z.string().min(1).max(50000),
+});
+
+vaultRouter.post("/embed", validateBody(embedSchema), async (req, res) => {
   const integrations = getIntegrationConfig();
   if (!integrations.vaultModeEnabled) {
     res.status(403).json({ error: "Vault mode is not enabled" });
     return;
   }
 
-  const { model, prompt } = req.body as { model?: string; prompt?: string };
-  if (!model || !prompt) {
-    res.status(400).json({ error: "model and prompt are required" });
-    return;
-  }
+  const { model, prompt } = req.body as z.infer<typeof embedSchema>;
 
   try {
     const resp = await fetch(`${embeddingServerUrl()}/v1/embeddings`, {
@@ -86,22 +89,23 @@ vaultRouter.post("/embed", async (req, res) => {
  * Proxy a streaming chat request to the local AI engine.
  * Pipes the response as-is (NDJSON stream) so the client can parse it identically.
  */
-vaultRouter.post("/chat", async (req, res) => {
+const chatSchema = z.object({
+  model: z.string().min(1).max(200),
+  messages: z.array(z.object({
+    role: z.enum(["system", "user", "assistant"]),
+    content: z.string().max(100000),
+  })).min(1).max(100),
+  stream: z.boolean().optional().default(true),
+});
+
+vaultRouter.post("/chat", validateBody(chatSchema), async (req, res) => {
   const integrations = getIntegrationConfig();
   if (!integrations.vaultModeEnabled) {
     res.status(403).json({ error: "Vault mode is not enabled" });
     return;
   }
 
-  const { model, messages, stream } = req.body as {
-    model?: string;
-    messages?: Array<{ role: string; content: string }>;
-    stream?: boolean;
-  };
-  if (!model || !messages) {
-    res.status(400).json({ error: "model and messages are required" });
-    return;
-  }
+  const { model, messages, stream } = req.body as z.infer<typeof chatSchema>;
 
   try {
     const resp = await fetch(`${chatServerUrl()}/v1/chat/completions`, {

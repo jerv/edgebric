@@ -10,3 +10,5 @@ process.env["OIDC_CLIENT_SECRET"] = "test-client-secret";
 process.env["DATA_DIR"] = "/tmp/edgebric-test-" + process.pid;
 process.env["SESSION_SECRET"] = "test-session-secret";
 process.env["ADMIN_EMAILS"] = "admin@test.com";
+process.env["GOOGLE_DRIVE_CLIENT_ID"] = "test-google-client-id";
+process.env["GOOGLE_DRIVE_CLIENT_SECRET"] = "test-google-client-secret";

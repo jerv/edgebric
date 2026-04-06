@@ -23,8 +23,9 @@ describe("buildSystemPrompt (permissive — default)", () => {
   it("includes context from chunks with source labels", () => {
     const chunks = [makeChunk("Gold plan has a $500 deductible.")];
     const prompt = buildSystemPrompt(chunks);
-    expect(prompt).toContain("[Source 1: Employee Handbook | Benefits > Health Insurance | Page 5]");
+    expect(prompt).toContain('<source index="1" document="Employee Handbook" section="Benefits > Health Insurance" page="5">');
     expect(prompt).toContain("Gold plan has a $500 deductible.");
+    expect(prompt).toContain("</source>");
   });
 
   it("numbers multiple sources sequentially", () => {
@@ -39,8 +40,8 @@ describe("buildSystemPrompt (permissive — default)", () => {
       }),
     ];
     const prompt = buildSystemPrompt(chunks);
-    expect(prompt).toContain("[Source 1:");
-    expect(prompt).toContain("[Source 2:");
+    expect(prompt).toContain('index="1"');
+    expect(prompt).toContain('index="2"');
   });
 
   it("falls back to 'Policy Document' when documentName is missing", () => {

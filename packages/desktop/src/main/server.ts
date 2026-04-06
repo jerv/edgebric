@@ -250,9 +250,22 @@ async function _startServer(): Promise<void> {
     ? [`--import=${tsxEsmPath}`, serverPath]
     : [serverPath];
 
+  // Pass llama-server API keys to the API process so it can authenticate
+  // inference requests. Keys are generated fresh each time llama-server starts.
+  const { getLlamaApiKey } = await import("./llama-server.js");
+  const llamaChatKey = getLlamaApiKey("chat");
+  const llamaEmbeddingKey = getLlamaApiKey("embedding");
+
   serverProcess = spawn("node", args, {
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, DOTENV_CONFIG_PATH: envFile, SERVE_STATIC: "1", EDGEBRIC_VERSION: app.getVersion() },
+    env: {
+      ...process.env,
+      DOTENV_CONFIG_PATH: envFile,
+      SERVE_STATIC: "1",
+      EDGEBRIC_VERSION: app.getVersion(),
+      ...(llamaChatKey && { CHAT_API_KEY: llamaChatKey }),
+      ...(llamaEmbeddingKey && { EMBEDDING_API_KEY: llamaEmbeddingKey }),
+    },
     cwd: apiDir,
   });
 

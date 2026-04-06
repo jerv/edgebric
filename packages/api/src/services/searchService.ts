@@ -1,6 +1,7 @@
 import type { SearchResult } from "@edgebric/core/rag";
 import { lookupChunk, vectorSearch } from "./chunkRegistry.js";
 import { embed } from "./inferenceClient.js";
+import { getDocument } from "./documentStore.js";
 import { getSqlite } from "../db/index.js";
 import { logger } from "../lib/logger.js";
 
@@ -198,9 +199,19 @@ export async function hybridMultiDatasetSearch(
     finalResults = vectorResults.slice(0, maxCandidates);
   }
 
+  // 5. Filter out chunks from documents not in "ready" status.
+  // This prevents PII-blocked, processing, or failed documents from appearing in results.
+  finalResults = finalResults.filter((r) => {
+    const docId = r.metadata.sourceDocument;
+    if (!docId) return true; // No source doc reference — keep (shouldn't happen)
+    const doc = getDocument(docId);
+    if (!doc) return true; // Document deleted but chunks remain — keep for now
+    return doc.status === "ready";
+  });
+
   const candidateCount = finalResults.length;
 
-  // 5. Apply adaptive top-K based on score distribution
+  // 6. Apply adaptive top-K based on score distribution
   const scores = finalResults.map((r) => r.rrfScore ?? r.similarity);
   const k = adaptiveTopK(scores);
   finalResults = finalResults.slice(0, k);

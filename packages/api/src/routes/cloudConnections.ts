@@ -115,7 +115,7 @@ cloudConnectionsRouter.get("/:id", (req, res) => {
 
 const authorizeSchema = z.object({
   provider: z.enum(["google_drive", "onedrive", "dropbox", "notion", "confluence"]),
-  returnTo: z.string().optional(),
+  returnTo: z.string().startsWith("/").max(200).optional(),
 });
 
 cloudConnectionsRouter.post("/oauth/authorize", validateBody(authorizeSchema), (req, res) => {

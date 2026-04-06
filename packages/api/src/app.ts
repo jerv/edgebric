@@ -51,6 +51,7 @@ declare module "express-session" {
     orgId?: string; // currently selected org
     orgSlug?: string; // slug of currently selected org
     oidcState?: string; // transient — cleared after callback
+    oidcNonce?: string; // transient — cleared after callback (replay protection)
     codeVerifier?: string; // transient — cleared after callback
     meshReturnTo?: string; // transient — secondary node URL to redirect after OIDC
     cloudOAuthNonce?: string; // transient — cleared after cloud OAuth callback
@@ -131,6 +132,35 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
       credentials: true,
     }),
   );
+
+  // ─── Host Header Validation (DNS Rebinding Protection) ───────────────────────
+  // Reject requests where the Host header doesn't match known server hostnames.
+  // Prevents DNS rebinding attacks where a malicious site resolves to localhost
+  // and makes credentialed requests to the local Edgebric instance.
+
+  const allowedHosts = new Set<string>();
+  for (const origin of allowedOrigins) {
+    try { allowedHosts.add(new URL(origin).host); } catch { /* ignore bad URLs */ }
+  }
+  // Always allow the literal listen address
+  allowedHosts.add(`localhost:${config.port}`);
+  allowedHosts.add(`127.0.0.1:${config.port}`);
+  allowedHosts.add(`edgebric.local:${config.port}`);
+
+  app.use((req, res, next) => {
+    const host = req.headers["host"];
+    if (!host || allowedHosts.has(host)) {
+      next();
+      return;
+    }
+    // Strip port and check hostname alone (handles default port omission)
+    const hostOnly = host.split(":")[0]!;
+    if (allowedHosts.has(hostOnly) || hostOnly === "localhost" || hostOnly === "127.0.0.1" || hostOnly === "edgebric.local") {
+      next();
+      return;
+    }
+    res.status(421).json({ error: "Invalid Host header" });
+  });
 
   // ─── Rate Limiting ───────────────────────────────────────────────────────────
 

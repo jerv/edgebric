@@ -20,6 +20,11 @@ import { createApp } from "./app.js";
 const FileStore = FileStoreFactory(session);
 const sessionsDir = path.join(config.dataDir, "sessions");
 
+// Ensure sessions directory has restricted permissions (owner-only) to prevent
+// other processes on the machine from reading session files and hijacking sessions.
+fsSync.mkdirSync(sessionsDir, { recursive: true, mode: 0o700 });
+try { fsSync.chmodSync(sessionsDir, 0o700); } catch { /* may fail on some filesystems */ }
+
 const isDev = process.env["NODE_ENV"] !== "production";
 
 const app = createApp({

@@ -11,6 +11,7 @@
 import path from "path";
 import os from "os";
 import fs from "fs";
+import crypto from "crypto";
 import { spawn, execSync } from "child_process";
 import type { ChildProcess } from "child_process";
 import https from "https";
@@ -28,6 +29,21 @@ const EMBEDDING_PORT = 8081;
 
 export const CHAT_BASE_URL = `http://${LLAMA_HOST}:${CHAT_PORT}`;
 export const EMBEDDING_BASE_URL = `http://${LLAMA_HOST}:${EMBEDDING_PORT}`;
+
+// ─── Per-session API keys for llama-server authentication ───────────────────
+// Generated fresh each time a llama-server instance is spawned.
+// Prevents rogue processes from intercepting inference requests.
+let chatApiKey: string | null = null;
+let embeddingApiKey: string | null = null;
+
+function generateApiKey(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+/** Get the current API key for a llama-server role. Null if not yet started. */
+export function getLlamaApiKey(role: "chat" | "embedding"): string | null {
+  return role === "chat" ? chatApiKey : embeddingApiKey;
+}
 
 /** Directory for llama-server binary and model files. */
 function llamaDir(dataDir?: string): string {
@@ -187,7 +203,10 @@ let loadedEmbeddingModel: string | null = null;
 /** Check if the chat server is running and reachable. */
 export async function isChatServerRunning(): Promise<boolean> {
   try {
+    const headers: Record<string, string> = {};
+    if (chatApiKey) headers["Authorization"] = `Bearer ${chatApiKey}`;
     const resp = await fetch(`${CHAT_BASE_URL}/health`, {
+      headers,
       signal: AbortSignal.timeout(2000),
     });
     return resp.ok;
@@ -199,7 +218,10 @@ export async function isChatServerRunning(): Promise<boolean> {
 /** Check if the embedding server is running and reachable. */
 export async function isEmbeddingServerRunning(): Promise<boolean> {
   try {
+    const headers: Record<string, string> = {};
+    if (embeddingApiKey) headers["Authorization"] = `Bearer ${embeddingApiKey}`;
     const resp = await fetch(`${EMBEDDING_BASE_URL}/health`, {
+      headers,
       signal: AbortSignal.timeout(2000),
     });
     return resp.ok;
@@ -244,12 +266,21 @@ export async function startInstance(
     throw new Error(`Model file not found: ${modelPath}`);
   }
 
+  // Generate a fresh API key for this instance — prevents port-hijacking attacks
+  const apiKey = generateApiKey();
+  if (role === "chat") {
+    chatApiKey = apiKey;
+  } else {
+    embeddingApiKey = apiKey;
+  }
+
   const args = [
     "--model", modelPath,
     "--host", LLAMA_HOST,
     "--port", String(port),
     "--n-gpu-layers", "99",   // Use Metal (macOS GPU)
     "--ctx-size", "8192",
+    "--api-key", apiKey,      // Require auth on all endpoints
   ];
 
   if (role === "embedding") {
