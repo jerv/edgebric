@@ -32,10 +32,20 @@ function modelsDir(): string {
 
 // ─── Health ──────────────────────────────────────────────────────────────────
 
+/** Build auth headers for a llama-server role. */
+function inferenceHeaders(role: "chat" | "embedding"): Record<string, string> {
+  const key = role === "chat"
+    ? (config.chat.apiKey !== "no-key" ? config.chat.apiKey : "")
+    : config.inference.embeddingApiKey;
+  if (key) return { Authorization: `Bearer ${key}` };
+  return {};
+}
+
 /** Check if the chat llama-server is running and reachable. */
 export async function isRunning(): Promise<boolean> {
   try {
     const resp = await fetch(`${chatBaseUrl()}/health`, {
+      headers: inferenceHeaders("chat"),
       signal: AbortSignal.timeout(3000),
     });
     return resp.ok;
@@ -48,6 +58,7 @@ export async function isRunning(): Promise<boolean> {
 export async function isEmbeddingRunning(): Promise<boolean> {
   try {
     const resp = await fetch(`${embeddingBaseUrl()}/health`, {
+      headers: inferenceHeaders("embedding"),
       signal: AbortSignal.timeout(3000),
     });
     return resp.ok;
@@ -337,9 +348,13 @@ export function getStorageBreakdown(): StorageBreakdown {
 
 /** Generate an embedding vector using the embedding llama-server instance. */
 export async function embed(text: string, _model?: string): Promise<number[]> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (config.inference.embeddingApiKey) {
+    headers["Authorization"] = `Bearer ${config.inference.embeddingApiKey}`;
+  }
   const resp = await fetch(`${embeddingBaseUrl()}/v1/embeddings`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       input: text,
       model: "embedding", // llama-server ignores model name, uses loaded model
