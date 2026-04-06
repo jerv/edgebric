@@ -91,7 +91,19 @@ Monorepo with four packages:
 
 Head to [edgebric.com](https://edgebric.com) — download, drag to Applications, launch. No terminal required.
 
-### Option 2: Build from source
+### Option 2: Install via command line
+
+```bash
+curl -fsSL https://edgebric.com/install.sh | bash
+```
+
+Downloads the latest DMG from GitHub Releases, installs Edgebric.app to /Applications. Run it again to update. To install a specific version:
+
+```bash
+curl -fsSL https://edgebric.com/install.sh | bash -s -- --version v0.9.0
+```
+
+### Option 3: Build from source
 
 ```bash
 git clone https://github.com/jerv/edgebric.git
