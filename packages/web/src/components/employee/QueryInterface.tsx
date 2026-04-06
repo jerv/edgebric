@@ -1048,12 +1048,12 @@ export function ChatPanel() {
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       {/* Header bar */}
-      <div className="border-b border-slate-200 dark:border-gray-800 px-6 py-3 flex items-center">
+      <div className="border-b border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-3 flex items-center">
         <h1 className="text-sm font-semibold text-slate-900 dark:text-gray-100 truncate flex-1">{chatTitle}</h1>
         {!isPrivacyMode && conversationId && (
           <button
             onClick={() => setShowConvertDialog(true)}
-            className="ml-3 p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+            className="ml-3 p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
             title="Invite people to this chat"
           >
             <UserPlus className="w-4 h-4" />
@@ -1062,7 +1062,7 @@ export function ChatPanel() {
       </div>
 
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 space-y-6">
         {displayMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             {privacyLevel === "vault" ? (
@@ -1135,7 +1135,7 @@ export function ChatPanel() {
           return (
             <div key={i} className={cn("flex gap-3", message.role === "user" ? "justify-end" : "justify-start")}>
               {message.role === "user" ? (
-                <div className="flex gap-3 items-end justify-end max-w-xl">
+                <div className="flex gap-3 items-end justify-end max-w-[85vw] sm:max-w-xl">
                   <div className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-2xl rounded-tr-sm px-4 py-3 text-sm">
                     {message.content}
                   </div>
@@ -1144,7 +1144,7 @@ export function ChatPanel() {
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-3 max-w-2xl w-full">
+                <div className="flex gap-3 max-w-[90vw] sm:max-w-2xl w-full">
                   <div className="mt-1 flex-shrink-0">
                     <BotAvatar
                       orgAvatarUrl={user?.orgAvatarUrl}
@@ -1254,7 +1254,7 @@ export function ChatPanel() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-4">
+      <div className="border-t border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-4">
         {!systemReady ? (
           <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
             Chat unavailable — no documents loaded.
@@ -1262,7 +1262,7 @@ export function ChatPanel() {
         ) : (
           <div className="space-y-2">
             {/* Header row: privacy + data source selector (left) + model selector (right) */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-y-2">
              <div className="flex items-center gap-1">
               {/* Privacy mode selector */}
               <div ref={privacyRef} className="relative">
@@ -1289,7 +1289,7 @@ export function ChatPanel() {
                 </button>
 
                 {privacyPopoverOpen && (
-                  <div className="absolute left-0 bottom-full mb-1 w-56 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
+                  <div className="absolute left-0 bottom-full mb-1 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                     <button
                       onClick={() => handlePrivacySelect("standard")}
                       className={cn(
@@ -1354,7 +1354,7 @@ export function ChatPanel() {
                 </button>
 
                 {dsSelectorOpen && (
-                  <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+                  <div className="absolute left-0 bottom-full mb-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
                     {/* Default: All data sources */}
                     <button
                       onMouseDown={(e) => {
@@ -1433,7 +1433,7 @@ export function ChatPanel() {
                       <button
                         type="button"
                         onClick={() => setTargetDataSources((prev) => prev.filter((t) => t.id !== ds.id))}
-                        className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400"
+                        className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 p-0.5"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1455,7 +1455,7 @@ export function ChatPanel() {
                     <span className="text-slate-400 dark:text-gray-500">
                       {attachedPreview ? "Image will be analyzed by AI" : "Text will be extracted"}
                     </span>
-                    <button type="button" onClick={clearAttachment} className="text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-400">
+                    <button type="button" onClick={clearAttachment} className="text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-400 p-1">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>

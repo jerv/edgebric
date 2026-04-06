@@ -55,7 +55,7 @@ function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabl
             <button
               onClick={onUnload}
               disabled={disabled}
-              className="p-1 rounded text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-1.5 rounded text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               title="Unload from memory"
             >
               <PowerOff className="w-3 h-3" />
@@ -64,7 +64,7 @@ function ModelRow({ model, isActive, isAdmin, onSwitch, onLoad, onUnload, disabl
             <button
               onClick={onLoad}
               disabled={disabled}
-              className="p-1 rounded text-slate-400 dark:text-gray-500 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-1.5 rounded text-slate-400 dark:text-gray-500 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               title="Load into memory"
             >
               <Power className="w-3 h-3" />
@@ -98,11 +98,15 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
   // Close on outside click
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: MouseEvent | TouchEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
   }, [open]);
 
   if (!data) return null;
@@ -135,7 +139,7 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={anyMutating}
-        className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-900"
+        className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 transition-colors px-2 py-1.5 sm:py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-900"
       >
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", isActiveLoaded ? "bg-emerald-400" : "bg-amber-400")} />
         {anyMutating ? (
@@ -147,7 +151,7 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
       </button>
 
       {open && (
-        <div className="absolute right-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg z-10 overflow-hidden">
+        <div className="absolute right-0 bottom-full mb-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg z-10 overflow-hidden">
           {/* System RAM bar (admin only) */}
           {isAdmin && (
             <div className="px-3 py-2 border-b border-slate-100 dark:border-gray-800">

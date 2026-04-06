@@ -1,23 +1,35 @@
 # Worklog
 
-## 2026-04-05 — agent/auto-update (Auto-update agent)
+## 2026-04-05 — agent/mobile (Mobile responsiveness agent)
 
-### Added auto-update preferences UI and version API endpoint
+### Full mobile responsiveness pass across the web frontend
 
-**Changes:**
-- `packages/desktop/src/main/updater.ts` — Preference persistence (`autoUpdateEnabled` in userData), `getUpdateStatus()` export, `checkingForUpdate` state tracking. `initAutoUpdater()` respects user preference.
-- `packages/desktop/src/main/ipc.ts` — 5 new IPC handlers: get/set auto-update enabled, check for updates, get app version, get update status.
-- `packages/desktop/src/preload/index.ts` — Exposed all 5 new IPC methods.
-- `packages/desktop/src/main/server.ts` — Passes `EDGEBRIC_VERSION` env to spawned API.
-- `packages/api/src/routes/health.ts` — `GET /api/health/version` (read-only, no auth) for agents/monitoring.
-- `packages/desktop/src/renderer/pages/SetupWizard.tsx` — "Automatic Updates" toggle in AI Engine step.
-- `packages/desktop/src/renderer/pages/ServerDashboard.tsx` — "Updates" settings card: version display, auto-update toggle, check/restart button with status states.
-- `packages/api/src/__tests__/health.test.ts` — Tests for version endpoint.
+**Scope:** 35 files modified across all component directories
 
-**Three user types served:**
-- GUI users: toggle in setup wizard + settings dashboard
-- CLI/Docker users: updater no-ops when `app.isPackaged` is false
-- Agents: read-only `GET /api/health/version`, no write access to update settings
+**Commits:**
+- `c80b314` — Primary flows: Sidebar, QueryInterface, ChatInput, DataSourcePanel, settings tabs, shared components, route pages, dialogs
+- `45e9cfb` — Remaining pages: LoginPage, OnboardingWizard, SettingsPage, OrganizationPage, GroupChat suite (6 files), ConversationViewer
+- `2997594` — PWA home screen polish: manifest background_color fix, iOS/Android meta tags
+
+**Key fixes:**
+- Sidebar hover-only delete/leave buttons now touch-accessible
+- All primary flow touch targets brought to 44px minimum
+- Container padding responsive (`px-4 sm:px-6`) across all pages
+- Members table and DataSourcePanel grid scroll horizontally on mobile
+- Message bubbles viewport-capped to prevent overflow
+- QueryInterface header wraps selectors on narrow screens
+- Fixed-width popovers/dropdowns capped at viewport width
+- Group chat dialogs (setup, invite, share DS) all mobile-friendly
+- LoginPage title/logo scale down, card padding responsive
+- Tab bars on Settings/Organization pages scroll horizontally
+- PWA manifest background_color fixed (was white, now dark)
+- Apple/Android home screen meta tags added
+
+**Also updated:**
+- CLAUDE.md: Added comprehensive mobile-responsive design rules to UI/Design Rules section
+- Memory: Saved mobile-responsive standard as feedback memory for all future agents
+
+**Audit report:** `MOBILE_AUDIT.md` in repo root (created before fixes, covers all findings)
 
 ---
 

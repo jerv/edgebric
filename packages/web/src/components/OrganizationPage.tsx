@@ -223,9 +223,9 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
   if (isSolo && tab !== "network") {
     return (
       <div className="h-full overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Organization</h1>
-          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-8 text-center space-y-4">
+          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-6 sm:p-8 text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-gray-800 flex items-center justify-center mx-auto">
               <Lock className="w-6 h-6 text-slate-400 dark:text-gray-500" />
             </div>
@@ -248,17 +248,17 @@ export function OrganizationPage({ tab }: { tab: OrgTab }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Organization</h1>
 
         {/* Tab bar */}
-        <div className="flex gap-1 border-b border-slate-200 dark:border-gray-800">
+        <div className="flex gap-1 border-b border-slate-200 dark:border-gray-800 overflow-x-auto">
           {visibleTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5",
+                "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5 whitespace-nowrap",
                 tab === t.id
                   ? "border-slate-900 dark:border-gray-100 text-slate-900 dark:text-gray-100"
                   : "border-transparent text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400",

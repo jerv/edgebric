@@ -144,7 +144,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
             <Database className="w-4 h-4 text-slate-500 dark:text-gray-400" />
             <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Share Data Source</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">
+          <button onClick={onClose} className="p-2 -m-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -154,7 +154,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
             {/* Currently shared by me — with revoke */}
             {myShares.length > 0 && (
               <div className="mb-4">
-                <p className="text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
+                <p className="text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
                   Shared by you
                 </p>
                 <div className="space-y-1">
@@ -167,7 +167,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{share.dataSourceName}</p>
                         {share.expiresAt && (
-                          <p className="text-[10px] text-slate-400 dark:text-gray-500 flex items-center gap-1">
+                          <p className="text-xs text-slate-400 dark:text-gray-500 flex items-center gap-1">
                             <Clock className="w-2.5 h-2.5" />
                             Expires {new Date(share.expiresAt).toLocaleString()}
                           </p>
@@ -176,7 +176,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                       <button
                         onClick={() => void handleRevoke(share.id)}
                         disabled={revoking === share.id}
-                        className="text-[11px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
+                        className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 flex-shrink-0 disabled:opacity-50 py-1 px-1.5"
                       >
                         <Trash2 className="w-3 h-3" />
                         {revoking === share.id ? "Revoking..." : "Revoke"}
@@ -215,7 +215,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                       <Database className={cn("w-4 h-4 flex-shrink-0", isSelected && !disabled ? "text-white/70 dark:text-gray-900/70" : "text-slate-400 dark:text-gray-500")} />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{ds.name}</p>
-                        <p className={cn("text-[11px] truncate", isSelected && !disabled ? "text-white/60 dark:text-gray-900/60" : "text-slate-400 dark:text-gray-500")}>
+                        <p className={cn("text-xs truncate", isSelected && !disabled ? "text-white/60 dark:text-gray-900/60" : "text-slate-400 dark:text-gray-500")}>
                           {disabled ?? (
                             <>
                               {ds.type === "personal" ? "Vault Source" : "Network Source"}
@@ -236,7 +236,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                 {/* Duration picker — shown for personal/vault sources */}
                 {isPersonalSource && (
                   <div>
-                    <p className="text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
+                    <p className="text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">
                       Share duration
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -245,7 +245,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                           key={opt.value}
                           onClick={() => setDuration(opt.value)}
                           className={cn(
-                            "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors",
+                            "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
                             duration === opt.value
                               ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
                               : "bg-slate-100 dark:bg-gray-800 text-slate-600 dark:text-gray-400 hover:bg-slate-200 dark:hover:bg-gray-700",
@@ -265,7 +265,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                       />
                     )}
                     {duration === "session" && !chatExpiresAt && (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         This chat has no expiration set — share will be permanent.
                       </p>
                     )}
@@ -284,7 +284,7 @@ export function ShareDataSourceDialog({ groupChatId, existingShares, chatExpires
                     Allow members to view source documents
                   </span>
                 </label>
-                <p className="text-[10px] text-slate-400 dark:text-gray-500 ml-6">
+                <p className="text-xs text-slate-400 dark:text-gray-500 ml-6">
                   When disabled, members can only see bot-synthesized answers, not original document excerpts.
                 </p>
               </div>

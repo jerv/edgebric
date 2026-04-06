@@ -105,7 +105,7 @@ function GeneralTab() {
 
         {editingName && (
           <div className="mt-4 pt-4 border-t border-slate-100 dark:border-gray-800 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-slate-500 dark:text-gray-400 mb-1">First name</label>
                 <input
@@ -482,7 +482,7 @@ function ConversationsTab() {
                 <span className="flex-1 min-w-0 text-xs text-slate-700 dark:text-gray-300 truncate">
                   {conv.preview || "Empty conversation"}
                 </span>
-                <span className="text-[10px] text-slate-400 dark:text-gray-500 flex-shrink-0">
+                <span className="text-xs text-slate-400 dark:text-gray-500 flex-shrink-0">
                   {new Date(conv.updatedAt).toLocaleDateString()}
                 </span>
                 <button
@@ -514,17 +514,17 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Account</h1>
 
         {/* Tab bar */}
-        <div className="flex gap-1 border-b border-slate-200 dark:border-gray-800">
+        <div className="flex gap-1 border-b border-slate-200 dark:border-gray-800 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
+                "px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px whitespace-nowrap",
                 tab === t.id
                   ? "border-slate-900 dark:border-gray-100 text-slate-900 dark:text-gray-100"
                   : "border-transparent text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300",

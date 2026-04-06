@@ -100,7 +100,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
 
     if (allItems.length === 0) {
       return (
-        <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-3 px-3 z-20">
+        <div className="absolute left-0 bottom-full mb-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-3 px-3 z-20">
           <p className="text-xs text-slate-400 dark:text-gray-500">No matching data sources</p>
         </div>
       );
@@ -109,7 +109,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
     const shortcutCount = filteredShortcuts.length;
 
     return (
-      <div className="absolute left-0 bottom-full mb-1 w-72 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+      <div className="absolute left-0 bottom-full mb-1 w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
         <div ref={listRef}>
           {shortcutCount > 0 && (
             <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider">
@@ -125,7 +125,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
               }}
               onMouseEnter={() => setActiveIndex(i)}
               className={cn(
-                "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
+                "w-full text-left px-3 py-2.5 text-sm flex items-center gap-2.5 transition-colors",
                 activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
               )}
             >
@@ -150,7 +150,7 @@ export const DSMentionPicker = forwardRef<DSMentionPickerHandle, DSMentionPicker
                 }}
                 onMouseEnter={() => setActiveIndex(i)}
                 className={cn(
-                  "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
+                  "w-full text-left px-3 py-2.5 text-sm flex items-center gap-2.5 transition-colors",
                   activeIndex === i ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                 )}
               >

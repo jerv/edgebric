@@ -175,7 +175,7 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
         <span className="text-sm font-semibold text-slate-900 dark:text-gray-100">Thread</span>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors">
+        <button onClick={onClose} className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -184,10 +184,10 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
       {parentMessage && (
         <div className="border-b border-slate-100 dark:border-gray-800 px-3 py-2 bg-slate-50 dark:bg-gray-900">
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className="text-[11px] font-medium text-slate-700 dark:text-gray-300">
+            <span className="text-xs font-medium text-slate-700 dark:text-gray-300">
               {parentMessage.role === "assistant" ? "Edgebric" : (parentMessage.authorName ?? parentMessage.authorEmail)}
             </span>
-            <span className="text-[10px] text-slate-400 dark:text-gray-500">{formatTime(parentMessage.createdAt)}</span>
+            <span className="text-xs text-slate-400 dark:text-gray-500">{formatTime(parentMessage.createdAt)}</span>
           </div>
           <p className="text-xs text-slate-600 dark:text-gray-400 line-clamp-3">{parentMessage.content}</p>
         </div>
@@ -212,7 +212,7 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
                   {msg.authorEmail && memberPictures?.get(msg.authorEmail) ? (
                     <img src={memberPictures.get(msg.authorEmail)!} alt={msg.authorName ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <span className="text-[9px] font-bold text-slate-600 dark:text-gray-400">
+                    <span className="text-xs font-bold text-slate-600 dark:text-gray-400">
                       {(msg.authorName ?? msg.authorEmail ?? "?").charAt(0).toUpperCase()}
                     </span>
                   )}
@@ -220,10 +220,10 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline gap-1.5 mb-0.5">
-                  <span className="text-[11px] font-medium text-slate-700 dark:text-gray-300">
+                  <span className="text-xs font-medium text-slate-700 dark:text-gray-300">
                     {isBot ? "Edgebric" : (msg.authorName ?? msg.authorEmail)}
                   </span>
-                  <span className="text-[9px] text-slate-400 dark:text-gray-500">{formatTime(msg.createdAt)}</span>
+                  <span className="text-xs text-slate-400 dark:text-gray-500">{formatTime(msg.createdAt)}</span>
                 </div>
                 {isBot ? (
                   <div className={cn("text-xs text-slate-800 dark:text-gray-200 dark:prose-invert", ...PROSE_CLASSES)}>
@@ -298,7 +298,7 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
             <button
               onClick={() => setThreadSendMode("chat")}
               className={cn(
-                "text-[10px] px-2 py-0.5 rounded-full transition-colors flex items-center gap-0.5",
+                "text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1",
                 threadSendMode === "chat" ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900" : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300",
               )}
             >
@@ -308,7 +308,7 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
             <button
               onClick={() => setThreadSendMode("ai")}
               className={cn(
-                "text-[10px] px-2 py-0.5 rounded-full transition-colors flex items-center gap-0.5",
+                "text-xs px-2.5 py-1 rounded-full transition-colors flex items-center gap-1",
                 threadSendMode === "ai" ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900" : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300",
               )}
             >
@@ -334,7 +334,7 @@ export function ThreadPanel({ groupChatId, parentId, parentMessage, onClose, isA
             <button
               onClick={() => void (threadSendMode === "ai" ? askBot() : sendReply())}
               disabled={!input.trim() || sending}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-medium hover:bg-slate-700 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
               {threadSendMode === "ai" ? <Sparkles className="w-3 h-3" /> : <Send className="w-3 h-3" />}
               Send
