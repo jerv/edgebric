@@ -55,7 +55,7 @@ export function AppShell() {
         <div className="flex items-center justify-end px-4 pt-4">
           <button
             onClick={() => setDrawerOpen(false)}
-            className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-1"
+            className="text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 p-2"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
@@ -68,17 +68,17 @@ export function AppShell() {
       <div className="flex flex-col flex-1 min-w-0">
         {/* Privacy mode indicator bar */}
         {level === "private" && (
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-100 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-slate-100 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-400">
             <EyeOff className="w-3.5 h-3.5" />
-            <span className="text-xs font-medium">Private Mode — anonymous, not logged</span>
-            <span className="text-[11px] text-slate-400 dark:text-gray-500 ml-1">Queries are processed on org servers</span>
+            <span className="text-xs sm:text-[11px] font-medium">Private Mode — anonymous, not logged</span>
+            <span className="text-xs sm:text-[11px] text-slate-400 dark:text-gray-500 ml-1">Queries are processed on org servers</span>
           </div>
         )}
         {level === "vault" && (
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950 border-b border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950 border-b border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="text-xs font-medium">Vault Mode — queries never leave your device</span>
-            <span className="text-[11px] text-emerald-500 dark:text-emerald-400 ml-1">Conversation is lost on page refresh</span>
+            <span className="text-xs sm:text-[11px] font-medium">Vault Mode — queries never leave your device</span>
+            <span className="text-xs sm:text-[11px] text-emerald-500 dark:text-emerald-400 ml-1">Conversation is lost on page refresh</span>
           </div>
         )}
 
@@ -86,7 +86,7 @@ export function AppShell() {
         <header className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-gray-800 md:hidden">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 p-1"
+            className="text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 p-2"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />

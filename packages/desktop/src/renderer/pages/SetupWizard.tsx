@@ -134,6 +134,21 @@ export default function SetupWizard({ onComplete }: Props) {
   const [engineStatus, setEngineStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
   const [engineError, setEngineError] = useState("");
   const [launchAtLogin, setLaunchAtLogin] = useState(true);
+  const [autoUpdate, setAutoUpdate] = useState(true);
+
+  // Model setup choice (after engine install)
+  const [modelChoice, setModelChoice] = useState<"undecided" | "auto" | "skip">("undecided");
+  const [recommendedModel, setRecommendedModel] = useState<{ tag: string; name: string; downloadSizeGB: number; description: string } | null>(null);
+  const [modelProgress, setModelProgress] = useState(0);
+  const [modelStatus, setModelStatus] = useState<"idle" | "downloading" | "done" | "error">("idle");
+  const [modelError, setModelError] = useState("");
+
+  // Fetch recommended model when engine finishes installing
+  useEffect(() => {
+    if (engineStatus === "done" && !recommendedModel) {
+      window.electronAPI.getRecommendedModel().then(setRecommendedModel);
+    }
+  }, [engineStatus, recommendedModel]);
 
   const steps = getSteps(intent, mode, connectType);
   const currentStep = steps[stepIndex];
@@ -212,7 +227,10 @@ export default function SetupWizard({ onComplete }: Props) {
         return hasServer && meshToken.trim().length >= 32 && secondaryNodeName.trim().length > 0;
       }
       case "aiEngine":
-        return engineStatus === "done" || engineStatus === "idle";
+        if (engineStatus === "idle") return true; // can skip engine
+        if (engineStatus !== "done") return false;
+        // Engine installed — need model choice resolved
+        return modelChoice === "skip" || modelStatus === "done";
       default:
         return false;
     }
@@ -279,6 +297,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
     // Final step
     await window.electronAPI.setLaunchAtLogin(launchAtLogin);
+    await window.electronAPI.setAutoUpdateEnabled(autoUpdate);
     onComplete();
   }
 
@@ -774,13 +793,109 @@ export default function SetupWizard({ onComplete }: Props) {
             {engineStatus === "done" && (
               <div className="ai-engine-done">
                 <p className="success-message">AI engine installed successfully.</p>
-                <div className="card" style={{ marginTop: 16, padding: "12px 16px" }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Recommended model for your system</p>
-                  <p className="hint">
-                    Edgebric will automatically download the best model for your hardware when the server starts.
-                    You can change models anytime from Settings &gt; Models.
-                  </p>
-                </div>
+
+                {modelChoice === "undecided" && (
+                  <>
+                    <p style={{ fontSize: 13, marginTop: 12, marginBottom: 12 }}>
+                      Would you like Edgebric to download a model now, or set it up yourself later?
+                    </p>
+                    <div className="provider-list">
+                      <label
+                        className="provider-option"
+                        style={{ cursor: "pointer" }}
+                        onClick={async () => {
+                          setModelChoice("auto");
+                          setModelStatus("downloading");
+                          setModelProgress(0);
+                          setModelError("");
+                          const model = recommendedModel;
+                          if (!model) {
+                            setModelStatus("error");
+                            setModelError("Could not determine a recommended model.");
+                            return;
+                          }
+                          const cleanup = window.electronAPI.onModelPullProgress((data) => {
+                            if (data.tag === model.tag) setModelProgress(data.percent);
+                          });
+                          const result = await window.electronAPI.modelsPull(model.tag);
+                          cleanup();
+                          if (result.success) {
+                            setModelStatus("done");
+                          } else {
+                            setModelStatus("error");
+                            setModelError(result.error ?? "Download failed");
+                          }
+                        }}
+                      >
+                        <span className="provider-icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                        </span>
+                        <div>
+                          <span className="provider-name">Set me up</span>
+                          <span className="provider-desc">
+                            {recommendedModel
+                              ? `Downloads ${recommendedModel.name} (~${recommendedModel.downloadSizeGB} GB). ${recommendedModel.description}`
+                              : "Detecting best model for your hardware..."}
+                          </span>
+                        </div>
+                      </label>
+
+                      <label
+                        className="provider-option"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setModelChoice("skip")}
+                      >
+                        <span className="provider-icon">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10"/><path d="M16 12H8"/>
+                          </svg>
+                        </span>
+                        <div>
+                          <span className="provider-name">I'll set it up myself</span>
+                          <span className="provider-desc">Skip model download. You can configure models later from Settings &gt; Models.</span>
+                        </div>
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {modelChoice === "auto" && modelStatus === "downloading" && (
+                  <div className="ai-engine-progress" style={{ marginTop: 16 }}>
+                    <p style={{ fontSize: 13, marginBottom: 8 }}>
+                      Downloading {recommendedModel?.name ?? "model"}...
+                    </p>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${modelProgress}%` }} />
+                    </div>
+                    <p className="progress-label">{modelProgress}%</p>
+                  </div>
+                )}
+
+                {modelChoice === "auto" && modelStatus === "done" && (
+                  <div style={{ marginTop: 16 }}>
+                    <p className="success-message">{recommendedModel?.name ?? "Model"} downloaded successfully.</p>
+                  </div>
+                )}
+
+                {modelChoice === "auto" && modelStatus === "error" && (
+                  <div style={{ marginTop: 16 }}>
+                    <p className="error-message">{modelError}</p>
+                    <button className="btn btn-secondary" onClick={() => { setModelChoice("undecided"); setModelStatus("idle"); }}>
+                      Go Back
+                    </button>
+                  </div>
+                )}
+
+                {modelChoice === "skip" && (
+                  <div style={{ marginTop: 16 }}>
+                    <p className="hint">No model will be downloaded. You can set up models anytime from Settings &gt; Models.</p>
+                    <button className="advanced-toggle" onClick={() => setModelChoice("undecided")}>
+                      Change my mind
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -809,6 +924,23 @@ export default function SetupWizard({ onComplete }: Props) {
                 <span className="toggle-knob" />
               </button>
             </div>
+
+            <div className="card" style={{ marginTop: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Automatic Updates</p>
+                <p className="hint">
+                  Check for updates automatically when Edgebric starts.
+                </p>
+              </div>
+              <button
+                className={`toggle-btn ${autoUpdate ? "toggle-on" : ""}`}
+                onClick={() => setAutoUpdate(!autoUpdate)}
+                type="button"
+                aria-pressed={autoUpdate}
+              >
+                <span className="toggle-knob" />
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -826,11 +958,11 @@ export default function SetupWizard({ onComplete }: Props) {
           <button
             className="btn btn-primary"
             onClick={handleNext}
-            disabled={!canProceed() || saving || engineStatus === "downloading"}
+            disabled={!canProceed() || saving || engineStatus === "downloading" || modelStatus === "downloading"}
           >
             {saving
               ? "Saving..."
-              : engineStatus === "downloading"
+              : engineStatus === "downloading" || modelStatus === "downloading"
                 ? "Downloading..."
                 : isLastStep
                   ? engineStatus === "idle" ? "Skip & Finish" : "Finish"

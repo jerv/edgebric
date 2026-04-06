@@ -37,6 +37,8 @@ declare global {
       startEngine: () => Promise<{ success: boolean; external?: boolean; error?: string }>;
       stopEngine: () => Promise<{ success: boolean; error?: string }>;
       onEngineDownloadProgress: (callback: (percent: number) => void) => () => void;
+      // Recommended Model (setup wizard)
+      getRecommendedModel: () => Promise<{ tag: string; name: string; downloadSizeGB: number; description: string } | null>;
       // mDNS Discovery
       discoverInstances: () => Promise<Array<{ name: string; host: string; port: number; addresses: string[] }>>;
       // Settings
@@ -68,6 +70,12 @@ declare global {
       modelsImportGguf: (ggufPath: string, modelName: string) => Promise<{ success: boolean; error?: string }>;
       modelsSearch: (query: string) => Promise<{ models: Array<{ name: string; description: string; tags?: string[]; huggingFaceUrl?: string; capabilities?: { vision: boolean; toolUse: boolean; reasoning: boolean } }>; error?: string }>;
       onModelPullProgress: (callback: (data: { tag: string; status: string; percent: number }) => void) => () => void;
+      // Auto-update
+      getAutoUpdateEnabled: () => Promise<boolean>;
+      setAutoUpdateEnabled: (enabled: boolean) => Promise<{ success: boolean }>;
+      checkForUpdates: () => Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>;
+      getAppVersion: () => Promise<string>;
+      getUpdateStatus: () => Promise<{ checking: boolean; downloading: boolean; downloaded: boolean; availableVersion: string | null }>;
     };
   }
 }

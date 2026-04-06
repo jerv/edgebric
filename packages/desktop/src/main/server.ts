@@ -252,7 +252,7 @@ async function _startServer(): Promise<void> {
 
   serverProcess = spawn("node", args, {
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, DOTENV_CONFIG_PATH: envFile, SERVE_STATIC: "1" },
+    env: { ...process.env, DOTENV_CONFIG_PATH: envFile, SERVE_STATIC: "1", EDGEBRIC_VERSION: app.getVersion() },
     cwd: apiDir,
   });
 

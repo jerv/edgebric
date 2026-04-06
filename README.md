@@ -4,16 +4,11 @@
 
 Whether you're organizing family documents, managing client files, building a personal research library, or running a 200-person company with department-level data isolation — Edgebric runs locally on a Mac and scales from one user to hundreds.
 
-> *"Data never moves. Queries move."*
+> *"Your data. Your hardware. Your AI."*
 
 ---
 
 **Just want to use it?** Head to [edgebric.com](https://edgebric.com) to download the macOS app. No terminal, no setup — just download and run.
-
-**Prefer the command line?**
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash
-```
 
 ---
 
@@ -25,7 +20,7 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 
 ## What It Does
 
-- **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations, but no document ever leaves the machine it's stored on. This is the core of "data never moves, queries move."
+- **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations, but no document ever leaves the machine it's stored on. Your data stays on your hardware — private by design.
 - **Document ingestion**: Upload PDF, DOCX, TXT, MD files. Automatic extraction, chunking, and embedding.
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
 - **Cloud integrations**: Sync documents from Google Drive, OneDrive, Confluence, and Notion. Documents are pulled to your local machine — never stored in the cloud.
@@ -96,19 +91,7 @@ Monorepo with four packages:
 
 Head to [edgebric.com](https://edgebric.com) — download, drag to Applications, launch. No terminal required.
 
-### Option 2: One-line install (for developers)
-
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash
-```
-
-Checks prerequisites, clones the repo, builds, and launches the desktop app. Customize the install directory:
-
-```bash
-curl -fsSL https://edgebric.com/install.sh | bash -s -- --dir ~/my-edgebric
-```
-
-### Option 3: Build from source
+### Option 2: Build from source
 
 ```bash
 git clone https://github.com/jerv/edgebric.git

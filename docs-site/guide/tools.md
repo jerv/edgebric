@@ -49,6 +49,8 @@ Lists all data sources you have access to, with document counts and status.
 **Example prompt:**
 > "What knowledge bases do I have?"
 
+**Parameters:** None.
+
 ---
 
 ### list_documents
@@ -60,14 +62,20 @@ Lists all documents in a specific data source.
 
 The AI calls `list_sources` first to find the source ID, then `list_documents` to enumerate its contents.
 
+**Parameters:**
+- `sourceId` (required) — The data source ID
+
 ---
 
 ### get_source_summary
 
-Retrieves a summary of a data source including document names, types, and section headings.
+Retrieves a summary of a data source including document names, types, and section headings. Returns up to 20 documents with their first 5 section headings.
 
 **Example prompt:**
 > "Give me an overview of what's in the Engineering Wiki source."
+
+**Parameters:**
+- `sourceId` (required) — The data source ID
 
 ---
 
@@ -102,10 +110,13 @@ The AI writes the content to a file, creates a document record, and kicks off ba
 
 ### delete_document
 
-Deletes a document and its indexed chunks from the knowledge base.
+Deletes a document and its indexed chunks from the knowledge base. Also removes the stored file and triggers a dataset rebuild.
 
 **Example prompt:**
 > "Delete the outdated Q3 report from the Finance source."
+
+**Parameters:**
+- `documentId` (required) — The document ID to delete
 
 ---
 
@@ -115,6 +126,9 @@ Deletes an entire data source and all its documents. **Admin only.** This is des
 
 **Example prompt:**
 > "Remove the old 'Test Data' knowledge base entirely."
+
+**Parameters:**
+- `sourceId` (required) — The data source ID to delete
 
 ---
 
@@ -142,6 +156,10 @@ Compares two documents by analyzing their section headings, highlighting topics 
 
 The AI retrieves both documents' metadata and returns sections unique to each plus shared sections, then explains the differences.
 
+**Parameters:**
+- `docId1` (required) — First document ID
+- `docId2` (required) — Second document ID
+
 ---
 
 ### cite_check
@@ -153,16 +171,22 @@ Verifies or contradicts a claim by searching all your data sources for supportin
 
 The AI searches across all sources for evidence related to the claim and returns a verdict: `evidence_found` (similarity > 0.6) or `uncertain`.
 
+**Parameters:**
+- `claim` (required) — The claim to verify
+
 ---
 
 ### find_related
 
-Finds documents related to a given document using vector similarity search across all sources.
+Finds documents related to a given document using vector similarity search across all sources. Returns up to 5 related documents.
 
 **Example prompt:**
 > "What other documents are related to the API design spec?"
 
 The AI uses the document's name and headings to search for semantically similar documents, excluding the document itself.
+
+**Parameters:**
+- `documentId` (required) — The document ID to find related documents for
 
 ## Web Tools
 
@@ -181,6 +205,9 @@ Searches the internet using DuckDuckGo. Returns titles, URLs, and snippets from 
 
 The AI searches DuckDuckGo and returns relevant results with titles, links, and snippets.
 
+**Parameters:**
+- `query` (required) — The search query
+
 ---
 
 ### read_url
@@ -191,6 +218,9 @@ Fetches a URL and extracts its text content. HTML is converted to clean text, li
 > "Read this article and summarize it: https://example.com/blog/post"
 
 The AI fetches the page, strips HTML, and returns the text content for analysis.
+
+**Parameters:**
+- `url` (required) — The URL to fetch
 
 ## Multi-Tool Workflows
 
@@ -220,3 +250,16 @@ When tools are used during a response, a collapsible **Tool Use** panel appears 
 - A brief summary of what each tool returned
 
 The panel is collapsed by default — click to expand and see the details.
+
+## Access Control and Permissions
+
+Tools respect the same access control rules as the rest of Edgebric:
+
+- **Source-level access** — Knowledge tools only operate on data sources the current user has access to. If a tool tries to read or modify a source you don't have permission to view, it returns an "Access denied" error.
+- **Admin-only tools** — `delete_source` requires admin privileges. Non-admin users cannot delete entire data sources.
+- **Organization scoping** — In multi-user setups, tools are scoped to the user's organization. You cannot access sources belonging to a different organization.
+- **Personal vault isolation** — `save_to_vault` writes only to the current user's personal vault source. Other users cannot access your vault.
+
+## Audit Logging
+
+Every tool execution is recorded in the immutable audit log with the tool name, execution time, success/failure status, and the user who triggered it. Admins can review tool usage via the audit log.

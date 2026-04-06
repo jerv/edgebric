@@ -125,7 +125,7 @@ export function DocumentsPanel() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Documents</h1>
           <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
@@ -203,6 +203,7 @@ export function DocumentsPanel() {
           </div>
         ) : (
           <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800">
@@ -245,7 +246,7 @@ export function DocumentsPanel() {
                       ) : (
                         <button
                           onClick={() => setDeleteConfirm(doc.id)}
-                          className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+                          className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5"
                           title="Delete document"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -256,6 +257,7 @@ export function DocumentsPanel() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </div>

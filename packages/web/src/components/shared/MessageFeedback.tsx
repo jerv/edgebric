@@ -37,7 +37,7 @@ export function FeedbackButtons({
       <button
         onClick={onThumbsUp}
         disabled={isPending}
-        className="text-slate-300 dark:text-gray-600 hover:text-green-500 transition-colors p-1 disabled:opacity-40"
+        className="text-slate-300 dark:text-gray-600 hover:text-green-500 transition-colors p-1.5 disabled:opacity-40"
         title="Helpful"
       >
         <ThumbsUp className="w-3.5 h-3.5" />
@@ -46,7 +46,7 @@ export function FeedbackButtons({
         onClick={onThumbsDown}
         disabled={isPending}
         className={cn(
-          "transition-colors p-1 disabled:opacity-40",
+          "transition-colors p-1.5 disabled:opacity-40",
           isCommentOpen ? "text-red-400" : "text-slate-300 dark:text-gray-600 hover:text-red-400",
         )}
         title="Not helpful"
@@ -77,7 +77,7 @@ export function FeedbackCommentForm({
   onCancel,
 }: FeedbackCommentFormProps) {
   return (
-    <div className="flex items-center gap-2 px-1 pt-1">
+    <div className="flex items-center gap-2 px-1 pt-1 flex-wrap">
       <input
         type="text"
         value={comment}

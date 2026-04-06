@@ -32,4 +32,4 @@ Edgebric is a privacy-first, on-premise AI knowledge platform that answers quest
 
 **Platform:** Any sensitive knowledge domain — HR, legal, compliance, finance, IT, and beyond.
 
-> *"Data never moves. Queries move."*
+> *"Your data. Your hardware. Your AI."*

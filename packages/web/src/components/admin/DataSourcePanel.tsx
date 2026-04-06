@@ -72,7 +72,7 @@ function SourceTypeSelector({
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-slate-500 dark:text-gray-400">Storage</label>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <button
           type="button"
           onClick={() => onChange("organization")}
@@ -415,7 +415,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -597,7 +597,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
 
         {/* Search + filter bar */}
         {dataSources.length > 0 && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-gray-500" />
@@ -697,12 +697,13 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
           <div className="text-center py-12">
             <Search className="w-8 h-8 text-slate-200 dark:text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-slate-500 dark:text-gray-400">No matching data sources.</p>
-            <button onClick={() => { setSearch(""); setOwnerFilter("all"); setStorageFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1">
+            <button onClick={() => { setSearch(""); setOwnerFilter("all"); setStorageFilter("all"); }} className="text-xs text-blue-600 hover:underline mt-1 py-1">
               Clear filters
             </button>
           </div>
         ) : (
-          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+          <div className="border border-slate-200 dark:border-gray-800 rounded-2xl overflow-hidden min-w-[600px]">
             {/* Table header — clickable columns for sorting */}
             <div className="grid grid-cols-[1fr_100px_100px_120px_100px] gap-4 px-5 py-2.5 bg-slate-50 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-[11px] font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
               {([
@@ -790,7 +791,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                         <><Globe className="w-3 h-3" /> {meshNodeName ?? "Network"}</>
                       )}
                     </span>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 transition-opacity z-10">
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 group-focus-within/storage:opacity-100 transition-opacity z-10">
                       {ds.type === "personal"
                         ? "Encrypted on your device \u2014 never leaves your machine"
                         : meshNodeName
@@ -810,7 +811,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                         <><Globe className="w-3 h-3" /> Whole org</>
                       )}
                     </span>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/access:opacity-100 transition-opacity z-10">
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/access:opacity-100 group-focus-within/access:opacity-100 transition-opacity z-10">
                       {ds.type === "personal"
                         ? "Only you can access this source"
                         : ds.accessMode === "restricted"
@@ -824,6 +825,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                 </button>
               );
             })}
+          </div>
           </div>
         )}
       </div>
@@ -1026,7 +1028,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Header */}
         <div>
           <button
@@ -1477,7 +1479,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                               await fetch(`/api/documents/${doc.id}/approve-pii`, { method: "POST", credentials: "same-origin" });
                               void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
                             }}
-                            className="text-slate-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1"
+                            className="text-slate-300 dark:text-gray-600 hover:text-green-600 dark:hover:text-green-400 transition-colors p-1.5"
                             title="Approve file"
                           >
                             <CheckCircle className="w-4 h-4" />
@@ -1487,7 +1489,7 @@ function DSDetailView({ ds, onBack }: { ds: DataSource; onBack: () => void }) {
                               await fetch(`/api/documents/${doc.id}/reject-pii`, { method: "POST", credentials: "same-origin" });
                               void queryClient.invalidateQueries({ queryKey: ["data-sources", ds.id] });
                             }}
-                            className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
+                            className="text-slate-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1.5"
                             title="Reject file"
                           >
                             <XCircle className="w-4 h-4" />

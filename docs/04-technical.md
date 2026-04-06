@@ -84,7 +84,7 @@
 │  └────────────┘   └────────────┘   └────────────┘                 │
 └──────────────────────────────────────────────────────────────────────┘
 
-  KEY PRINCIPLE: Data never moves. Queries move.
+  KEY PRINCIPLE: Your data. Your hardware. Your AI.
   HR data physically isolated on HR device
   Legal data physically isolated on Legal device
   Compromised node cannot access other departments' data

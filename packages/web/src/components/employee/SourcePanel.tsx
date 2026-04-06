@@ -105,7 +105,7 @@ export function SourcePanel({
       <div
         ref={panelRef}
         className={cn(
-          "fixed top-0 right-0 z-50 h-full w-[min(900px,98vw)]",
+          "fixed top-0 right-0 z-50 h-full w-full sm:w-[min(900px,98vw)]",
           "bg-white dark:bg-gray-950 border-l border-slate-200 dark:border-gray-800 shadow-xl",
           "flex flex-col",
           "animate-slide-in-right",
@@ -138,7 +138,7 @@ export function SourcePanel({
               href={`/api/documents/${documentId}/file`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+              className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
               title="View original file"
             >
               <ExternalLink className="w-4 h-4" />
@@ -146,7 +146,7 @@ export function SourcePanel({
           )}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+            className="p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -195,7 +195,7 @@ export function SourcePanel({
                         )}
                       </div>
                     )}
-                    <div className={cn("text-xs text-slate-600 dark:text-gray-400 leading-relaxed", ...PROSE_CLASSES, "dark:prose-invert", "prose-p:my-1.5 prose-p:text-xs")}>
+                    <div className={cn("text-xs sm:text-sm text-slate-600 dark:text-gray-400 leading-relaxed", ...PROSE_CLASSES, "dark:prose-invert", "prose-p:my-1.5 prose-p:text-xs sm:prose-p:text-sm")}>
                       <Markdown>{section.content}</Markdown>
                     </div>
                   </div>
