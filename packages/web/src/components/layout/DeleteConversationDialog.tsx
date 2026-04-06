@@ -54,7 +54,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
                   <button
                     onClick={() => void handleAction("archive")}
                     disabled={!!pending}
-                    className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-30"
+                    className="bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-md px-3 py-2 text-sm font-medium hover:bg-slate-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-30"
                   >
                     {pending === "archive" ? "Archiving..." : "Yes, archive"}
                   </button>
@@ -93,7 +93,7 @@ export function DeleteConversationDialog({ conversationId, onClose, onDone }: Pr
                   <button
                     onClick={() => void handleAction("delete")}
                     disabled={!!pending}
-                    className="bg-red-600 text-white rounded-md px-3 py-1.5 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30"
+                    className="bg-red-600 text-white rounded-md px-3 py-2 text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-30"
                   >
                     {pending === "delete" ? "Deleting..." : "Yes, delete"}
                   </button>

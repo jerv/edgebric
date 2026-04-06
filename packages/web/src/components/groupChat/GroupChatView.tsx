@@ -453,10 +453,10 @@ export function GroupChatView() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="border-b border-slate-200 dark:border-gray-800 px-6 py-3 flex items-center gap-3">
+        <div className="border-b border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-semibold text-slate-900 dark:text-gray-100 truncate">{chat.name}</h1>
-            <div className="flex items-center gap-3 text-[11px] text-slate-400 dark:text-gray-500">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-xs text-slate-400 dark:text-gray-500">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3" />
                 {chat.members.length} member{chat.members.length !== 1 ? "s" : ""}
@@ -470,7 +470,7 @@ export function GroupChatView() {
                 {effectiveDSCount} data source{effectiveDSCount !== 1 ? "s" : ""}
                 {dsTooltipOpen && queryableDataSources.length > 0 && (
                   <div className="absolute left-0 top-full pt-1 z-30">
-                    <div className="w-80 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
+                    <div className="w-[min(320px,calc(100vw-2rem))] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2">
                       {queryableDataSources.map((ds) => {
                         const isOwner = isActive && ds.source === "shared" && ds.sharedByEmail?.toLowerCase() === user?.email?.toLowerCase();
                         const expiresMs = ds.expiresAt ? new Date(ds.expiresAt).getTime() - Date.now() : null;
@@ -480,12 +480,12 @@ export function GroupChatView() {
                             <Database className="w-3 h-3 text-slate-400 dark:text-gray-500 mt-0.5 flex-shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-medium text-slate-700 dark:text-gray-300 truncate">{ds.name}</p>
-                              <p className="text-[10px] text-slate-400 dark:text-gray-500 truncate">
+                              <p className="text-xs text-slate-400 dark:text-gray-500 truncate">
                                 {ds.source === "org" ? "Organization-wide" : `Shared by ${ds.sharedBy}`}
                               </p>
                               {ds.expiresAt && expiresMs != null && expiresMs > 0 && (
                                 <p className={cn(
-                                  "text-[10px] flex items-center gap-1 mt-0.5",
+                                  "text-xs flex items-center gap-1 mt-0.5",
                                   isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : "text-slate-400 dark:text-gray-500",
                                 )}>
                                   <Clock className="w-2.5 h-2.5" />
@@ -508,7 +508,7 @@ export function GroupChatView() {
                                     });
                                     void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
                                   }}
-                                  className="text-[10px] text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                   title="Extend by 1 hour"
                                 >
                                   +1h
@@ -525,7 +525,7 @@ export function GroupChatView() {
                                     });
                                     void queryClient.invalidateQueries({ queryKey: ["group-chat", chat.id] });
                                   }}
-                                  className="text-[10px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                  className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                   title="Revoke sharing"
                                 >
                                   Revoke
@@ -550,20 +550,20 @@ export function GroupChatView() {
 
           <button
             onClick={() => setShowInvite(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
             title={isCreator && isActive ? "Manage members" : "View members"}
           >
             {isCreator && isActive ? <UserPlus className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
-            Members
+            <span className="hidden sm:inline">Members</span>
           </button>
           {isActive && (
             <button
               onClick={() => setShowShareDS(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
               title="Share a Data Source"
             >
               <Database className="w-3.5 h-3.5" />
-              Share Data Source
+              <span className="hidden sm:inline">Share Data Source</span>
             </button>
           )}
 
@@ -572,7 +572,7 @@ export function GroupChatView() {
             <button
               onClick={() => setNotifMenuOpen((v) => !v)}
               className={cn(
-                "p-1.5 rounded-lg transition-colors",
+                "p-2 rounded-lg transition-colors",
                 notifLevel === "none"
                   ? "text-slate-300 dark:text-gray-600 hover:text-slate-500 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
                   : "text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-800",
@@ -585,7 +585,7 @@ export function GroupChatView() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setNotifMenuOpen(false)} />
                 <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 w-48">
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider">
+                  <div className="px-3 py-1.5 text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider">
                     Notify me
                   </div>
                   {(["all", "mentions", "none"] as GroupChatNotifLevel[]).map((level) => (
@@ -617,7 +617,7 @@ export function GroupChatView() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-1 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-1 min-h-0">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Users className="w-8 h-8 text-slate-300 dark:text-gray-600 mb-3" />
@@ -700,7 +700,7 @@ export function GroupChatView() {
 
         {/* Input area — matches QueryInterface style */}
         {isActive ? (
-          <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-4">
+          <div className="border-t border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-3 sm:py-4">
             <div className="space-y-2">
               {/* Controls row: data source selector (left) + model selector (right) */}
               <div className="flex items-center justify-between">
@@ -722,7 +722,7 @@ export function GroupChatView() {
                     </button>
 
                     {dsSelectorOpen && (
-                      <div className="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
+                      <div className="absolute left-0 bottom-full mb-1 w-[min(256px,calc(100vw-2rem))] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-20 max-h-64 overflow-y-auto">
                         {/* All data sources option */}
                         <button
                           onMouseDown={(e) => {
@@ -741,7 +741,7 @@ export function GroupChatView() {
                         </button>
 
                         {queryableDataSources.length > 0 && (
-                          <div className="px-3 pt-1.5 pb-1 text-[10px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider border-t border-slate-100 dark:border-gray-800 mt-1">
+                          <div className="px-3 pt-1.5 pb-1 text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider border-t border-slate-100 dark:border-gray-800 mt-1">
                             Data Sources
                           </div>
                         )}
@@ -764,7 +764,7 @@ export function GroupChatView() {
                               <Database className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 flex-shrink-0" />
                               <span className="truncate">{ds.name}</span>
                               {ds.source === "org" && (
-                                <span className="text-[10px] text-slate-300 dark:text-gray-600 ml-0.5">org</span>
+                                <span className="text-xs text-slate-300 dark:text-gray-600 ml-0.5">org</span>
                               )}
                               {isSelected && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
                             </button>
@@ -855,7 +855,7 @@ export function GroupChatView() {
             </div>
           </div>
         ) : (
-          <div className="border-t border-slate-200 dark:border-gray-800 px-6 py-3 text-center text-xs text-slate-400 dark:text-gray-500">
+          <div className="border-t border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-3 text-center text-xs text-slate-400 dark:text-gray-500">
             This group chat is {chat.status}. Messages are read-only.
           </div>
         )}
@@ -935,7 +935,7 @@ function MessageBubble({
   if (message.role === "system") {
     return (
       <div className="text-center py-1">
-        <span className="text-[11px] text-slate-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-900 rounded-full px-3 py-1">
+        <span className="text-xs text-slate-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-900 rounded-full px-3 py-1">
           {message.content}
         </span>
       </div>
@@ -971,7 +971,7 @@ function MessageBubble({
           {memberPicture ? (
             <img src={memberPicture} alt={message.authorName ?? "User"} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
-            <span className="text-[10px] font-bold text-slate-600 dark:text-gray-400">{initial}</span>
+            <span className="text-xs font-bold text-slate-600 dark:text-gray-400">{initial}</span>
           )}
         </div>
       )}
@@ -1000,7 +1000,7 @@ function MessageBubble({
                       onMention?.(authorDisplayName.split(" ")[0] ?? authorDisplayName);
                       setShowMenu(false);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
                   >
                     <AtSign className="w-3 h-3 text-slate-400 dark:text-gray-500" />
                     Mention
@@ -1012,7 +1012,7 @@ function MessageBubble({
                         setShowMenu(false);
                         await onKick?.(message.authorEmail!);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <UserMinus className="w-3 h-3" />
                       Remove from chat
@@ -1022,9 +1022,9 @@ function MessageBubble({
               )}
             </span>
           )}
-          <span className="text-[10px] text-slate-400 dark:text-gray-500">{formatTime(message.createdAt)}</span>
+          <span className="text-xs text-slate-400 dark:text-gray-500">{formatTime(message.createdAt)}</span>
           {isAIQuery && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-400 dark:text-gray-500">
+            <span className="inline-flex items-center gap-0.5 text-xs text-slate-400 dark:text-gray-500">
               <Sparkles className="w-2.5 h-2.5" />
               Asked AI
             </span>
@@ -1067,7 +1067,7 @@ function MessageBubble({
             {message.threadReplyCount && message.threadReplyCount > 0 ? (
               <button
                 onClick={onOpenThread}
-                className="text-[11px] text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 transition-colors flex items-center gap-1.5"
+                className="text-xs text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 transition-colors flex items-center gap-1.5"
               >
                 {/* Participant avatars */}
                 {message.threadParticipants && message.threadParticipants.length > 0 && (
@@ -1077,7 +1077,7 @@ function MessageBubble({
                         {p.picture ? (
                           <img src={p.picture} alt={p.name ?? p.email} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
-                          <span className="text-[7px] font-bold text-slate-500 dark:text-gray-400">{(p.name ?? p.email).charAt(0).toUpperCase()}</span>
+                          <span className="text-xs font-bold text-slate-500 dark:text-gray-400">{(p.name ?? p.email).charAt(0).toUpperCase()}</span>
                         )}
                       </span>
                     ))}
@@ -1089,7 +1089,7 @@ function MessageBubble({
             ) : (
               <button
                 onClick={onOpenThread}
-                className="opacity-0 group-hover:opacity-100 text-[11px] text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 transition-opacity flex items-center gap-1"
+                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-xs text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300 transition-opacity flex items-center gap-1"
               >
                 <MessageSquare className="w-3 h-3" />
                 Reply in thread

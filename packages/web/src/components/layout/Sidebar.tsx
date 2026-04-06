@@ -324,7 +324,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       e.stopPropagation();
                       setShowNewChatMenu((v) => !v);
                     }}
-                    className="p-0.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors"
+                    className="p-1.5 md:p-0.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors"
                     title="More options"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
@@ -342,7 +342,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       window.dispatchEvent(new PopStateEvent("popstate"));
                       onNavigate?.();
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 text-xs text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     New Chat
@@ -355,7 +355,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     }}
                     disabled={isSolo}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors",
+                      "w-full flex items-center gap-2 px-3 py-2.5 md:py-2 text-xs transition-colors",
                       isSolo
                         ? "text-slate-300 dark:text-gray-600 cursor-not-allowed"
                         : "text-slate-700 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-900",
@@ -394,7 +394,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <div className="flex-1 overflow-y-auto px-2 min-h-0 scrollbar-thin">
           {dateGroups.map((group) => (
             <div key={group.label}>
-              <div className="px-3 pt-3 pb-1 text-[11px] font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider select-none">
+              <div className="px-3 pt-3 pb-1 text-xs font-medium text-slate-400 dark:text-gray-500 uppercase tracking-wider select-none">
                 {group.label}
               </div>
               {group.items.map((item) => {
@@ -404,7 +404,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     <div
                       key={`c-${item.id}`}
                       className={cn(
-                        "flex items-center rounded-lg transition-colors px-3 py-1.5 group",
+                        "flex items-center rounded-lg transition-colors px-3 py-2 md:py-1.5 group",
                         isActive
                           ? "bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-gray-100"
                           : "text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:text-slate-700 dark:hover:text-gray-200",
@@ -434,7 +434,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                       </span>
                       <button
                         onClick={() => setDeletingConvId(item.id)}
-                        className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 text-slate-300 dark:text-gray-600 hover:text-red-400 transition-opacity flex-shrink-0"
+                        className="ml-1 p-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-300 dark:text-gray-600 hover:text-red-400 transition-opacity flex-shrink-0"
                         title="Remove conversation"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -451,7 +451,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   <div
                     key={`gc-${item.id}`}
                     className={cn(
-                      "flex items-center rounded-lg transition-colors px-3 py-1.5 group cursor-pointer",
+                      "flex items-center rounded-lg transition-colors px-3 py-2 md:py-1.5 group cursor-pointer",
                       isActive
                         ? "bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-gray-100"
                         : "text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:text-slate-700 dark:hover:text-gray-200",
@@ -481,7 +481,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                         e.stopPropagation();
                         setLeavingGroupChatId(item.id);
                       }}
-                      className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 text-slate-300 dark:text-gray-600 hover:text-red-400 transition-opacity flex-shrink-0"
+                      className="ml-1 p-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 text-slate-300 dark:text-gray-600 hover:text-red-400 transition-opacity flex-shrink-0"
                       title="Leave group chat"
                     >
                       <LogOut className="w-3 h-3" />
