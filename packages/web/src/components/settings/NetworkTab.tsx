@@ -527,8 +527,8 @@ function MeshExplainer() {
                    └─────────┘`.trim()}</pre>
           </div>
           <div className="space-y-2">
-            <p><strong className="text-slate-700 dark:text-gray-300">Data never moves.</strong> Each node keeps its own documents. Nothing is copied or synced between nodes.</p>
-            <p><strong className="text-slate-700 dark:text-gray-300">Queries move.</strong> When an employee asks a question, the query fans out to every node. Each node searches its local sources and sends back results.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">Your data stays on your hardware.</strong> Each node keeps its own documents. Nothing is copied or synced between nodes.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">Queries route across the mesh.</strong> When an employee asks a question, the query fans out to every node. Each node searches its local sources and sends back results.</p>
             <p><strong className="text-slate-700 dark:text-gray-300">Resilient.</strong> If a node goes offline, the rest keep working. Results from unavailable nodes are simply skipped.</p>
             <p><strong className="text-slate-700 dark:text-gray-300">One login.</strong> The primary node handles authentication. Other nodes proxy login through it — no duplicate setup needed.</p>
           </div>

@@ -139,7 +139,7 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 2. Show: ephemeral sharing dissolved. Data sources are private again.
 3. "The meeting's over. The sharing is gone. No data was ever copied. Each device still has exactly what it started with."
 
-"Data never moves. Queries move. That's the product."
+"Your data. Your hardware. Your AI. That's the product."
 
 ---
 

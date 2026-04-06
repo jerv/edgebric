@@ -20,7 +20,7 @@ features:
   - icon:
       src: /icons/shield.svg
     title: Privacy by Architecture
-    details: Documents stay on the machine that owns them. Queries move, data never does. Security enforced by physics, not policies.
+    details: Documents stay on the machine that owns them. Private by design — security enforced by physics, not policies.
   - icon:
       src: /icons/cpu.svg
     title: Local AI Inference
@@ -67,5 +67,5 @@ cd packages/desktop && pnpm dev
 ---
 
 <div style="text-align: center; margin-top: 2rem;">
-  <em>"Data never moves. Queries move."</em>
+  <em>"Your data. Your hardware. Your AI."</em>
 </div>
