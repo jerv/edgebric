@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-04-05 — agent/model-docs (Model docs agent)
+
+### Model compatibility guide and evaluation checklist
+
+**docs-site/guide/models.md** — Expanded from a basic model picker guide to a comprehensive compatibility reference. Covers: what makes a model compatible vs good with Edgebric (GGUF format, chat templates, tool calling, context length, RAM sizing), compatibility tiers (recommended/supported/community) with explanations, common failure modes for community models (broken tool calls, short context, missing templates, bad quantization, altered output formats), RAM estimation formula, and recommended GGUF sources (unsloth, bartowski, official repos).
+
+**MODEL_EVALUATION.md** — Internal checklist for maintainers/contributors evaluating new models for the catalog. Covers: HuggingFace model card fields to check, finding Q4_K_M GGUFs, RAM calculation formula with examples, step-by-step test procedure (loading, chat template, tool calling with 5 specific test queries, RAG quality, edge cases), TypeScript template for OFFICIAL_CATALOG entries, tier guidelines, when to update `inferCapabilitiesFromTags` and `getRecommendedModelTag`, and re-evaluation triggers.
+
+---
+
 ## 2026-04-04 — agent/docs-site (Docs agent)
 
 ### Scaffolded VitePress documentation site with full content
