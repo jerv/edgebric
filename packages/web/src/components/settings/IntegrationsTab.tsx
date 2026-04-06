@@ -184,7 +184,7 @@ function GoogleDriveCredentialsCard({ config }: { config: IntegrationConfig | un
             <li>Go to the <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-gray-300">Google Cloud Console</a> and enable the <strong>Google Drive API</strong></li>
             <li>Go to <strong>Credentials</strong> and create an <strong>OAuth 2.0 Client ID</strong> (type: Web application)</li>
             <li>Add this <strong>Authorized redirect URI</strong>:<br/>
-              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all break-all">
                 {`${window.location.origin}/api/cloud-connections/oauth/callback`}
               </code>
             </li>
@@ -227,7 +227,7 @@ function GoogleDriveCredentialsCard({ config }: { config: IntegrationConfig | un
             <button
               type="button"
               onClick={() => setShowSecret(!showSecret)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
             >
               {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -371,7 +371,7 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
             <li>Go to the <a href="https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-gray-300">Microsoft Entra admin center</a> &gt; App registrations &gt; <strong>New registration</strong></li>
             <li>Set <strong>Supported account types</strong> to &quot;Accounts in any organizational directory and personal Microsoft accounts&quot;</li>
             <li>Add a <strong>Web</strong> redirect URI:<br/>
-              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all break-all">
                 {`${window.location.origin}/api/cloud-connections/oauth/callback`}
               </code>
             </li>
@@ -415,7 +415,7 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
             <button
               type="button"
               onClick={() => setShowSecret(!showSecret)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
             >
               {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -558,7 +558,7 @@ function ConfluenceCredentialsCard({ config }: { config: IntegrationConfig | und
           <ol className="list-decimal list-inside space-y-1.5 ml-1">
             <li>Go to <a href="https://developer.atlassian.com/console/myapps/" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700 dark:hover:text-gray-300">developer.atlassian.com/console/myapps</a> and click <strong>Create</strong> &gt; <strong>OAuth 2.0 integration</strong></li>
             <li>Under <strong>Authorization</strong>, add a callback URL:<br/>
-              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all break-all">
                 {`${window.location.origin}/api/cloud-connections/oauth/callback`}
               </code>
             </li>
@@ -605,7 +605,7 @@ function ConfluenceCredentialsCard({ config }: { config: IntegrationConfig | und
             <button
               type="button"
               onClick={() => setShowSecret(!showSecret)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
             >
               {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -750,7 +750,7 @@ function NotionCredentialsCard({ config }: { config: IntegrationConfig | undefin
             <li>Set the type to <strong>Public</strong> (required for OAuth)</li>
             <li>Under <strong>Capabilities</strong>, enable <strong>Read content</strong> and <strong>Read user information including email addresses</strong></li>
             <li>Add this <strong>Redirect URI</strong>:<br/>
-              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all">
+              <code className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-gray-800 rounded text-[11px] font-mono select-all break-all">
                 {`${window.location.origin}/api/cloud-connections/oauth/callback`}
               </code>
             </li>
@@ -793,7 +793,7 @@ function NotionCredentialsCard({ config }: { config: IntegrationConfig | undefin
             <button
               type="button"
               onClick={() => setShowSecret(!showSecret)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
             >
               {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>

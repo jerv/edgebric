@@ -128,7 +128,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="p-1 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+      className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
       title="Copy to clipboard"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -173,7 +173,7 @@ function MeshSetupForm({ onDone }: { onDone: () => void }) {
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">Node Role</label>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             {(["primary", "secondary"] as const).map((r) => (
               <button
                 key={r}
@@ -272,7 +272,7 @@ function NodeCard({ node, onRemove }: { node: MeshNode; onRemove: (id: string) =
       </div>
       <button
         onClick={() => onRemove(node.id)}
-        className="p-1.5 text-slate-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+        className="p-2 text-slate-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
         title="Remove from mesh"
       >
         <Trash2 className="w-4 h-4" />
@@ -858,12 +858,12 @@ export function NetworkTab() {
           </div>
           <div>
             <span className="text-slate-400 dark:text-gray-500">Node ID</span>
-            <p className="text-slate-900 dark:text-gray-100 font-mono text-xs">{meshConfig.nodeId}</p>
+            <p className="text-slate-900 dark:text-gray-100 font-mono text-xs break-all">{meshConfig.nodeId}</p>
           </div>
           <div>
             <span className="text-slate-400 dark:text-gray-500">Mesh Token</span>
             <div className="flex items-center gap-1">
-              <p className="text-slate-900 dark:text-gray-100 font-mono text-xs">
+              <p className="text-slate-900 dark:text-gray-100 font-mono text-xs break-all">
                 {showToken && fullToken ? fullToken : meshConfig.meshToken}
               </p>
               {showToken && fullToken ? (
@@ -871,7 +871,7 @@ export function NetworkTab() {
               ) : (
                 <button
                   onClick={fetchFullToken}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300"
                   title="Show full token"
                 >
                   {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -889,7 +889,7 @@ export function NetworkTab() {
             <Globe className="w-4 h-4 text-slate-400" />
             Nodes ({totalCount})
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={scanLan}
               disabled={isScanning}

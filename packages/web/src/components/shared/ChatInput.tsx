@@ -76,7 +76,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
               type="button"
               onClick={() => onSendModeChange?.("chat")}
               className={cn(
-                "text-[11px] px-2.5 py-0.5 rounded-full transition-colors flex items-center gap-1",
+                "text-[11px] px-2.5 py-1 sm:py-0.5 rounded-full transition-colors flex items-center gap-1",
                 mode === "chat" ? "bg-slate-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300",
               )}
             >
@@ -87,14 +87,14 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
               type="button"
               onClick={() => onSendModeChange?.("ai")}
               className={cn(
-                "text-[11px] px-2.5 py-0.5 rounded-full transition-colors flex items-center gap-1",
+                "text-[11px] px-2.5 py-1 sm:py-0.5 rounded-full transition-colors flex items-center gap-1",
                 mode === "ai" ? "bg-slate-900 text-white dark:bg-gray-100 dark:text-gray-900" : "text-slate-400 hover:text-slate-600 dark:text-gray-500 dark:hover:text-gray-300",
               )}
             >
               <Sparkles className="w-2.5 h-2.5" />
               AI
             </button>
-            <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-1">Tab to switch</span>
+            <span className="text-[10px] text-slate-400 dark:text-gray-500 ml-1 hidden sm:inline">Tab to switch</span>
           </div>
         )}
 
@@ -114,7 +114,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
             <button
               type="button"
               onClick={onStop}
-              className={`${btnBase} self-end rounded-xl px-4 py-2.5 bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0`}
+              className={`${btnBase} self-end rounded-xl px-4 py-2.5 min-h-[44px] bg-slate-100 dark:bg-gray-800 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0`}
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               Stop
@@ -124,7 +124,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
               type="button"
               onClick={handlePrimaryClick}
               disabled={!value.trim() || disabled}
-              className={`${btnBase} self-end rounded-xl px-4 py-2.5 bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0`}
+              className={`${btnBase} self-end rounded-xl px-4 py-2.5 min-h-[44px] bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0`}
             >
               {hasAsk && mode === "ai" ? <Sparkles className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
               Send

@@ -17,7 +17,7 @@ function ServiceRoute() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-6">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Service</h1>
         <ServiceTab />
       </div>
