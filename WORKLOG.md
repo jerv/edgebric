@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-04-05 — agent/auto-update (Auto-update agent)
+
+### Added auto-update preferences UI and version API endpoint
+
+**Changes:**
+- `packages/desktop/src/main/updater.ts` — Preference persistence (`autoUpdateEnabled` in userData), `getUpdateStatus()` export, `checkingForUpdate` state tracking. `initAutoUpdater()` respects user preference.
+- `packages/desktop/src/main/ipc.ts` — 5 new IPC handlers: get/set auto-update enabled, check for updates, get app version, get update status.
+- `packages/desktop/src/preload/index.ts` — Exposed all 5 new IPC methods.
+- `packages/desktop/src/main/server.ts` — Passes `EDGEBRIC_VERSION` env to spawned API.
+- `packages/api/src/routes/health.ts` — `GET /api/health/version` (read-only, no auth) for agents/monitoring.
+- `packages/desktop/src/renderer/pages/SetupWizard.tsx` — "Automatic Updates" toggle in AI Engine step.
+- `packages/desktop/src/renderer/pages/ServerDashboard.tsx` — "Updates" settings card: version display, auto-update toggle, check/restart button with status states.
+- `packages/api/src/__tests__/health.test.ts` — Tests for version endpoint.
+
+**Three user types served:**
+- GUI users: toggle in setup wizard + settings dashboard
+- CLI/Docker users: updater no-ops when `app.isPackaged` is false
+- Agents: read-only `GET /api/health/version`, no write access to update settings
+
+---
+
 ## 2026-04-04 — agent/docs-site (Docs agent)
 
 ### Scaffolded VitePress documentation site with full content
