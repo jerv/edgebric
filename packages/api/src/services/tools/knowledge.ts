@@ -1,5 +1,5 @@
 /**
- * Knowledge Tools — 13 tools for searching, managing, and analyzing
+ * Knowledge Tools — 12 tools for searching, managing, and analyzing
  * documents and data sources via the local RAG pipeline.
  */
 import type { Tool, ToolResult } from "../toolRunner.js";

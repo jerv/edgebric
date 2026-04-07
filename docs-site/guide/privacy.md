@@ -32,7 +32,7 @@ Maximum privacy. Everything stays on-device, encrypted.
 
 - Documents are encrypted with AES-256-GCM
 - AI inference runs locally on your machine (no server queries)
-- No network communication during queries
+- All AI inference stays on-device (queries proxy through the local API server to llama-server on localhost)
 - Password or biometric protection to access
 
 **How to enable:** Create a Vault data source. Queries against vault sources automatically use Vault Mode.
