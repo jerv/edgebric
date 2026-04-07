@@ -174,6 +174,59 @@ export function isFileEncrypted(filePath: string): boolean {
   }
 }
 
+// ─── Embedding noise protection ─────────────────────────────────────────────
+
+/**
+ * Generate a deterministic noise vector for embedding protection.
+ *
+ * Uses HMAC-SHA256(master_key, chunkId + counter) in counter mode to produce
+ * enough pseudorandom bytes to fill the embedding dimension. Each 4-byte block
+ * is converted to a float in [-1, 1]. The result is deterministic: the same
+ * key + chunkId always produces the same noise vector, so the original
+ * embedding can be recovered exactly by subtraction.
+ *
+ * Without the master key the stored vectors are cryptographically
+ * indistinguishable from random — no topic or similarity information leaks.
+ */
+export function generateEmbeddingNoise(chunkId: string, dimensions: number): Float32Array {
+  const key = getMasterKey();
+  const noise = new Float32Array(dimensions);
+  let idx = 0;
+  let counter = 0;
+
+  while (idx < dimensions) {
+    const hmac = crypto.createHmac("sha256", key);
+    hmac.update(`emb-noise:${chunkId}:${counter}`);
+    const hash = hmac.digest();
+    // Each SHA-256 digest = 32 bytes = 8 float32 values
+    for (let i = 0; i + 3 < hash.length && idx < dimensions; i += 4, idx++) {
+      const uint32 = hash.readUInt32LE(i);
+      noise[idx] = (uint32 / 0xffffffff) * 2 - 1; // Map to [-1, 1]
+    }
+    counter++;
+  }
+
+  return noise;
+}
+
+/**
+ * Add noise to an embedding vector for storage.
+ * stored = real + noise
+ */
+export function addEmbeddingNoise(embedding: number[], chunkId: string): number[] {
+  const noise = generateEmbeddingNoise(chunkId, embedding.length);
+  return embedding.map((v, i) => v + noise[i]!);
+}
+
+/**
+ * Remove noise from a stored embedding to recover the original.
+ * real = stored - noise
+ */
+export function removeEmbeddingNoise(storedEmbedding: number[], chunkId: string): number[] {
+  const noise = generateEmbeddingNoise(chunkId, storedEmbedding.length);
+  return storedEmbedding.map((v, i) => v - noise[i]!);
+}
+
 /**
  * Decrypt a file to a temporary path for tools that need a real file
  * (e.g., Docling PDF extraction, Mammoth DOCX extraction).

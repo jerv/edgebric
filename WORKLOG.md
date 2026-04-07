@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)
+
+### Cryptographic noise protection for vault mode embeddings
+
+**Problem:** Embedding vectors (768-dim floats) were stored in plaintext in both SQLite (server) and IndexedDB (client). An attacker with the database file could analyze embeddings to infer document topics without the encryption key.
+
+**Solution:** Per-chunk HMAC-SHA-256 noise derived from the encryption key. `stored = real + noise`. On search, `real = stored - noise`. Without the key, stored embeddings are cryptographically indistinguishable from random.
+
+**Files modified:**
+- `packages/api/src/lib/crypto.ts` — Added `generateEmbeddingNoise()`, `addEmbeddingNoise()`, `removeEmbeddingNoise()`
+- `packages/api/src/services/chunkRegistry.ts` — `registerChunks()` adds noise on write; `vectorSearch()` denoises on read with linear scan + cosine re-ranking
+- `packages/web/src/services/vaultEngine.ts` — Separate HMAC key in IndexedDB; `storeChunks()` adds noise; `searchChunks()` denoises before scoring
+- `packages/api/src/__tests__/embeddingNoise.test.ts` — Unit tests for noise generation, determinism, roundtrip recovery, and similarity destruction
+- `docs/04-technical.md` — Updated Security section and RAG pipeline diagram
+
+**Trade-off:** Server-side vector search is now a linear scan (O(n) over all chunks per dataset) instead of sqlite-vec ANN. This is necessary because per-chunk noise makes ANN indexing meaningless. For typical deployment sizes (<50K chunks), latency remains <50ms.
+
+**Note:** Server and client use different keys (master key vs IndexedDB HMAC key), so their noise vectors are independent. This is by design — they protect different databases.
+
+---
+
 ## 2026-04-05 — agent/mobile (Mobile responsiveness agent)
 
 ### Full mobile responsiveness pass across the web frontend

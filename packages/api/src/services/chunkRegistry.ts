@@ -2,7 +2,7 @@ import type { ChunkMetadata } from "@edgebric/types";
 import { getDb, getSqlite } from "../db/index.js";
 import { chunks, documents, dataSources } from "../db/schema.js";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
-import { encryptText, decryptText } from "../lib/crypto.js";
+import { encryptText, decryptText, addEmbeddingNoise, removeEmbeddingNoise } from "../lib/crypto.js";
 
 /**
  * Decrypt content, handling both encrypted (base64) and legacy plaintext.
@@ -100,9 +100,12 @@ export function registerChunks(
         ftsInsert.run(chunkId, raw);
       }
 
-      // Store embedding vector for semantic search
+      // Store noise-protected embedding vector for semantic search.
+      // Noise is derived from master key + chunkId via HMAC, so it's
+      // deterministic and can be removed for search with the key.
       if (embeddings?.[i]) {
-        const vecBuf = new Float32Array(embeddings[i]!);
+        const noised = addEmbeddingNoise(embeddings[i]!, chunkId);
+        const vecBuf = new Float32Array(noised);
         vecInsert.run(chunkId, Buffer.from(vecBuf.buffer));
       }
     }
@@ -111,15 +114,38 @@ export function registerChunks(
 
 // ─── Vector Search ──────────────────────────────────────────────────────────
 
-interface VecSearchRow {
+/**
+ * Cosine similarity between two number arrays.
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i]! * b[i]!;
+    normA += a[i]! * a[i]!;
+    normB += b[i]! * b[i]!;
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+interface VecEmbeddingRow {
   chunk_id: string;
-  distance: number;
+  embedding: Buffer;
 }
 
 /**
- * Semantic vector search using sqlite-vec.
- * Searches chunks whose IDs match the given dataset name prefixes.
- * Returns results sorted by similarity (highest first).
+ * Semantic vector search with embedding noise protection.
+ *
+ * Stored embeddings have per-chunk noise added (derived from master key +
+ * chunkId). To search, we read all candidate embeddings for the requested
+ * datasets, subtract the noise to recover the real vectors, compute cosine
+ * similarity against the query, and return the top-N results.
+ *
+ * This is a linear scan over the dataset, which is the necessary trade-off
+ * for embedding noise protection — sqlite-vec's ANN index cannot produce
+ * meaningful rankings on noised vectors.
  */
 export function vectorSearch(
   queryEmbedding: number[],
@@ -127,38 +153,43 @@ export function vectorSearch(
   topN: number,
 ): Array<{ chunkId: string; chunk: string; similarity: number; metadata: ChunkMetadata }> {
   const sqlite = getSqlite();
-  const vecBuf = new Float32Array(queryEmbedding);
-  const queryBlob = Buffer.from(vecBuf.buffer);
 
-  // Search all vectors, then filter by dataset prefix.
-  // sqlite-vec doesn't support WHERE clauses on vec0 tables directly,
-  // so we fetch more candidates and filter in JS.
-  const candidateLimit = topN * datasetNames.length * 3;
-  const stmt = sqlite.prepare(`
-    SELECT chunk_id, distance
-    FROM chunks_vec
-    WHERE embedding MATCH ?
-    ORDER BY distance
-    LIMIT ?
-  `);
+  // Build WHERE clause to fetch embeddings for the requested datasets.
+  // sqlite-vec rowid tables support SELECT but not WHERE on virtual columns,
+  // so we read all rows and filter by prefix.
+  const rows = sqlite.prepare(
+    "SELECT chunk_id, embedding FROM chunks_vec",
+  ).all() as VecEmbeddingRow[];
 
-  const rows = stmt.all(queryBlob, candidateLimit) as VecSearchRow[];
-
-  // Filter to only chunks belonging to the requested datasets
   const prefixes = datasetNames.map((ds) => `${ds}-`);
-  const filtered = rows.filter((r) =>
-    prefixes.some((p) => r.chunk_id.startsWith(p)),
-  );
 
-  // Convert distance to similarity (cosine distance → similarity)
-  // sqlite-vec returns L2 distance by default for float[] columns
-  return filtered.slice(0, topN).map((r) => {
-    const meta = lookupChunk(r.chunk_id);
-    const content = getChunkContent(r.chunk_id);
+  // Denoise each embedding and compute true cosine similarity
+  const scored: Array<{ chunkId: string; similarity: number }> = [];
+
+  for (const row of rows) {
+    if (!prefixes.some((p) => row.chunk_id.startsWith(p))) continue;
+
+    // Recover real embedding: stored - noise
+    const stored = Array.from(new Float32Array(
+      row.embedding.buffer,
+      row.embedding.byteOffset,
+      row.embedding.byteLength / 4,
+    ));
+    const real = removeEmbeddingNoise(stored, row.chunk_id);
+    const similarity = cosineSimilarity(queryEmbedding, real);
+    scored.push({ chunkId: row.chunk_id, similarity });
+  }
+
+  // Sort by similarity descending, take top-N
+  scored.sort((a, b) => b.similarity - a.similarity);
+
+  return scored.slice(0, topN).map((r) => {
+    const meta = lookupChunk(r.chunkId);
+    const content = getChunkContent(r.chunkId);
     return {
-      chunkId: r.chunk_id,
+      chunkId: r.chunkId,
       chunk: content ?? "",
-      similarity: 1 / (1 + r.distance), // Convert distance to 0-1 similarity
+      similarity: r.similarity,
       metadata: meta ?? {
         sourceDocument: "",
         sectionPath: [],

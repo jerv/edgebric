@@ -156,6 +156,68 @@ async function decryptText(key: CryptoKey, data: ArrayBuffer): Promise<string> {
   return new TextDecoder().decode(decrypted);
 }
 
+// ─── Embedding noise (HMAC-based) ───────────────────────────────────────────
+
+/** Generate a non-extractable HMAC-SHA-256 key for embedding noise derivation. */
+async function generateNoiseKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey(
+    { name: "HMAC", hash: "SHA-256" },
+    false, // non-extractable
+    ["sign"],
+  );
+}
+
+/**
+ * Derive a deterministic noise vector from an HMAC key and chunk ID.
+ *
+ * Uses HMAC-SHA-256 in counter mode: HMAC(key, "emb-noise:{chunkId}:{counter}")
+ * Each 32-byte digest yields 8 float32 values mapped to [-1, 1].
+ * Deterministic: same key + chunkId always produces the same noise.
+ */
+async function generateEmbeddingNoise(
+  hmacKey: CryptoKey,
+  chunkId: string,
+  dimensions: number,
+): Promise<Float32Array> {
+  const noise = new Float32Array(dimensions);
+  let idx = 0;
+  let counter = 0;
+  const encoder = new TextEncoder();
+
+  while (idx < dimensions) {
+    const data = encoder.encode(`emb-noise:${chunkId}:${counter}`);
+    const sig = await crypto.subtle.sign("HMAC", hmacKey, data);
+    const view = new DataView(sig);
+    for (let i = 0; i + 3 < sig.byteLength && idx < dimensions; i += 4, idx++) {
+      const uint32 = view.getUint32(i, true); // little-endian to match server
+      noise[idx] = (uint32 / 0xffffffff) * 2 - 1;
+    }
+    counter++;
+  }
+
+  return noise;
+}
+
+/** Add noise to an embedding: stored = real + noise. */
+async function addEmbeddingNoise(
+  hmacKey: CryptoKey,
+  embedding: number[],
+  chunkId: string,
+): Promise<number[]> {
+  const noise = await generateEmbeddingNoise(hmacKey, chunkId, embedding.length);
+  return embedding.map((v, i) => v + noise[i]!);
+}
+
+/** Remove noise from a stored embedding: real = stored - noise. */
+async function removeEmbeddingNoise(
+  hmacKey: CryptoKey,
+  storedEmbedding: number[],
+  chunkId: string,
+): Promise<number[]> {
+  const noise = await generateEmbeddingNoise(hmacKey, chunkId, storedEmbedding.length);
+  return storedEmbedding.map((v, i) => v - noise[i]!);
+}
+
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
 type VaultDB = IDBPDatabase<{
@@ -194,6 +256,16 @@ export async function getOrCreateVaultKey(db: VaultDB): Promise<CryptoKey> {
   return key;
 }
 
+/** Get or create the HMAC key used for embedding noise. Persists alongside the vault key. */
+async function getOrCreateNoiseKey(db: VaultDB): Promise<CryptoKey> {
+  const existing = await db.get("vaultKeys", "noise");
+  if (existing) return existing.key;
+
+  const key = await generateNoiseKey();
+  await db.put("vaultKeys", { id: "noise", key });
+  return key;
+}
+
 export async function storeChunks(
   db: VaultDB,
   chunks: Array<{
@@ -204,16 +276,24 @@ export async function storeChunks(
   }>,
 ): Promise<void> {
   const key = await getOrCreateVaultKey(db);
+  const noiseKey = await getOrCreateNoiseKey(db);
+
+  // Pre-compute noised embeddings before opening the transaction,
+  // since HMAC sign is async and IDB transactions auto-close on idle.
+  const prepared = await Promise.all(
+    chunks.map(async (chunk) => {
+      const encContent = await encryptText(key, chunk.content);
+      const encMetadata = await encryptText(key, JSON.stringify(chunk.metadata));
+      const noisedEmbedding = chunk.embedding
+        ? await addEmbeddingNoise(noiseKey, chunk.embedding, chunk.chunkId)
+        : undefined;
+      return { chunkId: chunk.chunkId, encContent, encMetadata, embedding: noisedEmbedding };
+    }),
+  );
+
   const tx = db.transaction("chunks", "readwrite");
-  for (const chunk of chunks) {
-    const encContent = await encryptText(key, chunk.content);
-    const encMetadata = await encryptText(key, JSON.stringify(chunk.metadata));
-    await tx.store.put({
-      chunkId: chunk.chunkId,
-      encContent,
-      encMetadata,
-      embedding: chunk.embedding,
-    });
+  for (const item of prepared) {
+    await tx.store.put(item);
   }
   await tx.done;
 }
@@ -343,14 +423,20 @@ async function searchChunks(
   const queryEmbedding = await embed(queryText);
   const allEncrypted = await db.getAll("chunks");
   const key = await getOrCreateVaultKey(db);
+  const noiseKey = await getOrCreateNoiseKey(db);
 
-  // Score by embedding similarity (unencrypted), then decrypt only the top-K
-  const scored = allEncrypted
-    .filter((c) => c.embedding != null)
-    .map((enc) => ({
+  // Denoise each embedding, then score by cosine similarity against the query.
+  // Stored embeddings have HMAC-derived noise added — we must subtract it
+  // to recover the real vectors before comparison.
+  const scored: Array<{ enc: EncryptedStoredChunk; score: number }> = [];
+  for (const enc of allEncrypted) {
+    if (enc.embedding == null) continue;
+    const realEmbedding = await removeEmbeddingNoise(noiseKey, enc.embedding, enc.chunkId);
+    scored.push({
       enc,
-      score: cosineSimilarity(queryEmbedding, enc.embedding!),
-    }));
+      score: cosineSimilarity(queryEmbedding, realEmbedding),
+    });
+  }
 
   scored.sort((a, b) => b.score - a.score);
   const topResults = scored.slice(0, topK);
