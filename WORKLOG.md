@@ -1,5 +1,27 @@
 # Worklog
 
+## 2026-04-07 — agent/hybrid-rag (Hybrid RAG improvements)
+
+### Query decomposition, LLM re-ranking, and iterative retrieval
+
+**What:** Three opt-in layers added to the RAG pipeline in `@edgebric/core` that improve retrieval quality for complex queries without changing default behavior.
+
+**Modules added:**
+- `packages/core/src/rag/queryDecomposition.ts` — Heuristic complexity detection (comparison words, multi-topic conjunctions, multiple question marks). Complex queries decomposed into 2-4 sub-queries via LLM, results merged and deduplicated by chunkId.
+- `packages/core/src/rag/reranker.ts` — LLM scores each chunk's relevance (1-5 scale) in a single prompt. Re-sorts by score with similarity tiebreaker, trims to topN.
+- `packages/core/src/rag/iterativeRetrieval.ts` — Confidence check after first round (top score > 2 AND >= 3 chunks score >= 3). Low confidence triggers query reformulation + second search + re-rank. Max 2 rounds.
+
+**Integration:** Three new feature flags in `RAGOptions`: `decompose`, `rerank`, `iterativeRetrieval`. All default to `false`. Wired into `orchestrator.ts` between search and context assembly. When all flags are off, pipeline is byte-for-byte identical to before.
+
+**Tests:** 35 new tests across 3 test files. All 126 existing tests still pass.
+
+**Files modified:** `packages/core/src/rag/orchestrator.ts`, `packages/core/src/rag/index.ts`
+**Files added:** 3 modules + 3 test files
+
+**Note:** The API layer (`packages/api/src/routes/query.ts`) doesn't enable the flags yet — they're opt-in. To activate, pass `decompose: true`, `rerank: true`, `iterativeRetrieval: true` in the RAGOptions when calling `answerStream()`.
+
+---
+
 ## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)
 
 ### Cryptographic noise protection for vault mode embeddings
