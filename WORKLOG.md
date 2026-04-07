@@ -1,5 +1,27 @@
 # Worklog
 
+## 2026-04-07 — agent/memory (Agent memory system)
+
+### AI memory for saving and recalling user context
+
+**New files:**
+- `packages/api/src/services/memoryStore.ts` — Memory CRUD using existing data source/document/chunk infrastructure
+- `packages/api/src/services/memoryExtractor.ts` — Rule-based heuristic extraction (preferences, facts, corrections)
+- `packages/api/src/services/tools/memory.ts` — save_memory, list_memories, delete_memory LLM tools
+- `packages/api/src/routes/memory.ts` — REST API (GET/POST/PUT/DELETE + toggle)
+- `packages/core/src/rag/memoryContext.ts` — Compact memory context block for system prompt injection
+
+**Modified files:**
+- `packages/api/src/services/tools/index.ts` — Register memory tools
+- `packages/api/src/app.ts` — Mount `/api/memory` route
+- `packages/api/src/routes/query.ts` — Memory context injection + auto-extraction in both tool-use and RAG paths
+- `packages/core/src/rag/index.ts` — Export memoryContext
+- `shared/types/src/index.ts` — Add `memoryEnabled` to IntegrationConfig
+
+**Architecture:** Memory entries stored as documents in a special "Memory" data source (one per user in org mode, one global in solo mode). Chunks embedded for hybrid search. No new DB tables. Memory context injected into system prompt (~200 tokens max). Extraction is regex-based (no LLM calls). Memory is opt-in via `memoryEnabled` setting (default: true).
+
+**Test results:** 59 new tests (51 API + 8 core). All 926 existing tests pass. 0 typecheck errors. 0 lint errors.
+
 ## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
 
 ### Security hardening — 6 findings fixed
