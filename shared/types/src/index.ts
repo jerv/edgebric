@@ -311,6 +311,11 @@ export interface IntegrationConfig {
   ragRerank?: boolean;
   /** When true, perform a second retrieval round if first-round confidence is low. Default: false. */
   ragIterativeRetrieval?: boolean;
+  /** Telegram bot integration. */
+  telegramEnabled?: boolean;
+  telegramBotToken?: string;
+  telegramWebhookSecret?: string;
+  telegramWebhookRegistered?: boolean;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

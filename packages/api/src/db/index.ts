@@ -485,6 +485,25 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_webhooks_api_key_id ON webhooks(api_key_id);
   `);
 
+  // Telegram bot tables
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS telegram_links (
+      telegram_user_id TEXT PRIMARY KEY,
+      edgebric_user_id TEXT NOT NULL,
+      telegram_username TEXT,
+      linked_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_telegram_links_user_id ON telegram_links(edgebric_user_id);
+
+    CREATE TABLE IF NOT EXISTS telegram_link_codes (
+      code TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_telegram_link_codes_user_id ON telegram_link_codes(user_id);
+  `);
+
   // Source summaries (cached AI-generated summaries)
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS source_summaries (

@@ -9,6 +9,7 @@ import { Loader2, Check, ChevronDown, Eye, EyeOff, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProviderLogo } from "@/components/shared/ProviderLogos";
 import { useUser } from "@/contexts/UserContext";
+import { TelegramAdminSection } from "@/components/settings/TelegramSection";
 import type { IntegrationConfig } from "@edgebric/types";
 
 // ─── Integrations Tab ────────────────────────────────────────────────────────
@@ -69,6 +70,12 @@ export function IntegrationsTab() {
       <OneDriveCredentialsCard config={config} />
       <ConfluenceCredentialsCard config={config} />
       <NotionCredentialsCard config={config} />
+
+      {/* Telegram Bot */}
+      <div className="pt-4 border-t border-slate-100 dark:border-gray-800">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-gray-300 mb-4">Messaging</h2>
+        <TelegramAdminSection />
+      </div>
     </div>
   );
 }
