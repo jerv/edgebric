@@ -68,7 +68,7 @@ Monorepo with four packages:
 
 ### Key tech
 
-- **AI**: llama.cpp for local inference (Qwen 3.5 4B default, supports any GGUF model from HuggingFace)
+- **AI**: llama.cpp for local inference (Qwen 3.5 4B default). Any GGUF model can be imported for basic chat; advanced features like tool use and vision require compatible models — see the docs for recommended models.
 - **Embeddings**: nomic-embed-text (768-dim) via llama-server
 - **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval (FTS5 + Reciprocal Rank Fusion)
 - **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and full-text search in one file

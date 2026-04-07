@@ -1,12 +1,12 @@
 # Mesh Networking
 
-Mesh networking is Edgebric's approach to distributed knowledge: put a Mac in each office or department, and queries fan out across all of them. Documents never move between machines — only the query and the relevant answer snippets travel across the network.
+Mesh networking is Edgebric's approach to distributed knowledge: put a Mac in each office or department, and queries fan out across all of them. Full documents are never transferred between nodes. Queries fan out to all nodes, and relevant text excerpts are returned with citations. The original files remain on the machine that stores them.
 
 ## Why Mesh?
 
 Most knowledge platforms centralize your documents in one place. Edgebric does the opposite.
 
-**Example:** Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When someone asks a question, Edgebric queries all three simultaneously and merges the results — but no document ever crosses the network.
+**Example:** Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When someone asks a question, Edgebric queries all three simultaneously and merges the results — full documents never leave the machine that stores them, but relevant text excerpts are returned with citations.
 
 - A single Mac Mini M4 ($699) can serve 100–200 daily users
 - Three of them give you a globally distributed, private knowledge platform for under $2,100 in hardware

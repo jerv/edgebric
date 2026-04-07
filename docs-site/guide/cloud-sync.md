@@ -4,7 +4,7 @@ Edgebric can pull documents from cloud storage services and keep them in sync. D
 
 ::: info Supported Providers
 - Google Drive
-- OneDrive / SharePoint
+- OneDrive
 - Confluence (coming soon)
 - Notion (coming soon)
 :::
@@ -43,7 +43,7 @@ Documents are always stored locally after download. If you disconnect the cloud 
 - Subfolders are included by default
 - New files added to synced folders are picked up automatically
 
-## OneDrive / SharePoint Setup
+## OneDrive Setup
 
 ### Prerequisites
 
@@ -56,7 +56,7 @@ Documents are always stored locally after download. If you disconnect the cloud 
 2. Click **Connect Cloud Storage**
 3. Select **OneDrive**
 4. Sign in with your Microsoft account and authorize Edgebric
-5. Browse your OneDrive or SharePoint folders
+5. Browse your OneDrive folders
 6. Select folders and click **Start Sync**
 
 <!-- TODO: Add screenshot of OneDrive folder picker -->

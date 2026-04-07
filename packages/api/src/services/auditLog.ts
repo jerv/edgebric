@@ -1,7 +1,7 @@
 /**
- * Immutable Audit Trail System
+ * Hash-Chained Audit Trail System
  *
- * Append-only, hash-chained audit log for regulated industries.
+ * Append-only, hash-chained audit log with tamper detection for regulated industries.
  * Each entry includes a SHA-256 hash of the previous entry, creating
  * a tamper-evident chain. If any entry is modified or deleted, the
  * chain breaks and verification fails.

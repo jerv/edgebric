@@ -118,7 +118,7 @@ Note that Gemma 3 models lack tool calling support. They work for basic chat wit
 
 ### Community
 
-Any GGUF model from HuggingFace. Edgebric lets you search HuggingFace and download any GGUF model directly. These models will load and run inference, but Edgebric cannot guarantee that tool calling, chat templates, or advanced features work correctly.
+Any GGUF model from HuggingFace can be imported for basic chat. Advanced features like tool use and vision require compatible models — see the [Recommended Models](#recommended-models) list. Edgebric lets you search HuggingFace and download any GGUF model directly. These models will load and run inference, but Edgebric cannot guarantee that tool calling, chat templates, or advanced features work correctly.
 
 Community models get capability badges inferred from their HuggingFace tags (e.g., `tool-use`, `image-text-to-text`, `reasoning`), and certain model families (Qwen 3.5, Llama 3.x, Mistral) are recognized as likely supporting tool use. But inference from tags is not the same as testing.
 
