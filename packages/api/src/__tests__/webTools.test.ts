@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { htmlToText, parseDuckDuckGoResults } from "../services/tools/web.js";
+import { htmlToText, parseDuckDuckGoResults, isInternalIp, validateUrlNotInternal } from "../services/tools/web.js";
 import { registerWebTools } from "../services/tools/web.js";
 import { clearTools, executeTool, getTool } from "../services/toolRunner.js";
 import type { ToolContext } from "../services/toolRunner.js";
@@ -128,6 +128,120 @@ describe("Web Tools", () => {
     });
   });
 
+  // ─── SSRF Protection ────────────────────────────────────────────────────
+
+  describe("isInternalIp", () => {
+    it("blocks 127.x.x.x (loopback)", () => {
+      expect(isInternalIp("127.0.0.1")).toBe(true);
+      expect(isInternalIp("127.255.255.255")).toBe(true);
+    });
+
+    it("blocks 10.x.x.x (private)", () => {
+      expect(isInternalIp("10.0.0.1")).toBe(true);
+      expect(isInternalIp("10.255.255.255")).toBe(true);
+    });
+
+    it("blocks 172.16-31.x.x (private)", () => {
+      expect(isInternalIp("172.16.0.1")).toBe(true);
+      expect(isInternalIp("172.31.255.255")).toBe(true);
+      expect(isInternalIp("172.15.0.1")).toBe(false);
+      expect(isInternalIp("172.32.0.1")).toBe(false);
+    });
+
+    it("blocks 192.168.x.x (private)", () => {
+      expect(isInternalIp("192.168.0.1")).toBe(true);
+      expect(isInternalIp("192.168.255.255")).toBe(true);
+    });
+
+    it("blocks 169.254.x.x (link-local)", () => {
+      expect(isInternalIp("169.254.1.1")).toBe(true);
+    });
+
+    it("blocks 0.x.x.x", () => {
+      expect(isInternalIp("0.0.0.0")).toBe(true);
+    });
+
+    it("blocks ::1 (IPv6 loopback)", () => {
+      expect(isInternalIp("::1")).toBe(true);
+    });
+
+    it("blocks fd00::/8 (IPv6 ULA)", () => {
+      expect(isInternalIp("fd00::1")).toBe(true);
+      expect(isInternalIp("fdab:cdef::1")).toBe(true);
+    });
+
+    it("blocks fe80::/10 (IPv6 link-local)", () => {
+      expect(isInternalIp("fe80::1")).toBe(true);
+    });
+
+    it("blocks ::ffff: mapped IPv4", () => {
+      expect(isInternalIp("::ffff:127.0.0.1")).toBe(true);
+      expect(isInternalIp("::ffff:10.0.0.1")).toBe(true);
+    });
+
+    it("allows public IPs", () => {
+      expect(isInternalIp("8.8.8.8")).toBe(false);
+      expect(isInternalIp("1.1.1.1")).toBe(false);
+      expect(isInternalIp("93.184.216.34")).toBe(false);
+    });
+  });
+
+  describe("validateUrlNotInternal", () => {
+    it("blocks localhost hostname", async () => {
+      const result = await validateUrlNotInternal("http://localhost:3000/api");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/localhost/);
+    });
+
+    it("blocks direct internal IP URLs", async () => {
+      const result = await validateUrlNotInternal("http://127.0.0.1/secret");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks 10.x private IPs", async () => {
+      const result = await validateUrlNotInternal("http://10.0.0.1/admin");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks 192.168.x private IPs", async () => {
+      const result = await validateUrlNotInternal("http://192.168.1.1/router");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks 169.254.x link-local IPs", async () => {
+      const result = await validateUrlNotInternal("http://169.254.169.254/latest/meta-data/");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks IPv6 loopback", async () => {
+      const result = await validateUrlNotInternal("http://[::1]/secret");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks non-HTTP schemes", async () => {
+      const result = await validateUrlNotInternal("file:///etc/passwd");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/http/i);
+    });
+
+    it("blocks FTP scheme", async () => {
+      const result = await validateUrlNotInternal("ftp://internal.corp/data");
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/http/i);
+    });
+
+    it("catches DNS rebinding (hostname resolving to internal IP)", async () => {
+      // localhost resolves to 127.0.0.1 — this tests the DNS resolution path
+      const result = await validateUrlNotInternal("http://localhost/secret");
+      expect(result.ok).toBe(false);
+    });
+  });
+
   // ─── read_url validation ────────────────────────────────────────────────
 
   describe("read_url", () => {
@@ -143,6 +257,24 @@ describe("Web Tools", () => {
       const result = await executeTool("read_url", {}, ctx);
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/Missing required/);
+    });
+
+    it("blocks SSRF to localhost", async () => {
+      const result = await executeTool("read_url", { url: "http://localhost:8080/admin" }, ctx);
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/localhost/i);
+    });
+
+    it("blocks SSRF to internal IP", async () => {
+      const result = await executeTool("read_url", { url: "http://10.0.0.1/internal" }, ctx);
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/internal/i);
+    });
+
+    it("blocks SSRF to cloud metadata endpoint", async () => {
+      const result = await executeTool("read_url", { url: "http://169.254.169.254/latest/meta-data/" }, ctx);
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/internal/i);
     });
   });
 
