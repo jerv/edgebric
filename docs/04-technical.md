@@ -267,7 +267,8 @@ INPUT (PDF, .docx, .txt, .md)
   v
 6. EMBEDDING + STORAGE
    |-- Embedding via llama-server /v1/embeddings endpoint (nomic-embed-text)
-   |-- Vectors stored in sqlite-vec (embedded in the SQLite database)
+   |-- Vectors noise-protected: stored = real + HMAC-SHA256(key, datasetName)
+   |-- Noise-shifted vectors stored in sqlite-vec; query shifted by same noise
    |-- Full text indexed in FTS5 for BM25 keyword search
    +-- Original files stored for source link rendering
 ```
@@ -382,6 +383,7 @@ Results from both sqlite-vec and FTS5 are merged via **Reciprocal Rank Fusion** 
 
 ### Security
 - All data at rest: AES-256 encrypted
+- **Embedding noise protection**: stored embedding vectors are masked with per-dataset HMAC-SHA-256 noise derived from the encryption key. All chunks in a dataset share the same noise offset, so sqlite-vec ANN search still works (shift the query by the same noise). Without the key, cross-dataset embedding comparison is blocked and raw vectors reveal no topic information.
 - All data in transit: TLS 1.3 (self-signed certificates for local mesh)
 - Physical data isolation: each node holds only its assigned sources
 - Admin panel: authenticated access only (OIDC/SSO)

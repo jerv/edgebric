@@ -2,7 +2,7 @@ import type { ChunkMetadata } from "@edgebric/types";
 import { getDb, getSqlite } from "../db/index.js";
 import { chunks, documents, dataSources } from "../db/schema.js";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
-import { encryptText, decryptText } from "../lib/crypto.js";
+import { encryptText, decryptText, addEmbeddingNoise, shiftQueryEmbedding } from "../lib/crypto.js";
 
 /**
  * Decrypt content, handling both encrypted (base64) and legacy plaintext.
@@ -100,9 +100,12 @@ export function registerChunks(
         ftsInsert.run(chunkId, raw);
       }
 
-      // Store embedding vector for semantic search
+      // Store noise-protected embedding vector for semantic search.
+      // Noise is shared per dataset (derived from master key + datasetName),
+      // so sqlite-vec ANN still works — shift the query by the same noise.
       if (embeddings?.[i]) {
-        const vecBuf = new Float32Array(embeddings[i]!);
+        const noised = addEmbeddingNoise(embeddings[i]!, datasetName);
+        const vecBuf = new Float32Array(noised);
         vecInsert.run(chunkId, Buffer.from(vecBuf.buffer));
       }
     }
@@ -117,9 +120,15 @@ interface VecSearchRow {
 }
 
 /**
- * Semantic vector search using sqlite-vec.
- * Searches chunks whose IDs match the given dataset name prefixes.
- * Returns results sorted by similarity (highest first).
+ * Semantic vector search using sqlite-vec with embedding noise protection.
+ *
+ * Noise is shared per dataset: all chunks in a dataset are shifted by the
+ * same HMAC-derived vector. To search, we shift the query embedding by the
+ * same noise per dataset, which preserves L2 distances:
+ *   L2(real + noise, query + noise) = L2(real, query)
+ *
+ * For multi-dataset searches, we run one ANN query per dataset (each with
+ * its own noise-shifted query), then merge and sort.
  */
 export function vectorSearch(
   queryEmbedding: number[],
@@ -127,13 +136,7 @@ export function vectorSearch(
   topN: number,
 ): Array<{ chunkId: string; chunk: string; similarity: number; metadata: ChunkMetadata }> {
   const sqlite = getSqlite();
-  const vecBuf = new Float32Array(queryEmbedding);
-  const queryBlob = Buffer.from(vecBuf.buffer);
 
-  // Search all vectors, then filter by dataset prefix.
-  // sqlite-vec doesn't support WHERE clauses on vec0 tables directly,
-  // so we fetch more candidates and filter in JS.
-  const candidateLimit = topN * datasetNames.length * 3;
   const stmt = sqlite.prepare(`
     SELECT chunk_id, distance
     FROM chunks_vec
@@ -142,21 +145,33 @@ export function vectorSearch(
     LIMIT ?
   `);
 
-  const rows = stmt.all(queryBlob, candidateLimit) as VecSearchRow[];
+  // Run one ANN query per dataset with the appropriately noise-shifted query
+  const candidateLimit = topN * 3;
+  const allResults: Array<{ chunkId: string; distance: number }> = [];
 
-  // Filter to only chunks belonging to the requested datasets
-  const prefixes = datasetNames.map((ds) => `${ds}-`);
-  const filtered = rows.filter((r) =>
-    prefixes.some((p) => r.chunk_id.startsWith(p)),
-  );
+  for (const ds of datasetNames) {
+    const shifted = shiftQueryEmbedding(queryEmbedding, ds);
+    const vecBuf = new Float32Array(shifted);
+    const queryBlob = Buffer.from(vecBuf.buffer);
 
-  // Convert distance to similarity (cosine distance → similarity)
-  // sqlite-vec returns L2 distance by default for float[] columns
-  return filtered.slice(0, topN).map((r) => {
-    const meta = lookupChunk(r.chunk_id);
-    const content = getChunkContent(r.chunk_id);
+    const rows = stmt.all(queryBlob, candidateLimit) as VecSearchRow[];
+    const prefix = `${ds}-`;
+
+    for (const r of rows) {
+      if (r.chunk_id.startsWith(prefix)) {
+        allResults.push({ chunkId: r.chunk_id, distance: r.distance });
+      }
+    }
+  }
+
+  // Sort by distance ascending (closest first), take top-N
+  allResults.sort((a, b) => a.distance - b.distance);
+
+  return allResults.slice(0, topN).map((r) => {
+    const meta = lookupChunk(r.chunkId);
+    const content = getChunkContent(r.chunkId);
     return {
-      chunkId: r.chunk_id,
+      chunkId: r.chunkId,
       chunk: content ?? "",
       similarity: 1 / (1 + r.distance), // Convert distance to 0-1 similarity
       metadata: meta ?? {

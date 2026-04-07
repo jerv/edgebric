@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)
+
+### Cryptographic noise protection for vault mode embeddings
+
+**Problem:** Embedding vectors (768-dim floats) were stored in plaintext in both SQLite (server) and IndexedDB (client). An attacker with the database file could analyze embeddings to infer document topics without the encryption key.
+
+**Solution:** Per-dataset HMAC-SHA-256 noise derived from the encryption key. All chunks in a dataset share the same noise offset: `stored = real + noise(datasetName)`. On search, the query is shifted by the same noise: `L2(stored, query + noise) = L2(real, query)`. This preserves sqlite-vec ANN performance while blocking cross-dataset embedding comparison without the key.
+
+**Files modified:**
+- `packages/api/src/lib/crypto.ts` — Added `generateEmbeddingNoise()`, `addEmbeddingNoise()`, `shiftQueryEmbedding()`
+- `packages/api/src/services/chunkRegistry.ts` — `registerChunks()` adds per-dataset noise on write; `vectorSearch()` runs one ANN query per dataset with noise-shifted query
+- `packages/web/src/services/vaultEngine.ts` — Separate HMAC key in IndexedDB; `storeChunks()` adds noise; `searchChunks()` caches noise per dataset and denoises before cosine scoring
+- `packages/api/src/__tests__/embeddingNoise.test.ts` — Unit tests for determinism, L2 distance preservation, cross-dataset similarity destruction, same-dataset distance preservation
+- `docs/04-technical.md` — Updated Security section and RAG pipeline diagram
+
+**Design:** Shared per-dataset noise keeps ANN indexing functional (no O(n) linear scan). An attacker can see that chunks within a dataset are related (already visible from chunkId prefix), but cannot compare embeddings across datasets or infer topics without the key.
+
+**Note:** Server and client use different keys (master key vs IndexedDB HMAC key), so their noise vectors are independent. This is by design — they protect different databases.
+
+---
+
 ## 2026-04-05 — agent/mobile (Mobile responsiveness agent)
 
 ### Full mobile responsiveness pass across the web frontend
