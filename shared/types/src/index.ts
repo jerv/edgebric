@@ -287,6 +287,8 @@ export type GroupChatNotifLevel = "all" | "mentions" | "none";
 export interface IntegrationConfig {
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
+  /** When true, the AI can save and recall user memories. Default: true. */
+  memoryEnabled?: boolean;
   /** Documents older than this are flagged as stale. Default: 180 days. */
   stalenessThresholdDays?: number;
   /** When true, the AI answers from general knowledge when no documents match. Default: true. */

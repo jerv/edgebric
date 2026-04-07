@@ -4,6 +4,7 @@
  */
 import { registerKnowledgeTools } from "./knowledge.js";
 import { registerWebTools } from "./web.js";
+import { registerMemoryTools } from "./memory.js";
 
 let registered = false;
 
@@ -12,4 +13,5 @@ export function registerAllTools(): void {
   registered = true;
   registerKnowledgeTools();
   registerWebTools();
+  registerMemoryTools();
 }

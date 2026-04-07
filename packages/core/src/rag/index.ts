@@ -9,3 +9,5 @@ export { isComplexQuery, decomposeQuery, searchWithDecomposition } from "./query
 export { rerankResults } from "./reranker.js";
 export type { RerankedResult } from "./reranker.js";
 export { isConfident, reformulateQuery, iterativeRetrieve } from "./iterativeRetrieval.js";
+export { buildMemoryContext } from "./memoryContext.js";
+export type { MemorySearchResult, MemorySearchFn } from "./memoryContext.js";

@@ -29,6 +29,7 @@ import { integrationsRouter } from "./routes/integrations.js";
 import { cloudConnectionsRouter } from "./routes/cloudConnections.js";
 import { apiKeysRouter } from "./routes/apiKeys.js";
 import { agentApiRouter } from "./routes/agentApi.js";
+import { memoryRouter } from "./routes/memory.js";
 import { config } from "./config.js";
 import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
@@ -291,6 +292,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/vault", vaultRouter);
+  app.use("/api/memory", memoryRouter);
   app.use("/api/mesh/peer", meshInterNodeRouter); // before /api/mesh — peer routes use MeshToken auth, not session
   app.use("/api/mesh", meshRouter);
   app.use("/api/admin/api-keys", apiKeysRouter);
