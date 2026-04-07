@@ -5,3 +5,7 @@ export { answerStream, answer, createSession } from "./orchestrator.js";
 export type { OrchestratorDeps, RAGOptions, SearchFn, GenerateFn, SearchResult, Message } from "./orchestrator.js";
 export { splitForSummary, summarizeMessages, buildSummarizedContext } from "./contextSummarizer.js";
 export type { ChatMessage } from "./contextSummarizer.js";
+export { isComplexQuery, decomposeQuery, searchWithDecomposition } from "./queryDecomposition.js";
+export { rerankResults } from "./reranker.js";
+export type { RerankedResult } from "./reranker.js";
+export { isConfident, reformulateQuery, iterativeRetrieve } from "./iterativeRetrieval.js";
