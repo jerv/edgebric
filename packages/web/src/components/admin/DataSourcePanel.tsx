@@ -793,7 +793,7 @@ function DSListView({ onSelect }: { onSelect: (ds: DataSource) => void }) {
                     </span>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-[11px] leading-tight text-white dark:text-gray-100 bg-slate-800 dark:bg-gray-700 rounded-lg shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/storage:opacity-100 group-focus-within/storage:opacity-100 transition-opacity z-10">
                       {ds.type === "personal"
-                        ? "Encrypted on your device \u2014 never leaves your machine"
+                        ? "Encrypted on your device \u2014 queries processed locally"
                         : meshNodeName
                           ? `Stored on ${meshNodeName}`
                           : "Stored on this server"}

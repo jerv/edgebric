@@ -1,55 +1,51 @@
 # Privacy Modes
 
-Edgebric offers three privacy modes that control how your queries and data are handled. All modes keep documents on your local machine — the difference is how much metadata is recorded.
+Edgebric keeps all documents on your local machine. Two privacy modes are available: **Private Mode** (conversations are not stored and query text is not logged) and **Vault Mode** (on-device encryption with client-side search). When neither mode is enabled, Edgebric operates in its default configuration with full features and conversation history.
 
-## Standard Mode
+## Default Behavior
 
-The default. Full features, full conversation history.
+Full features, full conversation history.
 
 - Queries are stored in your conversation history
 - You can revisit past conversations and continue them
-- Aggregate analytics are collected (topic trends, query volume)
 - Individual queries are never shared with other users
 
 **Best for:** Day-to-day use, team knowledge bases, ongoing research.
 
 ## Private Mode
 
-Anonymous querying. Your identity is not linked to your queries.
+Your queries are not stored in conversation history and query text is not logged. The system records that a query occurred for rate limiting purposes.
 
-- A random anonymous token is used instead of your user ID
 - Queries are not stored in conversation history
 - Group chats and collaboration still work
-- Admins cannot see who asked what
 
-**How to enable:** Toggle Private Mode in the chat interface before asking a question. Each query in Private Mode uses a session-scoped anonymous token.
+**How to enable:** Toggle Private Mode in the chat interface before asking a question.
 
-**Best for:** Sensitive questions you don't want associated with your identity (e.g., HR policy questions, health-related queries).
+**Best for:** Sensitive questions you don't want stored in your conversation history (e.g., HR policy questions, health-related queries).
 
 ## Vault Mode
 
-Maximum privacy. Everything stays on-device, encrypted.
+On-device encryption with client-side search.
 
-- Documents are encrypted with AES-256-GCM
-- AI inference runs locally on your machine (no server queries)
-- All AI inference stays on-device (queries proxy through the local API server to llama-server on localhost)
-- Password or biometric protection to access
+- Document text is encrypted at rest with AES-256-GCM. Embedding vectors (numerical representations used for search) are stored unencrypted to enable similarity search.
+- Vault queries are processed locally — search happens in the browser. The query text is sent to the local AI engine for embedding and inference, but no data leaves your machine or reaches external servers.
+- Vault encryption keys are generated in the browser and never sent to the server. The key is stored in the browser's local storage. Note: the key is not password-protected in the current version.
 
 **How to enable:** Create a Vault data source. Queries against vault sources automatically use Vault Mode.
 
 **Best for:** Highly sensitive personal documents — medical records, tax returns, legal documents, private notes.
 
 ::: tip
-You can use all three modes at the same time. Vault sources always use Vault Mode. For other sources, toggle Private Mode on or off per query. Standard is the default when Private Mode is off.
+You can use both modes at the same time. Vault sources always use Vault Mode. For other sources, toggle Private Mode on or off per query.
 :::
 
 ## Comparison
 
-| | Standard | Private | Vault |
+| | Default | Private | Vault |
 |---|---------|---------|-------|
 | Documents stored locally | Yes | Yes | Yes (encrypted) |
 | Conversation history | Yes | No | No |
-| Identity linked to queries | Yes | No | No |
+| Query text logged | Yes | No | No |
 | Works with group chats | Yes | Yes | No |
 | Network queries to server | Yes | Yes | No |
 | AI runs on | Server | Server | Your device |

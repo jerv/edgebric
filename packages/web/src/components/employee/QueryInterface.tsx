@@ -1070,7 +1070,7 @@ export function ChatPanel() {
                 <ShieldCheck className="w-8 h-8 text-emerald-400 mb-3" />
                 <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Vault Mode</p>
                 <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  Queries are processed entirely on your device. Nothing is sent to any server.
+                  Queries are processed locally. Search runs in the browser and inference runs on the local AI engine. No data leaves your machine.
                 </p>
                 <p className="text-slate-300 dark:text-gray-600 text-xs max-w-sm mt-2">
                   Encrypted on-device. Supports text-based PDFs and Word docs. Scanned PDFs are not supported locally.
@@ -1081,7 +1081,7 @@ export function ChatPanel() {
                 <EyeOff className="w-8 h-8 text-slate-400 dark:text-gray-500 mb-3" />
                 <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Private Mode</p>
                 <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  Your identity is hidden from administrators and conversations are not saved.
+                  Conversations are not saved and query text is not logged.
                   Queries are still processed on the organization's servers.
                 </p>
               </>

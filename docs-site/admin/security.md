@@ -1,6 +1,6 @@
 # Security
 
-Edgebric is designed with security at every layer — from physical data isolation to encrypted sessions and immutable audit logs.
+Edgebric is designed with security at every layer — from physical data isolation to encrypted sessions and tamper-evident audit logs.
 
 ## API Keys
 
@@ -32,7 +32,7 @@ Click **Revoke** on any key to immediately disable it. Revoked keys cannot be un
 
 ## Audit Trail
 
-Edgebric maintains an immutable, hash-chained audit log of all significant actions. Each entry is cryptographically linked to the previous one, making tampering detectable.
+Edgebric maintains a hash-chained audit log with tamper detection. Each entry is cryptographically linked to the previous one, making tampering detectable. Integrity can be verified manually from the admin interface.
 
 ### What's Logged
 
@@ -96,7 +96,7 @@ Configure in **Admin** > **Settings** > **Integrations**:
 - Phone numbers
 - Social Security numbers
 - Addresses
-- Other patterns identified by the NER (Named Entity Recognition) model
+- Other patterns identified by pattern-based heuristic rules
 
 ## Network Security
 
@@ -129,7 +129,7 @@ All API inputs are validated with Zod schemas. Malformed requests are rejected b
 
 ### Vault Mode
 
-Vault sources use AES-256-GCM encryption. The encryption key is derived from the user's password or biometric authentication. Edgebric cannot decrypt vault data without the user's key.
+Vault sources use AES-256-GCM encryption for document text. Embedding vectors (numerical representations used for search) are stored unencrypted to enable similarity search. Vault encryption keys are generated in the browser and never sent to the server. The key is stored in the browser's local storage. Note: the key is not password-protected in the current version.
 
 ### Cloud Token Storage
 
@@ -137,13 +137,27 @@ OAuth tokens for cloud integrations (Google Drive, OneDrive) are stored encrypte
 
 ## Privacy by Architecture
 
-The most important security feature is architectural: **documents never leave the machine that owns them.**
+The most important security feature is architectural: **full documents never leave the machine that stores them.**
 
 In a mesh deployment, when Node A queries Node B:
 
 1. Only the query text is sent to Node B
-2. Node B searches locally and returns only relevant text snippets
-3. Full documents never cross the network
+2. Node B searches locally and returns relevant text excerpts with citations
+3. Full documents are never transferred between nodes
 4. A compromised Node A cannot access Node B's full document store
 
-This means security is enforced by physics, not just access control policies.
+This means security is enforced by architecture, not just access control policies.
+
+## External Network Calls
+
+Edgebric makes the following external network calls. All are user-initiated or configurable — there is no telemetry or analytics.
+
+| Call | When | Configurable |
+|------|------|-------------|
+| **Auto-update checks** | On launch (GitHub Releases API) | Can be disabled in settings |
+| **HuggingFace API** | When searching for models in the admin dashboard | User-initiated |
+| **Web search** | When the AI uses the `web_search` tool | User-initiated; disabled in Vault Mode |
+| **URL reading** | When the AI uses the `read_url` tool | User-initiated; disabled in Vault Mode |
+| **OIDC/SSO authentication** | During sign-in (to your identity provider) | Required for multi-user; not used in Solo mode |
+| **Cloud sync OAuth** | When connecting Google Drive, OneDrive, etc. | User-initiated |
+| **Cloud document fetching** | During cloud sync (downloads files from connected services) | User-initiated; runs on configured schedule |
