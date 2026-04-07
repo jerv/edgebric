@@ -119,16 +119,6 @@ describe("Embedding noise protection", () => {
       const base = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
       const similar = base.map((v) => v + (Math.random() - 0.5) * 0.01);
 
-      const cosine = (a: number[], b: number[]) => {
-        let dot = 0, normA = 0, normB = 0;
-        for (let i = 0; i < a.length; i++) {
-          dot += a[i]! * b[i]!;
-          normA += a[i]! * a[i]!;
-          normB += b[i]! * b[i]!;
-        }
-        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-      };
-
       // Same dataset noise preserves relative similarity
       const ds = "same-dataset";
       const noisedBase = addEmbeddingNoise(base, ds);
