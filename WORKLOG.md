@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-04-07 — agent/telegram (Telegram bot integration)
+
+### Telegram Bot — full integration with Edgebric
+
+**Backend (packages/api):**
+- `telegramBot.ts` — Telegram Bot API service (sendMessage, setWebhook, getFile, downloadFile) using built-in fetch
+- `telegramLinking.ts` — Account linking: 6-digit codes with 10min expiry, link/unlink, solo mode bypass
+- `telegramHandlers.ts` — Command handlers (/start, /ask, /sources, /status, /help, /link), text query via existing RAG pipeline, document upload handling, vault mode source filtering
+- `routes/telegram.ts` — Webhook endpoint (CSRF-exempt, secret header validation), admin API (status, config, webhook registration), user API (link-code, link-status, unlink)
+- DB: `telegram_links` and `telegram_link_codes` tables (schema.ts + CREATE TABLE + indexes)
+- Audit events: telegram.query, telegram.link, telegram.unlink
+- IntegrationConfig extended with telegramEnabled, telegramBotToken, telegramWebhookSecret, telegramWebhookRegistered
+
+**Frontend (packages/web):**
+- `TelegramAdminSection` — toggle, masked bot token input, webhook register/unregister (in Organization > Integrations)
+- `TelegramUserSection` — link code generation with copy, linked status display, unlink (in Account > General)
+
+**Tests:** 33 tests covering parseCommand, isTelegramEnabled, account linking flow (generate/verify/expire/replace codes, link retrieval, unlink), webhook route, admin API auth/config, user API endpoints.
+
+**All checks pass:** 774 tests, 0 typecheck errors, 0 lint errors.
+
 ## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
 
 ### Security hardening — 6 findings fixed
