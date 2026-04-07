@@ -422,10 +422,11 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   }
 
   // Audit: log query execution (no query text — privacy)
+  // Anonymize actor when private mode is active to avoid leaking user identity
   recordAuditEvent({
     eventType: "query.execute",
-    actorEmail: req.session.email,
-    actorIp: req.ip,
+    actorEmail: isPrivate ? "anonymous" : req.session.email,
+    actorIp: isPrivate ? undefined : req.ip,
     details: { dsCount: dataSourceIds?.length ?? 0, hasConversation: !!existingConvId },
   });
 
