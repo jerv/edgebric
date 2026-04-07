@@ -92,32 +92,43 @@ describe("Embedding noise protection", () => {
   });
 
   describe("cross-dataset similarity is destroyed", () => {
-    it("two similar embeddings from different datasets become dissimilar", () => {
-      const base = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
-      const similar = base.map((v) => v + (Math.random() - 0.5) * 0.01);
+    // Helper: L2-normalize a vector (like real embeddings from nomic-embed-text)
+    const normalize = (v: number[]): number[] => {
+      const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+      return v.map((x) => x / norm);
+    };
 
-      const cosine = (a: number[], b: number[]) => {
-        let dot = 0, normA = 0, normB = 0;
-        for (let i = 0; i < a.length; i++) {
-          dot += a[i]! * b[i]!;
-          normA += a[i]! * a[i]!;
-          normB += b[i]! * b[i]!;
-        }
-        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-      };
+    const cosine = (a: number[], b: number[]) => {
+      let dot = 0, normA = 0, normB = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i]! * b[i]!;
+        normA += a[i]! * a[i]!;
+        normB += b[i]! * b[i]!;
+      }
+      return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    };
+
+    it("two similar embeddings from different datasets become dissimilar", () => {
+      // Use unit-normalized vectors like real embeddings (L2 norm = 1.0)
+      const raw = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
+      const base = normalize(raw);
+      const similar = normalize(base.map((v) => v + (Math.random() - 0.5) * 0.01));
 
       // Original similarity should be very high
       expect(cosine(base, similar)).toBeGreaterThan(0.99);
 
-      // After adding noise from DIFFERENT datasets, similarity should drop significantly
+      // After adding noise from DIFFERENT datasets, similarity should be destroyed.
+      // Noise magnitude (~0.58 RMS per dim) vastly exceeds signal (~0.036 RMS per dim),
+      // so cross-dataset cosine should drop close to zero.
       const noisedBase = addEmbeddingNoise(base, "dataset-a");
       const noisedSimilar = addEmbeddingNoise(similar, "dataset-b");
-      expect(cosine(noisedBase, noisedSimilar)).toBeLessThan(0.9);
+      expect(cosine(noisedBase, noisedSimilar)).toBeLessThan(0.3);
     });
 
     it("two similar embeddings from the SAME dataset stay similar", () => {
-      const base = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
-      const similar = base.map((v) => v + (Math.random() - 0.5) * 0.01);
+      const raw = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
+      const base = normalize(raw);
+      const similar = normalize(base.map((v) => v + (Math.random() - 0.5) * 0.01));
 
       // Same dataset noise preserves relative similarity
       const ds = "same-dataset";
