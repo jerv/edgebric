@@ -4,7 +4,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
+import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext, buildMemoryContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -36,6 +36,9 @@ import type { ToolMessage } from "../services/chatClient.js";
 import type { ToolContext } from "../services/toolRunner.js";
 import { registerAllTools } from "../services/tools/index.js";
 import { runtimeChatConfig } from "../config.js";
+import { isMemoryEnabled, getMemoryDatasetName } from "../services/memoryStore.js";
+import { hybridMultiDatasetSearch as memoryHybridSearch } from "../services/searchService.js";
+import { processMessageForMemories } from "../services/memoryExtractor.js";
 
 const queryBodySchema = z.object({
   query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
@@ -226,8 +229,38 @@ function summarizeToolResult(toolName: string, data: unknown): string {
       return `Deleted "${d["deleted"]}"`;
     case "delete_source":
       return `Deleted "${d["deleted"]}", ${d["documentsDeleted"]} documents removed`;
+    case "save_memory":
+      return `Saved memory: "${(d["content"] as string)?.slice(0, 50) ?? ""}"`;
+    case "list_memories":
+      return `${d["count"] ?? 0} memories`;
+    case "delete_memory":
+      return `Deleted memory ${d["deleted"]}`;
     default:
       return "Done";
+  }
+}
+
+/**
+ * Build memory context for the current user's query, if memory is enabled.
+ * Returns a formatted string to prepend to the system prompt, or empty string.
+ */
+async function getMemoryContextBlock(query: string, orgId?: string, userEmail?: string): Promise<string> {
+  if (!isMemoryEnabled() || !userEmail) return "";
+  const memoryDataset = getMemoryDatasetName(orgId, userEmail);
+  if (!memoryDataset) return "";
+
+  try {
+    return await buildMemoryContext(query, async (q, topK) => {
+      const { results } = await memoryHybridSearch([memoryDataset], q, topK);
+      return results.map((r) => ({
+        content: r.chunk,
+        category: r.metadata.heading ?? "fact",
+        confidence: r.similarity,
+      }));
+    });
+  } catch {
+    // Memory search failure should never block the main query
+    return "";
   }
 }
 
@@ -606,6 +639,12 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     .slice(-12)
     .map((m) => ({ role: m.role as SessionMessage["role"], content: m.content }));
 
+  // Inject memory context as a system message at the start of the session
+  const memoryCtxBlock = await getMemoryContextBlock(query, orgId, userEmail);
+  if (memoryCtxBlock) {
+    sessionMessages.unshift({ role: "system" as const, content: memoryCtxBlock });
+  }
+
   const session: Session = {
     id: conversation.id,
     createdAt: conversation.createdAt,
@@ -662,6 +701,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       // Build tool messages from conversation history
       const toolMessages: ToolMessage[] = [];
 
+      // Fetch memory context (if enabled)
+      const memoryBlock = await getMemoryContextBlock(query, orgId, userEmail);
+
       // System prompt for tool-using model
       const toolSystemPrompt = [
         "You are a helpful AI assistant with access to tools for searching knowledge bases, managing documents, and browsing the web.",
@@ -669,7 +711,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         "For simple questions that don't need tools (greetings, math, general knowledge), answer directly without calling tools.",
         strict ? "You must only answer from information found via tools — do not use general knowledge." : "",
         "Always cite your sources when using information from search results.",
-      ].filter(Boolean).join(" ");
+        "When the user asks you to remember something, use the save_memory tool.",
+        memoryBlock,
+      ].filter(Boolean).join("\n\n");
 
       toolMessages.push({ role: "system", content: toolSystemPrompt });
 
@@ -716,6 +760,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         answerType: toolUses.length > 0 ? "grounded" : "general",
         toolUses,
       });
+
+      // Post-response: extract memories from user message (async, no latency impact)
+      void processMessageForMemories(query, orgId, userEmail);
     } else {
       // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
 
@@ -793,6 +840,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
             meshNodesSearched,
             meshNodesUnavailable,
           });
+
+          // Post-response: extract memories from user message (async, no latency impact)
+          void processMessageForMemories(query, orgId, userEmail);
         }
       }
     }
