@@ -27,7 +27,7 @@ Once the admin enables Google Drive:
 2. They sign in with Google and authorize access
 3. They select folders to sync
 
-### Microsoft OneDrive / SharePoint
+### Microsoft OneDrive
 
 #### Admin Setup
 
@@ -48,7 +48,7 @@ Once the admin enables OneDrive:
 
 1. Users go to **Library** > open a data source > **Connect Cloud Storage** > **OneDrive**
 2. They sign in with Microsoft and authorize access
-3. They browse OneDrive or SharePoint folders and select ones to sync
+3. They browse OneDrive folders and select ones to sync
 
 ### Confluence
 
