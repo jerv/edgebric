@@ -303,6 +303,11 @@ export interface IntegrationConfig {
   /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
   notionClientId?: string;
   notionClientSecret?: string;
+  /** Telegram bot integration. */
+  telegramEnabled?: boolean;
+  telegramBotToken?: string;
+  telegramWebhookSecret?: string;
+  telegramWebhookRegistered?: boolean;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────
