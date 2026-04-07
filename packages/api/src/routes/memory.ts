@@ -101,17 +101,17 @@ memoryRouter.put("/:id", validateBody(updateMemorySchema), async (req, res) => {
     return;
   }
 
-  const { id } = req.params;
+  const id = req.params["id"] as string;
   const updates = req.body as z.infer<typeof updateMemorySchema>;
 
   // Verify the memory exists and belongs to this user
-  const existing = getMemory(id!);
+  const existing = getMemory(id);
   if (!existing) {
     res.status(404).json({ error: "Memory not found" });
     return;
   }
 
-  const updated = await updateMemory(id!, updates, req.session.orgId, req.session.email);
+  const updated = await updateMemory(id, updates, req.session.orgId, req.session.email);
   if (!updated) {
     res.status(404).json({ error: "Memory not found" });
     return;
@@ -130,15 +130,15 @@ memoryRouter.put("/:id", validateBody(updateMemorySchema), async (req, res) => {
 
 // DELETE /api/memory/:id — delete a memory
 memoryRouter.delete("/:id", (req, res) => {
-  const { id } = req.params;
+  const id = req.params["id"] as string;
 
-  const existing = getMemory(id!);
+  const existing = getMemory(id);
   if (!existing) {
     res.status(404).json({ error: "Memory not found" });
     return;
   }
 
-  const deleted = deleteMemory(id!, req.session.orgId, req.session.email);
+  const deleted = deleteMemory(id, req.session.orgId, req.session.email);
   if (!deleted) {
     res.status(404).json({ error: "Memory not found" });
     return;

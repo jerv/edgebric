@@ -67,15 +67,32 @@ export function extractMemories(userMessage: string): ExtractedMemory[] {
   // Skip questions (the user is asking, not stating)
   if (userMessage.trim().endsWith("?")) return results;
 
-  // Check preference patterns
-  for (const pattern of PREFERENCE_PATTERNS) {
+  // Check correction patterns FIRST — corrections take priority over preferences/facts
+  // (e.g. "Actually, I need CSV" is a correction, not a preference)
+  let hasCorrection = false;
+  for (const pattern of CORRECTION_PATTERNS) {
     const match = pattern.exec(userMessage);
     if (match?.[1]) {
       results.push({
-        content: cleanExtract(`User ${userMessage.slice(0, 120).trim()}`),
-        category: "preference",
+        content: cleanExtract(`Correction: ${userMessage.slice(0, 120).trim()}`),
+        category: "instruction",
       });
-      break; // One preference per message max
+      hasCorrection = true;
+      break;
+    }
+  }
+
+  // Check preference patterns (skip if already captured as correction)
+  if (!hasCorrection) {
+    for (const pattern of PREFERENCE_PATTERNS) {
+      const match = pattern.exec(userMessage);
+      if (match?.[1]) {
+        results.push({
+          content: cleanExtract(`User ${userMessage.slice(0, 120).trim()}`),
+          category: "preference",
+        });
+        break; // One preference per message max
+      }
     }
   }
 
@@ -88,18 +105,6 @@ export function extractMemories(userMessage: string): ExtractedMemory[] {
         category: "fact",
       });
       break; // One fact per message max
-    }
-  }
-
-  // Check correction patterns → save as instruction
-  for (const pattern of CORRECTION_PATTERNS) {
-    const match = pattern.exec(userMessage);
-    if (match?.[1]) {
-      results.push({
-        content: cleanExtract(`Correction: ${userMessage.slice(0, 120).trim()}`),
-        category: "instruction",
-      });
-      break;
     }
   }
 

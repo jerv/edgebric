@@ -9,7 +9,6 @@ import type { DataSource, Document } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import {
   createDataSource,
-  getDataSource,
   listDataSources,
   refreshDocumentCount,
 } from "./dataSourceStore.js";
@@ -137,8 +136,8 @@ export async function saveMemory(opts: {
   category: MemoryCategory;
   confidence?: number;
   source?: MemorySource;
-  orgId?: string;
-  userId?: string;
+  orgId?: string | undefined;
+  userId?: string | undefined;
 }): Promise<MemoryEntry> {
   const ds = getOrCreateMemoryDataSource(opts.orgId, opts.userId);
   const docId = randomUUID();
@@ -224,9 +223,9 @@ export function getMemory(id: string): MemoryEntry | null {
  */
 export async function updateMemory(
   id: string,
-  updates: { content?: string; category?: MemoryCategory; confidence?: number },
-  orgId?: string,
-  userId?: string,
+  updates: { content?: string | undefined; category?: MemoryCategory | undefined; confidence?: number | undefined },
+  orgId?: string | undefined,
+  userId?: string | undefined,
 ): Promise<MemoryEntry | null> {
   const doc = getDocument(id);
   if (!doc) return null;
@@ -289,7 +288,7 @@ export async function updateMemory(
 /**
  * Delete a memory entry.
  */
-export function deleteMemory(id: string, orgId?: string, userId?: string): boolean {
+export function deleteMemory(id: string, _orgId?: string, _userId?: string): boolean {
   const doc = getDocument(id);
   if (!doc) return false;
 
