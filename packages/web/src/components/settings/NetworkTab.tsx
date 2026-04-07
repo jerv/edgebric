@@ -527,7 +527,7 @@ function MeshExplainer() {
                    └─────────┘`.trim()}</pre>
           </div>
           <div className="space-y-2">
-            <p><strong className="text-slate-700 dark:text-gray-300">Your data stays on your hardware.</strong> Each node keeps its own documents. Nothing is copied or synced between nodes.</p>
+            <p><strong className="text-slate-700 dark:text-gray-300">Full documents stay on their node.</strong> Each node keeps its own files. Queries fan out to all nodes, and relevant text excerpts are returned with citations — but full documents are never transferred.</p>
             <p><strong className="text-slate-700 dark:text-gray-300">Queries route across the mesh.</strong> When an employee asks a question, the query fans out to every node. Each node searches its local sources and sends back results.</p>
             <p><strong className="text-slate-700 dark:text-gray-300">Resilient.</strong> If a node goes offline, the rest keep working. Results from unavailable nodes are simply skipped.</p>
             <p><strong className="text-slate-700 dark:text-gray-300">One login.</strong> The primary node handles authentication. Other nodes proxy login through it — no duplicate setup needed.</p>
@@ -729,7 +729,7 @@ export function NetworkTab() {
           <h2 className="text-lg font-semibold text-slate-900 dark:text-gray-100">Mesh Networking</h2>
           <p className="text-sm text-slate-500 dark:text-gray-400 max-w-lg mx-auto">
             Connect multiple Edgebric nodes so queries can search across all of them.
-            Each node keeps its own data — documents never leave their node. If a node goes offline,
+            Each node keeps its own files — full documents are never transferred between nodes. If a node goes offline,
             the rest keep working.
           </p>
           <button

@@ -339,7 +339,7 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
           <ProviderLogo provider="onedrive" className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">OneDrive / SharePoint</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">OneDrive</h3>
           <p className="text-xs text-slate-400 dark:text-gray-500">
             {isConfigured ? "Custom credentials configured" : "Not configured"}
           </p>
@@ -383,7 +383,7 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
             <p className="flex items-start gap-1.5">
               <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-blue-500" />
               <span>
-                For <strong className="text-slate-700 dark:text-gray-300">SharePoint</strong> access, users must consent to the app with their work account. The same app registration works for both OneDrive and SharePoint.
+                For <strong className="text-slate-700 dark:text-gray-300">OneDrive for Business</strong> access, users must consent to the app with their work account.
               </span>
             </p>
           </div>

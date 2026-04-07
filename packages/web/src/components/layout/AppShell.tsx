@@ -70,14 +70,14 @@ export function AppShell() {
         {level === "private" && (
           <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-slate-100 dark:bg-gray-900 border-b border-slate-200 dark:border-gray-800 text-slate-600 dark:text-gray-400">
             <EyeOff className="w-3.5 h-3.5" />
-            <span className="text-xs sm:text-[11px] font-medium">Private Mode — anonymous, not logged</span>
+            <span className="text-xs sm:text-[11px] font-medium">Private Mode — conversations not saved, queries not logged</span>
             <span className="text-xs sm:text-[11px] text-slate-400 dark:text-gray-500 ml-1">Queries are processed on org servers</span>
           </div>
         )}
         {level === "vault" && (
           <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950 border-b border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="text-xs sm:text-[11px] font-medium">Vault Mode — queries never leave your device</span>
+            <span className="text-xs sm:text-[11px] font-medium">Vault Mode — local search and inference, no data leaves your machine</span>
             <span className="text-xs sm:text-[11px] text-emerald-500 dark:text-emerald-400 ml-1">Conversation is lost on page refresh</span>
           </div>
         )}
