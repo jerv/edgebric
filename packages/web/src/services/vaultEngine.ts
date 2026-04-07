@@ -218,16 +218,6 @@ async function addEmbeddingNoise(
   return embedding.map((v, i) => v + noise[i]!);
 }
 
-/** Remove per-dataset noise from a stored embedding: real = stored - noise(dataset). */
-async function removeEmbeddingNoise(
-  hmacKey: CryptoKey,
-  storedEmbedding: number[],
-  datasetName: string,
-): Promise<number[]> {
-  const noise = await generateEmbeddingNoise(hmacKey, datasetName, storedEmbedding.length);
-  return storedEmbedding.map((v, i) => v - noise[i]!);
-}
-
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
 
 type VaultDB = IDBPDatabase<{
