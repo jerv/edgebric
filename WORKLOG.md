@@ -16,6 +16,21 @@
 
 **Test results:** 741 tests pass, 0 lint errors, 0 typecheck errors.
 
+## 2026-04-07 — agent/auto-tweet-action (Auto-tweet on release)
+
+### GitHub Actions workflow to tweet when a release is published
+
+**Files added:**
+- `.github/workflows/tweet-release.yml` — Self-contained workflow with inline Node.js script
+
+**What it does:**
+- Triggers on `release.published` events and manual `workflow_dispatch` (with dry_run option)
+- Composes a <280-char primary tweet with version, first highlight from release notes, download link, and hashtags
+- Posts a reply chain splitting longer release notes into 280-char chunks
+- Uses Twitter/X API v2 with OAuth 1.0a signing via Node.js built-in `crypto` — no npm install, no third-party actions
+- Requires four secrets: `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET`
+- `continue-on-error: true` so tweet failures never block the release pipeline
+
 ---
 
 ## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)

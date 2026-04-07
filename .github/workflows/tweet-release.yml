@@ -1,0 +1,275 @@
+# Auto-tweet when a GitHub Release is published.
+#
+# Required secrets:
+#   TWITTER_API_KEY            — Twitter/X app API key (consumer key)
+#   TWITTER_API_SECRET         — Twitter/X app API secret (consumer secret)
+#   TWITTER_ACCESS_TOKEN       — Twitter/X user access token
+#   TWITTER_ACCESS_TOKEN_SECRET — Twitter/X user access token secret
+#
+# Uses Twitter/X API v2 with OAuth 1.0a signing via inline Node.js script.
+# No third-party actions — all API calls are self-contained.
+
+name: Tweet Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — log tweets instead of posting"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+jobs:
+  tweet:
+    name: Post release tweet
+    runs-on: ubuntu-latest
+    # Don't block the release if tweeting fails
+    continue-on-error: true
+    steps:
+      - name: Compose and post tweet thread
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || 'v0.0.0-test' }}
+          RELEASE_NAME: ${{ github.event.release.name || 'Test Release' }}
+          RELEASE_BODY: ${{ github.event.release.body || 'Test release notes for dry run.' }}
+          RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com/edgebric/edgebric/releases' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          node << 'SCRIPT'
+          const crypto = require("crypto");
+          const https = require("https");
+
+          // ---------------------------------------------------------------------------
+          // Config
+          // ---------------------------------------------------------------------------
+          const TWITTER_API_KEY = process.env.TWITTER_API_KEY;
+          const TWITTER_API_SECRET = process.env.TWITTER_API_SECRET;
+          const TWITTER_ACCESS_TOKEN = process.env.TWITTER_ACCESS_TOKEN;
+          const TWITTER_ACCESS_TOKEN_SECRET = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+          const DRY_RUN = process.env.DRY_RUN === "true";
+
+          const releaseTag = process.env.RELEASE_TAG;
+          const releaseBody = process.env.RELEASE_BODY || "";
+          const releaseUrl = process.env.RELEASE_URL;
+
+          // ---------------------------------------------------------------------------
+          // OAuth 1.0a signing (HMAC-SHA1)
+          // ---------------------------------------------------------------------------
+          function percentEncode(str) {
+            return encodeURIComponent(str).replace(/[!'()*]/g, (c) =>
+              "%" + c.charCodeAt(0).toString(16).toUpperCase()
+            );
+          }
+
+          function generateNonce() {
+            return crypto.randomBytes(16).toString("hex");
+          }
+
+          function sign(method, url, params, consumerSecret, tokenSecret) {
+            const sortedKeys = Object.keys(params).sort();
+            const paramString = sortedKeys
+              .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
+              .join("&");
+
+            const baseString = [
+              method.toUpperCase(),
+              percentEncode(url),
+              percentEncode(paramString),
+            ].join("&");
+
+            const signingKey = `${percentEncode(consumerSecret)}&${percentEncode(tokenSecret)}`;
+            return crypto
+              .createHmac("sha1", signingKey)
+              .update(baseString)
+              .digest("base64");
+          }
+
+          function buildAuthHeader(method, url, body, consumerKey, consumerSecret, token, tokenSecret) {
+            const oauthParams = {
+              oauth_consumer_key: consumerKey,
+              oauth_nonce: generateNonce(),
+              oauth_signature_method: "HMAC-SHA1",
+              oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+              oauth_token: token,
+              oauth_version: "1.0",
+            };
+
+            // For POST with JSON body, only OAuth params go into the signature base
+            const signature = sign(method, url, oauthParams, consumerSecret, tokenSecret);
+            oauthParams.oauth_signature = signature;
+
+            const header = "OAuth " + Object.keys(oauthParams)
+              .sort()
+              .map((k) => `${percentEncode(k)}="${percentEncode(oauthParams[k])}"`)
+              .join(", ");
+
+            return header;
+          }
+
+          // ---------------------------------------------------------------------------
+          // Twitter API v2 — post a tweet
+          // ---------------------------------------------------------------------------
+          function postTweet(text, replyToId) {
+            return new Promise((resolve, reject) => {
+              const url = "https://api.twitter.com/2/tweets";
+              const body = { text };
+              if (replyToId) {
+                body.reply = { in_reply_to_tweet_id: replyToId };
+              }
+              const jsonBody = JSON.stringify(body);
+
+              const authHeader = buildAuthHeader(
+                "POST", url, jsonBody,
+                TWITTER_API_KEY, TWITTER_API_SECRET,
+                TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+              );
+
+              const req = https.request(url, {
+                method: "POST",
+                headers: {
+                  Authorization: authHeader,
+                  "Content-Type": "application/json",
+                  "Content-Length": Buffer.byteLength(jsonBody),
+                },
+              }, (res) => {
+                let data = "";
+                res.on("data", (chunk) => { data += chunk; });
+                res.on("end", () => {
+                  if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(JSON.parse(data));
+                  } else {
+                    reject(new Error(`Twitter API ${res.statusCode}: ${data}`));
+                  }
+                });
+              });
+
+              req.on("error", reject);
+              req.write(jsonBody);
+              req.end();
+            });
+          }
+
+          // ---------------------------------------------------------------------------
+          // Compose tweets
+          // ---------------------------------------------------------------------------
+          function extractHighlight(body) {
+            // Grab the first meaningful line from the release notes
+            const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
+            for (const line of lines) {
+              // Skip markdown headers, bullets-only lines, and very short lines
+              const cleaned = line.replace(/^[#*\->\s]+/, "").trim();
+              if (cleaned.length > 10) return cleaned;
+            }
+            return "New features and improvements";
+          }
+
+          function composePrimaryTweet(tag, body, url) {
+            const highlight = extractHighlight(body);
+            const hashtags = "#edgebric #localAI #privacy";
+            const prefix = `Edgebric ${tag} is out! `;
+            const suffix = `\n\nDownload: ${url}\n\n${hashtags}`;
+
+            // Trim highlight to fit within 280 chars
+            const maxHighlight = 280 - prefix.length - suffix.length;
+            const trimmedHighlight =
+              highlight.length > maxHighlight
+                ? highlight.slice(0, maxHighlight - 1) + "…"
+                : highlight;
+
+            return `${prefix}${trimmedHighlight}${suffix}`;
+          }
+
+          function composeReplyChunks(body) {
+            // Clean up release body for tweet thread
+            const text = body
+              .replace(/\r\n/g, "\n")
+              .replace(/#{1,6}\s*/g, "")       // Remove markdown headers
+              .replace(/\*\*/g, "")             // Remove bold
+              .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Inline links → text only
+              .trim();
+
+            if (text.length <= 100) return []; // Not worth a thread
+
+            const chunks = [];
+            const maxLen = 275; // Leave room for thread numbering
+            let remaining = text;
+
+            while (remaining.length > 0) {
+              if (remaining.length <= maxLen) {
+                chunks.push(remaining);
+                break;
+              }
+              // Find a good break point (newline or space)
+              let breakAt = remaining.lastIndexOf("\n", maxLen);
+              if (breakAt < 100) breakAt = remaining.lastIndexOf(" ", maxLen);
+              if (breakAt < 100) breakAt = maxLen;
+
+              chunks.push(remaining.slice(0, breakAt).trim());
+              remaining = remaining.slice(breakAt).trim();
+            }
+
+            return chunks;
+          }
+
+          // ---------------------------------------------------------------------------
+          // Main
+          // ---------------------------------------------------------------------------
+          async function main() {
+            const primaryText = composePrimaryTweet(releaseTag, releaseBody, releaseUrl);
+            const replyChunks = composeReplyChunks(releaseBody);
+
+            console.log("=== Primary Tweet ===");
+            console.log(primaryText);
+            console.log(`(${primaryText.length} chars)`);
+
+            if (replyChunks.length > 0) {
+              console.log(`\n=== Reply Thread (${replyChunks.length} tweets) ===`);
+              replyChunks.forEach((chunk, i) => {
+                console.log(`\n--- Tweet ${i + 2} ---`);
+                console.log(chunk);
+                console.log(`(${chunk.length} chars)`);
+              });
+            }
+
+            if (DRY_RUN) {
+              console.log("\n🏁 Dry run — no tweets posted.");
+              return;
+            }
+
+            // Validate secrets are present
+            if (!TWITTER_API_KEY || !TWITTER_API_SECRET || !TWITTER_ACCESS_TOKEN || !TWITTER_ACCESS_TOKEN_SECRET) {
+              throw new Error("Missing Twitter API secrets. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET.");
+            }
+
+            // Post primary tweet
+            console.log("\nPosting primary tweet...");
+            const primary = await postTweet(primaryText);
+            const primaryId = primary.data.id;
+            console.log(`Posted tweet ${primaryId}`);
+
+            // Post reply chain
+            let lastId = primaryId;
+            for (let i = 0; i < replyChunks.length; i++) {
+              console.log(`Posting reply ${i + 1}/${replyChunks.length}...`);
+              const reply = await postTweet(replyChunks[i], lastId);
+              lastId = reply.data.id;
+              console.log(`Posted reply ${lastId}`);
+            }
+
+            console.log("\nAll tweets posted successfully.");
+          }
+
+          main().catch((err) => {
+            console.error("Failed to tweet:", err.message);
+            process.exit(1);
+          });
+          SCRIPT
