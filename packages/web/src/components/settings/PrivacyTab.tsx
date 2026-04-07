@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Sparkles,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Sparkles, Search,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";
@@ -104,6 +104,42 @@ function AdminToggles() {
           enabled={config?.generalAnswersEnabled ?? true}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ generalAnswersEnabled: v })}
+        />
+      </div>
+
+      <div className="mt-6">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
+          Search Quality
+        </h3>
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+          Advanced retrieval features that improve answer quality. Each adds processing time per query.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        <ToggleCard
+          icon={<Search className="w-4 h-4" />}
+          title="Query Decomposition"
+          description="Automatically break complex questions into sub-queries for better results."
+          enabled={config?.ragDecompose ?? false}
+          saving={mutation.isPending}
+          onToggle={(v) => mutation.mutate({ ragDecompose: v })}
+        />
+        <ToggleCard
+          icon={<Search className="w-4 h-4" />}
+          title="Re-ranking"
+          description="Use AI to re-rank search results by relevance (adds one inference call per query)."
+          enabled={config?.ragRerank ?? false}
+          saving={mutation.isPending}
+          onToggle={(v) => mutation.mutate({ ragRerank: v })}
+        />
+        <ToggleCard
+          icon={<Search className="w-4 h-4" />}
+          title="Iterative Retrieval"
+          description="Automatically retry with reformulated queries when initial results are low confidence."
+          enabled={config?.ragIterativeRetrieval ?? false}
+          saving={mutation.isPending}
+          onToggle={(v) => mutation.mutate({ ragIterativeRetrieval: v })}
         />
       </div>
     </div>

@@ -303,6 +303,12 @@ export interface IntegrationConfig {
   /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
   notionClientId?: string;
   notionClientSecret?: string;
+  /** When true, decompose complex queries into sub-queries for better results. Default: false. */
+  ragDecompose?: boolean;
+  /** When true, re-rank search results using LLM relevance scoring. Default: false. */
+  ragRerank?: boolean;
+  /** When true, perform a second retrieval round if first-round confidence is low. Default: false. */
+  ragIterativeRetrieval?: boolean;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

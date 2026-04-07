@@ -510,7 +510,12 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       const stream = answerStream(
         query,
         session,
-        { datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost, strict },
+        {
+          datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost, strict,
+          decompose: orgConfig.ragDecompose ?? false,
+          rerank: orgConfig.ragRerank ?? false,
+          iterativeRetrieval: orgConfig.ragIterativeRetrieval ?? false,
+        },
         {
           search: async () => searchResults,
           generate: (messages) => chatClient.chatStream(messages),
@@ -748,6 +753,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
           candidateCount,
           hybridBoost,
           strict,
+          decompose: orgConfig.ragDecompose ?? false,
+          rerank: orgConfig.ragRerank ?? false,
+          iterativeRetrieval: orgConfig.ragIterativeRetrieval ?? false,
         },
         {
           search: async () => searchResults,

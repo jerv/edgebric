@@ -41,6 +41,7 @@ import { logger } from "../lib/logger.js";
 import { fileTypeFromBuffer } from "file-type";
 import { createWebhook, getWebhook, listWebhooksByOrg, deleteWebhook, type WebhookEvent } from "../services/webhookStore.js";
 import { getSourceSummary, upsertSourceSummary } from "../services/sourceSummaryStore.js";
+import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import type { Document, DataSource, Session } from "@edgebric/types";
 
 export const agentApiRouter: IRouter = Router();
@@ -315,6 +316,7 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
     });
 
     // Use the RAG orchestrator
+    const agentOrgConfig = getIntegrationConfig();
     const ragStream = answerStream(
       query,
       session,
@@ -325,6 +327,9 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
+        decompose: agentOrgConfig.ragDecompose ?? false,
+        rerank: agentOrgConfig.ragRerank ?? false,
+        iterativeRetrieval: agentOrgConfig.ragIterativeRetrieval ?? false,
       },
       {
         search: async () => finalResults,
@@ -446,6 +451,7 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
       .filter((ds) => searchedSourceIds.has(ds.id))
       .map((ds) => ({ id: ds.id, name: ds.name }));
 
+    const citeCheckConfig = getIntegrationConfig();
     const ragStream = answerStream(
       question,
       session,
@@ -456,6 +462,9 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
+        decompose: citeCheckConfig.ragDecompose ?? false,
+        rerank: citeCheckConfig.ragRerank ?? false,
+        iterativeRetrieval: citeCheckConfig.ragIterativeRetrieval ?? false,
       },
       {
         search: async () => finalResults,
