@@ -5,7 +5,9 @@ import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import { fileTypeFromBuffer } from "file-type";
+import { z } from "zod";
 import { requireOrg, requireAdmin } from "../middleware/auth.js";
+import { validateParams } from "../middleware/validate.js";
 import { config } from "../config.js";
 import { encryptFile, decryptFile } from "../lib/crypto.js";
 import { recordAuditEvent } from "../services/auditLog.js";
@@ -65,11 +67,13 @@ async function detectFileType(
   return { type: claimedExt as Document["type"], mismatch: true };
 }
 
+const idParamSchema = z.object({ id: z.string().uuid() });
+
 export const documentsRouter: IRouter = Router();
 
 // ─── Employee-accessible: document content for source viewer ────────────────
 // Must be defined BEFORE requireAdmin middleware so all authenticated users can access it.
-documentsRouter.get("/:id/content", requireOrg, (req, res) => {
+documentsRouter.get("/:id/content", requireOrg, validateParams(idParamSchema), (req, res) => {
   const id = req.params["id"] as string ?? "";
 
   // Org-scoping: verify document belongs to caller's org
@@ -122,7 +126,7 @@ documentsRouter.get("/:id/content", requireOrg, (req, res) => {
 });
 
 // ─── Employee-accessible: raw file download ─────────────────────────────────
-documentsRouter.get("/:id/file", requireOrg, async (req, res) => {
+documentsRouter.get("/:id/file", requireOrg, validateParams(idParamSchema), async (req, res) => {
   const id = req.params["id"] as string ?? "";
 
   // Org-scoping: verify document belongs to caller's org
@@ -262,8 +266,8 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
   );
 });
 
-documentsRouter.get("/:id", (req, res) => {
-  const id = req.params["id"] ?? "";
+documentsRouter.get("/:id", validateParams(idParamSchema), (req, res) => {
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -279,7 +283,7 @@ documentsRouter.get("/:id", (req, res) => {
 // ─── PII Review Gate ──────────────────────────────────────────────────────────
 
 documentsRouter.post("/:id/approve-pii", async (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -328,7 +332,7 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
 });
 
 documentsRouter.post("/:id/reject-pii", async (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -352,8 +356,8 @@ documentsRouter.post("/:id/reject-pii", async (req, res) => {
   res.json({ status: "rejected", message: "Document rejected due to PII concerns." });
 });
 
-documentsRouter.delete("/:id", async (req, res) => {
-  const id = req.params["id"] ?? "";
+documentsRouter.delete("/:id", validateParams(idParamSchema), async (req, res) => {
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
