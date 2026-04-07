@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-04-07 — agent/rag-wiring (Wire RAG feature flags to UI)
+
+### Wired hybrid RAG feature flags from org settings to orchestrator
+
+**What was done:**
+1. Added `ragDecompose`, `ragRerank`, `ragIterativeRetrieval` boolean fields to `IntegrationConfig` type (shared/types).
+2. Added the three fields to the Zod validation schema in the integrations API route.
+3. Wired flags from `getIntegrationConfig()` into all four `answerStream` call sites: solo query, private query, group chat query, and agent API.
+4. Added "Search Quality" toggle section in the Privacy/AI Behavior admin settings UI with three ToggleCards.
+5. Added integration API tests (accept/persist/disable/reject invalid) and orchestrator unit tests (flag defaults, decomposition behavior).
+
+**Files modified:** `shared/types/src/index.ts`, `packages/api/src/routes/integrations.ts`, `packages/api/src/routes/query.ts`, `packages/api/src/routes/groupChatQuery.ts`, `packages/api/src/routes/agentApi.ts`, `packages/web/src/components/settings/PrivacyTab.tsx`, `packages/api/src/__tests__/integrations.test.ts`, `packages/core/src/__tests__/orchestrator.test.ts`
+
+**Note:** Could not run `pnpm test`/`pnpm typecheck`/`pnpm lint` from the worktree — node_modules missing. Tests pass from main `app/` dir (on `dev`), but this branch needs deps installed to verify.
+
 ## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
 
 ### Security hardening — 6 findings fixed
