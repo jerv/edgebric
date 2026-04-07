@@ -282,7 +282,7 @@ documentsRouter.get("/:id", validateParams(idParamSchema), (req, res) => {
 
 // ─── PII Review Gate ──────────────────────────────────────────────────────────
 
-documentsRouter.post("/:id/approve-pii", async (req, res) => {
+documentsRouter.post("/:id/approve-pii", validateParams(idParamSchema), async (req, res) => {
   const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
@@ -331,7 +331,7 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
   res.json({ status: "processing", message: "PII warnings acknowledged. Ingestion resumed." });
 });
 
-documentsRouter.post("/:id/reject-pii", async (req, res) => {
+documentsRouter.post("/:id/reject-pii", validateParams(idParamSchema), async (req, res) => {
   const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
