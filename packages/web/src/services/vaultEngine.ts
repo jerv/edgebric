@@ -189,7 +189,7 @@ async function generateEmbeddingNoise(
   const encoder = new TextEncoder();
 
   while (idx < dimensions) {
-    const data = encoder.encode(`emb-noise:${chunkId}:${counter}`);
+    const data = encoder.encode(`emb-noise:${label}:${counter}`);
     const sig = await crypto.subtle.sign("HMAC", hmacKey, data);
     const view = new DataView(sig);
     for (let i = 0; i + 3 < sig.byteLength && idx < dimensions; i += 4, idx++) {
