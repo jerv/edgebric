@@ -3,6 +3,9 @@ import { randomUUID } from "crypto";
 import { filterQuery } from "./queryFilter.js";
 import { buildSystemPrompt, buildGeneralPrompt, NO_ANSWER_RESPONSE } from "./systemPrompt.js";
 import { detectAnswerType, validateMarkers } from "./answerAnalysis.js";
+import { isComplexQuery, searchWithDecomposition } from "./queryDecomposition.js";
+import { rerankResults } from "./reranker.js";
+import { iterativeRetrieve } from "./iterativeRetrieval.js";
 
 // ─── Dependency interfaces ─────────────────────────────────────────────────────
 // The orchestrator has no knowledge of llama-server, HTTP, or any specific library.
@@ -53,6 +56,12 @@ export interface RAGOptions {
   strict?: boolean;
   /** Max context window size in tokens for the active model. Default 8192. */
   maxContextTokens?: number;
+  /** When true, decompose complex queries into sub-queries before search. */
+  decompose?: boolean;
+  /** When true, re-rank search results using LLM relevance scoring. */
+  rerank?: boolean;
+  /** When true, perform a second retrieval round if first-round confidence is low. */
+  iterativeRetrieval?: boolean;
 }
 
 // ─── Token estimation ─────────────────────────────────────────────────────────
@@ -109,8 +118,33 @@ export async function* answerStream(
     return;
   }
 
-  // Retrieve relevant chunks (search service handles hybrid + reranking)
-  const searchResults = await deps.search(query, topK);
+  // ─── Enhanced retrieval pipeline (opt-in layers) ───────────────────────────
+
+  // Layer 1: Query Decomposition — break complex queries into sub-queries
+  let searchResults: SearchResult[];
+  if (options.decompose && isComplexQuery(query)) {
+    const { results } = await searchWithDecomposition(query, deps.search, deps.generate, topK);
+    searchResults = results;
+  } else {
+    searchResults = await deps.search(query, topK);
+  }
+
+  // Layer 2: Re-ranking — LLM scores each chunk's relevance
+  if (options.rerank && searchResults.length > 1) {
+    const reranked = await rerankResults(query, searchResults, deps.generate, topK);
+    searchResults = reranked;
+
+    // Layer 3: Iterative Retrieval — second round if confidence is low
+    if (options.iterativeRetrieval) {
+      const { results: iterResults } = await iterativeRetrieve(
+        query, reranked, deps.search, deps.generate, topK, topK,
+      );
+      searchResults = iterResults;
+    }
+  } else if (options.iterativeRetrieval && options.rerank) {
+    // iterativeRetrieval requires rerank — if rerank produced no results, skip
+  }
+
   const relevantResults = searchResults.filter((r) => r.similarity >= threshold);
 
   // ─── No relevant chunks ───────────────────────────────────────────────────
