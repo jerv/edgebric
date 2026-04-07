@@ -88,4 +88,73 @@ describe("Integrations API", () => {
       expect((Object.prototype as any).isAdmin).toBeUndefined();
     });
   });
+
+  describe("RAG feature flags", () => {
+    it("returns RAG flags as false by default", async () => {
+      const res = await adminAgent(orgId).get("/api/admin/integrations");
+      expect(res.status).toBe(200);
+      // Not set yet — should be undefined (defaults to false in consumer code)
+      expect(res.body.ragDecompose).toBeUndefined();
+      expect(res.body.ragRerank).toBeUndefined();
+      expect(res.body.ragIterativeRetrieval).toBeUndefined();
+    });
+
+    it("accepts and persists ragDecompose", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragDecompose: true });
+      expect(res.status).toBe(200);
+      expect(res.body.ragDecompose).toBe(true);
+
+      // Verify persistence
+      const get = await adminAgent(orgId).get("/api/admin/integrations");
+      expect(get.body.ragDecompose).toBe(true);
+    });
+
+    it("accepts and persists ragRerank", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragRerank: true });
+      expect(res.status).toBe(200);
+      expect(res.body.ragRerank).toBe(true);
+    });
+
+    it("accepts and persists ragIterativeRetrieval", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragIterativeRetrieval: true });
+      expect(res.status).toBe(200);
+      expect(res.body.ragIterativeRetrieval).toBe(true);
+    });
+
+    it("can disable RAG flags after enabling", async () => {
+      // Enable first
+      await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragDecompose: true, ragRerank: true, ragIterativeRetrieval: true });
+
+      // Disable
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragDecompose: false, ragRerank: false, ragIterativeRetrieval: false });
+      expect(res.status).toBe(200);
+      expect(res.body.ragDecompose).toBe(false);
+      expect(res.body.ragRerank).toBe(false);
+      expect(res.body.ragIterativeRetrieval).toBe(false);
+    });
+
+    it("rejects non-boolean values for RAG flags", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragDecompose: "yes" });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects member access to RAG flags", async () => {
+      const res = await memberAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ ragDecompose: true });
+      expect(res.status).toBe(403);
+    });
+  });
 });
