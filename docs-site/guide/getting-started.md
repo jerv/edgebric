@@ -10,7 +10,7 @@ Edgebric is a private knowledge platform that runs entirely on your Mac. Upload 
 | **RAM** | 16 GB | 24 GB |
 | **Disk** | 20 GB free | 50 GB free |
 | **Hardware** | Any Apple Silicon Mac | Mac Mini M4 24 GB ($699) |
-| **Use case** | Personal use | Org server (100–200 daily users) |
+| **Use case** | Personal use | Org / team server |
 
 ## Install
 

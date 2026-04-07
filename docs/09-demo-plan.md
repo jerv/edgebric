@@ -157,7 +157,7 @@ No one in the market — not Glean, not Moveworks, not Leena AI — offers distr
 - "Every employee becomes a source node."
 
 ### Hardware Cost Pitch
-- "This MacBook is serving as the coordinator for 3 source nodes. A $599 Mac Mini can do the same thing for 100-200 daily users. That's a one-time cost vs. $150/month for cloud AI subscriptions. The Mac Mini uses 4 watts idle — about $10/year in electricity."
+- "This MacBook is serving as the coordinator for 3 source nodes. A $599 Mac Mini can do the same thing for a whole team. That's a one-time cost vs. $150/month for cloud AI subscriptions. The Mac Mini uses 4 watts idle — about $10/year in electricity."
 
 ---
 
