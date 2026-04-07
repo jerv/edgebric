@@ -168,15 +168,19 @@ async function generateNoiseKey(): Promise<CryptoKey> {
 }
 
 /**
- * Derive a deterministic noise vector from an HMAC key and chunk ID.
+ * Derive a deterministic noise vector from an HMAC key and a label (dataset name).
  *
- * Uses HMAC-SHA-256 in counter mode: HMAC(key, "emb-noise:{chunkId}:{counter}")
+ * Uses HMAC-SHA-256 in counter mode: HMAC(key, "emb-noise:{label}:{counter}")
  * Each 32-byte digest yields 8 float32 values mapped to [-1, 1].
- * Deterministic: same key + chunkId always produces the same noise.
+ * Deterministic: same key + label always produces the same noise.
+ *
+ * Noise is shared per dataset (not per chunk) so cosine similarity between
+ * chunks in the same dataset is preserved — only cross-dataset comparison
+ * is blocked for an attacker without the key.
  */
 async function generateEmbeddingNoise(
   hmacKey: CryptoKey,
-  chunkId: string,
+  label: string,
   dimensions: number,
 ): Promise<Float32Array> {
   const noise = new Float32Array(dimensions);
@@ -198,23 +202,29 @@ async function generateEmbeddingNoise(
   return noise;
 }
 
-/** Add noise to an embedding: stored = real + noise. */
+/** Extract dataset name from chunkId (e.g., "hr-policies-42" → "hr-policies"). */
+function datasetFromChunkId(chunkId: string): string {
+  const lastDash = chunkId.lastIndexOf("-");
+  return lastDash > 0 ? chunkId.slice(0, lastDash) : chunkId;
+}
+
+/** Add per-dataset noise to an embedding: stored = real + noise(dataset). */
 async function addEmbeddingNoise(
   hmacKey: CryptoKey,
   embedding: number[],
-  chunkId: string,
+  datasetName: string,
 ): Promise<number[]> {
-  const noise = await generateEmbeddingNoise(hmacKey, chunkId, embedding.length);
+  const noise = await generateEmbeddingNoise(hmacKey, datasetName, embedding.length);
   return embedding.map((v, i) => v + noise[i]!);
 }
 
-/** Remove noise from a stored embedding: real = stored - noise. */
+/** Remove per-dataset noise from a stored embedding: real = stored - noise(dataset). */
 async function removeEmbeddingNoise(
   hmacKey: CryptoKey,
   storedEmbedding: number[],
-  chunkId: string,
+  datasetName: string,
 ): Promise<number[]> {
-  const noise = await generateEmbeddingNoise(hmacKey, chunkId, storedEmbedding.length);
+  const noise = await generateEmbeddingNoise(hmacKey, datasetName, storedEmbedding.length);
   return storedEmbedding.map((v, i) => v - noise[i]!);
 }
 
@@ -285,7 +295,7 @@ export async function storeChunks(
       const encContent = await encryptText(key, chunk.content);
       const encMetadata = await encryptText(key, JSON.stringify(chunk.metadata));
       const noisedEmbedding = chunk.embedding
-        ? await addEmbeddingNoise(noiseKey, chunk.embedding, chunk.chunkId)
+        ? await addEmbeddingNoise(noiseKey, chunk.embedding, datasetFromChunkId(chunk.chunkId))
         : undefined;
       return { chunkId: chunk.chunkId, encContent, encMetadata, embedding: noisedEmbedding };
     }),
@@ -426,12 +436,19 @@ async function searchChunks(
   const noiseKey = await getOrCreateNoiseKey(db);
 
   // Denoise each embedding, then score by cosine similarity against the query.
-  // Stored embeddings have HMAC-derived noise added — we must subtract it
-  // to recover the real vectors before comparison.
+  // Noise is shared per dataset, so we cache the noise vector per dataset name
+  // to avoid redundant HMAC computation (one HMAC chain per dataset, not per chunk).
+  const noiseCache = new Map<string, Float32Array>();
   const scored: Array<{ enc: EncryptedStoredChunk; score: number }> = [];
   for (const enc of allEncrypted) {
     if (enc.embedding == null) continue;
-    const realEmbedding = await removeEmbeddingNoise(noiseKey, enc.embedding, enc.chunkId);
+    const ds = datasetFromChunkId(enc.chunkId);
+    let noise = noiseCache.get(ds);
+    if (!noise) {
+      noise = await generateEmbeddingNoise(noiseKey, ds, enc.embedding.length);
+      noiseCache.set(ds, noise);
+    }
+    const realEmbedding = enc.embedding.map((v, i) => v - noise![i]!);
     scored.push({
       enc,
       score: cosineSimilarity(queryEmbedding, realEmbedding),

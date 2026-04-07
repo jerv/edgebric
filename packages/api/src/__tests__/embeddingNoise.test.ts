@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { initEncryptionKey, generateEmbeddingNoise, addEmbeddingNoise, removeEmbeddingNoise } from "../lib/crypto.js";
+import { initEncryptionKey, generateEmbeddingNoise, addEmbeddingNoise, shiftQueryEmbedding } from "../lib/crypto.js";
 
 describe("Embedding noise protection", () => {
   beforeAll(() => {
@@ -8,29 +8,28 @@ describe("Embedding noise protection", () => {
 
   describe("generateEmbeddingNoise", () => {
     it("produces a Float32Array of the requested dimension", () => {
-      const noise = generateEmbeddingNoise("test-chunk-0", 768);
+      const noise = generateEmbeddingNoise("knowledge-base", 768);
       expect(noise).toBeInstanceOf(Float32Array);
       expect(noise.length).toBe(768);
     });
 
     it("produces values in [-1, 1]", () => {
-      const noise = generateEmbeddingNoise("test-chunk-0", 768);
+      const noise = generateEmbeddingNoise("knowledge-base", 768);
       for (const v of noise) {
         expect(v).toBeGreaterThanOrEqual(-1);
         expect(v).toBeLessThanOrEqual(1);
       }
     });
 
-    it("is deterministic — same chunkId produces same noise", () => {
-      const a = generateEmbeddingNoise("chunk-42", 768);
-      const b = generateEmbeddingNoise("chunk-42", 768);
+    it("is deterministic — same label produces same noise", () => {
+      const a = generateEmbeddingNoise("hr-policies", 768);
+      const b = generateEmbeddingNoise("hr-policies", 768);
       expect(Array.from(a)).toEqual(Array.from(b));
     });
 
-    it("produces different noise for different chunkIds", () => {
-      const a = generateEmbeddingNoise("chunk-1", 768);
-      const b = generateEmbeddingNoise("chunk-2", 768);
-      // Extremely unlikely to collide — check first few values
+    it("produces different noise for different dataset names", () => {
+      const a = generateEmbeddingNoise("knowledge-base", 768);
+      const b = generateEmbeddingNoise("sales", 768);
       const same = Array.from(a).every((v, i) => v === b[i]);
       expect(same).toBe(false);
     });
@@ -44,42 +43,56 @@ describe("Embedding noise protection", () => {
     });
   });
 
-  describe("addEmbeddingNoise / removeEmbeddingNoise roundtrip", () => {
-    it("recovers the original embedding exactly", () => {
-      const original = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.1));
-      const chunkId = "knowledge-base-7";
-
-      const noised = addEmbeddingNoise(original, chunkId);
-      const recovered = removeEmbeddingNoise(noised, chunkId);
-
-      for (let i = 0; i < original.length; i++) {
-        expect(recovered[i]).toBeCloseTo(original[i]!, 10);
+  describe("addEmbeddingNoise + shiftQueryEmbedding preserve L2 distance", () => {
+    const l2 = (a: number[], b: number[]) => {
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i]! - b[i]!;
+        sum += d * d;
       }
+      return Math.sqrt(sum);
+    };
+
+    it("L2(stored, shifted_query) equals L2(real, query)", () => {
+      const real = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.1));
+      const query = Array.from({ length: 768 }, (_, i) => Math.cos(i * 0.1));
+      const ds = "knowledge-base";
+
+      const originalDist = l2(real, query);
+      const stored = addEmbeddingNoise(real, ds);
+      const shiftedQuery = shiftQueryEmbedding(query, ds);
+      const noisedDist = l2(stored, shiftedQuery);
+
+      expect(noisedDist).toBeCloseTo(originalDist, 5);
     });
 
     it("noised embedding differs significantly from original", () => {
       const original = Array.from({ length: 768 }, () => 0.5);
-      const noised = addEmbeddingNoise(original, "chunk-0");
+      const noised = addEmbeddingNoise(original, "sales");
 
-      // At least some values should differ by more than 0.1
       const diffs = noised.map((v, i) => Math.abs(v - original[i]!));
       const maxDiff = Math.max(...diffs);
       expect(maxDiff).toBeGreaterThan(0.1);
     });
 
-    it("different chunkIds produce different noised embeddings", () => {
-      const original = Array.from({ length: 768 }, () => 0.0);
-      const noisedA = addEmbeddingNoise(original, "chunk-a");
-      const noisedB = addEmbeddingNoise(original, "chunk-b");
+    it("same dataset produces same noise for all chunks", () => {
+      const embA = Array.from({ length: 768 }, () => 0.0);
+      const embB = Array.from({ length: 768 }, () => 1.0);
+      const ds = "knowledge-base";
 
-      const same = noisedA.every((v, i) => v === noisedB[i]);
-      expect(same).toBe(false);
+      const noisedA = addEmbeddingNoise(embA, ds);
+      const noisedB = addEmbeddingNoise(embB, ds);
+
+      // Difference between noised should equal difference between originals
+      // since both got the same noise added
+      for (let i = 0; i < embA.length; i++) {
+        expect(noisedB[i]! - noisedA[i]!).toBeCloseTo(1.0, 10);
+      }
     });
   });
 
-  describe("cosine similarity is destroyed by noise", () => {
-    it("two similar embeddings become dissimilar when noise is added", () => {
-      // Create two similar embeddings (slight perturbation)
+  describe("cross-dataset similarity is destroyed", () => {
+    it("two similar embeddings from different datasets become dissimilar", () => {
       const base = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
       const similar = base.map((v) => v + (Math.random() - 0.5) * 0.01);
 
@@ -94,14 +107,46 @@ describe("Embedding noise protection", () => {
       };
 
       // Original similarity should be very high
-      const originalSim = cosine(base, similar);
-      expect(originalSim).toBeGreaterThan(0.99);
+      expect(cosine(base, similar)).toBeGreaterThan(0.99);
 
-      // After adding different noise, similarity should drop
-      const noisedBase = addEmbeddingNoise(base, "chunk-0");
-      const noisedSimilar = addEmbeddingNoise(similar, "chunk-1");
-      const noisedSim = cosine(noisedBase, noisedSimilar);
-      expect(noisedSim).toBeLessThan(0.5);
+      // After adding noise from DIFFERENT datasets, similarity should drop
+      const noisedBase = addEmbeddingNoise(base, "dataset-a");
+      const noisedSimilar = addEmbeddingNoise(similar, "dataset-b");
+      expect(cosine(noisedBase, noisedSimilar)).toBeLessThan(0.5);
+    });
+
+    it("two similar embeddings from the SAME dataset stay similar", () => {
+      const base = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.05));
+      const similar = base.map((v) => v + (Math.random() - 0.5) * 0.01);
+
+      const cosine = (a: number[], b: number[]) => {
+        let dot = 0, normA = 0, normB = 0;
+        for (let i = 0; i < a.length; i++) {
+          dot += a[i]! * b[i]!;
+          normA += a[i]! * a[i]!;
+          normB += b[i]! * b[i]!;
+        }
+        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+      };
+
+      // Same dataset noise preserves relative similarity
+      const ds = "same-dataset";
+      const noisedBase = addEmbeddingNoise(base, ds);
+      const noisedSimilar = addEmbeddingNoise(similar, ds);
+
+      // Cosine sim won't be exactly preserved (noise shifts the origin),
+      // but L2 distance is preserved, so the ranking is correct.
+      // For a meaningful test: L2 should be preserved exactly.
+      const l2 = (a: number[], b: number[]) => {
+        let sum = 0;
+        for (let i = 0; i < a.length; i++) {
+          const d = a[i]! - b[i]!;
+          sum += d * d;
+        }
+        return Math.sqrt(sum);
+      };
+
+      expect(l2(noisedBase, noisedSimilar)).toBeCloseTo(l2(base, similar), 5);
     });
   });
 });
