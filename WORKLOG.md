@@ -1,5 +1,23 @@
 # Worklog
 
+## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
+
+### Security hardening — 6 findings fixed
+
+**HIGH fixes:**
+1. **SSRF in read_url tool** (`packages/api/src/services/tools/web.ts`) — Added `isInternalIp()` and `validateUrlNotInternal()` that block internal/non-routable IPs (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, ::1, fd00::/8, etc.), resolve DNS before fetching to catch rebinding, and block non-HTTP(S) schemes.
+2. **LIKE pattern injection in chunkRegistry** (`packages/api/src/services/chunkRegistry.ts`) — Added `escapeLikePattern()` to escape %, _, and \ before LIKE concatenation. All three LIKE queries (getChunkCountForDataset, getChunksForDataset, clearChunksForDataset) now use ESCAPE '\\'.
+3. **Prototype pollution in integration config merge** (`packages/api/src/routes/integrations.ts`) — Schema now uses `.strict()` to reject unknown keys. Merge uses `updateConfigSchema.parse(req.body)` output (not raw body) into `Object.assign(Object.create(null), ...)`.
+
+**MEDIUM fixes:**
+4. **Missing Zod validation on PII routes** (`packages/api/src/routes/documents.ts`) — Added `validateParams(idParamSchema)` to approve-pii and reject-pii routes.
+5. **Raw error messages leaked in cloud connections** (`packages/api/src/routes/cloudConnections.ts`) — Replaced `details: errMsg` with generic messages in all 4 catch blocks. Full errors still logged server-side.
+6. **Electron shell.openExternal unfiltered** (`packages/desktop/src/main/index.ts`) — Added `dialog.showMessageBox` confirmation before opening external URLs.
+
+**Test results:** 741 tests pass, 0 lint errors, 0 typecheck errors.
+
+---
+
 ## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)
 
 ### Cryptographic noise protection for vault mode embeddings
