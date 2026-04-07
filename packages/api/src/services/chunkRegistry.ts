@@ -5,6 +5,15 @@ import { eq, sql, isNotNull, and } from "drizzle-orm";
 import { encryptText, decryptText, addEmbeddingNoise, shiftQueryEmbedding } from "../lib/crypto.js";
 
 /**
+ * Escape LIKE special characters (%, _) so dataset names containing
+ * wildcards don't match other datasets' chunks.
+ * Uses backslash as the escape char — callers MUST add ESCAPE '\\' to the LIKE clause.
+ */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/**
  * Decrypt content, handling both encrypted (base64) and legacy plaintext.
  * Legacy content won't be valid base64 AES-256-GCM output, so decryption
  * will throw — in that case we return the raw string.
@@ -197,8 +206,8 @@ function getChunkContent(chunkId: string): string | null {
 export function getChunkCountForDataset(datasetName: string): number {
   const sqlite = getSqlite();
   const row = sqlite.prepare(
-    "SELECT COUNT(*) as cnt FROM chunks WHERE chunk_id LIKE ?",
-  ).get(`${datasetName}-%`) as { cnt: number };
+    "SELECT COUNT(*) as cnt FROM chunks WHERE chunk_id LIKE ? ESCAPE '\\'",
+  ).get(`${escapeLikePattern(datasetName)}-%`) as { cnt: number };
   return row.cnt;
 }
 
@@ -313,8 +322,9 @@ export function getChunksForDataset(datasetName: string): Array<{
   metadata: ChunkMetadata;
 }> {
   const db = getDb();
+  const escaped = escapeLikePattern(datasetName);
   const rows = db.select().from(chunks)
-    .where(sql`${chunks.chunkId} LIKE ${datasetName + "-%"}`)
+    .where(sql`${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`)
     .all();
 
   return rows
@@ -338,12 +348,13 @@ export function clearChunksForDataset(datasetName: string): void {
   const sqlite = getSqlite();
 
   // Get chunk IDs before deleting so we can clean FTS5 + vec
+  const escaped = escapeLikePattern(datasetName);
   const rows = db.select({ chunkId: chunks.chunkId })
     .from(chunks)
-    .where(sql`${chunks.chunkId} LIKE ${datasetName + "-%"}`)
+    .where(sql`${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`)
     .all();
 
-  db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${datasetName + "-%"}`);
+  db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`);
 
   // Clean FTS5 and vector indexes
   if (rows.length > 0) {
