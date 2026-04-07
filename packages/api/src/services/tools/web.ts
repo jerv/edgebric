@@ -4,11 +4,92 @@
  * No API keys needed. DuckDuckGo HTML search is parsed for results.
  * read_url strips HTML tags and returns clean text, limited to ~10KB.
  */
+import { lookup } from "dns/promises";
 import type { Tool, ToolResult } from "../toolRunner.js";
 import { registerTool } from "../toolRunner.js";
 import { logger } from "../../lib/logger.js";
 
 const MAX_TEXT_LENGTH = 10_000; // 10KB text limit
+
+// ─── SSRF Protection ──────────────────────────────────────────────────────────
+
+/**
+ * Check if an IP address is internal/non-routable.
+ * Blocks: 127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, 0.x,
+ *         ::1, fd00::/8, fe80::/10, ::ffff:0:0/96 (mapped IPv4)
+ */
+export function isInternalIp(ip: string): boolean {
+  // Normalize IPv6-mapped IPv4 (::ffff:127.0.0.1 → 127.0.0.1)
+  const normalized = ip.replace(/^::ffff:/i, "");
+
+  // IPv4 checks
+  const ipv4Parts = normalized.split(".");
+  if (ipv4Parts.length === 4) {
+    const [a, b] = ipv4Parts.map(Number);
+    if (a === 127) return true;                          // 127.0.0.0/8
+    if (a === 10) return true;                           // 10.0.0.0/8
+    if (a === 172 && b! >= 16 && b! <= 31) return true;  // 172.16.0.0/12
+    if (a === 192 && b === 168) return true;             // 192.168.0.0/16
+    if (a === 169 && b === 254) return true;             // 169.254.0.0/16 (link-local)
+    if (a === 0) return true;                            // 0.0.0.0/8
+    return false;
+  }
+
+  // IPv6 checks
+  const lower = normalized.toLowerCase();
+  if (lower === "::1") return true;                     // loopback
+  if (lower.startsWith("fd")) return true;              // fd00::/8 (ULA)
+  if (lower.startsWith("fe80")) return true;            // fe80::/10 (link-local)
+  if (lower === "::") return true;                      // unspecified
+
+  return false;
+}
+
+/**
+ * Validate that a URL hostname does not resolve to an internal IP.
+ * Resolves DNS to catch rebinding attacks where a public hostname
+ * points to a private IP.
+ */
+export async function validateUrlNotInternal(url: string): Promise<{ ok: boolean; error?: string }> {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname;
+
+  // Block non-HTTP(S) schemes
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, error: "Only http and https URLs are allowed" };
+  }
+
+  // Check if hostname is an IP literal
+  // Strip IPv6 brackets: [::1] → ::1
+  const bareHost = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+
+  if (bareHost === "localhost") {
+    return { ok: false, error: "Requests to localhost are blocked" };
+  }
+
+  // If it looks like an IP literal, check directly
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(bareHost) || bareHost.includes(":")) {
+    if (isInternalIp(bareHost)) {
+      return { ok: false, error: "Requests to internal/private IP addresses are blocked" };
+    }
+  }
+
+  // Resolve DNS to catch rebinding (hostname → internal IP)
+  try {
+    const result = await lookup(hostname, { all: true });
+    for (const entry of result) {
+      if (isInternalIp(entry.address)) {
+        return { ok: false, error: "Requests to internal/private IP addresses are blocked" };
+      }
+    }
+  } catch {
+    return { ok: false, error: "Could not resolve hostname" };
+  }
+
+  return { ok: true };
+}
 
 // ─── HTML-to-text extraction ────────────────────────────────────────────────
 
@@ -143,6 +224,12 @@ const readUrl: Tool = {
       new URL(url);
     } catch {
       return { success: false, error: "Invalid URL" };
+    }
+
+    // SSRF protection: block internal/private IPs and DNS rebinding
+    const ssrfCheck = await validateUrlNotInternal(url);
+    if (!ssrfCheck.ok) {
+      return { success: false, error: ssrfCheck.error! };
     }
 
     try {

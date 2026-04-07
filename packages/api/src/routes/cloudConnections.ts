@@ -140,7 +140,7 @@ cloudConnectionsRouter.post("/oauth/authorize", validateBody(authorizeSchema), (
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg }, "OAuth authorize failed");
-    res.status(400).json({ error: errMsg });
+    res.status(400).json({ error: "Failed to generate authorization URL" });
   }
 });
 
@@ -350,7 +350,7 @@ cloudConnectionsRouter.post("/:id/sync", async (req, res) => {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg }, "Manual sync failed");
-    res.status(500).json({ error: "Sync failed", details: errMsg });
+    res.status(500).json({ error: "Sync failed. Check server logs for details." });
   }
 });
 
@@ -391,7 +391,7 @@ cloudConnectionsRouter.get("/:id/folders", async (req, res) => {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg }, "Failed to list folders");
-    res.status(500).json({ error: "Failed to list folders" });
+    res.status(500).json({ error: "Failed to list folders. Check server logs for details." });
   }
 });
 
@@ -542,7 +542,7 @@ cloudConnectionsRouter.post("/folder-syncs/:id/sync", async (req, res) => {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg }, "Manual sync failed");
-    res.status(500).json({ error: "Sync failed", details: errMsg });
+    res.status(500).json({ error: "Sync failed. Check server logs for details." });
   }
 });
 

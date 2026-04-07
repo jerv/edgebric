@@ -8,7 +8,7 @@ Most knowledge platforms centralize your documents in one place. Edgebric does t
 
 **Example:** Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When someone asks a question, Edgebric queries all three simultaneously and merges the results — full documents never leave the machine that stores them, but relevant text excerpts are returned with citations.
 
-- A single Mac Mini M4 ($699) can serve 100–200 daily users
+- A single Mac Mini M4 ($699) can serve a team or department
 - Three of them give you a globally distributed, private knowledge platform for under $2,100 in hardware
 - Security is enforced by physics: a compromised node literally cannot access another department's data because that data isn't on the machine
 

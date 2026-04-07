@@ -91,7 +91,7 @@ HR is the hero use case — not because Edgebric is exclusively an HR tool, but 
 Meeting mode is the daily-use hook. HR queries might happen once a week. Cross-department meetings happen every day. Meeting mode gives every employee a reason to use Edgebric regularly — and every use reinforces the platform's value.
 
 ### The Hardware Story
-A $699 Mac Mini M4 can serve 100-200 daily users running local AI inference. That's a one-time hardware cost vs. $150+/month for cloud AI subscriptions. For a 100-person company, cloud HR AI costs $3,600-$20,400/year. Edgebric is open source (AGPL 3.0) and free to run — pay what you want for the convenience of a signed installer, or build from source.
+A $699 Mac Mini M4 can serve a team or department running local AI inference. That's a one-time hardware cost vs. $150+/month for cloud AI subscriptions. Edgebric is open source (AGPL 3.0) and free to run — pay what you want for the convenience of a signed installer, or build from source.
 
 ### Competitive Differentiation
 

@@ -1,5 +1,58 @@
 # Worklog
 
+## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
+
+### Security hardening — 6 findings fixed
+
+**HIGH fixes:**
+1. **SSRF in read_url tool** (`packages/api/src/services/tools/web.ts`) — Added `isInternalIp()` and `validateUrlNotInternal()` that block internal/non-routable IPs (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x, ::1, fd00::/8, etc.), resolve DNS before fetching to catch rebinding, and block non-HTTP(S) schemes.
+2. **LIKE pattern injection in chunkRegistry** (`packages/api/src/services/chunkRegistry.ts`) — Added `escapeLikePattern()` to escape %, _, and \ before LIKE concatenation. All three LIKE queries (getChunkCountForDataset, getChunksForDataset, clearChunksForDataset) now use ESCAPE '\\'.
+3. **Prototype pollution in integration config merge** (`packages/api/src/routes/integrations.ts`) — Schema now uses `.strict()` to reject unknown keys. Merge uses `updateConfigSchema.parse(req.body)` output (not raw body) into `Object.assign(Object.create(null), ...)`.
+
+**MEDIUM fixes:**
+4. **Missing Zod validation on PII routes** (`packages/api/src/routes/documents.ts`) — Added `validateParams(idParamSchema)` to approve-pii and reject-pii routes.
+5. **Raw error messages leaked in cloud connections** (`packages/api/src/routes/cloudConnections.ts`) — Replaced `details: errMsg` with generic messages in all 4 catch blocks. Full errors still logged server-side.
+6. **Electron shell.openExternal unfiltered** (`packages/desktop/src/main/index.ts`) — Added `dialog.showMessageBox` confirmation before opening external URLs.
+
+**Test results:** 741 tests pass, 0 lint errors, 0 typecheck errors.
+
+## 2026-04-07 — agent/auto-tweet-action (Auto-tweet on release)
+
+### GitHub Actions workflow to tweet when a release is published
+
+**Files added:**
+- `.github/workflows/tweet-release.yml` — Self-contained workflow with inline Node.js script
+
+**What it does:**
+- Triggers on `release.published` events and manual `workflow_dispatch` (with dry_run option)
+- Composes a <280-char primary tweet with version, first highlight from release notes, download link, and hashtags
+- Posts a reply chain splitting longer release notes into 280-char chunks
+- Uses Twitter/X API v2 with OAuth 1.0a signing via Node.js built-in `crypto` — no npm install, no third-party actions
+- Requires four secrets: `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET`
+- `continue-on-error: true` so tweet failures never block the release pipeline
+
+## 2026-04-07 — agent/hybrid-rag (Hybrid RAG improvements)
+
+### Query decomposition, LLM re-ranking, and iterative retrieval
+
+**What:** Three opt-in layers added to the RAG pipeline in `@edgebric/core` that improve retrieval quality for complex queries without changing default behavior.
+
+**Modules added:**
+- `packages/core/src/rag/queryDecomposition.ts` — Heuristic complexity detection (comparison words, multi-topic conjunctions, multiple question marks). Complex queries decomposed into 2-4 sub-queries via LLM, results merged and deduplicated by chunkId.
+- `packages/core/src/rag/reranker.ts` — LLM scores each chunk's relevance (1-5 scale) in a single prompt. Re-sorts by score with similarity tiebreaker, trims to topN.
+- `packages/core/src/rag/iterativeRetrieval.ts` — Confidence check after first round (top score > 2 AND >= 3 chunks score >= 3). Low confidence triggers query reformulation + second search + re-rank. Max 2 rounds.
+
+**Integration:** Three new feature flags in `RAGOptions`: `decompose`, `rerank`, `iterativeRetrieval`. All default to `false`. Wired into `orchestrator.ts` between search and context assembly. When all flags are off, pipeline is byte-for-byte identical to before.
+
+**Tests:** 35 new tests across 3 test files. All 126 existing tests still pass.
+
+**Files modified:** `packages/core/src/rag/orchestrator.ts`, `packages/core/src/rag/index.ts`
+**Files added:** 3 modules + 3 test files
+
+**Note:** The API layer (`packages/api/src/routes/query.ts`) doesn't enable the flags yet — they're opt-in. To activate, pass `decompose: true`, `rerank: true`, `iterativeRetrieval: true` in the RAGOptions when calling `answerStream()`.
+
+---
+
 ## 2026-04-06 — agent/vault-embeddings (Embedding noise protection)
 
 ### Cryptographic noise protection for vault mode embeddings

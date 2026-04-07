@@ -154,6 +154,13 @@ describe("Documents API", () => {
         .post(`/api/documents/${randomUUID()}/approve-pii`);
       expect(res.status).toBe(404);
     });
+
+    it("rejects non-UUID id param", async () => {
+      const res = await adminAgent(orgId)
+        .post("/api/documents/not-a-uuid/approve-pii");
+      expect(res.status).toBe(400);
+    });
+
   });
 
   // ─── POST /api/documents/:id/reject-pii ──────────────────────────────
@@ -187,6 +194,12 @@ describe("Documents API", () => {
       expect(res.status).toBe(200);
       expect(res.body.status).toBe("rejected");
       expect(res.body.message).toContain("rejected");
+    });
+
+    it("rejects non-UUID id param", async () => {
+      const res = await adminAgent(orgId)
+        .post("/api/documents/not-a-uuid/reject-pii");
+      expect(res.status).toBe(400);
     });
   });
 

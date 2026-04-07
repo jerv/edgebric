@@ -52,7 +52,7 @@ Put a Mac Mini in your New York office with HR documents. Another in London with
 - **No replication** — each document lives on exactly one node
 - **Opt-in** — mesh can be enabled or disabled at any time without losing configuration
 
-A single Mac Mini M4 ($699) can serve 100-200 daily users. Three of them give you a globally distributed, fully private knowledge platform for under $2,100 in hardware.
+A single Mac Mini M4 ($699) can serve a team or department. Three of them give you a globally distributed, fully private knowledge platform for under $2,100 in hardware.
 
 ## Architecture
 
@@ -83,7 +83,7 @@ Monorepo with four packages:
 | **RAM** | 16GB | 24GB |
 | **Disk** | 20GB free | 50GB free |
 | **Hardware** | Any Apple Silicon Mac | Mac Mini M4 24GB ($699) |
-| **Use case** | Personal / vault use | Org server (100-200 daily users) |
+| **Use case** | Personal / vault use | Org / team server |
 
 ## Install
 

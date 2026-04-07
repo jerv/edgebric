@@ -63,5 +63,29 @@ describe("Integrations API", () => {
         .send({ privateModeEnabled: "not-a-boolean" });
       expect(res.status).toBe(400);
     });
+
+    it("rejects constructor key via strict schema", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ constructor: "polluted" });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects unknown extra keys via strict schema", async () => {
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ privateModeEnabled: true, randomKey: "injected" });
+      expect(res.status).toBe(400);
+    });
+
+    it("does not pollute Object.prototype after valid update", async () => {
+      // Send a valid body and verify no prototype pollution side effects
+      const res = await adminAgent(orgId)
+        .put("/api/admin/integrations")
+        .send({ privateModeEnabled: false });
+      expect(res.status).toBe(200);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((Object.prototype as any).isAdmin).toBeUndefined();
+    });
   });
 });

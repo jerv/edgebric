@@ -26,7 +26,7 @@ const updateConfigSchema = z.object({
   confluenceClientSecret: z.string().optional(),
   notionClientId: z.string().optional(),
   notionClientSecret: z.string().optional(),
-});
+}).strict();
 
 // GET /api/admin/integrations — get integration config
 integrationsRouter.get("/", (_req, res) => {
@@ -37,7 +37,9 @@ integrationsRouter.get("/", (_req, res) => {
 // PUT /api/admin/integrations — update integration config
 integrationsRouter.put("/", validateBody(updateConfigSchema), (req, res) => {
   const current = getIntegrationConfig();
-  const merged = { ...current, ...req.body };
+  const validated = updateConfigSchema.parse(req.body);
+  // Use null-prototype object to prevent prototype pollution
+  const merged = Object.assign(Object.create(null), current, validated);
   setIntegrationConfig(merged);
   res.json(merged);
 });

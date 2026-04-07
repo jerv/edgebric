@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage, nativeTheme, shell, powerMonitor } from "electron";
+import { app, BrowserWindow, dialog, nativeImage, nativeTheme, shell, powerMonitor } from "electron";
 import path from "path";
 import { createTray, destroyTray } from "./tray.js";
 import { startServer, cleanup, getStatus, readLogs, refreshMdns } from "./server.js";
@@ -95,7 +95,20 @@ export function openMainWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
-      shell.openExternal(url);
+      // Show confirmation dialog so users can verify the URL before opening
+      dialog.showMessageBox(mainWindow!, {
+        type: "question",
+        buttons: ["Open in Browser", "Cancel"],
+        defaultId: 1,
+        cancelId: 1,
+        title: "Open External Link",
+        message: "Open this link in your default browser?",
+        detail: url,
+      }).then(({ response }) => {
+        if (response === 0) {
+          shell.openExternal(url);
+        }
+      });
     }
     return { action: "deny" };
   });
