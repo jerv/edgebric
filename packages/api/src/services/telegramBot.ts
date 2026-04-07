@@ -187,7 +187,9 @@ export async function setWebhook(
   });
 
   const data = (await res.json()) as TelegramApiResponse;
-  return { ok: data.ok, description: data.description };
+  const result: { ok: boolean; description?: string } = { ok: data.ok };
+  if (data.description) result.description = data.description;
+  return result;
 }
 
 /**

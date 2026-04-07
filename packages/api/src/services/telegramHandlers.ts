@@ -10,7 +10,7 @@ import { config } from "../config.js";
 import { sendMessage, sendTypingAction, getFile, downloadFile } from "./telegramBot.js";
 import type { TelegramMessage } from "./telegramBot.js";
 import { getLinkedUserId, verifyLinkCode, requiresLinking } from "./telegramLinking.js";
-import { getUser, getUserByEmail } from "./userStore.js";
+import { getUser } from "./userStore.js";
 import { listAccessibleDataSources, listDataSources } from "./dataSourceStore.js";
 import { getIntegrationConfig } from "./integrationConfigStore.js";
 import { recordAuditEvent } from "./auditLog.js";
@@ -85,9 +85,6 @@ function filterVaultSources(
   orgId: string,
 ): { datasetNames: string[]; vaultSkipped: boolean } {
   const accessible = listAccessibleDataSources(email, isAdmin, orgId);
-  const vaultConfig = getIntegrationConfig();
-  const vaultEnabled = vaultConfig.vaultModeEnabled ?? false;
-
   // Filter out personal/vault sources — those should never go through Telegram
   const nonVault = accessible.filter((ds) => ds.type !== "personal");
 
@@ -399,7 +396,7 @@ export async function handleTextQuery(
     try {
       releaseSlotFn = await acquireSlot(
         conversation.id,
-        "normal",
+        "low",
         () => {}, // No queue position callback for Telegram
         abortController.signal,
       );
@@ -460,7 +457,7 @@ export async function handleTextQuery(
       content: result.answer,
       citations: result.citations,
       hasConfidentAnswer: result.hasConfidentAnswer,
-      answerType: result.answerType ?? undefined,
+      ...(result.answerType != null && { answerType: result.answerType }),
       source: "ai",
       createdAt: new Date(),
     };

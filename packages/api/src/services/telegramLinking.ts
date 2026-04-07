@@ -169,12 +169,8 @@ export function requiresLinking(): boolean {
 export function cleanupExpiredCodes(): void {
   const db = getDb();
   const now = new Date().toISOString();
-  db.delete(telegramLinkCodes)
-    .where(eq(telegramLinkCodes.expiresAt, now))
-    .run();
-  // Use raw SQL for < comparison since Drizzle's eq won't do it
-  const sqlite = db as unknown as { run: (sql: string, ...args: unknown[]) => void };
   try {
+    // Use raw SQL for < comparison since Drizzle's eq won't do it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (db as any).$client.prepare("DELETE FROM telegram_link_codes WHERE expires_at < ?").run(now);
   } catch {

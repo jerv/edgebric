@@ -4,7 +4,7 @@
  * Admin: toggle, bot token, webhook registration.
  * User: link/unlink Telegram account.
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Check, Eye, EyeOff, Link2, Unlink, Copy, Globe, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
