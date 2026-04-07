@@ -55,7 +55,7 @@ function AdminToggles() {
         <ToggleCard
           icon={<EyeOff className="w-4 h-4" />}
           title="Private Mode"
-          description="Members can make queries anonymously. Conversations are not logged and admin cannot see them."
+          description="Conversations are not saved and query text is not logged. The system records that a query occurred for rate limiting."
           enabled={config?.privateModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ privateModeEnabled: v })}
@@ -63,7 +63,7 @@ function AdminToggles() {
         <ToggleCard
           icon={<ShieldCheck className="w-4 h-4" />}
           title="Vault Mode"
-          description="Members can run queries entirely on their own device using the Edgebric desktop app. Nothing is sent to the server. Requires one-time setup per member."
+          description="Members can run queries locally using the Edgebric desktop app. Search runs in the browser, inference on the local AI engine. No data leaves the machine. Requires one-time setup per member."
           enabled={config?.vaultModeEnabled ?? false}
           saving={mutation.isPending}
           onToggle={(v) => mutation.mutate({ vaultModeEnabled: v })}
@@ -392,7 +392,7 @@ function VaultSetupWizard() {
           Vault Mode Setup
         </h3>
         <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
-          Run queries entirely on your device. Nothing is sent to any server.
+          Run queries locally. Search runs in the browser, inference on the local AI engine.
         </p>
       </div>
 
@@ -662,7 +662,7 @@ export function PrivacyTab() {
               </p>
               <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5 leading-relaxed">
                 Use the privacy selector above the chat input to switch to Private
-                Mode. Your queries will be anonymous and nothing will be
+                Mode. Your conversations will not be saved and query text will not be
                 logged.
               </p>
             </div>

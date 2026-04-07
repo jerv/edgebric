@@ -38,6 +38,23 @@ export function validateQuery(schema: ZodSchema) {
   };
 }
 
+/**
+ * Validates request path parameters against a Zod schema.
+ */
+export function validateParams(schema: ZodSchema) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.params);
+    if (!result.success) {
+      res.status(400).json({
+        error: "Validation failed",
+        details: formatZodError(result.error),
+      });
+      return;
+    }
+    next();
+  };
+}
+
 function formatZodError(error: ZodError): Array<{ path: string; message: string }> {
   return error.issues.map((issue) => ({
     path: issue.path.join("."),

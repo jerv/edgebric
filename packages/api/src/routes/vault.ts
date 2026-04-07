@@ -6,6 +6,11 @@ import { validateBody } from "../middleware/validate.js";
 import { config } from "../config.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 
+/**
+ * Vault routes — proxy vault queries through the local API server to llama-server.
+ * Note: vault queries DO make local network calls (API → llama-server on localhost).
+ * "On-device" means no data leaves the machine, not that there is zero network I/O.
+ */
 export const vaultRouter: IRouter = Router();
 
 vaultRouter.use(requireOrg);

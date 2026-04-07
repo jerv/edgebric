@@ -174,6 +174,62 @@ export function isFileEncrypted(filePath: string): boolean {
   }
 }
 
+// ─── Embedding noise protection ─────────────────────────────────────────────
+
+/**
+ * Generate a deterministic noise vector for embedding protection.
+ *
+ * Uses HMAC-SHA256(master_key, label + counter) in counter mode to produce
+ * enough pseudorandom bytes to fill the embedding dimension. Each 4-byte block
+ * is converted to a float in [-1, 1]. The result is deterministic: the same
+ * key + label always produces the same noise vector.
+ *
+ * Noise is shared per dataset (not per chunk) so that sqlite-vec ANN search
+ * still works: shift the query by the same noise and L2 distances are
+ * preserved. An attacker without the key sees random vectors and cannot
+ * infer topics or compare embeddings across datasets.
+ */
+export function generateEmbeddingNoise(label: string, dimensions: number): Float32Array {
+  const key = getMasterKey();
+  const noise = new Float32Array(dimensions);
+  let idx = 0;
+  let counter = 0;
+
+  while (idx < dimensions) {
+    const hmac = crypto.createHmac("sha256", key);
+    hmac.update(`emb-noise:${label}:${counter}`);
+    const hash = hmac.digest();
+    // Each SHA-256 digest = 32 bytes = 8 float32 values
+    for (let i = 0; i + 3 < hash.length && idx < dimensions; i += 4, idx++) {
+      const uint32 = hash.readUInt32LE(i);
+      noise[idx] = (uint32 / 0xffffffff) * 2 - 1; // Map to [-1, 1]
+    }
+    counter++;
+  }
+
+  return noise;
+}
+
+/**
+ * Add dataset-level noise to an embedding vector for storage.
+ * stored = real + noise(datasetName)
+ */
+export function addEmbeddingNoise(embedding: number[], datasetName: string): number[] {
+  const noise = generateEmbeddingNoise(datasetName, embedding.length);
+  return embedding.map((v, i) => v + noise[i]!);
+}
+
+/**
+ * Shift a query embedding by the dataset's noise so that sqlite-vec ANN
+ * returns correct results against noise-shifted stored embeddings.
+ *
+ * L2(stored, shifted_query) = L2(real + noise, query + noise) = L2(real, query)
+ */
+export function shiftQueryEmbedding(queryEmbedding: number[], datasetName: string): number[] {
+  const noise = generateEmbeddingNoise(datasetName, queryEmbedding.length);
+  return queryEmbedding.map((v, i) => v + noise[i]!);
+}
+
 /**
  * Decrypt a file to a temporary path for tools that need a real file
  * (e.g., Docling PDF extraction, Mammoth DOCX extraction).
