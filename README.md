@@ -1,10 +1,10 @@
 # Edgebric
 
-**Private knowledge platform that runs on your hardware.** Upload documents, ask questions with AI, and get cited answers — nothing leaves your machine. Ever.
+**Private knowledge platform that runs on your hardware.** Upload documents, ask questions with AI, and get cited answers — all processed locally.
 
 Whether you're organizing family documents, managing client files, building a personal research library, or running a 200-person company with department-level data isolation — Edgebric runs locally on a Mac and scales from one user to hundreds.
 
-> *"Your data. Your hardware. Your AI."*
+> *"Your data. Your hardware. Your AI." — Private by design.*
 
 ---
 
@@ -20,11 +20,11 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 
 ## What It Does
 
-- **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations, but no document ever leaves the machine it's stored on. Your data stays on your hardware — private by design.
+- **Multi-node mesh networking**: Install a Mac in each office or department. Each node holds its own documents. Queries fan out across all nodes in parallel — answers come back with citations and relevant snippets, but full documents never leave the machine they're stored on.
 - **Document ingestion**: Upload PDF, DOCX, TXT, MD files. Automatic extraction, chunking, and embedding.
 - **RAG-powered Q&A**: Ask questions in natural language. Get answers with source citations.
 - **Cloud integrations**: Sync documents from Google Drive, OneDrive, Confluence, and Notion. Documents are pulled to your local machine — never stored in the cloud.
-- **Privacy modes**: Standard (anonymous analytics), Private (no identity tracking), Vault (on-device only).
+- **PII protection**: Per-source PII detection with configurable modes (off, warn, block). No telemetry or analytics — Edgebric never phones home.
 - **SSO / OIDC authentication**: Sign in with Google or Microsoft. Not needed for Solo mode.
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
 - **Data source management**: Organize documents into data sources with per-source access control.
@@ -40,11 +40,11 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 - **Organizations**: Department-level data isolation enforced by architecture, not just access controls. Mesh networking for multi-site deployments
 - **AI agents**: Edgebric works as a private knowledge backend for AI agents (OpenClaw skill available)
 
-## Mesh Networking — Data Never Moves
+## Mesh Networking — Documents Stay Put
 
 Most knowledge platforms centralize your documents in one place. Edgebric does the opposite.
 
-Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When an employee asks a question, Edgebric queries all three nodes simultaneously and merges the results — but no document ever crosses the network. Only the query and the relevant answer snippets travel.
+Put a Mac Mini in your New York office with HR documents. Another in London with legal contracts. A third in Tokyo with engineering specs. When an employee asks a question, Edgebric queries all three nodes simultaneously and merges the results — full documents never cross the network. Only the query and relevant answer snippets travel between nodes.
 
 - **One primary node** handles authentication; secondary nodes join the mesh with a shared token
 - **Node groups** let you organize by department, office, or sensitivity level
@@ -68,7 +68,7 @@ Monorepo with four packages:
 
 ### Key tech
 
-- **AI**: llama.cpp for local inference (Qwen 3 4B default, supports any GGUF model from HuggingFace)
+- **AI**: llama.cpp for local inference (Qwen 3.5 4B default, supports any GGUF model from HuggingFace)
 - **Embeddings**: nomic-embed-text (768-dim) via llama-server
 - **Vector search**: sqlite-vec (embedded in SQLite) with BM25 hybrid retrieval (FTS5 + Reciprocal Rank Fusion)
 - **Storage**: SQLite (Drizzle ORM) — metadata, vectors, and full-text search in one file
