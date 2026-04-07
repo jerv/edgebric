@@ -161,35 +161,12 @@ jobs:
           // ---------------------------------------------------------------------------
           // Compose tweets
           // ---------------------------------------------------------------------------
-          function extractHighlight(body) {
-            // Grab the first meaningful line from the release notes
-            const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
-            for (const line of lines) {
-              // Skip markdown headers, bullets-only lines, and very short lines
-              const cleaned = line.replace(/^[#*\->\s]+/, "").trim();
-              if (cleaned.length > 10) return cleaned;
-            }
-            return "New features and improvements";
+          function composePrimaryTweet(tag) {
+            return `Edgebric ${tag} is out.`;
           }
 
-          function composePrimaryTweet(tag, body, url) {
-            const highlight = extractHighlight(body);
-            const hashtags = "#edgebric #localAI #privacy";
-            const prefix = `Edgebric ${tag} is out! `;
-            const suffix = `\n\nDownload: ${url}\n\n${hashtags}`;
-
-            // Trim highlight to fit within 280 chars
-            const maxHighlight = 280 - prefix.length - suffix.length;
-            const trimmedHighlight =
-              highlight.length > maxHighlight
-                ? highlight.slice(0, maxHighlight - 1) + "…"
-                : highlight;
-
-            return `${prefix}${trimmedHighlight}${suffix}`;
-          }
-
-          function composeReplyChunks(body) {
-            // Clean up release body for tweet thread
+          function composeReplyChunks(body, url) {
+            // Clean up release body for reply thread
             const text = body
               .replace(/\r\n/g, "\n")
               .replace(/#{1,6}\s*/g, "")       // Remove markdown headers
@@ -197,10 +174,8 @@ jobs:
               .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Inline links → text only
               .trim();
 
-            if (text.length <= 100) return []; // Not worth a thread
-
             const chunks = [];
-            const maxLen = 275; // Leave room for thread numbering
+            const maxLen = 275;
             let remaining = text;
 
             while (remaining.length > 0) {
@@ -208,7 +183,6 @@ jobs:
                 chunks.push(remaining);
                 break;
               }
-              // Find a good break point (newline or space)
               let breakAt = remaining.lastIndexOf("\n", maxLen);
               if (breakAt < 100) breakAt = remaining.lastIndexOf(" ", maxLen);
               if (breakAt < 100) breakAt = maxLen;
@@ -217,6 +191,9 @@ jobs:
               remaining = remaining.slice(breakAt).trim();
             }
 
+            // Add download link as final reply
+            chunks.push(url);
+
             return chunks;
           }
 
@@ -224,8 +201,8 @@ jobs:
           // Main
           // ---------------------------------------------------------------------------
           async function main() {
-            const primaryText = composePrimaryTweet(releaseTag, releaseBody, releaseUrl);
-            const replyChunks = composeReplyChunks(releaseBody);
+            const primaryText = composePrimaryTweet(releaseTag);
+            const replyChunks = composeReplyChunks(releaseBody, releaseUrl);
 
             console.log("=== Primary Tweet ===");
             console.log(primaryText);
