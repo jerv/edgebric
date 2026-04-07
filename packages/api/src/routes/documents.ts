@@ -267,7 +267,7 @@ documentsRouter.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 documentsRouter.get("/:id", validateParams(idParamSchema), (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -283,7 +283,7 @@ documentsRouter.get("/:id", validateParams(idParamSchema), (req, res) => {
 // ─── PII Review Gate ──────────────────────────────────────────────────────────
 
 documentsRouter.post("/:id/approve-pii", async (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -332,7 +332,7 @@ documentsRouter.post("/:id/approve-pii", async (req, res) => {
 });
 
 documentsRouter.post("/:id/reject-pii", async (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
@@ -357,7 +357,7 @@ documentsRouter.post("/:id/reject-pii", async (req, res) => {
 });
 
 documentsRouter.delete("/:id", validateParams(idParamSchema), async (req, res) => {
-  const id = req.params["id"] ?? "";
+  const id = req.params["id"] as string;
   if (req.session.orgId && !documentBelongsToOrg(id, req.session.orgId)) {
     res.status(404).json({ error: "Document not found" });
     return;
