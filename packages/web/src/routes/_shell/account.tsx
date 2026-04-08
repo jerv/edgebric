@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AccountPage } from "@/components/SettingsPage";
 import type { AccountTab } from "@/components/SettingsPage";
 
-const VALID_TABS: AccountTab[] = ["general", "notifications", "conversations", "connected-accounts", "api-keys"];
+const VALID_TABS: AccountTab[] = ["general", "ai", "notifications", "conversations", "connected-accounts", "api-keys"];
 
 function AccountRoute() {
   const { tab } = Route.useSearch();

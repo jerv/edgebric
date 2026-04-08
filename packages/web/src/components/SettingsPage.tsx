@@ -16,10 +16,11 @@ import { TelegramUserSection } from "@/components/settings/TelegramSection";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type AccountTab = "general" | "notifications" | "conversations" | "connected-accounts" | "api-keys";
+export type AccountTab = "general" | "ai" | "notifications" | "conversations" | "connected-accounts" | "api-keys";
 
 const TABS: { id: AccountTab; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "ai", label: "AI" },
   { id: "notifications", label: "Notifications" },
   { id: "conversations", label: "Conversations" },
   { id: "connected-accounts", label: "Connected Accounts" },
@@ -84,6 +85,18 @@ function DisclaimerToggle() {
   );
 }
 
+// ─── AI Tab ───────────────────────────────────────────────────────────────
+
+function AITab() {
+  const user = useUser();
+  return (
+    <div className="space-y-6">
+      <AiBehaviorSettings />
+      {user?.isAdmin && <DisclaimerToggle />}
+    </div>
+  );
+}
+
 // ─── AI Behavior settings (per-user, localStorage) ────────────────────────
 
 function AiBehaviorSettings() {
@@ -121,37 +134,8 @@ function AiBehaviorSettings() {
         </p>
       </div>
 
-      {toggles.map(({ key, label, description, autoControlled }) => (
-        <div
-          key={key}
-          className={cn(
-            "flex items-start justify-between gap-4",
-            autoControlled && settings.auto && "opacity-40",
-          )}
-        >
-          <div>
-            <p className="text-sm text-slate-700 dark:text-gray-300">{label}</p>
-            <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{description}</p>
-          </div>
-          <button
-            onClick={() => update({ [key]: !settings[key] })}
-            disabled={autoControlled && settings.auto}
-            className={cn(
-              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 mt-0.5",
-              settings[key]
-                ? "bg-slate-900 dark:bg-gray-100"
-                : "bg-slate-200 dark:bg-gray-700",
-            )}
-          >
-            <span className={cn(
-              "inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-900 transition-transform",
-              settings[key] ? "translate-x-6" : "translate-x-1",
-            )} />
-          </button>
-        </div>
-      ))}
-
-      <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-gray-800">
+      {/* Auto mode — first */}
+      <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm text-slate-700 dark:text-gray-300">Auto mode</p>
           <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
@@ -363,15 +347,6 @@ function GeneralTab() {
           </p>
         </div>
       )}
-
-      {/* AI Behavior settings — per user */}
-      <AiBehaviorSettings />
-
-      {/* AI disclaimer toggle — admin only */}
-      {user?.isAdmin && <DisclaimerToggle />}
-
-      {/* Telegram Account Linking */}
-      <TelegramUserSection />
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <a href="https://edgebric.com/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Privacy</a>
@@ -698,9 +673,10 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
 
         {/* Tab content */}
         {tab === "general" && <GeneralTab />}
+        {tab === "ai" && <AITab />}
         {tab === "notifications" && <NotificationsTab />}
         {tab === "conversations" && <ConversationsTab />}
-        {tab === "connected-accounts" && <ConnectedAccountsTab />}
+        {tab === "connected-accounts" && <><ConnectedAccountsTab /><div className="mt-6"><TelegramUserSection /></div></>}
         {tab === "api-keys" && <ApiKeysTab />}
       </div>
     </div>

@@ -14,7 +14,7 @@ import os from "os";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
 import type { InstalledModel, PullProgressEvent, SystemResources, StorageBreakdown } from "@edgebric/types";
-import { MODEL_FILENAME_MAP, MODEL_CATALOG_MAP } from "@edgebric/types";
+import { MODEL_FILENAME_MAP, MODEL_CATALOG_MAP, parseSplitGGUF, getAllShardFilenames, getAllShardUrls, allShardsPresent, findCatalogForShard } from "@edgebric/types";
 
 function chatBaseUrl(): string {
   return config.inference.chatBaseUrl;
@@ -74,23 +74,86 @@ export async function listInstalled(): Promise<InstalledModel[]> {
   const dir = modelsDir();
   if (!fs.existsSync(dir)) return [];
 
-  const models: InstalledModel[] = [];
+  // Collect all .gguf files on disk
+  const diskFiles = new Set<string>();
+  const fileSizes = new Map<string, { size: number; mtime: string }>();
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".gguf")) continue;
+    diskFiles.add(entry.name);
+    const stat = fs.statSync(path.join(dir, entry.name));
+    fileSizes.set(entry.name, { size: stat.size, mtime: stat.mtime.toISOString() });
+  }
 
-    const fullPath = path.join(dir, entry.name);
-    const stat = fs.statSync(fullPath);
-    const catalog = MODEL_FILENAME_MAP.get(entry.name);
+  const models: InstalledModel[] = [];
+  const seen = new Set<string>(); // track filenames already accounted for
 
-    models.push({
-      tag: catalog?.tag ?? entry.name.replace(/\.gguf$/, ""),
-      filename: entry.name,
-      name: catalog?.name ?? entry.name.replace(/\.gguf$/, ""),
-      sizeBytes: stat.size,
-      modifiedAt: stat.mtime.toISOString(),
-      status: "installed",
-      catalogEntry: catalog ?? undefined,
-    });
+  for (const filename of diskFiles) {
+    if (seen.has(filename)) continue;
+
+    // Check if this file belongs to a catalog entry (direct or as a shard)
+    const catalog = MODEL_FILENAME_MAP.get(filename) ?? findCatalogForShard(filename);
+
+    if (catalog) {
+      // For split models, check if ALL shards are present
+      const shards = getAllShardFilenames(catalog.ggufFilename);
+      const allPresent = allShardsPresent(catalog.ggufFilename, diskFiles);
+
+      if (shards.length > 1) {
+        // Mark all shards as seen regardless of completeness
+        for (const s of shards) seen.add(s);
+
+        if (!allPresent) {
+          // Partial download — don't list as installed
+          continue;
+        }
+
+        // Sum sizes across all shards, use latest mtime
+        let totalSize = 0;
+        let latestMtime = "";
+        for (const s of shards) {
+          const info = fileSizes.get(s);
+          if (info) {
+            totalSize += info.size;
+            if (info.mtime > latestMtime) latestMtime = info.mtime;
+          }
+        }
+
+        models.push({
+          tag: catalog.tag,
+          filename: catalog.ggufFilename, // first shard filename (llama.cpp loads from this)
+          name: catalog.name,
+          sizeBytes: totalSize,
+          modifiedAt: latestMtime,
+          status: "installed",
+          catalogEntry: catalog,
+        });
+      } else {
+        // Single file catalog model
+        seen.add(filename);
+        const info = fileSizes.get(filename)!;
+        models.push({
+          tag: catalog.tag,
+          filename,
+          name: catalog.name,
+          sizeBytes: info.size,
+          modifiedAt: info.mtime,
+          status: "installed",
+          catalogEntry: catalog,
+        });
+      }
+    } else {
+      // Community / unknown model — single file
+      seen.add(filename);
+      const info = fileSizes.get(filename)!;
+      models.push({
+        tag: filename.replace(/\.gguf$/, ""),
+        filename,
+        name: filename.replace(/\.gguf$/, ""),
+        sizeBytes: info.size,
+        modifiedAt: info.mtime,
+        status: "installed",
+      });
+    }
   }
 
   return models;
@@ -157,37 +220,29 @@ export async function unloadModel(_tag: string): Promise<void> {
 }
 
 /**
- * Download a GGUF model from its catalog URL with progress reporting.
+ * Download a single file from a URL to disk, reporting progress as bytes.
+ * Used internally by pullModel for each shard.
  */
-export async function pullModel(
-  tag: string,
-  onProgress: (event: PullProgressEvent) => void,
+async function downloadSingleFile(
+  url: string,
+  finalPath: string,
+  onData: (chunkBytes: number) => void,
   signal?: AbortSignal,
-): Promise<void> {
-  const catalog = MODEL_CATALOG_MAP.get(tag);
-  if (!catalog) {
-    throw new InferenceError(`Unknown model tag: ${tag}`, 404);
-  }
-
-  const dir = modelsDir();
-  fs.mkdirSync(dir, { recursive: true });
-
-  const finalPath = path.join(dir, catalog.ggufFilename);
+): Promise<number> {
   const tmpPath = finalPath + ".tmp";
-
   const { default: https } = await import("https");
   const { default: http } = await import("http");
 
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<number>((resolve, reject) => {
     if (signal?.aborted) { reject(new Error("Download cancelled")); return; }
     const onAbort = () => { reject(new Error("Download cancelled")); };
     signal?.addEventListener("abort", onAbort, { once: true });
 
-    const download = (url: string, redirectCount = 0) => {
+    const download = (downloadUrl: string, redirectCount = 0) => {
       if (redirectCount > 10) { reject(new Error("Too many redirects")); return; }
 
-      const proto = url.startsWith("https") ? https : http;
-      const req = proto.get(url, (res) => {
+      const proto = downloadUrl.startsWith("https") ? https : http;
+      const req = proto.get(downloadUrl, (res) => {
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           download(res.headers.location, redirectCount + 1);
           return;
@@ -197,16 +252,11 @@ export async function pullModel(
           return;
         }
 
-        const totalBytes = parseInt(res.headers["content-length"] ?? "0", 10);
-        let downloadedBytes = 0;
+        const shardSize = parseInt(res.headers["content-length"] ?? "0", 10);
         const file = fs.createWriteStream(tmpPath);
 
         res.on("data", (chunk: Buffer) => {
-          downloadedBytes += chunk.length;
-          if (totalBytes > 0) {
-            const percent = Math.round((downloadedBytes / totalBytes) * 100);
-            onProgress({ status: "downloading", completed: downloadedBytes, total: totalBytes, percent });
-          }
+          onData(chunk.length);
         });
 
         res.pipe(file);
@@ -214,8 +264,7 @@ export async function pullModel(
           file.close(() => {
             signal?.removeEventListener("abort", onAbort);
             fs.renameSync(tmpPath, finalPath);
-            onProgress({ status: "success" });
-            resolve();
+            resolve(shardSize);
           });
         });
         file.on("error", (err) => {
@@ -235,34 +284,108 @@ export async function pullModel(
       }, { once: true });
     };
 
-    download(catalog.downloadUrl);
+    download(url);
   });
-
-  logger.info({ tag, filename: catalog.ggufFilename }, "Model download complete");
 }
 
-/** Delete a GGUF model file from disk. */
+/**
+ * Download a GGUF model from its catalog URL with progress reporting.
+ * Handles both single-file and split GGUF models.
+ */
+export async function pullModel(
+  tag: string,
+  onProgress: (event: PullProgressEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const catalog = MODEL_CATALOG_MAP.get(tag);
+  if (!catalog) {
+    throw new InferenceError(`Unknown model tag: ${tag}`, 404);
+  }
+
+  const dir = modelsDir();
+  fs.mkdirSync(dir, { recursive: true });
+
+  const shardFilenames = getAllShardFilenames(catalog.ggufFilename);
+  const shardUrls = getAllShardUrls(catalog.downloadUrl, catalog.ggufFilename);
+  const isSplit = shardFilenames.length > 1;
+
+  // Approximate total bytes from catalog downloadSizeGB
+  const estimatedTotalBytes = Math.round(catalog.downloadSizeGB * 1024 * 1024 * 1024);
+  let totalDownloaded = 0;
+
+  for (let i = 0; i < shardFilenames.length; i++) {
+    if (signal?.aborted) throw new Error("Download cancelled");
+
+    const shardPath = path.join(dir, shardFilenames[i]!);
+    const shardUrl = shardUrls[i]!;
+
+    if (isSplit) {
+      logger.info({ tag, shard: i + 1, total: shardFilenames.length, filename: shardFilenames[i] }, "Downloading shard");
+    }
+
+    await downloadSingleFile(
+      shardUrl,
+      shardPath,
+      (chunkBytes) => {
+        totalDownloaded += chunkBytes;
+        const percent = estimatedTotalBytes > 0
+          ? Math.min(99, Math.round((totalDownloaded / estimatedTotalBytes) * 100))
+          : 0;
+        onProgress({
+          status: isSplit ? `downloading shard ${i + 1}/${shardFilenames.length}` : "downloading",
+          completed: totalDownloaded,
+          total: estimatedTotalBytes,
+          percent,
+        });
+      },
+      signal,
+    );
+  }
+
+  onProgress({ status: "success" });
+  logger.info({ tag, filename: catalog.ggufFilename, shards: shardFilenames.length }, "Model download complete");
+}
+
+/** Delete a GGUF model file (and all shards for split models) from disk. */
 export async function deleteModel(tag: string): Promise<void> {
   const dir = modelsDir();
   // Find file by catalog tag or direct filename match
   const catalog = [...MODEL_FILENAME_MAP.values()].find(c => c.tag === tag);
   const filename = catalog?.ggufFilename ?? `${tag}.gguf`;
-  const filePath = path.join(dir, filename);
 
-  if (!fs.existsSync(filePath)) {
-    // Try to find by partial match
-    const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
-    const match = files.find(f => f.toLowerCase().includes(tag.toLowerCase()) && f.endsWith(".gguf"));
-    if (match) {
-      fs.unlinkSync(path.join(dir, match));
-      logger.info({ tag, file: match }, "Model deleted");
-      return;
+  // Get all shard filenames (single-file models return array of 1)
+  const shards = getAllShardFilenames(filename);
+  let deletedAny = false;
+
+  for (const shard of shards) {
+    const shardPath = path.join(dir, shard);
+    if (fs.existsSync(shardPath)) {
+      fs.unlinkSync(shardPath);
+      deletedAny = true;
     }
-    throw new InferenceError(`Model file not found: ${filename}`, 404);
   }
 
-  fs.unlinkSync(filePath);
-  logger.info({ tag, file: filename }, "Model deleted");
+  // Also clean up any .tmp files from partial downloads
+  for (const shard of shards) {
+    const tmpPath = path.join(dir, shard + ".tmp");
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+  }
+
+  if (deletedAny) {
+    logger.info({ tag, files: shards, count: shards.length }, "Model deleted");
+    return;
+  }
+
+  // Fallback: try to find by partial match (community models)
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+  const match = files.find(f => f.toLowerCase().includes(tag.toLowerCase()) && f.endsWith(".gguf"));
+  if (match) {
+    fs.unlinkSync(path.join(dir, match));
+    logger.info({ tag, file: match }, "Model deleted");
+    return;
+  }
+
+  throw new InferenceError(`Model file not found: ${filename}`, 404);
 }
 
 // ─── System Resources ────────────────────────────────────────────────────────

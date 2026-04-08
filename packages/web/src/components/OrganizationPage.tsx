@@ -92,28 +92,6 @@ function OrgGeneralTab() {
     void queryClient.invalidateQueries({ queryKey: ["admin", "org"] });
   }
 
-  const disclaimerEnabled = org?.settings.showDisclaimer ?? true;
-  const [disclaimerSaving, setDisclaimerSaving] = useState(false);
-
-  async function toggleDisclaimer() {
-    if (!isAdmin) return;
-    setDisclaimerSaving(true);
-    try {
-      const res = await fetch("/api/admin/org/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ showDisclaimer: !disclaimerEnabled }),
-      });
-      if (res.ok) {
-        void queryClient.invalidateQueries({ queryKey: ["admin", "org"] });
-        void queryClient.invalidateQueries({ queryKey: ["me"] });
-      }
-    } finally {
-      setDisclaimerSaving(false);
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Org info card */}
@@ -216,38 +194,6 @@ function OrgGeneralTab() {
           </div>
         )}
       </div>
-
-      {/* AI Settings */}
-      {isAdmin && (
-        <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100 mb-4">AI Settings</h3>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-700 dark:text-gray-300">Show answer disclaimer</p>
-              <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
-                Display "Verify all important answers with the appropriate human" below AI responses
-              </p>
-            </div>
-            <button
-              onClick={toggleDisclaimer}
-              disabled={disclaimerSaving}
-              className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0",
-                disclaimerEnabled
-                  ? "bg-slate-900 dark:bg-gray-100"
-                  : "bg-slate-200 dark:bg-gray-700",
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-900 transition-transform",
-                  disclaimerEnabled ? "translate-x-6" : "translate-x-1",
-                )}
-              />
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

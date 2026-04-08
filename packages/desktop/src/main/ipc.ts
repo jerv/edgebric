@@ -18,6 +18,7 @@ import {
   isChatServerRunning,
   stopInstance,
   CHAT_BASE_URL,
+  getAllShardFilenames,
 } from "./llama-server.js";
 import crypto from "crypto";
 import fs from "fs";
@@ -444,22 +445,95 @@ export function registerIpcHandlers() {
       const CATALOG = getCatalog();
       const catalogByFile = new Map(CATALOG.map((c) => [c.ggufFilename, c]));
 
-      const models = localModels.map((m) => {
-        const cat = catalogByFile.get(m.filename);
-        const tag = cat?.tag ?? m.filename.replace(/\.gguf$/, "");
-        // Model is "loaded" if the chat server is running and this is the active model
-        const isActive = tag === (config?.chatModel ?? "");
-        return {
-          tag,
-          filename: m.filename,
-          name: cat?.name ?? m.filename.replace(/\.gguf$/, ""),
-          sizeBytes: m.sizeBytes,
-          modifiedAt: m.modifiedAt,
-          status: (chatUp && isActive) ? "loaded" : "installed",
-          ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
-          catalogEntry: cat ?? undefined,
-        };
-      });
+      // Build a set of all disk filenames for split-GGUF shard checks
+      const diskFilenames = new Set(localModels.map((m) => m.filename));
+      const seen = new Set<string>();
+
+      // Also build a reverse map: any shard filename -> catalog entry (first shard)
+      const shardToCatalog = new Map<string, typeof CATALOG[0]>();
+      for (const cat of CATALOG) {
+        for (const shard of getAllShardFilenames(cat.ggufFilename)) {
+          shardToCatalog.set(shard, cat);
+        }
+      }
+
+      const models: Array<{
+        tag: string; filename: string; name: string; sizeBytes: number;
+        modifiedAt: string; status: string; ramUsageBytes?: number;
+        catalogEntry?: typeof CATALOG[0];
+      }> = [];
+
+      for (const m of localModels) {
+        if (seen.has(m.filename)) continue;
+
+        const cat = catalogByFile.get(m.filename) ?? shardToCatalog.get(m.filename);
+
+        if (cat) {
+          const shards = getAllShardFilenames(cat.ggufFilename);
+
+          if (shards.length > 1) {
+            // Mark all shards as seen
+            for (const s of shards) seen.add(s);
+
+            // Only list as installed if ALL shards are present
+            const allPresent = shards.every((s) => diskFilenames.has(s));
+            if (!allPresent) continue;
+
+            // Sum sizes and use latest mtime
+            let totalSize = 0;
+            let latestMtime = "";
+            for (const s of shards) {
+              const sm = localModels.find((lm) => lm.filename === s);
+              if (sm) {
+                totalSize += sm.sizeBytes;
+                if (sm.modifiedAt > latestMtime) latestMtime = sm.modifiedAt;
+              }
+            }
+
+            const tag = cat.tag;
+            const isActive = tag === (config?.chatModel ?? "");
+            models.push({
+              tag,
+              filename: cat.ggufFilename,
+              name: cat.name,
+              sizeBytes: totalSize,
+              modifiedAt: latestMtime,
+              status: (chatUp && isActive) ? "loaded" : "installed",
+              ramUsageBytes: (chatUp && isActive) ? Math.round(totalSize * 1.3) : undefined,
+              catalogEntry: cat,
+            });
+          } else {
+            // Single-file catalog model
+            seen.add(m.filename);
+            const tag = cat.tag;
+            const isActive = tag === (config?.chatModel ?? "");
+            models.push({
+              tag,
+              filename: m.filename,
+              name: cat.name,
+              sizeBytes: m.sizeBytes,
+              modifiedAt: m.modifiedAt,
+              status: (chatUp && isActive) ? "loaded" : "installed",
+              ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
+              catalogEntry: cat,
+            });
+          }
+        } else {
+          // Community / unknown single-file model
+          seen.add(m.filename);
+          const tag = m.filename.replace(/\.gguf$/, "");
+          const isActive = tag === (config?.chatModel ?? "");
+          models.push({
+            tag,
+            filename: m.filename,
+            name: m.filename.replace(/\.gguf$/, ""),
+            sizeBytes: m.sizeBytes,
+            modifiedAt: m.modifiedAt,
+            status: (chatUp && isActive) ? "loaded" : "installed",
+            ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
+          });
+        }
+      }
 
       const installedTags = new Set(models.map((m) => m.tag));
       const catalog = CATALOG.filter((c) => !c.hidden && !installedTags.has(c.tag));
@@ -581,6 +655,7 @@ export function registerIpcHandlers() {
           }
         },
         controller.signal,
+        catEntry.downloadSizeGB,
       );
 
       activePulls.delete(tag);

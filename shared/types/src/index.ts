@@ -423,8 +423,8 @@ export interface GroupChatMessage {
 
 // ─── AI Models (re-exported from models.ts) ─────────────────────────────────
 
-export type { ModelCapabilities, ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, StorageBreakdown, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult } from "./models.js";
-export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, MODEL_FILENAME_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG, checkModelRAMFit, inferCapabilitiesFromTags } from "./models.js";
+export type { ModelCapabilities, ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, StorageBreakdown, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult, SplitGGUFInfo } from "./models.js";
+export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, MODEL_FILENAME_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG, checkModelRAMFit, inferCapabilitiesFromTags, parseSplitGGUF, getAllShardFilenames, getAllShardUrls, allShardsPresent, findCatalogForShard } from "./models.js";
 
 // ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────
 
