@@ -6,6 +6,7 @@ metadata:
     env:
       - EDGEBRIC_API_KEY
       - EDGEBRIC_URL
+  primary_credential: EDGEBRIC_API_KEY
 user-invocable: true
 model-invocable: true
 ---
@@ -161,7 +162,7 @@ Check if a document upload/ingestion job is complete.
 DELETE $EDGEBRIC_URL/api/v1/documents/{documentId}
 ```
 
-Requires read-write or admin permission.
+Requires read-write or admin permission. **Always confirm with the user before deleting.** Never delete documents without explicit user approval.
 
 ### Delete a Source
 
@@ -169,7 +170,7 @@ Requires read-write or admin permission.
 DELETE $EDGEBRIC_URL/api/v1/sources/{sourceId}
 ```
 
-Deletes the source and ALL its documents. Requires admin permission.
+Deletes the source and ALL its documents. Requires admin permission. **Always confirm with the user before deleting a source — this is a destructive, irreversible operation.** Never delete sources without explicit user approval.
 
 ## Formatting Results
 
