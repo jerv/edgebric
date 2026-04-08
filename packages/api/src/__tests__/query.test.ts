@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { setupTestApp, teardownTestApp, memberAgent, getDefaultOrgId } from "./helpers.js";
 import { setDocument } from "../services/documentStore.js";
 import { ensureDefaultDataSource } from "../services/dataSourceStore.js";
-import type { Document } from "@edgebric/types";
+
 
 describe("Query API", () => {
   let orgId: string;
