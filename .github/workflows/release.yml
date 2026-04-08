@@ -55,12 +55,16 @@ jobs:
         run: pnpm build
 
       - name: Bundle API server for desktop app
-        run: |
-          node scripts/bundle-server.mjs
-          node scripts/install-server-deps.mjs
+        run: node scripts/bundle-server.mjs
+
+      - name: Install server native dependencies
+        run: node scripts/install-server-deps.mjs
 
       - name: Smoke test bundled server
         run: node scripts/smoke-test-bundle.mjs
+
+      - name: Rebuild native modules for Electron
+        run: node scripts/rebuild-for-electron.mjs
 
       # Import the Apple Developer ID certificate into a temporary keychain
       - name: Import code signing certificate

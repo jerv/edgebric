@@ -20,13 +20,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const serverDir = path.resolve(root, "packages/desktop/resources/server");
 
-// Read Electron version from desktop package.json
-const desktopPkg = JSON.parse(
-  fs.readFileSync(path.join(root, "packages/desktop/package.json"), "utf8")
-);
-const electronVersion = desktopPkg.devDependencies.electron.replace(/[^0-9.]/g, "");
-console.log(`Electron version: ${electronVersion}`);
-
 // Modules that can't be bundled — native addons + pino ecosystem
 const nativeDeps = {
   "better-sqlite3": "^12.6.2",
@@ -57,16 +50,4 @@ execSync("npm install --omit=dev --no-package-lock", {
   stdio: "inherit",
 });
 
-// Rebuild native modules for Electron's Node.js runtime
-console.log(`\nRebuilding native modules for Electron ${electronVersion}...`);
-const desktopDir = path.join(root, "packages/desktop");
-const rebuildBin = path.join(desktopDir, "node_modules", ".bin", "electron-rebuild");
-execSync(
-  `"${rebuildBin}" --module-dir "${serverDir}" --electron-version ${electronVersion} --force`,
-  {
-    cwd: desktopDir,
-    stdio: "inherit",
-  }
-);
-
-console.log("✓ Native dependencies installed and rebuilt for Electron");
+console.log("✓ Native dependencies installed in resources/server/node_modules/");
