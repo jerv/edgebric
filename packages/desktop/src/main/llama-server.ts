@@ -416,6 +416,41 @@ export function getLoadedEmbeddingModel(): string | null {
   return loadedEmbeddingModel;
 }
 
+// ─── Split GGUF Helpers ─────────────────────────────────────────────────────
+
+const SPLIT_GGUF_RE = /-(\d{5})-of-(\d{5})\.gguf$/;
+
+/** Parse a GGUF filename to detect split-file sharding. */
+function parseSplitGGUF(filename: string): { isSplit: boolean; totalShards: number; basePattern: string } {
+  const match = filename.match(SPLIT_GGUF_RE);
+  if (!match) return { isSplit: false, totalShards: 1, basePattern: filename };
+  return {
+    isSplit: true,
+    totalShards: parseInt(match[2]!, 10),
+    basePattern: filename.replace(SPLIT_GGUF_RE, `-%s-of-${match[2]}.gguf`),
+  };
+}
+
+/** Generate all shard filenames for a (possibly split) GGUF model. */
+export function getAllShardFilenames(filename: string): string[] {
+  const info = parseSplitGGUF(filename);
+  if (!info.isSplit) return [filename];
+  const filenames: string[] = [];
+  for (let i = 1; i <= info.totalShards; i++) {
+    filenames.push(info.basePattern.replace("%s", String(i).padStart(5, "0")));
+  }
+  return filenames;
+}
+
+/** Generate all shard download URLs from the first shard's URL. */
+function getAllShardUrls(firstShardUrl: string, firstShardFilename: string): string[] {
+  const info = parseSplitGGUF(firstShardFilename);
+  if (!info.isSplit) return [firstShardUrl];
+  return getAllShardFilenames(firstShardFilename).map((f) =>
+    firstShardUrl.replace(firstShardFilename, f),
+  );
+}
+
 // ─── Model File Management ──────────────────────────────────────────────────
 
 export interface LocalModel {
@@ -429,7 +464,7 @@ export interface LocalModel {
   modifiedAt: string;
 }
 
-/** List all local GGUF model files. */
+/** List all local GGUF model files (split shards are NOT grouped here — the caller handles grouping). */
 export function listLocalModels(dataDir?: string): LocalModel[] {
   const dir = llamaModelsDir(dataDir);
   if (!fs.existsSync(dir)) return [];
@@ -450,11 +485,26 @@ export function listLocalModels(dataDir?: string): LocalModel[] {
   return models;
 }
 
-/** Delete a local GGUF model file. */
+/** Delete a local GGUF model file (and all shards for split models). */
 export function deleteLocalModel(filename: string, dataDir?: string): void {
-  const filePath = path.join(llamaModelsDir(dataDir), filename);
-  if (!fs.existsSync(filePath)) throw new Error(`Model file not found: ${filename}`);
-  fs.unlinkSync(filePath);
+  const dir = llamaModelsDir(dataDir);
+  const shards = getAllShardFilenames(filename);
+  let deletedAny = false;
+
+  for (const shard of shards) {
+    const shardPath = path.join(dir, shard);
+    if (fs.existsSync(shardPath)) {
+      fs.unlinkSync(shardPath);
+      deletedAny = true;
+    }
+    // Clean up .tmp files from partial downloads
+    const tmpPath = shardPath + ".tmp";
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+  }
+
+  if (!deletedAny) {
+    throw new Error(`Model file not found: ${filename}`);
+  }
 }
 
 // ─── Auto-Update ─────────────────────────────────────────────────────────────
@@ -547,23 +597,17 @@ export async function autoUpdate(
 // ─── HuggingFace Model Download ─────────────────────────────────────────────
 
 /**
- * Download a GGUF model file from a URL (typically HuggingFace).
- * Streams to disk with progress reporting.
+ * Download a single file from a URL with progress reporting (bytes downloaded).
  */
-export async function downloadModel(
+function downloadSingleFile(
   url: string,
-  filename: string,
-  dataDir?: string,
-  onProgress?: (percent: number) => void,
+  finalPath: string,
+  onData: (chunkBytes: number) => void,
   signal?: AbortSignal,
-): Promise<string> {
-  const dir = llamaModelsDir(dataDir);
-  fs.mkdirSync(dir, { recursive: true });
-
-  const finalPath = path.join(dir, filename);
+): Promise<void> {
   const tmpPath = finalPath + ".tmp";
 
-  await new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) { reject(new Error("Download cancelled")); return; }
     const onAbort = () => { reject(new Error("Download cancelled")); };
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -586,22 +630,16 @@ export async function downloadModel(
           return;
         }
 
-        const totalBytes = parseInt(res.headers["content-length"] ?? "0", 10);
-        let downloadedBytes = 0;
         const file = fs.createWriteStream(tmpPath);
 
         res.on("data", (chunk: Buffer) => {
-          downloadedBytes += chunk.length;
-          if (totalBytes > 0 && onProgress) {
-            onProgress(Math.round((downloadedBytes / totalBytes) * 100));
-          }
+          onData(chunk.length);
         });
 
         res.pipe(file);
         file.on("finish", () => {
           file.close(() => {
             signal?.removeEventListener("abort", onAbort);
-            // Rename tmp to final
             fs.renameSync(tmpPath, finalPath);
             resolve();
           });
@@ -625,8 +663,55 @@ export async function downloadModel(
 
     download(url);
   });
+}
 
-  return finalPath;
+/**
+ * Download a GGUF model from a URL (typically HuggingFace).
+ * Handles both single-file and split GGUF models.
+ * Streams to disk with unified progress reporting across all shards.
+ */
+export async function downloadModel(
+  url: string,
+  filename: string,
+  dataDir?: string,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
+  /** Total download size in GB — used for unified progress across split shards. */
+  downloadSizeGB?: number,
+): Promise<string> {
+  const dir = llamaModelsDir(dataDir);
+  fs.mkdirSync(dir, { recursive: true });
+
+  const shardFilenames = getAllShardFilenames(filename);
+  const shardUrls = getAllShardUrls(url, filename);
+
+  // Approximate total bytes from downloadSizeGB (or 0 if unknown)
+  const estimatedTotalBytes = downloadSizeGB
+    ? Math.round(downloadSizeGB * 1024 * 1024 * 1024)
+    : 0;
+  let totalDownloaded = 0;
+
+  for (let i = 0; i < shardFilenames.length; i++) {
+    if (signal?.aborted) throw new Error("Download cancelled");
+
+    const shardPath = path.join(dir, shardFilenames[i]!);
+    const shardUrl = shardUrls[i]!;
+
+    await downloadSingleFile(
+      shardUrl,
+      shardPath,
+      (chunkBytes) => {
+        totalDownloaded += chunkBytes;
+        if (onProgress && estimatedTotalBytes > 0) {
+          onProgress(Math.min(99, Math.round((totalDownloaded / estimatedTotalBytes) * 100)));
+        }
+      },
+      signal,
+    );
+  }
+
+  // Return path to the first shard (llama.cpp loads from here)
+  return path.join(dir, shardFilenames[0]!);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

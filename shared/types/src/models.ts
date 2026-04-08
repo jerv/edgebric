@@ -234,6 +234,55 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     capabilities: { vision: true, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-reasoning-vision-15B",
   },
+  // ── Large split-GGUF models ──
+  {
+    tag: "qwen3.5-122b-a10b",
+    ggufFilename: "Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
+    name: "Qwen 3.5 122B-A10B MoE",
+    family: "Qwen",
+    description: "122B params, 10B active. Frontier-class MoE on consumer hardware. 3 split files, 76.5 GB.",
+    paramCount: "122B (10B active)",
+    downloadSizeGB: 76.5,
+    ramUsageGB: 85,
+    origin: "Alibaba",
+    tier: "supported",
+    minRAMGB: 96,
+    capabilities: { vision: true, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-122B-A10B",
+  },
+  {
+    tag: "minimax-m2.5",
+    ggufFilename: "MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf",
+    name: "MiniMax M2.5",
+    family: "MiniMax",
+    description: "MiniMax flagship model. 4 split files, 101 GB.",
+    paramCount: "456B",
+    downloadSizeGB: 101,
+    ramUsageGB: 110,
+    origin: "MiniMax",
+    tier: "supported",
+    minRAMGB: 128,
+    capabilities: { vision: false, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/MiniMax/MiniMax-M2.5",
+  },
+  {
+    tag: "glm-5.1",
+    ggufFilename: "GLM-5.1-UD-IQ2_M-00001-of-00006.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/GLM-5.1-GGUF/resolve/main/GLM-5.1-UD-IQ2_M-00001-of-00006.gguf",
+    name: "GLM 5.1",
+    family: "GLM",
+    description: "THUDM flagship model. 6 split files, 236 GB.",
+    paramCount: "400B+",
+    downloadSizeGB: 236,
+    ramUsageGB: 250,
+    origin: "THUDM",
+    tier: "supported",
+    minRAMGB: 256,
+    capabilities: { vision: true, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/THUDM/GLM-5.1",
+  },
   // ── Hidden infrastructure ──
   {
     tag: "nomic-embed-text",
@@ -263,6 +312,98 @@ export const MODEL_CATALOG_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Map
 export const MODEL_FILENAME_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Map(
   OFFICIAL_CATALOG.map((m) => [m.ggufFilename, m]),
 );
+
+// ─── Split GGUF Helpers ─────────────────────────────────────────────────────
+
+/** Pattern: `-NNNNN-of-NNNNN` before the `.gguf` extension. */
+const SPLIT_GGUF_RE = /-(\d{5})-of-(\d{5})\.gguf$/;
+
+export interface SplitGGUFInfo {
+  /** Whether the filename matches the split GGUF pattern. */
+  isSplit: boolean;
+  /** 1-based shard index (e.g., 1 for the first shard). */
+  shardIndex: number;
+  /** Total number of shards (e.g., 3). */
+  totalShards: number;
+  /**
+   * Base pattern with the shard number replaced by a `%s` placeholder.
+   * E.g., `"Qwen3.5-122B-A10B-Q4_K_M-%s-of-00003.gguf"`.
+   */
+  basePattern: string;
+}
+
+/**
+ * Parse a GGUF filename to detect split-file sharding.
+ * Returns `{ isSplit: false, ... }` for single files (backward compatible).
+ */
+export function parseSplitGGUF(filename: string): SplitGGUFInfo {
+  const match = filename.match(SPLIT_GGUF_RE);
+  if (!match) {
+    return { isSplit: false, shardIndex: 1, totalShards: 1, basePattern: filename };
+  }
+  const shardIndex = parseInt(match[1]!, 10);
+  const totalShards = parseInt(match[2]!, 10);
+  const basePattern = filename.replace(SPLIT_GGUF_RE, `-%s-of-${match[2]}.gguf`);
+  return { isSplit: true, shardIndex, totalShards, basePattern };
+}
+
+/**
+ * Generate all shard filenames for a split GGUF model.
+ * For single files, returns an array with just the original filename.
+ */
+export function getAllShardFilenames(filename: string): string[] {
+  const info = parseSplitGGUF(filename);
+  if (!info.isSplit) return [filename];
+
+  const filenames: string[] = [];
+  for (let i = 1; i <= info.totalShards; i++) {
+    filenames.push(info.basePattern.replace("%s", String(i).padStart(5, "0")));
+  }
+  return filenames;
+}
+
+/**
+ * Generate all shard download URLs from the first shard's URL.
+ * For single files, returns an array with just the original URL.
+ */
+export function getAllShardUrls(firstShardUrl: string, firstShardFilename: string): string[] {
+  const info = parseSplitGGUF(firstShardFilename);
+  if (!info.isSplit) return [firstShardUrl];
+
+  const filenames = getAllShardFilenames(firstShardFilename);
+  // The first shard filename appears at the end of the URL path.
+  // Replace it to generate URLs for other shards.
+  return filenames.map((shardFilename) =>
+    firstShardUrl.replace(firstShardFilename, shardFilename),
+  );
+}
+
+/**
+ * Check if ALL shards of a split GGUF model are present in a set of filenames.
+ * For single-file models, just checks if the file is present.
+ */
+export function allShardsPresent(catalogFilename: string, diskFilenames: Set<string>): boolean {
+  const shards = getAllShardFilenames(catalogFilename);
+  return shards.every((f) => diskFilenames.has(f));
+}
+
+/**
+ * Given a filename found on disk, return the catalog entry's ggufFilename (first shard)
+ * if this file is part of a split GGUF set. Returns undefined if no match.
+ */
+export function findCatalogForShard(diskFilename: string): ModelCatalogEntry | undefined {
+  // Direct match (single file or first shard)
+  const direct = MODEL_FILENAME_MAP.get(diskFilename);
+  if (direct) return direct;
+
+  // Check if this is a non-first shard of a catalog entry
+  const info = parseSplitGGUF(diskFilename);
+  if (!info.isSplit) return undefined;
+
+  // Reconstruct the first shard filename
+  const firstShardFilename = info.basePattern.replace("%s", "00001");
+  return MODEL_FILENAME_MAP.get(firstShardFilename);
+}
 
 /** Returns the recommended model tag based on available RAM (in GB). */
 export function getRecommendedModelTag(ramGB: number): string {

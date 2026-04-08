@@ -18,6 +18,7 @@ import {
   isChatServerRunning,
   stopInstance,
   CHAT_BASE_URL,
+  getAllShardFilenames,
 } from "./llama-server.js";
 import crypto from "crypto";
 import fs from "fs";
@@ -444,22 +445,95 @@ export function registerIpcHandlers() {
       const CATALOG = getCatalog();
       const catalogByFile = new Map(CATALOG.map((c) => [c.ggufFilename, c]));
 
-      const models = localModels.map((m) => {
-        const cat = catalogByFile.get(m.filename);
-        const tag = cat?.tag ?? m.filename.replace(/\.gguf$/, "");
-        // Model is "loaded" if the chat server is running and this is the active model
-        const isActive = tag === (config?.chatModel ?? "");
-        return {
-          tag,
-          filename: m.filename,
-          name: cat?.name ?? m.filename.replace(/\.gguf$/, ""),
-          sizeBytes: m.sizeBytes,
-          modifiedAt: m.modifiedAt,
-          status: (chatUp && isActive) ? "loaded" : "installed",
-          ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
-          catalogEntry: cat ?? undefined,
-        };
-      });
+      // Build a set of all disk filenames for split-GGUF shard checks
+      const diskFilenames = new Set(localModels.map((m) => m.filename));
+      const seen = new Set<string>();
+
+      // Also build a reverse map: any shard filename -> catalog entry (first shard)
+      const shardToCatalog = new Map<string, typeof CATALOG[0]>();
+      for (const cat of CATALOG) {
+        for (const shard of getAllShardFilenames(cat.ggufFilename)) {
+          shardToCatalog.set(shard, cat);
+        }
+      }
+
+      const models: Array<{
+        tag: string; filename: string; name: string; sizeBytes: number;
+        modifiedAt: string; status: string; ramUsageBytes?: number;
+        catalogEntry?: typeof CATALOG[0];
+      }> = [];
+
+      for (const m of localModels) {
+        if (seen.has(m.filename)) continue;
+
+        const cat = catalogByFile.get(m.filename) ?? shardToCatalog.get(m.filename);
+
+        if (cat) {
+          const shards = getAllShardFilenames(cat.ggufFilename);
+
+          if (shards.length > 1) {
+            // Mark all shards as seen
+            for (const s of shards) seen.add(s);
+
+            // Only list as installed if ALL shards are present
+            const allPresent = shards.every((s) => diskFilenames.has(s));
+            if (!allPresent) continue;
+
+            // Sum sizes and use latest mtime
+            let totalSize = 0;
+            let latestMtime = "";
+            for (const s of shards) {
+              const sm = localModels.find((lm) => lm.filename === s);
+              if (sm) {
+                totalSize += sm.sizeBytes;
+                if (sm.modifiedAt > latestMtime) latestMtime = sm.modifiedAt;
+              }
+            }
+
+            const tag = cat.tag;
+            const isActive = tag === (config?.chatModel ?? "");
+            models.push({
+              tag,
+              filename: cat.ggufFilename,
+              name: cat.name,
+              sizeBytes: totalSize,
+              modifiedAt: latestMtime,
+              status: (chatUp && isActive) ? "loaded" : "installed",
+              ramUsageBytes: (chatUp && isActive) ? Math.round(totalSize * 1.3) : undefined,
+              catalogEntry: cat,
+            });
+          } else {
+            // Single-file catalog model
+            seen.add(m.filename);
+            const tag = cat.tag;
+            const isActive = tag === (config?.chatModel ?? "");
+            models.push({
+              tag,
+              filename: m.filename,
+              name: cat.name,
+              sizeBytes: m.sizeBytes,
+              modifiedAt: m.modifiedAt,
+              status: (chatUp && isActive) ? "loaded" : "installed",
+              ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
+              catalogEntry: cat,
+            });
+          }
+        } else {
+          // Community / unknown single-file model
+          seen.add(m.filename);
+          const tag = m.filename.replace(/\.gguf$/, "");
+          const isActive = tag === (config?.chatModel ?? "");
+          models.push({
+            tag,
+            filename: m.filename,
+            name: m.filename.replace(/\.gguf$/, ""),
+            sizeBytes: m.sizeBytes,
+            modifiedAt: m.modifiedAt,
+            status: (chatUp && isActive) ? "loaded" : "installed",
+            ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
+          });
+        }
+      }
 
       const installedTags = new Set(models.map((m) => m.tag));
       const catalog = CATALOG.filter((c) => !c.hidden && !installedTags.has(c.tag));
@@ -581,6 +655,7 @@ export function registerIpcHandlers() {
           }
         },
         controller.signal,
+        catEntry.downloadSizeGB,
       );
 
       activePulls.delete(tag);
@@ -995,6 +1070,10 @@ function getCatalog(): CatalogEntry[] {
     { tag: "phi4-mini", ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf", name: "Phi-4 Mini", family: "Microsoft", description: "Compact, efficient, 128K context. Good for constrained setups.", paramCount: "3.8B", downloadSizeGB: 2.5, ramUsageGB: 5, origin: "Microsoft", tier: "supported", minRAMGB: 8, capabilities: { vision: false, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-mini-instruct" },
     { tag: "gemma3-4b", ggufFilename: "gemma-3-4b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf", name: "Gemma 3 4B", family: "Google", description: "Google's efficient model. Multimodal capable, 128K context.", paramCount: "4B", downloadSizeGB: 3.3, ramUsageGB: 6, origin: "Google", tier: "supported", minRAMGB: 8, capabilities: { vision: true, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/google/gemma-3-4b-it" },
     { tag: "gemma3-12b", ggufFilename: "gemma-3-12b-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/bartowski/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf", name: "Gemma 3 12B", family: "Google", description: "Strong document analysis. Multimodal, 128K context.", paramCount: "12B", downloadSizeGB: 8.1, ramUsageGB: 13, origin: "Google", tier: "supported", minRAMGB: 16, capabilities: { vision: true, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/google/gemma-3-12b-it" },
+    // Large split-GGUF models
+    { tag: "qwen3.5-122b-a10b", ggufFilename: "Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf", name: "Qwen 3.5 122B-A10B MoE", family: "Qwen", description: "122B params, 10B active. Frontier-class MoE. 3 split files, 76.5 GB.", paramCount: "122B (10B active)", downloadSizeGB: 76.5, ramUsageGB: 85, origin: "Alibaba", tier: "supported", minRAMGB: 96, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-122B-A10B" },
+    { tag: "minimax-m2.5", ggufFilename: "MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf", downloadUrl: "https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf", name: "MiniMax M2.5", family: "MiniMax", description: "MiniMax flagship model. 4 split files, 101 GB.", paramCount: "456B", downloadSizeGB: 101, ramUsageGB: 110, origin: "MiniMax", tier: "supported", minRAMGB: 128, capabilities: { vision: false, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/MiniMax/MiniMax-M2.5" },
+    { tag: "glm-5.1", ggufFilename: "GLM-5.1-UD-IQ2_M-00001-of-00006.gguf", downloadUrl: "https://huggingface.co/unsloth/GLM-5.1-GGUF/resolve/main/GLM-5.1-UD-IQ2_M-00001-of-00006.gguf", name: "GLM 5.1", family: "GLM", description: "THUDM flagship model. 6 split files, 236 GB.", paramCount: "400B+", downloadSizeGB: 236, ramUsageGB: 250, origin: "THUDM", tier: "supported", minRAMGB: 256, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/THUDM/GLM-5.1" },
     // Hidden infrastructure
     { tag: "nomic-embed-text", ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf", downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.15, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true, capabilities: { vision: false, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5" },
   ];
