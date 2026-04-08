@@ -115,8 +115,8 @@ function findServerPath(): string | null {
     path.resolve(app.getAppPath(), "..", "api", "src", "server.ts"),
     // Monorepo development — from project root
     path.resolve(app.getAppPath(), "..", "..", "packages", "api", "src", "server.ts"),
-    // Packaged app — bundled server
-    path.resolve(process.resourcesPath ?? "", "server", "server.js"),
+    // Packaged app — bundled server (extraResources preserves "resources/" prefix)
+    path.resolve(process.resourcesPath ?? "", "resources", "server", "server.js"),
   ];
 
   for (const candidate of candidates) {
@@ -259,7 +259,7 @@ async function _startServer(): Promise<void> {
   // In packaged apps, the web frontend is at resources/web/dist
   const isPackaged = serverPath.includes("resources/server/");
   const webDistDir = isPackaged
-    ? path.resolve(process.resourcesPath ?? "", "web", "dist")
+    ? path.resolve(process.resourcesPath ?? "", "resources", "web", "dist")
     : undefined;
 
   serverProcess = spawn("node", args, {
