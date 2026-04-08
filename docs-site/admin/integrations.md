@@ -62,6 +62,30 @@ Confluence integration is in development. The database schema is ready, and impl
 Notion integration is in development. Per-user workspace sync is planned for a future release.
 :::
 
+## Telegram Bot
+
+Connect a Telegram bot so users can query Edgebric from Telegram. See the [Telegram Integration](/guide/telegram) guide for full setup instructions.
+
+| Setting | Description |
+|---------|-------------|
+| **Enabled** | Turn the Telegram bot on/off |
+| **Bot Token** | Token from [@BotFather](https://t.me/BotFather) (or set via `TELEGRAM_BOT_TOKEN` env var) |
+| **Register Webhook** | Connects the bot to your Edgebric server |
+
+Your server must be reachable from the internet for Telegram's webhook delivery.
+
+## Search Quality (Hybrid RAG)
+
+Three opt-in features that improve search quality. All default to off.
+
+| Setting | Description |
+|---------|-------------|
+| **Query Decomposition** | Break complex questions into sub-queries |
+| **Re-ranking** | AI re-orders results by relevance (adds one inference call) |
+| **Iterative Retrieval** | Retry with reformulated queries on low-confidence results |
+
+These apply org-wide across all query paths (chat, private mode, group chats, Agent API).
+
 ## Privacy & General Settings
 
 In **Admin** > **Settings** > **Integrations**, you can also configure:
@@ -72,6 +96,7 @@ In **Admin** > **Settings** > **Integrations**, you can also configure:
 | **Vault Mode enabled** | Allow members to create Vault sources | Yes |
 | **General answers enabled** | Allow AI to answer using general knowledge when no documents are relevant | Yes |
 | **Staleness threshold (days)** | Days before a document is flagged as stale | 180 |
+| **Memory enabled** | Allow AI to save and recall user preferences across conversations | Yes |
 
 ## Integration Security
 

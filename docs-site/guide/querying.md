@@ -30,6 +30,20 @@ This is called Retrieval-Augmented Generation (RAG). The AI model doesn't make t
 - If you don't get a good answer, try rephrasing or ask a more targeted question.
 - You can scope your query to specific data sources using the source picker in the chat interface.
 
+## Search Quality Settings
+
+Admins can enable three opt-in features in **Admin** > **Settings** > **Integrations** that improve search quality at the cost of additional processing time:
+
+| Setting | What it does | Trade-off |
+|---------|-------------|-----------|
+| **Query Decomposition** | Breaks complex questions into sub-queries for broader coverage | Slightly slower, better for multi-part questions |
+| **Re-ranking** | Uses AI to re-order search results by relevance | Adds one inference call per query |
+| **Iterative Retrieval** | Retries with reformulated queries when initial results are low confidence | May add 1-2 extra search rounds |
+
+All three are off by default. When enabled, they apply across all query paths — standard chat, private mode, group chats, and the Agent API.
+
+These settings are org-level — admins toggle them for the whole organization.
+
 ## Citations
 
 Every answer includes citations showing where the information came from:

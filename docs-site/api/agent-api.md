@@ -247,6 +247,68 @@ curl -N -X POST https://localhost:3001/api/v1/generate \
 
 ---
 
+## Memory
+
+### List Memories
+
+```
+GET /api/memory
+```
+
+Returns all saved memories for the authenticated user.
+
+### Create Memory
+
+```
+POST /api/memory
+```
+
+**Request body:**
+
+```json
+{
+  "content": "I prefer concise answers with bullet points"
+}
+```
+
+### Update Memory
+
+```
+PUT /api/memory/:id
+```
+
+**Request body:**
+
+```json
+{
+  "content": "Updated memory content"
+}
+```
+
+### Delete Memory
+
+```
+DELETE /api/memory/:id
+```
+
+### Toggle Memory
+
+```
+PATCH /api/memory/toggle
+```
+
+Enable or disable the memory feature.
+
+**Request body:**
+
+```json
+{
+  "enabled": true
+}
+```
+
+---
+
 ## Webhooks
 
 See [Webhooks](/api/webhooks) for registering event callbacks.

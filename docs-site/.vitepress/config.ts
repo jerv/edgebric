@@ -42,6 +42,8 @@ export default defineConfig({
             { text: 'Asking Questions', link: '/guide/querying' },
             { text: 'Group Chats', link: '/guide/group-chats' },
             { text: 'Tools', link: '/guide/tools' },
+            { text: 'Agent Memory', link: '/guide/memory' },
+            { text: 'Telegram', link: '/guide/telegram' },
           ],
         },
         {
