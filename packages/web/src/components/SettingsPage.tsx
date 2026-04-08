@@ -12,6 +12,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useTheme, type Theme } from "@/contexts/ThemeContext";
 import { ConnectedAccountsTab } from "@/components/settings/ConnectedAccountsTab";
 import { ApiKeysTab } from "@/components/settings/ApiKeysTab";
+import { TelegramUserSection } from "@/components/settings/TelegramSection";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
@@ -211,6 +212,9 @@ function GeneralTab() {
           </p>
         </div>
       )}
+
+      {/* Telegram Account Linking */}
+      <TelegramUserSection />
 
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>

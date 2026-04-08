@@ -373,6 +373,24 @@ export const cloudOauthTokens = sqliteTable("cloud_oauth_tokens", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// ─── Telegram Bot ─────────────────────────────────────────────────────────────
+
+/** Links a Telegram user to an Edgebric user account. */
+export const telegramLinks = sqliteTable("telegram_links", {
+  telegramUserId: text("telegram_user_id").primaryKey(),
+  edgebricUserId: text("edgebric_user_id").notNull(), // FK to users.id
+  telegramUsername: text("telegram_username"),
+  linkedAt: text("linked_at").notNull(),
+});
+
+/** Temporary link codes for pairing Telegram accounts (10-minute expiry). */
+export const telegramLinkCodes = sqliteTable("telegram_link_codes", {
+  code: text("code").primaryKey(), // 6-digit code
+  userId: text("user_id").notNull(), // FK to users.id
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+});
+
 export const cloudSyncFiles = sqliteTable("cloud_sync_files", {
   id: text("id").primaryKey(),
   folderSyncId: text("folder_sync_id").notNull(), // FK to cloud_folder_syncs.id

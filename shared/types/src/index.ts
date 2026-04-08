@@ -287,6 +287,8 @@ export type GroupChatNotifLevel = "all" | "mentions" | "none";
 export interface IntegrationConfig {
   privateModeEnabled?: boolean;
   vaultModeEnabled?: boolean;
+  /** When true, the AI can save and recall user memories. Default: true. */
+  memoryEnabled?: boolean;
   /** Documents older than this are flagged as stale. Default: 180 days. */
   stalenessThresholdDays?: number;
   /** When true, the AI answers from general knowledge when no documents match. Default: true. */
@@ -303,6 +305,17 @@ export interface IntegrationConfig {
   /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
   notionClientId?: string;
   notionClientSecret?: string;
+  /** When true, decompose complex queries into sub-queries for better results. Default: false. */
+  ragDecompose?: boolean;
+  /** When true, re-rank search results using LLM relevance scoring. Default: false. */
+  ragRerank?: boolean;
+  /** When true, perform a second retrieval round if first-round confidence is low. Default: false. */
+  ragIterativeRetrieval?: boolean;
+  /** Telegram bot integration. */
+  telegramEnabled?: boolean;
+  telegramBotToken?: string;
+  telegramWebhookSecret?: string;
+  telegramWebhookRegistered?: boolean;
 }
 
 // ─── PII Detection ────────────────────────────────────────────────────────────

@@ -26,6 +26,13 @@ const updateConfigSchema = z.object({
   confluenceClientSecret: z.string().optional(),
   notionClientId: z.string().optional(),
   notionClientSecret: z.string().optional(),
+  ragDecompose: z.boolean().optional(),
+  ragRerank: z.boolean().optional(),
+  ragIterativeRetrieval: z.boolean().optional(),
+  telegramEnabled: z.boolean().optional(),
+  telegramBotToken: z.string().optional(),
+  telegramWebhookSecret: z.string().optional(),
+  telegramWebhookRegistered: z.boolean().optional(),
 }).strict();
 
 // GET /api/admin/integrations — get integration config

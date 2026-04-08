@@ -29,6 +29,8 @@ import { integrationsRouter } from "./routes/integrations.js";
 import { cloudConnectionsRouter } from "./routes/cloudConnections.js";
 import { apiKeysRouter } from "./routes/apiKeys.js";
 import { agentApiRouter } from "./routes/agentApi.js";
+import { memoryRouter } from "./routes/memory.js";
+import { telegramRouter } from "./routes/telegram.js";
 import { config } from "./config.js";
 import { OIDC_PROVIDERS } from "./lib/oidcProviders.js";
 import path from "path";
@@ -235,6 +237,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
       // Mesh peer endpoints use MeshToken auth, not browser sessions — skip CSRF
       if (req.path.startsWith("/api/mesh/peer")) return next();
       if (req.path.startsWith("/api/v1/")) return next(); // Agent API uses Bearer auth, not CSRF
+      if (req.path === "/api/telegram/webhook") return next(); // Telegram webhook — validated via secret header
 
       const cookieToken = req.cookies?.[CSRF_COOKIE];
       const headerToken = req.headers[CSRF_HEADER];
@@ -291,10 +294,12 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/group-chats", groupChatQueryRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/vault", vaultRouter);
+  app.use("/api/memory", memoryRouter);
   app.use("/api/mesh/peer", meshInterNodeRouter); // before /api/mesh — peer routes use MeshToken auth, not session
   app.use("/api/mesh", meshRouter);
   app.use("/api/admin/api-keys", apiKeysRouter);
   app.use("/api/v1", agentApiRouter); // Agent API — uses Bearer token auth, bypasses session/CSRF
+  app.use("/api/telegram", telegramRouter); // Telegram bot — webhook skips CSRF, admin endpoints use session
 
   // Serve avatar images
   app.use("/api/avatars", express.static(path.join(config.dataDir, "avatars"), {

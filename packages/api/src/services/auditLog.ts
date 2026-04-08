@@ -72,7 +72,10 @@ export type AuditEventType =
   | "api.key_created"
   | "api.key_revoked"
   | "api.auth_failure"
-  | "tool.execute";
+  | "tool.execute"
+  | "telegram.query"
+  | "telegram.link"
+  | "telegram.unlink";
 
 interface AuditEntry {
   id: string;

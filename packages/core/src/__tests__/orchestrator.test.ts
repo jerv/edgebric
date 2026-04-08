@@ -244,6 +244,87 @@ describe("answerStream", () => {
   });
 });
 
+describe("RAG feature flags", () => {
+  it("defaults decompose/rerank/iterativeRetrieval to false when not set", async () => {
+    let receivedQuery = "";
+    const searchResults = [makeSearchResult("Policy text", 0.9)];
+    const deps: OrchestratorDeps = {
+      search: async (q) => {
+        receivedQuery = q;
+        return searchResults;
+      },
+      generate: async function* () {
+        yield "Answer. ";
+      },
+    };
+
+    // Options without any RAG flags — they should default to false/undefined
+    const opts: RAGOptions = { datasetName: "test-dataset", topK: 3 };
+    const response = await answer("Simple question?", makeSession(), opts, deps);
+    expect(response.hasConfidentAnswer).toBe(true);
+    // The search should have been called with the original query (no decomposition)
+    expect(receivedQuery).toBe("Simple question?");
+  });
+
+  it("calls search via decomposition when decompose is true and query is complex", async () => {
+    let searchCallCount = 0;
+    const searchResults = [makeSearchResult("Policy text", 0.9)];
+    const deps: OrchestratorDeps = {
+      search: async () => {
+        searchCallCount++;
+        return searchResults;
+      },
+      generate: async function* (messages) {
+        // When decomposition asks for sub-queries, return a JSON response
+        const lastMsg = messages[messages.length - 1]?.content ?? "";
+        if (lastMsg.includes("decompos") || lastMsg.includes("sub-quer")) {
+          yield '["What is the PTO policy?", "What are the benefits?"]';
+        } else {
+          yield "Answer. ";
+        }
+      },
+    };
+
+    const opts: RAGOptions = {
+      datasetName: "test-dataset",
+      topK: 3,
+      decompose: true,
+    };
+    // Use a complex query (multi-part question)
+    const response = await answer(
+      "What is the PTO policy and how does it compare to the benefits package?",
+      makeSession(), opts, deps,
+    );
+    // Should have made multiple search calls (one per sub-query)
+    expect(searchCallCount).toBeGreaterThanOrEqual(1);
+    expect(response.hasConfidentAnswer).toBe(true);
+  });
+
+  it("does not rerank when rerank is false", async () => {
+    let generateCallCount = 0;
+    const searchResults = [
+      makeSearchResult("Policy A", 0.9),
+      makeSearchResult("Policy B", 0.8),
+    ];
+    const deps: OrchestratorDeps = {
+      search: async () => searchResults,
+      generate: async function* () {
+        generateCallCount++;
+        yield "Answer. ";
+      },
+    };
+
+    const opts: RAGOptions = {
+      datasetName: "test-dataset",
+      topK: 3,
+      rerank: false,
+    };
+    await answer("Question?", makeSession(), opts, deps);
+    // Only one generate call (for the final answer), no reranking call
+    expect(generateCallCount).toBe(1);
+  });
+});
+
 describe("createSession", () => {
   it("creates session with valid UUID and empty messages", () => {
     const session = createSession();

@@ -426,6 +426,9 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
           candidateCount,
           hybridBoost,
           strict,
+          decompose: gcOrgConfig.ragDecompose ?? false,
+          rerank: gcOrgConfig.ragRerank ?? false,
+          iterativeRetrieval: gcOrgConfig.ragIterativeRetrieval ?? false,
         },
         {
           search: async () => searchResults,

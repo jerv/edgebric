@@ -188,6 +188,47 @@ The AI uses the document's name and headings to search for semantically similar 
 **Parameters:**
 - `documentId` (required) — The document ID to find related documents for
 
+## Memory Tools
+
+These tools let the AI save and recall information about you across conversations. See [Agent Memory](/guide/memory) for full details.
+
+### save_memory
+
+Saves a preference, fact, or instruction so the AI remembers it in future conversations.
+
+**Example prompt:**
+> "Remember that I prefer answers in bullet point format."
+
+**Parameters:**
+- `content` (required) — The memory text to save
+
+---
+
+### list_memories
+
+Lists all saved memories for the current user.
+
+**Example prompt:**
+> "What do you remember about me?"
+
+**Parameters:** None.
+
+---
+
+### delete_memory
+
+Deletes a specific memory by ID.
+
+**Example prompt:**
+> "Forget that I prefer bullet points."
+
+The AI calls `list_memories` to find the relevant memory, then `delete_memory` to remove it.
+
+**Parameters:**
+- `memoryId` (required) — The memory ID to delete
+
+---
+
 ## Web Tools
 
 Web tools let the AI access the internet when your local knowledge doesn't cover a topic. These use DuckDuckGo and require no API keys.

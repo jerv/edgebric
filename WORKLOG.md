@@ -1,5 +1,60 @@
 # Worklog
 
+<<<<<<< HEAD
+## 2026-04-07 — agent/rag-wiring (Wire RAG feature flags to UI)
+
+### Wired hybrid RAG feature flags from org settings to orchestrator
+
+**What was done:**
+1. Added `ragDecompose`, `ragRerank`, `ragIterativeRetrieval` boolean fields to `IntegrationConfig` type (shared/types).
+2. Added the three fields to the Zod validation schema in the integrations API route.
+3. Wired flags from `getIntegrationConfig()` into all four `answerStream` call sites: solo query, private query, group chat query, and agent API.
+4. Added "Search Quality" toggle section in the Privacy/AI Behavior admin settings UI with three ToggleCards.
+5. Added integration API tests (accept/persist/disable/reject invalid) and orchestrator unit tests (flag defaults, decomposition behavior).
+
+**Files modified:** `shared/types/src/index.ts`, `packages/api/src/routes/integrations.ts`, `packages/api/src/routes/query.ts`, `packages/api/src/routes/groupChatQuery.ts`, `packages/api/src/routes/agentApi.ts`, `packages/web/src/components/settings/PrivacyTab.tsx`, `packages/api/src/__tests__/integrations.test.ts`, `packages/core/src/__tests__/orchestrator.test.ts`
+
+## 2026-04-07 — agent/memory (Agent memory system)
+
+### AI memory for saving and recalling user context
+
+**New files:**
+- `packages/api/src/services/memoryStore.ts` — Memory CRUD using existing data source/document/chunk infrastructure
+- `packages/api/src/services/memoryExtractor.ts` — Rule-based heuristic extraction (preferences, facts, corrections)
+- `packages/api/src/services/tools/memory.ts` — save_memory, list_memories, delete_memory LLM tools
+- `packages/api/src/routes/memory.ts` — REST API (GET/POST/PUT/DELETE + toggle)
+- `packages/core/src/rag/memoryContext.ts` — Compact memory context block for system prompt injection
+
+**Modified files:**
+- `packages/api/src/services/tools/index.ts` — Register memory tools
+- `packages/api/src/app.ts` — Mount `/api/memory` route
+- `packages/api/src/routes/query.ts` — Memory context injection + auto-extraction in both tool-use and RAG paths
+- `packages/core/src/rag/index.ts` — Export memoryContext
+- `shared/types/src/index.ts` — Add `memoryEnabled` to IntegrationConfig
+
+**Architecture:** Memory entries stored as documents in a special "Memory" data source (one per user in org mode, one global in solo mode). Chunks embedded for hybrid search. No new DB tables. Memory context injected into system prompt (~200 tokens max). Extraction is regex-based (no LLM calls). Memory is opt-in via `memoryEnabled` setting (default: true).
+
+**Test results:** 59 new tests (51 API + 8 core). All 926 existing tests pass. 0 typecheck errors. 0 lint errors.
+
+## 2026-04-07 — agent/telegram (Telegram bot integration)
+
+### Telegram Bot — full integration with Edgebric
+
+**Backend (packages/api):**
+- `telegramBot.ts` — Telegram Bot API service (sendMessage, setWebhook, getFile, downloadFile) using built-in fetch
+- `telegramLinking.ts` — Account linking: 6-digit codes with 10min expiry, link/unlink, solo mode bypass
+- `telegramHandlers.ts` — Command handlers (/start, /ask, /sources, /status, /help, /link), text query via existing RAG pipeline, document upload handling, vault mode source filtering
+- `routes/telegram.ts` — Webhook endpoint (CSRF-exempt, secret header validation), admin API (status, config, webhook registration), user API (link-code, link-status, unlink)
+- DB: `telegram_links` and `telegram_link_codes` tables (schema.ts + CREATE TABLE + indexes)
+- Audit events: telegram.query, telegram.link, telegram.unlink
+- IntegrationConfig extended with telegramEnabled, telegramBotToken, telegramWebhookSecret, telegramWebhookRegistered
+
+**Frontend (packages/web):**
+- `TelegramAdminSection` — toggle, masked bot token input, webhook register/unregister (in Organization > Integrations)
+- `TelegramUserSection` — link code generation with copy, linked status display, unlink (in Account > General)
+
+**Tests:** 33 tests covering parseCommand, isTelegramEnabled, account linking flow (generate/verify/expire/replace codes, link retrieval, unlink), webhook route, admin API auth/config, user API endpoints.
+
 ## 2026-04-07 — agent/security-r2 (Round 2 adversarial audit fixes)
 
 ### Security hardening — 6 findings fixed
@@ -650,3 +705,22 @@ No fixes needed — the llama-cpp migration landed cleanly.
 - llama-server auth: random 256-bit API key per instance, passed via --api-key flag
 - DNS rebinding: Host header validation middleware rejects unknown hosts
 - PII search filter: search results filtered to only "ready" documents
+
+## 2026-04-07 — agent/docs-update (Document new features)
+
+### Added documentation for memory system, hybrid RAG settings, and Telegram integration
+
+**What was done:**
+1. Updated README.md: added memory, hybrid RAG, and Telegram to "What It Does" list; added TELEGRAM_BOT_TOKEN to env vars table.
+2. Created `docs-site/guide/memory.md`: memory system guide covering how it works, data source visibility, query injection, org/solo modes, settings, and REST API.
+3. Created `docs-site/guide/telegram.md`: Telegram integration guide with BotFather setup, account linking, bot commands, document uploads, privacy considerations, admin settings.
+4. Updated `docs-site/guide/querying.md`: added "Search Quality Settings" section documenting the three hybrid RAG toggles.
+5. Updated `docs-site/guide/tools.md`: added memory tools section (save_memory, list_memories, delete_memory).
+6. Updated `docs-site/admin/integrations.md`: added Telegram Bot and Search Quality (Hybrid RAG) sections, plus memoryEnabled setting.
+7. Updated `docs-site/api/agent-api.md`: added Memory REST API endpoints (GET/POST/PUT/DELETE + toggle).
+8. Updated `docs-site/.vitepress/config.ts`: added Agent Memory and Telegram pages to sidebar under "Using Edgebric".
+
+**Files modified:** `README.md`, `docs-site/.vitepress/config.ts`, `docs-site/admin/integrations.md`, `docs-site/api/agent-api.md`, `docs-site/guide/querying.md`, `docs-site/guide/tools.md`
+**Files created:** `docs-site/guide/memory.md`, `docs-site/guide/telegram.md`
+
+**Note:** WORKLOG.md has pre-existing merge conflict markers from prior agent merges.

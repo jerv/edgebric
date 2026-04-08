@@ -29,6 +29,9 @@ If you modify Edgebric and distribute it or run it as a service, you must share 
 - **Multi-org**: Each organization's data is fully isolated. Users can belong to multiple orgs.
 - **Data source management**: Organize documents into data sources with per-source access control.
 - **Admin dashboard**: Document management, user/member management, model management, service status, organization settings.
+- **Agent memory**: AI remembers your preferences, facts, and instructions across conversations. Memories are stored as a data source — visible, editable, and deletable from the Library.
+- **Hybrid RAG settings**: Opt-in search quality features — query decomposition, AI re-ranking, and iterative retrieval — toggled in admin settings.
+- **Telegram bot**: Interact with Edgebric through Telegram — ask questions, upload documents, manage sources. Account linking via 6-digit code. Vault sources are excluded for privacy.
 - **Group chats**: Collaborative conversations with @bot querying, threads, and source sharing.
 - **Desktop app**: macOS menu bar app that manages llama-server, the API server, and setup — all from the tray.
 
@@ -167,6 +170,7 @@ pnpm dev
 | `INFERENCE_EMBEDDING_URL` | llama-server embedding endpoint (default: `http://localhost:8081`) |
 | `CHAT_MODEL` | Model name for chat completions (default: `qwen3-4b`) |
 | `EMBEDDING_MODEL` | Embedding model (default: `nomic-embed-text`) |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token from BotFather (optional, for Telegram integration) |
 
 ## Contributing
 
