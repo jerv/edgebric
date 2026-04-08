@@ -585,7 +585,6 @@ export function ChatPanel() {
     staleTime: 60_000,
   });
 
-  const systemReady = status?.ready ?? true;
   const modelLoaded = status?.modelLoaded ?? true;
 
   useEffect(() => {

@@ -13,7 +13,7 @@ import { config } from "../config.js";
 import { isRunning as isInferenceRunning, listRunning as listRunningModels } from "../services/inferenceClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
+import { getDocument } from "../services/documentStore.js";
 import {
   createConversation,
   getConversation,
