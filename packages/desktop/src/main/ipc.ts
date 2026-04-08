@@ -243,8 +243,9 @@ export function registerIpcHandlers() {
     // Inject build-time cloud OAuth credentials so users get one-click Google Drive
     // setup without manual configuration. Admin UI overrides take priority at runtime.
     // These are replaced at build time by electron-vite's `define` config.
-    const builtinGoogleClientId: string = BUILTIN_GOOGLE_DRIVE_CLIENT_ID;
-    const builtinGoogleClientSecret: string = BUILTIN_GOOGLE_DRIVE_CLIENT_SECRET;
+    // Use typeof guards so the app doesn't crash if defines weren't applied.
+    const builtinGoogleClientId = typeof BUILTIN_GOOGLE_DRIVE_CLIENT_ID !== "undefined" ? BUILTIN_GOOGLE_DRIVE_CLIENT_ID : "";
+    const builtinGoogleClientSecret = typeof BUILTIN_GOOGLE_DRIVE_CLIENT_SECRET !== "undefined" ? BUILTIN_GOOGLE_DRIVE_CLIENT_SECRET : "";
     if (builtinGoogleClientId) envLines.push(`GOOGLE_DRIVE_CLIENT_ID=${sanitizeEnvValue(builtinGoogleClientId)}`);
     if (builtinGoogleClientSecret) envLines.push(`GOOGLE_DRIVE_CLIENT_SECRET=${sanitizeEnvValue(builtinGoogleClientSecret)}`);
 
