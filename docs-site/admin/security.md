@@ -161,3 +161,4 @@ Edgebric makes the following external network calls. All are user-initiated or c
 | **OIDC/SSO authentication** | During sign-in (to your identity provider) | Required for multi-user; not used in Solo mode |
 | **Cloud sync OAuth** | When connecting Google Drive, OneDrive, etc. | User-initiated |
 | **Cloud document fetching** | During cloud sync (downloads files from connected services) | User-initiated; runs on configured schedule |
+| **Telegram Bot API** | When Telegram integration is enabled (sends/receives messages via Telegram servers) | Opt-in; disabled by default; vault sources excluded |
