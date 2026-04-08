@@ -38,7 +38,7 @@ const app = createApp({
 
 // ─── Static frontend (production) ─────────────────────────────────────────────
 
-const webDistDir = path.join(import.meta.dirname, "..", "..", "web", "dist");
+const webDistDir = process.env["WEB_DIST_DIR"] ?? path.join(import.meta.dirname, "..", "..", "web", "dist");
 const serveStatic = !isDev || process.env["SERVE_STATIC"] === "1";
 if (serveStatic) {
   // Hashed assets (JS/CSS/images) — cache aggressively

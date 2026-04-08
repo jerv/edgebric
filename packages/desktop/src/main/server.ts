@@ -256,6 +256,12 @@ async function _startServer(): Promise<void> {
   const llamaChatKey = getLlamaApiKey("chat");
   const llamaEmbeddingKey = getLlamaApiKey("embedding");
 
+  // In packaged apps, the web frontend is at resources/web/dist
+  const isPackaged = serverPath.includes("resources/server/");
+  const webDistDir = isPackaged
+    ? path.resolve(process.resourcesPath ?? "", "web", "dist")
+    : undefined;
+
   serverProcess = spawn("node", args, {
     stdio: ["ignore", logFd, logFd],
     env: {
@@ -265,6 +271,7 @@ async function _startServer(): Promise<void> {
       EDGEBRIC_VERSION: app.getVersion(),
       ...(llamaChatKey && { CHAT_API_KEY: llamaChatKey }),
       ...(llamaEmbeddingKey && { EMBEDDING_API_KEY: llamaEmbeddingKey }),
+      ...(webDistDir && { WEB_DIST_DIR: webDistDir }),
     },
     cwd: apiDir,
   });
