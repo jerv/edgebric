@@ -23,7 +23,6 @@
     },
     "dmg": {
       "background": "resources/dmg-background.png",
-      "backgroundColor": "#0a0f1a",
       "window": {
         "width": 512,
         "height": 320
