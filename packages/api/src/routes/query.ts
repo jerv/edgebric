@@ -382,12 +382,9 @@ async function searchWithHybrid(
   return { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable };
 }
 
-// Returns whether the system has at least one ready document to query against
-// and whether a chat model is loaded in memory.
+// Returns whether the system is ready for chat and whether a model is loaded.
+// Chat is always available — documents are optional (RAG enhances answers but isn't required).
 queryRouter.get("/status", async (req, res) => {
-  const docs = req.session.orgId ? getDocumentsByOrg(req.session.orgId) : getAllDocuments();
-  const hasDocuments = docs.some((d) => d.status === "ready");
-
   let modelLoaded = false;
   try {
     const serverUp = await isInferenceRunning();
@@ -399,7 +396,7 @@ queryRouter.get("/status", async (req, res) => {
     // If we can't check, assume not loaded
   }
 
-  res.json({ ready: hasDocuments, modelLoaded });
+  res.json({ ready: true, modelLoaded });
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {

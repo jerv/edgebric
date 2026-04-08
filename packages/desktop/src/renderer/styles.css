@@ -1262,16 +1262,117 @@ body {
   font-weight: 600;
   letter-spacing: 0.02em;
   flex-shrink: 0;
+  cursor: default;
 }
 
 .model-badge-active {
   background: #dcfce7;
   color: #166534;
+  border: 1px solid #86efac;
 }
 
 .model-badge-rec {
   background: #eff6ff;
   color: #2563eb;
+  border: 1px solid #93c5fd;
+}
+
+.model-badge-danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.model-badge-warning {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.model-details-link {
+  font-size: 11px;
+  color: #94a3b8;
+  text-decoration: none;
+}
+.model-details-link:hover {
+  color: #cbd5e1;
+  text-decoration: underline;
+}
+
+.model-badge-vision {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.model-badge-tools {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.model-badge-reasoning {
+  background: #f3e8ff;
+  color: #7c3aed;
+  border: 1px solid #c4b5fd;
+}
+
+.model-badge-link {
+  background: #fef9c3;
+  color: #a16207;
+  border: 1px solid #fde68a;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .model-badge-vision {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .model-badge-tools {
+    background: rgba(14, 165, 233, 0.15);
+    color: #7dd3fc;
+    border-color: rgba(14, 165, 233, 0.3);
+  }
+
+  .model-badge-reasoning {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.3);
+  }
+
+  .model-badge-link {
+    background: rgba(234, 179, 8, 0.15);
+    color: #fde68a;
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+
+  .model-badge-active {
+    background: rgba(34, 197, 94, 0.15);
+    color: #86efac;
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+
+  .model-badge-rec {
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .model-badge-danger {
+    background: rgba(220, 38, 38, 0.15);
+    color: #fca5a5;
+    border-color: rgba(220, 38, 38, 0.3);
+  }
+
+  .model-badge-warning {
+    background: rgba(217, 119, 6, 0.15);
+    color: #fde68a;
+    border-color: rgba(217, 119, 6, 0.3);
+  }
 }
 
 /* ─── Custom model input ─────────────────────────────────────────────────── */

@@ -4,6 +4,9 @@ import {
   Power,
   AlertTriangle,
   ArrowLeft,
+  Eye,
+  Wrench,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminLabel } from "@/lib/models";
@@ -18,29 +21,24 @@ import Logo from "@/components/shared/Logo";
 import type { InstalledModel, RAMFitResult, ModelCapabilities } from "@edgebric/types";
 import { EMBEDDING_MODEL_TAG, checkModelRAMFit } from "@edgebric/types";
 
-function CapabilityBadges({ capabilities, huggingFaceUrl }: { capabilities?: ModelCapabilities; huggingFaceUrl?: string }) {
+function CapabilityBadges({ capabilities }: { capabilities?: ModelCapabilities }) {
   if (!capabilities) return null;
   return (
     <>
       {capabilities.vision && (
-        <span title="Can analyze images and screenshots" className="text-[11px] bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded-full font-medium">
-          &#x1f441; Vision
+        <span title="Can analyze images and screenshots" className="inline-flex items-center gap-0.5 text-[11px] bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 px-1.5 py-0.5 rounded font-medium">
+          <Eye className="w-3 h-3" /> Vision
         </span>
       )}
       {capabilities.toolUse && (
-        <span title="Can use tools like search and file management" className="text-[11px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full font-medium">
-          &#x1f527; Tools
+        <span title="Can use tools like search and file management" className="inline-flex items-center gap-0.5 text-[11px] bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded font-medium">
+          <Wrench className="w-3 h-3" /> Tools
         </span>
       )}
       {capabilities.reasoning && (
-        <span title="Enhanced step-by-step reasoning" className="text-[11px] bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full font-medium">
-          &#x1f9e0; Reasoning
+        <span title="Enhanced step-by-step reasoning" className="inline-flex items-center gap-0.5 text-[11px] bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded font-medium">
+          <Brain className="w-3 h-3" /> Reasoning
         </span>
-      )}
-      {huggingFaceUrl && (
-        <a href={huggingFaceUrl} target="_blank" rel="noopener noreferrer" title="View on HuggingFace" className="text-[11px] bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-medium no-underline hover:underline">
-          &#x1f517;
-        </a>
       )}
     </>
   );
@@ -103,28 +101,25 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
           <span className="font-medium text-sm text-slate-900 dark:text-gray-100">
             {label}
           </span>
-          {isLoaded && (
-            <span className="text-[11px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-full font-medium">
-              {isActive ? "Active" : "Running"}
-            </span>
-          )}
           {!isLoaded && ramFit && ramFit.level === "exceeds" && (
-            <span className="text-[11px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded-full font-medium">
+            <span className="text-[11px] bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-1.5 py-0.5 rounded font-medium">
               Too large
             </span>
           )}
           {!isLoaded && ramFit && ramFit.level === "tight" && (
-            <span className="text-[11px] bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full font-medium">
+            <span className="text-[11px] bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded font-medium">
               Low RAM
             </span>
           )}
-          <CapabilityBadges capabilities={catalogEntry?.capabilities ?? model.capabilities} huggingFaceUrl={catalogEntry?.huggingFaceUrl} />
         </div>
         <span className="text-xs text-slate-500 dark:text-gray-400">
           {catalogEntry?.family ? `by ${catalogEntry.family} · ` : ""}
           {isLoaded && model.ramUsageBytes ? `${formatBytes(model.ramUsageBytes)} RAM · ` : ""}
           {formatBytes(model.sizeBytes)} on disk
         </span>
+        <div className="flex items-center gap-1 mt-1.5">
+          <CapabilityBadges capabilities={catalogEntry?.capabilities ?? model.capabilities} />
+        </div>
         {!isLoaded && ramFit && ramFit.level !== "ok" && (
           <RAMWarningBanner fit={ramFit} />
         )}
@@ -132,9 +127,12 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
 
       {/* Actions */}
       {!isEmbedding && (
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {isLoaded ? (
             <>
+              <span className="text-[11px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded font-medium">
+                {isActive ? "Active" : "Running"}
+              </span>
               {!isActive && (
                 <button
                   onClick={onSetDefault}

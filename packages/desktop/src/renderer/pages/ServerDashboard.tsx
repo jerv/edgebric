@@ -164,35 +164,42 @@ function formatGB(bytes: number): string {
   return `${(bytes / (1024 ** 3)).toFixed(1)} GB`;
 }
 
-function CapabilityBadges({ capabilities, huggingFaceUrl }: { capabilities?: ModelCapabilities; huggingFaceUrl?: string }) {
+function BadgeIcon({ d }: { d: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 3, verticalAlign: -1 }}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+// Lucide icon paths
+const ICON_EYE = "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z";
+const ICON_WRENCH = "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z";
+const ICON_BRAIN = "M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4 M12 18v4";
+const ICON_LINK = "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71";
+
+function CapabilityBadges({ capabilities }: { capabilities?: ModelCapabilities }) {
   if (!capabilities) return null;
   const badges: JSX.Element[] = [];
   if (capabilities.vision) {
     badges.push(
-      <span key="vision" className="model-badge" title="Can analyze images and screenshots" style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", marginLeft: 4, cursor: "default" }}>
-        <span aria-hidden>&#x1f441;</span> Vision
+      <span key="vision" className="model-badge model-badge-vision" title="Can analyze images and screenshots">
+        <BadgeIcon d={ICON_EYE} /> Vision
       </span>
     );
   }
   if (capabilities.toolUse) {
     badges.push(
-      <span key="tools" className="model-badge" title="Can use tools like search and file management" style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", marginLeft: 4, cursor: "default" }}>
-        <span aria-hidden>&#x1f527;</span> Tools
+      <span key="tools" className="model-badge model-badge-tools" title="Can use tools like search and file management">
+        <BadgeIcon d={ICON_WRENCH} /> Tools
       </span>
     );
   }
   if (capabilities.reasoning) {
     badges.push(
-      <span key="reasoning" className="model-badge" title="Enhanced step-by-step reasoning" style={{ background: "#faf5ff", color: "#9333ea", border: "1px solid #e9d5ff", marginLeft: 4, cursor: "default" }}>
-        <span aria-hidden>&#x1f9e0;</span> Reasoning
+      <span key="reasoning" className="model-badge model-badge-reasoning" title="Enhanced step-by-step reasoning">
+        <BadgeIcon d={ICON_BRAIN} /> Reasoning
       </span>
-    );
-  }
-  if (huggingFaceUrl) {
-    badges.push(
-      <a key="hf" href={huggingFaceUrl} target="_blank" rel="noopener noreferrer" title="View on HuggingFace" className="model-badge" style={{ background: "#fefce8", color: "#a16207", border: "1px solid #fde68a", marginLeft: 4, textDecoration: "none", cursor: "pointer" }}>
-        &#x1f517;
-      </a>
     );
   }
   return <>{badges}</>;
@@ -868,14 +875,16 @@ export default function ServerDashboard() {
                         <div className="model-item-left">
                           <div className="model-item-name">
                             {modelDisplayName(m)}
-                            <span className="model-badge model-badge-active">Running</span>
-                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} huggingFaceUrl={m.catalogEntry?.huggingFaceUrl} />
                           </div>
                           <span className="model-item-meta">
                             {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
                           </span>
+                          <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} />
+                          </div>
                         </div>
-                        <div className="btn-row" style={{ marginTop: 0 }}>
+                        <div className="btn-row" style={{ marginTop: 0, alignItems: "center" }}>
+                          <span className="model-badge model-badge-active">Running</span>
                           {m.tag === modelsData?.activeModel && unloadConfirmTag !== m.tag ? (
                             <button
                               className="btn btn-ghost btn-sm"
@@ -924,14 +933,18 @@ export default function ServerDashboard() {
                           <div className="model-item-name">
                             {modelDisplayName(m)}
                             {fit.level === "exceeds" && (
-                              <span className="model-badge" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", marginLeft: 6 }}>Too large</span>
+                              <span className="model-badge model-badge-danger">Too large</span>
                             )}
                             {fit.level === "tight" && (
-                              <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
+                              <span className="model-badge model-badge-warning">Low RAM</span>
                             )}
-                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} huggingFaceUrl={m.catalogEntry?.huggingFaceUrl} />
                           </div>
-                          <span className="model-item-meta">{m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{formatBytes(m.sizeBytes)} on disk</span>
+                          <span className="model-item-meta">
+                            {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{formatBytes(m.sizeBytes)} on disk
+                          </span>
+                          <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                            <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} />
+                          </div>
                           {fit.level !== "ok" && (
                             <span className="model-item-meta" style={{ color: fit.level === "exceeds" ? "#dc2626" : "#d97706", fontWeight: 500 }}>
                               {fit.message}
@@ -1019,30 +1032,37 @@ export default function ServerDashboard() {
                       <div className="model-item-name">
                         {c.name}
                         {fit.level === "exceeds" && (
-                          <span className="model-badge" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", marginLeft: 6 }}>Too large</span>
+                          <span className="model-badge model-badge-danger">Too large</span>
                         )}
                         {fit.level === "tight" && (
-                          <span className="model-badge" style={{ background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", marginLeft: 6 }}>Low RAM</span>
+                          <span className="model-badge model-badge-warning">Low RAM</span>
                         )}
-                        <CapabilityBadges capabilities={c.capabilities} huggingFaceUrl={c.huggingFaceUrl} />
                       </div>
                       <span className="model-item-meta">by {c.family} · {c.description}</span>
                       <span className="model-item-meta">
                         {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
                       </span>
+                      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                        <CapabilityBadges capabilities={c.capabilities} />
+                      </div>
                       {fit.level !== "ok" && (
                         <span className="model-item-meta" style={{ color: fit.level === "exceeds" ? "#dc2626" : "#d97706", fontWeight: 500 }}>
                           {fit.message}
                         </span>
                       )}
                     </div>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handlePullModel(c.tag)}
-                      disabled={!!pullTag || !!modelOp}
-                    >
-                      Download
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {c.huggingFaceUrl && (
+                        <a href={c.huggingFaceUrl} target="_blank" rel="noopener noreferrer" className="model-details-link">Details</a>
+                      )}
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handlePullModel(c.tag)}
+                        disabled={!!pullTag || !!modelOp}
+                      >
+                        Download
+                      </button>
+                    </div>
                   </div>
                 );
               };
@@ -1102,11 +1122,13 @@ export default function ServerDashboard() {
                   {searchResults.map((m) => (
                     <div key={m.name} className="model-item">
                       <div className="model-item-left">
-                        <div className="model-item-name">
-                          {m.name}
-                          <CapabilityBadges capabilities={m.capabilities} huggingFaceUrl={m.huggingFaceUrl} />
-                        </div>
-                        {m.description && <span className="model-item-meta">{m.description}</span>}
+                        <div className="model-item-name">{m.name}</div>
+                        {m.description && (
+                          <span className="model-item-meta">
+                            {m.description}
+                            <CapabilityBadges capabilities={m.capabilities} />
+                          </span>
+                        )}
                       </div>
                       <button
                         className="btn btn-primary btn-sm"
@@ -1156,11 +1178,11 @@ export default function ServerDashboard() {
                   Choose .gguf file...
                 </button>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <div className="hint" style={{ margin: 0, wordBreak: "break-all" }}>
                     {ggufPath.split("/").pop()}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 12 }}>
                     <input
                       type="text"
                       value={ggufName}
@@ -1222,7 +1244,7 @@ export default function ServerDashboard() {
                 <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <label style={{ marginBottom: 0 }}>Launch at Login</label>
-                    <p className="hint" style={{ marginTop: 2 }}>Start Edgebric automatically when you log in to your Mac.</p>
+                    <p className="hint" style={{ marginTop: 6 }}>Start Edgebric automatically when you log in to your Mac.</p>
                   </div>
                   <button
                     className={`toggle-btn ${launchAtLogin ? "toggle-on" : ""}`}
@@ -1307,7 +1329,7 @@ export default function ServerDashboard() {
                 <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <label style={{ marginBottom: 0 }}>Edgebric {appVersion ? `v${appVersion}` : ""}</label>
-                    <p className="hint" style={{ marginTop: 2 }}>
+                    <p className="hint" style={{ marginTop: 6 }}>
                       {updateStatus.availableVersion
                         ? `Update available: v${updateStatus.availableVersion}`
                         : "You're on the latest version."}
@@ -1317,7 +1339,7 @@ export default function ServerDashboard() {
                 <div className="field" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <label style={{ marginBottom: 0 }}>Automatic Updates</label>
-                    <p className="hint" style={{ marginTop: 2 }}>Check for updates automatically when Edgebric starts.</p>
+                    <p className="hint" style={{ marginTop: 6 }}>Check for updates automatically when Edgebric starts.</p>
                   </div>
                   <button
                     className={`toggle-btn ${autoUpdateEnabled ? "toggle-on" : ""}`}
@@ -1334,7 +1356,7 @@ export default function ServerDashboard() {
                 </div>
                 <div className="field">
                   {updateStatus.downloaded ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <span className="success-msg" style={{ margin: 0 }}>Update ready — restart to install</span>
                       <button
                         className="btn btn-primary btn-sm"
@@ -1681,7 +1703,7 @@ export default function ServerDashboard() {
               <span className="status-dot" style={{ background: statusConf.dot }} />
               <span className="status-label">{statusConf.label}</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {isRunning && healthData?.uptime != null && (
                 <span className="resource-bar-value" style={{ fontSize: 11 }}>
                   Uptime: {formatUptime(healthData.uptime)}

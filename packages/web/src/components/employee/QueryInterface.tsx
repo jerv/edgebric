@@ -667,7 +667,7 @@ export function ChatPanel() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const query = input.trim();
-    if (!query || isLoading || (!systemReady && privacyLevel !== "vault") || (!modelLoaded && privacyLevel !== "vault")) return;
+    if (!query || isLoading || (!modelLoaded && privacyLevel !== "vault")) return;
 
     setInput("");
     setIsLoading(true);
@@ -1085,15 +1085,6 @@ export function ChatPanel() {
                   Queries are still processed on the organization's servers.
                 </p>
               </>
-            ) : !systemReady ? (
-              <>
-                <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">No sources yet</p>
-                <p className="text-slate-400 dark:text-gray-500 text-sm max-w-sm">
-                  {user?.isAdmin
-                    ? "Upload documents from Data Sources to get started."
-                    : "No documents have been loaded yet. Check back soon."}
-                </p>
-              </>
             ) : (
               <>
                 <p className="text-slate-900 dark:text-gray-100 text-xl font-medium mb-2">Ask a question</p>
@@ -1255,11 +1246,7 @@ export function ChatPanel() {
 
       {/* Input */}
       <div className="border-t border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-4">
-        {!systemReady ? (
-          <div className="text-center text-sm text-slate-400 dark:text-gray-500 py-1">
-            Chat unavailable — no documents loaded.
-          </div>
-        ) : (
+        {(
           <div className="space-y-2">
             {/* Header row: privacy + data source selector (left) + model selector (right) */}
             <div className="flex items-center justify-between flex-wrap gap-y-2">
