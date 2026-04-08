@@ -145,7 +145,7 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
         {anyMutating ? (
           <Loader2 className="w-3 h-3 animate-spin" />
         ) : (
-          <span className="truncate max-w-32">{activeLabel}</span>
+          <span className="truncate max-w-32 hidden md:inline">{activeLabel}</span>
         )}
         <ChevronDown className={cn("w-3 h-3 transition-transform", open && "rotate-180")} />
       </button>

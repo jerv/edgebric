@@ -43,7 +43,7 @@ export function IntegrationsTab() {
             <a href="/account?tab=connected-accounts" className="text-slate-900 dark:text-gray-100 underline">
               Account &gt; Connected Accounts
             </a>{" "}
-            to connect your Google Drive, OneDrive, or Notion.
+            to connect your Google Drive or OneDrive.
           </p>
         </div>
         <div className="border border-green-200 dark:border-green-900 rounded-xl px-4 py-3 bg-green-50 dark:bg-green-950">
@@ -68,8 +68,6 @@ export function IntegrationsTab() {
 
       <GoogleDriveCredentialsCard config={config} />
       <OneDriveCredentialsCard config={config} />
-      <ConfluenceCredentialsCard config={config} />
-      <NotionCredentialsCard config={config} />
 
       {/* Telegram Bot */}
       <div className="pt-4 border-t border-slate-100 dark:border-gray-800">

@@ -63,6 +63,7 @@ export function openMainWindow() {
     title: "Edgebric",
     titleBarStyle: "hiddenInset",
     icon: appIcon,
+    backgroundColor: "#0a0a0a",
     webPreferences: {
       preload: `${__dirname}/../preload/index.js`,
       contextIsolation: true,
@@ -73,21 +74,34 @@ export function openMainWindow() {
   if (process.env.ELECTRON_RENDERER_URL) {
     const devUrl = process.env.ELECTRON_RENDERER_URL;
 
-    // Poll until the dev server is up before loading the URL
-    const waitForDevServer = async () => {
-      for (let i = 0; i < 30; i++) {
+    // In dev: wait for Vite, then load. Retry on failure.
+    const loadDev = async () => {
+      // Wait for dev server to be reachable
+      for (let i = 0; i < 60; i++) {
         try {
           const resp = await fetch(devUrl, { signal: AbortSignal.timeout(500) });
-          if (resp.ok) return;
+          if (resp.ok) break;
         } catch { /* not ready yet */ }
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 500));
       }
-    };
-
-    waitForDevServer().then(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.loadURL(devUrl);
       }
+    };
+
+    void loadDev();
+
+    // If the page fails to load (dev server restart, crash), retry automatically
+    mainWindow.webContents.on("did-fail-load", (_e, code, desc) => {
+      if (code === -3) return; // -3 = aborted (normal during navigation)
+      console.warn(`Page failed to load (${code}: ${desc}), retrying in 1s...`);
+      setTimeout(() => void loadDev(), 1000);
+    });
+
+    // Also handle renderer crashes
+    mainWindow.webContents.on("render-process-gone", (_e, details) => {
+      console.warn(`Renderer crashed (${details.reason}), reloading in 1s...`);
+      setTimeout(() => void loadDev(), 1000);
     });
   } else {
     mainWindow.loadFile(`${__dirname}/../renderer/index.html`);

@@ -764,6 +764,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         answerType: toolUses.length > 0 ? "grounded" : "general",
         createdAt: new Date(),
       };
+      if (toolUses.length > 0) assistantMsg.toolUses = toolUses;
       addMessage(assistantMsg);
       updateConversationTimestamp(conversation.id);
 

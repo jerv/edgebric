@@ -135,6 +135,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       has_confident_answer INTEGER,
       answer_type TEXT,
       source TEXT,
+      tool_uses TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -246,6 +247,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE cloud_sync_files ADD COLUMN folder_sync_id TEXT NOT NULL DEFAULT ''",
     // Per-source PII detection mode (off | warn | block)
     "ALTER TABLE data_sources ADD COLUMN pii_mode TEXT NOT NULL DEFAULT 'block'",
+    // Tool use records on messages
+    "ALTER TABLE messages ADD COLUMN tool_uses TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }

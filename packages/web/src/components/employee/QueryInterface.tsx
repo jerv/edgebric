@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight, Sparkles, Settings2 } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight, Sparkles, Settings2, Search, FolderOpen, FileSearch, Plus, Upload, Trash2, Shield, GitCompare, BookCheck, Link2, Globe, Save, type LucideIcon } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -97,21 +97,22 @@ function ThinkingIndicator({ queuePosition }: { queuePosition?: number | null })
 
 // ─── Tool Use Panel ─────────────────────────────────────────────────────────
 
-const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  search_knowledge: "Search Knowledge",
-  list_sources: "List Sources",
-  list_documents: "List Documents",
-  get_source_summary: "Source Summary",
-  create_source: "Create Source",
-  upload_document: "Upload Document",
-  delete_document: "Delete Document",
-  delete_source: "Delete Source",
-  save_to_vault: "Save to Vault",
-  compare_documents: "Compare Documents",
-  cite_check: "Verify Claim",
-  find_related: "Find Related",
-  web_search: "Web Search",
-  read_url: "Read URL",
+const TOOL_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
+  search_knowledge: { label: "Search Knowledge", icon: Search },
+  list_sources: { label: "List Sources", icon: FolderOpen },
+  list_documents: { label: "List Documents", icon: FileSearch },
+  get_source_summary: { label: "Source Summary", icon: FileText },
+  create_source: { label: "Create Source", icon: Plus },
+  upload_document: { label: "Upload Document", icon: Upload },
+  delete_document: { label: "Delete Document", icon: Trash2 },
+  delete_source: { label: "Delete Source", icon: Trash2 },
+  save_to_vault: { label: "Save to Vault", icon: Shield },
+  save_memory: { label: "Save Memory", icon: Save },
+  compare_documents: { label: "Compare Documents", icon: GitCompare },
+  cite_check: { label: "Verify Claim", icon: BookCheck },
+  find_related: { label: "Find Related", icon: Link2 },
+  web_search: { label: "Web Search", icon: Globe },
+  read_url: { label: "Read URL", icon: Globe },
 };
 
 function ToolUsePanel({ toolUses }: { toolUses: Message["toolUses"] }) {
@@ -125,29 +126,36 @@ function ToolUsePanel({ toolUses }: { toolUses: Message["toolUses"] }) {
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
-        <Wrench className="h-3 w-3" />
-        <span>
-          Used {toolUses.length} {toolUses.length === 1 ? "tool" : "tools"}:{" "}
-          {toolUses.map((t) => TOOL_DISPLAY_NAMES[t.name] ?? t.name).join(", ")}
-        </span>
+        {toolUses.map((t, i) => {
+          const cfg = TOOL_CONFIG[t.name];
+          const Icon = cfg?.icon ?? Wrench;
+          return (
+            <span key={i} className="flex items-center gap-1">
+              <Wrench className="h-3 w-3" />
+              <Icon className="h-3 w-3" />
+              <span>{cfg?.label ?? t.name}</span>
+            </span>
+          );
+        })}
         <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
       </button>
       {expanded && (
         <div className="mt-1.5 space-y-1.5 pl-4 border-l-2 border-muted">
-          {toolUses.map((tu, i) => (
-            <div key={i} className="text-xs">
-              <div className="flex items-center gap-1.5">
+          {toolUses.map((tu, i) => {
+            const cfg = TOOL_CONFIG[tu.name];
+            const Icon = cfg?.icon ?? Wrench;
+            return (
+              <div key={i} className="text-xs flex items-center gap-1.5">
                 <span className={cn(
-                  "w-1.5 h-1.5 rounded-full",
+                  "w-1.5 h-1.5 rounded-full flex-shrink-0",
                   tu.result.success ? "bg-emerald-500" : "bg-red-500",
                 )} />
-                <span className="font-medium text-foreground">
-                  {TOOL_DISPLAY_NAMES[tu.name] ?? tu.name}
-                </span>
-                <span className="text-muted-foreground">→ {tu.result.summary}</span>
+                <Icon className="h-3 w-3 flex-shrink-0" />
+                <span className="font-medium text-foreground">{cfg?.label ?? tu.name}</span>
+                <span className="text-muted-foreground">— {tu.result.summary}</span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -276,7 +284,11 @@ export function ChatPanel() {
   });
   function updateAiBehavior(updates: Partial<typeof aiBehavior>) {
     setAiBehavior((prev) => {
-      const next = { ...prev, ...updates };
+      let next = { ...prev, ...updates };
+      // When auto is turned on, reset search settings to defaults (all on)
+      if (updates.auto === true) {
+        next = { ...next, decompose: true, rerank: true, iterativeRetrieval: true };
+      }
       localStorage.setItem("edgebric:ai-behavior", JSON.stringify(next));
       return next;
     });
@@ -499,6 +511,7 @@ export function ChatPanel() {
           citations: m.citations,
           hasConfidentAnswer: m.hasConfidentAnswer,
           ...(m.source && { source: m.source }),
+          ...(m.toolUses && { toolUses: m.toolUses }),
         }));
         setMessages(loaded);
 
@@ -833,7 +846,6 @@ export function ChatPanel() {
         decompose: aiBehavior.decompose,
         rerank: aiBehavior.rerank,
         iterativeRetrieval: aiBehavior.iterativeRetrieval,
-        generalAnswers: aiBehavior.generalAnswers,
       };
 
       const requestBody = isPrivacyMode
@@ -1153,8 +1165,8 @@ export function ChatPanel() {
           // During streaming: only show complete paragraphs via revealedContent
           // After done: show full content
           const displayContent = message.isStreaming
-            ? cleanContent(message.revealedContent ?? "")
-            : cleanContent(message.content);
+            ? cleanContent(message.revealedContent ?? "").replace(/^\n+|\n+$/g, "")
+            : cleanContent(message.content).replace(/^\n+|\n+$/g, "");
 
           // Split into settled (previously revealed) + newly revealed for fade-in
           const settledContent = cleanContent(message.prevRevealedContent ?? "");
@@ -1301,9 +1313,9 @@ export function ChatPanel() {
       <div className="border-t border-slate-200 dark:border-gray-800 px-4 sm:px-6 py-4">
         {(
           <div className="space-y-2">
-            {/* Header row: privacy + data source selector (left) + model selector (right) */}
-            <div className="flex items-center justify-between flex-wrap gap-y-2">
-             <div className="flex items-center gap-1">
+            {/* Header row: privacy + data source + AI behavior (left) + model selector (right) */}
+            <div className="flex items-center justify-between">
+             <div className="flex items-center gap-0.5 sm:gap-1">
               {/* Privacy mode selector */}
               <div ref={privacyRef} className="relative">
                 <button
@@ -1324,7 +1336,7 @@ export function ChatPanel() {
                   ) : (
                     <Eye className="w-3.5 h-3.5" />
                   )}
-                  {privacyLevel === "vault" ? "Vault" : privacyLevel === "private" ? "Private" : "Standard"}
+                  <span className="hidden md:inline">{privacyLevel === "vault" ? "Vault" : privacyLevel === "private" ? "Private" : "Standard"}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform", privacyPopoverOpen && "rotate-180")} />
                 </button>
 
@@ -1391,7 +1403,7 @@ export function ChatPanel() {
                   )}
                 >
                   {isNoSourcesMode ? <Sparkles className="w-3.5 h-3.5" /> : <Database className="w-3.5 h-3.5" />}
-                  {dsSelectorLabel}
+                  <span className="hidden md:inline">{dsSelectorLabel}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform", dsSelectorOpen && "rotate-180")} />
                 </button>
 
@@ -1480,7 +1492,7 @@ export function ChatPanel() {
                   )}
                 >
                   <Settings2 className="w-3.5 h-3.5" />
-                  {aiBehavior.auto ? "Auto" : "Custom"}
+                  <span className="hidden md:inline">{aiBehavior.auto ? "Auto" : "Custom"}</span>
                   <ChevronDown className={cn("w-3 h-3 transition-transform", aiBehaviorOpen && "rotate-180")} />
                 </button>
 
@@ -1513,17 +1525,17 @@ export function ChatPanel() {
                       </div>
                     </button>
 
-                    {/* Individual toggles — dimmed when auto is on */}
+                    {/* Search quality toggles — dimmed when auto is on */}
                     <div className={cn("border-t border-slate-100 dark:border-gray-800 pt-1", aiBehavior.auto && "opacity-40 pointer-events-none")}>
                       {([
-                        { key: "generalAnswers" as const, label: "General answers" },
-                        { key: "decompose" as const, label: "Query decomposition" },
-                        { key: "rerank" as const, label: "Re-ranking" },
-                        { key: "iterativeRetrieval" as const, label: "Iterative retrieval" },
-                      ]).map(({ key, label }) => (
+                        { key: "decompose" as const, label: "Query decomposition", tip: "Break complex questions into sub-queries" },
+                        { key: "rerank" as const, label: "Re-ranking", tip: "AI re-scores results by relevance" },
+                        { key: "iterativeRetrieval" as const, label: "Iterative retrieval", tip: "Retry with reformulated queries if low confidence" },
+                      ]).map(({ key, label, tip }) => (
                         <button
                           key={key}
                           onMouseDown={(e) => { e.preventDefault(); updateAiBehavior({ [key]: !aiBehavior[key] }); }}
+                          title={tip}
                           className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between transition-colors hover:bg-slate-50 dark:hover:bg-gray-900"
                         >
                           <span className="text-slate-600 dark:text-gray-400">{label}</span>

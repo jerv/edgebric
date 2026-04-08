@@ -263,6 +263,7 @@ export interface PersistedMessage {
   hasConfidentAnswer?: boolean;
   answerType?: AnswerType;
   source?: "ai" | "admin" | "system" | undefined;
+  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
   createdAt: Date;
 }
 

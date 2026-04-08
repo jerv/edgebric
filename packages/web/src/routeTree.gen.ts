@@ -9,8 +9,6 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AcknowledgmentsRouteImport } from './routes/acknowledgments'
 import { Route as ShellRouteImport } from './routes/_shell'
@@ -28,16 +26,6 @@ import { Route as ShellAccountRouteImport } from './routes/_shell/account'
 import { Route as ShellGroupChatsIdRouteImport } from './routes/_shell/group-chats.$id'
 import { Route as ShellConversationsIdRouteImport } from './routes/_shell/conversations.$id'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -122,8 +110,6 @@ export interface FileRoutesByFullPath {
   '/': typeof ShellIndexRoute
   '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
   '/documents': typeof ShellDocumentsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
@@ -140,8 +126,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/account': typeof ShellAccountRoute
   '/documents': typeof ShellDocumentsRoute
   '/group-chats': typeof ShellGroupChatsRouteWithChildren
@@ -161,8 +145,6 @@ export interface FileRoutesById {
   '/_shell': typeof ShellRouteWithChildren
   '/acknowledgments': typeof AcknowledgmentsRoute
   '/onboarding': typeof OnboardingRoute
-  '/privacy': typeof PrivacyRoute
-  '/terms': typeof TermsRoute
   '/_shell/account': typeof ShellAccountRoute
   '/_shell/documents': typeof ShellDocumentsRoute
   '/_shell/group-chats': typeof ShellGroupChatsRouteWithChildren
@@ -183,8 +165,6 @@ export interface FileRouteTypes {
     | '/'
     | '/acknowledgments'
     | '/onboarding'
-    | '/privacy'
-    | '/terms'
     | '/account'
     | '/documents'
     | '/group-chats'
@@ -201,8 +181,6 @@ export interface FileRouteTypes {
   to:
     | '/acknowledgments'
     | '/onboarding'
-    | '/privacy'
-    | '/terms'
     | '/account'
     | '/documents'
     | '/group-chats'
@@ -221,8 +199,6 @@ export interface FileRouteTypes {
     | '/_shell'
     | '/acknowledgments'
     | '/onboarding'
-    | '/privacy'
-    | '/terms'
     | '/_shell/account'
     | '/_shell/documents'
     | '/_shell/group-chats'
@@ -242,27 +218,11 @@ export interface RootRouteChildren {
   ShellRoute: typeof ShellRouteWithChildren
   AcknowledgmentsRoute: typeof AcknowledgmentsRoute
   OnboardingRoute: typeof OnboardingRoute
-  PrivacyRoute: typeof PrivacyRoute
-  TermsRoute: typeof TermsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
@@ -424,8 +384,6 @@ const rootRouteChildren: RootRouteChildren = {
   ShellRoute: ShellRouteWithChildren,
   AcknowledgmentsRoute: AcknowledgmentsRoute,
   OnboardingRoute: OnboardingRoute,
-  PrivacyRoute: PrivacyRoute,
-  TermsRoute: TermsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
