@@ -76,10 +76,21 @@ const envContent = [
 const envFile = path.join(tmpDir, ".env");
 fs.writeFileSync(envFile, envContent);
 
-const server = spawn("node", [serverJs], {
+// Use Electron as Node runtime so native modules (rebuilt for Electron) load correctly.
+// Fall back to system node if electron binary isn't found (e.g. running outside the monorepo).
+const electronBin = path.join(root, "packages/desktop/node_modules/.bin/electron");
+const useElectron = fs.existsSync(electronBin);
+const nodeBin = useElectron ? electronBin : "node";
+
+if (useElectron) {
+  console.log("  Using Electron as Node runtime for smoke test");
+}
+
+const server = spawn(nodeBin, [serverJs], {
   stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
+    ...(useElectron && { ELECTRON_RUN_AS_NODE: "1" }),
     DOTENV_CONFIG_PATH: envFile,
     SERVE_STATIC: "1",
     WEB_DIST_DIR: webDist,

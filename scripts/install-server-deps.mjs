@@ -60,8 +60,9 @@ execSync("npm install --omit=dev --no-package-lock", {
 // Rebuild native modules for Electron's Node.js runtime
 console.log(`\nRebuilding native modules for Electron ${electronVersion}...`);
 const desktopDir = path.join(root, "packages/desktop");
+const rebuildBin = path.join(desktopDir, "node_modules", ".bin", "electron-rebuild");
 execSync(
-  `npx @electron/rebuild --module-dir "${serverDir}" --electron-version ${electronVersion} --force`,
+  `"${rebuildBin}" --module-dir "${serverDir}" --electron-version ${electronVersion} --force`,
   {
     cwd: desktopDir,
     stdio: "inherit",
