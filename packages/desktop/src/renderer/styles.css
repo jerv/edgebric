@@ -1265,6 +1265,11 @@ body {
   cursor: default;
 }
 
+.model-badge-lg {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
 .model-badge-active {
   background: #dcfce7;
   color: #166534;

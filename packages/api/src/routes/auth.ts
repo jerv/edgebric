@@ -106,13 +106,14 @@ authRouter.get("/me", (req, res) => {
       req.session.orgId = "solo";
       req.session.orgSlug = "solo";
     }
+    const soloOrg = getDefaultOrg();
     res.json({
       isAdmin: true,
       queryToken: req.session.queryToken,
       email: req.session.email,
       name: req.session.name,
       orgId: "solo",
-      orgName: "Edgebric",
+      orgName: soloOrg?.name ?? "Edgebric",
       orgSlug: "solo",
       privateModeEnabled: false,
       vaultModeEnabled: true,
@@ -120,6 +121,7 @@ authRouter.get("/me", (req, res) => {
       defaultGroupChatNotifLevel: "all",
       onboardingComplete: true,
       needsNameSetup: false,
+      showDisclaimer: soloOrg?.settings.showDisclaimer ?? true,
       authMode: "none",
     });
     return;
@@ -165,6 +167,7 @@ authRouter.get("/me", (req, res) => {
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
     orgAvatarUrl: org?.settings.avatarUrl,
+    showDisclaimer: org?.settings.showDisclaimer ?? true,
     authMode: "oidc",
   });
 });

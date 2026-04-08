@@ -1227,9 +1227,11 @@ export function ChatPanel() {
                                 Lower confidence — the matching documents had weaker relevance scores. Verify this answer carefully.
                               </p>
                             )}
-                            <p className="text-xs text-slate-400 dark:text-gray-500">
-                              Verify all important answers with the appropriate human.
-                            </p>
+                            {(user?.showDisclaimer ?? true) && (
+                              <p className="text-xs text-slate-400 dark:text-gray-500">
+                                Verify all important answers with the appropriate human.
+                              </p>
+                            )}
                           </>
                         ) : null}
                       </div>
@@ -1449,7 +1451,7 @@ export function ChatPanel() {
                 </div>
               )}
 
-              <div className="flex items-end gap-1.5">
+              <div className="flex items-end gap-2">
                 {/* File upload button */}
                 {showFileUpload && (
                   <>
@@ -1467,7 +1469,7 @@ export function ChatPanel() {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isLoading}
-                      className="self-end p-2.5 rounded-xl text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40"
+                      className="self-end flex items-center justify-center min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-gray-700 text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40 flex-shrink-0"
                       title={modelCapabilities?.vision ? "Attach file or image" : "Attach document"}
                     >
                       <Paperclip className="w-4 h-4" />

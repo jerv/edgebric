@@ -130,8 +130,8 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {isLoaded ? (
             <>
-              <span className="text-[11px] bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded font-medium">
-                {isActive ? "Active" : "Running"}
+              <span className="text-xs bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1.5 rounded font-medium">
+                {isActive ? "Active" : "Loaded"}
               </span>
               {!isActive && (
                 <button

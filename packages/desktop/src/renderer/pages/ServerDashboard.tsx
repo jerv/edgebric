@@ -419,12 +419,19 @@ export default function ServerDashboard() {
     await window.electronAPI.stopServer();
   }
 
+  const [restarting, setRestarting] = useState(false);
+
   async function handleRestart() {
     setErrorMsg("");
-    await window.electronAPI.stopServer();
-    await new Promise((r) => setTimeout(r, 500));
-    const result = await window.electronAPI.startServer();
-    if (!result.success) setErrorMsg(result.error ?? "Failed to start server");
+    setRestarting(true);
+    try {
+      await window.electronAPI.stopServer();
+      await new Promise((r) => setTimeout(r, 500));
+      const result = await window.electronAPI.startServer();
+      if (!result.success) setErrorMsg(result.error ?? "Failed to start server");
+    } finally {
+      setRestarting(false);
+    }
   }
 
   async function handleWipeConfirm(e: FormEvent) {
@@ -755,19 +762,19 @@ export default function ServerDashboard() {
                       <div className="resource-bar-track">
                         <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
                         {edgebricRam > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#3b82f6" }} />
                         )}
                         {embeddingRam > 0 && (
                           <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
                         )}
                         {modelRam > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#22c55e", borderRadius: "0 3px 3px 0" }} />
                         )}
                       </div>
                       <div className="resource-bar-legend">
                         {modelRam > 0 && loadedModels.filter((m) => m.ramUsageBytes).map((m) => (
                           <span key={m.tag} className="legend-item">
-                            <span className="legend-dot" style={{ background: "#3b82f6" }} />
+                            <span className="legend-dot" style={{ background: "#22c55e" }} />
                             {modelDisplayName(m)} {formatBytes(m.ramUsageBytes!)}
                           </span>
                         ))}
@@ -779,7 +786,7 @@ export default function ServerDashboard() {
                         )}
                         {edgebricRam > 0 && (
                           <span className="legend-item">
-                            <span className="legend-dot" style={{ background: "#8b5cf6" }} />
+                            <span className="legend-dot" style={{ background: "#3b82f6" }} />
                             Edgebric {formatBytes(edgebricRam)}
                           </span>
                         )}
@@ -815,10 +822,10 @@ export default function ServerDashboard() {
                       <div className="resource-bar-track">
                         <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
                         {modelsSize > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelsSize)}%`, background: "#3b82f6" }} />
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(modelsSize)}%`, background: "#22c55e" }} />
                         )}
                         {uploadsBytes > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${pctOf(uploadsBytes)}%`, background: "#22c55e" }} />
+                          <div className="resource-bar-fill" style={{ width: `${pctOf(uploadsBytes)}%`, background: "#06b6d4" }} />
                         )}
                         {vaultBytes > 0 && (
                           <div className="resource-bar-fill" style={{ width: `${pctOf(vaultBytes)}%`, background: "#f59e0b" }} />
@@ -830,13 +837,13 @@ export default function ServerDashboard() {
                       <div className="resource-bar-legend">
                         {modelsSize > 0 && (
                           <span className="legend-item">
-                            <span className="legend-dot" style={{ background: "#3b82f6" }} />
+                            <span className="legend-dot" style={{ background: "#22c55e" }} />
                             AI Models {formatBytes(modelsSize)}
                           </span>
                         )}
                         {uploadsBytes > 0 && (
                           <span className="legend-item">
-                            <span className="legend-dot" style={{ background: "#22c55e" }} />
+                            <span className="legend-dot" style={{ background: "#06b6d4" }} />
                             Documents {formatBytes(uploadsBytes)}
                           </span>
                         )}
@@ -884,7 +891,7 @@ export default function ServerDashboard() {
                           </div>
                         </div>
                         <div className="btn-row" style={{ marginTop: 0, alignItems: "center" }}>
-                          <span className="model-badge model-badge-active">Running</span>
+                          <span className="model-badge model-badge-active model-badge-lg">Loaded</span>
                           {m.tag === modelsData?.activeModel && unloadConfirmTag !== m.tag ? (
                             <button
                               className="btn btn-ghost btn-sm"
@@ -1005,7 +1012,7 @@ export default function ServerDashboard() {
                   <div className="model-item-left" style={{ flex: 1 }}>
                     <div className="model-item-name">{pullTag}</div>
                     <div className="resource-bar-track" style={{ marginTop: 6 }}>
-                      <div className="resource-bar-fill" style={{ width: `${pullPercent}%`, background: "#3b82f6", transition: "width 0.3s" }} />
+                      <div className="resource-bar-fill" style={{ width: `${pullPercent}%`, background: "#22c55e", transition: "width 0.3s" }} />
                     </div>
                     <span className="model-item-meta" style={{ marginTop: 4 }}>
                       {pullPercent}% — {pullStatus}
@@ -1716,11 +1723,14 @@ export default function ServerDashboard() {
                 {status === "starting" && (
                   <button className="btn btn-ghost btn-sm" disabled>Starting...</button>
                 )}
-                {isRunning && (
+                {isRunning && !restarting && (
                   <>
                     <button className="btn btn-ghost btn-sm" onClick={handleRestart}>Restart</button>
                     <button className="btn btn-danger-ghost btn-sm" onClick={handleStop}>Stop</button>
                   </>
+                )}
+                {restarting && (
+                  <button className="btn btn-ghost btn-sm" disabled>Restarting...</button>
                 )}
               </div>
             </div>
@@ -1811,13 +1821,13 @@ export default function ServerDashboard() {
                   <div className="resource-bar-track">
                     <div className="resource-bar-fill" style={{ width: `${pctOf(otherUsed)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
                     {edgebricRam > 0 && (
-                      <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#8b5cf6" }} />
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(edgebricRam)}%`, background: "#3b82f6" }} />
                     )}
                     {embeddingRam > 0 && (
                       <div className="resource-bar-fill" style={{ width: `${pctOf(embeddingRam)}%`, background: "#06b6d4" }} />
                     )}
                     {modelRam > 0 && (
-                      <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#3b82f6", borderRadius: "0 3px 3px 0" }} />
+                      <div className="resource-bar-fill" style={{ width: `${pctOf(modelRam)}%`, background: "#22c55e", borderRadius: "0 3px 3px 0" }} />
                     )}
                   </div>
                 </div>
@@ -1843,10 +1853,10 @@ export default function ServerDashboard() {
                       <div className="resource-bar-track">
                         <div className="resource-bar-fill" style={{ width: `${diskPctOf(otherDisk)}%`, background: "#64748b", borderRadius: "3px 0 0 3px" }} />
                         {modelsSize > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(modelsSize)}%`, background: "#3b82f6" }} />
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(modelsSize)}%`, background: "#22c55e" }} />
                         )}
                         {uploadsBytes > 0 && (
-                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(uploadsBytes)}%`, background: "#22c55e" }} />
+                          <div className="resource-bar-fill" style={{ width: `${diskPctOf(uploadsBytes)}%`, background: "#06b6d4" }} />
                         )}
                         {vaultBytes > 0 && (
                           <div className="resource-bar-fill" style={{ width: `${diskPctOf(vaultBytes)}%`, background: "#f59e0b" }} />

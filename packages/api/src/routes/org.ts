@@ -53,6 +53,24 @@ orgRouter.put("/", validateBody(updateOrgSchema), (req, res) => {
   res.json(updated);
 });
 
+// PATCH /api/admin/org/settings — update org settings
+const updateSettingsSchema = z.object({
+  showDisclaimer: z.boolean().optional(),
+}).strict();
+
+orgRouter.patch("/settings", validateBody(updateSettingsSchema), (req, res) => {
+  const org = getOrg(req.session.orgId!);
+  if (!org) {
+    res.status(404).json({ error: "No organization found" });
+    return;
+  }
+  const updates = req.body as z.infer<typeof updateSettingsSchema>;
+  const updated = updateOrg(org.id, {
+    settings: { ...org.settings, ...updates },
+  });
+  res.json(updated);
+});
+
 // POST /api/admin/org/complete-onboarding — mark onboarding as done
 orgRouter.post("/complete-onboarding", (req, res) => {
   const org = getOrg(req.session.orgId!);
