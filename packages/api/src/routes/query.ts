@@ -50,6 +50,15 @@ const queryBodySchema = z.object({
   })).max(20).optional(),
   /** Optional data source IDs to restrict search scope. Omit for default (all accessible). */
   dataSourceIds: z.array(z.string().uuid()).max(20).optional(),
+  /** Skip document search entirely — pure LLM chat with no RAG context. */
+  skipSearch: z.boolean().optional(),
+  /** Per-request AI behavior overrides (from user's chat settings). */
+  aiBehavior: z.object({
+    decompose: z.boolean().optional(),
+    rerank: z.boolean().optional(),
+    iterativeRetrieval: z.boolean().optional(),
+    generalAnswers: z.boolean().optional(),
+  }).optional(),
 });
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -396,7 +405,7 @@ queryRouter.get("/status", async (req, res) => {
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds, skipSearch, aiBehavior } = req.body as z.infer<typeof queryBodySchema>;
 
   // Rate limit: 10 queries per minute per user
   const rateLimitEmail = req.session.email;
@@ -458,7 +467,13 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   // Determine strict mode (admin toggle: general answers)
   const orgConfig = getIntegrationConfig();
-  const strict = !(orgConfig.generalAnswersEnabled ?? true);
+  // Per-request overrides from user's AI behavior settings, fallback to org config
+  const strict = aiBehavior?.generalAnswers !== undefined
+    ? !aiBehavior.generalAnswers
+    : !(orgConfig.generalAnswersEnabled ?? true);
+  const useDecompose = aiBehavior?.decompose ?? orgConfig.ragDecompose ?? false;
+  const useRerank = aiBehavior?.rerank ?? orgConfig.ragRerank ?? false;
+  const useIterativeRetrieval = aiBehavior?.iterativeRetrieval ?? orgConfig.ragIterativeRetrieval ?? false;
 
   // Resolve mesh group access: admins get undefined (all groups), users get their assigned groups
   const isAdmin = req.session.isAdmin ?? false;
@@ -509,10 +524,12 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     let releaseSlotFn: (() => void) | undefined;
     try {
       const orgId = req.session.orgId;
-      const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       // Forward accessible data source IDs for server-side ACL enforcement on mesh nodes
-      const accessibleDSIds = listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIds);
+      const accessibleDSIds = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
+        ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
+        : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIds);
 
       // Acquire inference slot
       const abortController = new AbortController();
@@ -538,9 +555,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         session,
         {
           datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost, strict,
-          decompose: orgConfig.ragDecompose ?? false,
-          rerank: orgConfig.ragRerank ?? false,
-          iterativeRetrieval: orgConfig.ragIterativeRetrieval ?? false,
+          decompose: useDecompose,
+          rerank: useRerank,
+          iterativeRetrieval: useIterativeRetrieval,
         },
         {
           search: async () => searchResults,
@@ -698,15 +715,22 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
       const memoryBlock = await getMemoryContextBlock(query, orgId, userEmail);
 
       // System prompt for tool-using model
-      const toolSystemPrompt = [
-        "You are a helpful AI assistant with access to tools for searching knowledge bases, managing documents, and browsing the web.",
-        "Use tools when the user's question requires information from documents, the web, or data management.",
-        "For simple questions that don't need tools (greetings, math, general knowledge), answer directly without calling tools.",
-        strict ? "You must only answer from information found via tools — do not use general knowledge." : "",
-        "Always cite your sources when using information from search results.",
-        "When the user asks you to remember something, use the save_memory tool.",
-        memoryBlock,
-      ].filter(Boolean).join("\n\n");
+      const toolSystemPrompt = skipSearch
+        ? [
+            "You are a helpful AI assistant. Answer the user's question directly using your general knowledge.",
+            "Do not search documents or knowledge bases — the user has chosen to chat without sources.",
+            "When the user asks you to remember something, use the save_memory tool.",
+            memoryBlock,
+          ].filter(Boolean).join("\n\n")
+        : [
+            "You are a helpful AI assistant with access to tools for searching knowledge bases, managing documents, and browsing the web.",
+            "Use tools when the user's question requires information from documents, the web, or data management.",
+            "For simple questions that don't need tools (greetings, math, general knowledge), answer directly without calling tools.",
+            strict ? "You must only answer from information found via tools — do not use general knowledge." : "",
+            "Always cite your sources when using information from search results.",
+            "When the user asks you to remember something, use the save_memory tool.",
+            memoryBlock,
+          ].filter(Boolean).join("\n\n");
 
       toolMessages.push({ role: "system", content: toolSystemPrompt });
 
@@ -759,9 +783,11 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     } else {
       // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
 
-      const datasetNames = resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const accessibleDSIdsStd = listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIdsStd);
+      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const accessibleDSIdsStd = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
+        ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
+        : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIdsStd);
 
       // Acquire inference slot — waits if all slots busy, sends queue position via SSE
       const abortController = new AbortController();
@@ -793,9 +819,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
           candidateCount,
           hybridBoost,
           strict,
-          decompose: orgConfig.ragDecompose ?? false,
-          rerank: orgConfig.ragRerank ?? false,
-          iterativeRetrieval: orgConfig.ragIterativeRetrieval ?? false,
+          decompose: useDecompose,
+          rerank: useRerank,
+          iterativeRetrieval: useIterativeRetrieval,
         },
         {
           search: async () => searchResults,

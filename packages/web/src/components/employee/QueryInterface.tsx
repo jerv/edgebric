@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight, Sparkles, Settings2 } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -263,6 +263,24 @@ export function ChatPanel() {
   } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [targetDataSources, setTargetDataSources] = useState<DSTarget[]>([]);
+
+  // AI Behavior settings (persisted in localStorage)
+  const [aiBehaviorOpen, setAiBehaviorOpen] = useState(false);
+  const aiBehaviorRef = useRef<HTMLDivElement>(null);
+  const [aiBehavior, setAiBehavior] = useState(() => {
+    try {
+      const saved = localStorage.getItem("edgebric:ai-behavior");
+      if (saved) return JSON.parse(saved) as { auto: boolean; decompose: boolean; rerank: boolean; iterativeRetrieval: boolean; generalAnswers: boolean };
+    } catch { /* ignore */ }
+    return { auto: true, decompose: false, rerank: false, iterativeRetrieval: false, generalAnswers: true };
+  });
+  function updateAiBehavior(updates: Partial<typeof aiBehavior>) {
+    setAiBehavior((prev) => {
+      const next = { ...prev, ...updates };
+      localStorage.setItem("edgebric:ai-behavior", JSON.stringify(next));
+      return next;
+    });
+  }
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -603,6 +621,18 @@ export function ChatPanel() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [privacyPopoverOpen]);
 
+  // Close AI behavior popover on outside click
+  useEffect(() => {
+    if (!aiBehaviorOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (aiBehaviorRef.current && !aiBehaviorRef.current.contains(e.target as Node)) {
+        setAiBehaviorOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [aiBehaviorOpen]);
+
   // Close data source selector on outside click
   useEffect(() => {
     if (!dsSelectorOpen) return;
@@ -657,11 +687,14 @@ export function ChatPanel() {
   }
 
   /** Label shown on the source selector button. */
+  const isNoSourcesMode = targetDataSources.some((t) => t.id === "__none__");
   const dsSelectorLabel = targetDataSources.length === 0
     ? "All Sources"
-    : targetDataSources.length === 1
-      ? targetDataSources[0]!.name
-      : `${targetDataSources.length} sources`;
+    : isNoSourcesMode
+      ? "No Sources"
+      : targetDataSources.length === 1
+        ? targetDataSources[0]!.name
+        : `${targetDataSources.length} sources`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -762,11 +795,14 @@ export function ChatPanel() {
     // ─── Private / Standard Mode: query server ─────────────────────────────
     try {
       // Resolve data source IDs from target chips
-      const resolvedDSIds = targetDataSources.length === 0 || targetDataSources.some((t) => t.id === "__org__")
-        ? undefined // default: search accessible org data sources
-        : targetDataSources.some((t) => t.id === "__all__")
-          ? undefined // @all = search everything (same as default until personal data sources exist)
-          : targetDataSources.filter((t) => t.type !== "shortcut").map((t) => t.id);
+      const isNoSources = targetDataSources.some((t) => t.id === "__none__");
+      const resolvedDSIds = isNoSources
+        ? undefined
+        : targetDataSources.length === 0 || targetDataSources.some((t) => t.id === "__org__")
+          ? undefined // default: search accessible org data sources
+          : targetDataSources.some((t) => t.id === "__all__")
+            ? undefined // @all = search everything (same as default until personal data sources exist)
+            : targetDataSources.filter((t) => t.type !== "shortcut").map((t) => t.id);
 
       // If a file is attached, process it first
       let effectiveQuery = query;
@@ -792,14 +828,30 @@ export function ChatPanel() {
         }
       }
 
+      // AI behavior: when auto is on, don't send overrides (use server defaults)
+      const behaviorOverrides = aiBehavior.auto ? undefined : {
+        decompose: aiBehavior.decompose,
+        rerank: aiBehavior.rerank,
+        iterativeRetrieval: aiBehavior.iterativeRetrieval,
+        generalAnswers: aiBehavior.generalAnswers,
+      };
+
       const requestBody = isPrivacyMode
         ? {
             query: effectiveQuery,
             private: true,
             messages: messages.slice(-4).map((m) => ({ role: m.role, content: m.content })),
             dataSourceIds: resolvedDSIds,
+            ...(isNoSources && { skipSearch: true }),
+            ...(behaviorOverrides && { aiBehavior: behaviorOverrides }),
           }
-        : { query: effectiveQuery, conversationId, dataSourceIds: resolvedDSIds };
+        : {
+            query: effectiveQuery,
+            conversationId,
+            dataSourceIds: resolvedDSIds,
+            ...(isNoSources && { skipSearch: true }),
+            ...(behaviorOverrides && { aiBehavior: behaviorOverrides }),
+          };
 
       const response = await fetch("/api/query", {
         method: "POST",
@@ -1331,12 +1383,14 @@ export function ChatPanel() {
                   onClick={() => setDsSelectorOpen((o) => !o)}
                   className={cn(
                     "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
-                    targetDataSources.length > 0
-                      ? "text-blue-600 hover:bg-blue-50"
-                      : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
+                    isNoSourcesMode
+                      ? "text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950"
+                      : targetDataSources.length > 0
+                        ? "text-blue-600 hover:bg-blue-50"
+                        : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
                   )}
                 >
-                  <Database className="w-3.5 h-3.5" />
+                  {isNoSourcesMode ? <Sparkles className="w-3.5 h-3.5" /> : <Database className="w-3.5 h-3.5" />}
                   {dsSelectorLabel}
                   <ChevronDown className={cn("w-3 h-3 transition-transform", dsSelectorOpen && "rotate-180")} />
                 </button>
@@ -1358,6 +1412,23 @@ export function ChatPanel() {
                       <Database className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
                       <span className="truncate">All sources</span>
                       {targetDataSources.length === 0 && <Check className="w-3.5 h-3.5 ml-auto text-blue-500 flex-shrink-0" />}
+                    </button>
+
+                    {/* No sources — pure LLM chat */}
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setTargetDataSources([{ id: "__none__", name: "No Sources", datasetName: "", type: "shortcut" }]);
+                        setDsSelectorOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors",
+                        targetDataSources.some((t) => t.id === "__none__") ? "bg-slate-50 dark:bg-gray-900 text-slate-900 dark:text-gray-100" : "text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
+                      )}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 flex-shrink-0" />
+                      <span className="truncate">No sources</span>
+                      {targetDataSources.some((t) => t.id === "__none__") && <Check className="w-3.5 h-3.5 ml-auto text-purple-500 flex-shrink-0" />}
                     </button>
 
                     {/* Individual data sources */}
@@ -1393,6 +1464,81 @@ export function ChatPanel() {
                           </button>
                         );
                       })}
+                  </div>
+                )}
+              </div>
+
+              {/* AI Behavior shortcut */}
+              <div ref={aiBehaviorRef} className="relative">
+                <button
+                  onClick={() => setAiBehaviorOpen((o) => !o)}
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
+                    !aiBehavior.auto
+                      ? "text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950"
+                      : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
+                  )}
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                  {aiBehavior.auto ? "Auto" : "Custom"}
+                  <ChevronDown className={cn("w-3 h-3 transition-transform", aiBehaviorOpen && "rotate-180")} />
+                </button>
+
+                {aiBehaviorOpen && (
+                  <div className="absolute left-0 bottom-full mb-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2 z-20">
+                    <div className="px-3 pb-2 flex items-center justify-between border-b border-slate-100 dark:border-gray-800">
+                      <span className="text-xs font-medium text-slate-700 dark:text-gray-300">AI Behavior</span>
+                      <a
+                        href="/account?tab=general"
+                        className="text-[10px] text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
+                      >
+                        Full settings
+                      </a>
+                    </div>
+
+                    {/* Auto toggle */}
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); updateAiBehavior({ auto: !aiBehavior.auto }); }}
+                      className="w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors hover:bg-slate-50 dark:hover:bg-gray-900"
+                    >
+                      <span className={cn("text-slate-700 dark:text-gray-300", aiBehavior.auto && "font-medium")}>Auto</span>
+                      <div className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                        aiBehavior.auto ? "bg-slate-900 dark:bg-gray-100" : "bg-slate-200 dark:bg-gray-700",
+                      )}>
+                        <span className={cn(
+                          "inline-block h-3.5 w-3.5 rounded-full bg-white dark:bg-gray-900 transition-transform",
+                          aiBehavior.auto ? "translate-x-4" : "translate-x-0.5",
+                        )} />
+                      </div>
+                    </button>
+
+                    {/* Individual toggles — dimmed when auto is on */}
+                    <div className={cn("border-t border-slate-100 dark:border-gray-800 pt-1", aiBehavior.auto && "opacity-40 pointer-events-none")}>
+                      {([
+                        { key: "generalAnswers" as const, label: "General answers" },
+                        { key: "decompose" as const, label: "Query decomposition" },
+                        { key: "rerank" as const, label: "Re-ranking" },
+                        { key: "iterativeRetrieval" as const, label: "Iterative retrieval" },
+                      ]).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          onMouseDown={(e) => { e.preventDefault(); updateAiBehavior({ [key]: !aiBehavior[key] }); }}
+                          className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between transition-colors hover:bg-slate-50 dark:hover:bg-gray-900"
+                        >
+                          <span className="text-slate-600 dark:text-gray-400">{label}</span>
+                          <div className={cn(
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                            aiBehavior[key] ? "bg-slate-900 dark:bg-gray-100" : "bg-slate-200 dark:bg-gray-700",
+                          )}>
+                            <span className={cn(
+                              "inline-block h-3.5 w-3.5 rounded-full bg-white dark:bg-gray-900 transition-transform",
+                              aiBehavior[key] ? "translate-x-4" : "translate-x-0.5",
+                            )} />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
