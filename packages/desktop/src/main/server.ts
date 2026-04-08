@@ -262,10 +262,16 @@ async function _startServer(): Promise<void> {
     ? path.resolve(process.resourcesPath ?? "", "resources", "web", "dist")
     : undefined;
 
-  serverProcess = spawn("node", args, {
+  // Use Electron's own Node.js runtime to run the server so native modules
+  // (better-sqlite3, sharp, sqlite-vec) are always compatible.
+  // ELECTRON_RUN_AS_NODE=1 makes the Electron binary act as plain Node.
+  const nodeExe = isPackaged ? process.execPath : "node";
+
+  serverProcess = spawn(nodeExe, args, {
     stdio: ["ignore", logFd, logFd],
     env: {
       ...process.env,
+      ...(isPackaged && { ELECTRON_RUN_AS_NODE: "1" }),
       DOTENV_CONFIG_PATH: envFile,
       SERVE_STATIC: "1",
       EDGEBRIC_VERSION: app.getVersion(),
