@@ -17,6 +17,7 @@ export interface User {
   onboardingComplete?: boolean;
   needsNameSetup?: boolean;
   orgAvatarUrl?: string;
+  showDisclaimer?: boolean;
   authMode?: "oidc" | "none";
 }
 

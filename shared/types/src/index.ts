@@ -16,6 +16,8 @@ export interface OrgSettings {
   onboardingComplete?: boolean;
   /** URL path to the org avatar image (e.g. /api/avatars/org-xxx.png). */
   avatarUrl?: string;
+  /** Show "Verify all important answers" disclaimer below AI responses. Default true. */
+  showDisclaimer?: boolean;
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────

@@ -106,6 +106,7 @@ export async function listRunning(): Promise<Map<string, { ramUsageBytes: number
   // Check chat server
   try {
     const resp = await fetch(`${chatBaseUrl()}/slots`, {
+      headers: inferenceHeaders("chat"),
       signal: AbortSignal.timeout(3000),
     });
     if (resp.ok) {

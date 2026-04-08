@@ -13,7 +13,7 @@ import { config } from "../config.js";
 import { isRunning as isInferenceRunning, listRunning as listRunningModels } from "../services/inferenceClient.js";
 import { recordAuditEvent } from "../services/auditLog.js";
 import { getIntegrationConfig } from "../services/integrationConfigStore.js";
-import { getAllDocuments, getDocument, getDocumentsByOrg } from "../services/documentStore.js";
+import { getDocument } from "../services/documentStore.js";
 import {
   createConversation,
   getConversation,
@@ -249,6 +249,10 @@ async function getMemoryContextBlock(query: string, orgId?: string, userEmail?: 
   const memoryDataset = getMemoryDatasetName(orgId, userEmail);
   if (!memoryDataset) return "";
 
+  // Skip if embedding server isn't running (avoids timeout on every query)
+  const { isEmbeddingRunning } = await import("../services/inferenceClient.js");
+  if (!(await isEmbeddingRunning())) return "";
+
   try {
     return await buildMemoryContext(query, async (q, topK) => {
       const { results } = await memoryHybridSearch([memoryDataset], q, topK);
@@ -382,24 +386,13 @@ async function searchWithHybrid(
   return { results, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable };
 }
 
-// Returns whether the system has at least one ready document to query against
-// and whether a chat model is loaded in memory.
+// Returns whether the system is ready for chat and whether a model is loaded.
+// Chat is always available — documents are optional (RAG enhances answers but isn't required).
 queryRouter.get("/status", async (req, res) => {
-  const docs = req.session.orgId ? getDocumentsByOrg(req.session.orgId) : getAllDocuments();
-  const hasDocuments = docs.some((d) => d.status === "ready");
-
-  let modelLoaded = false;
-  try {
-    const serverUp = await isInferenceRunning();
-    if (serverUp) {
-      const running = await listRunningModels();
-      modelLoaded = running.size > 0;
-    }
-  } catch {
-    // If we can't check, assume not loaded
-  }
-
-  res.json({ ready: hasDocuments, modelLoaded });
+  // If the chat server's /health is OK, a model is loaded — no need to check /slots
+  // (which can fail when the model is busy generating a response).
+  const modelLoaded = await isInferenceRunning();
+  res.json({ ready: true, modelLoaded });
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {

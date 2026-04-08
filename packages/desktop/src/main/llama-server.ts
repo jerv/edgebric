@@ -288,6 +288,8 @@ export async function startInstance(
   } else {
     // Chat server: allow concurrent requests
     args.push("--parallel", "2");
+    // Disable reasoning/thinking — wastes tokens with no quality benefit for RAG
+    args.push("--reasoning", "off");
   }
 
   const child = spawn(bin, args, {

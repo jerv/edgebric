@@ -26,6 +26,64 @@ const TABS: { id: AccountTab; label: string }[] = [
   { id: "api-keys", label: "API Keys" },
 ];
 
+// ─── Disclaimer toggle (admin only) ────────────────────────────────────────
+
+function DisclaimerToggle() {
+  const user = useUser();
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const enabled = user?.showDisclaimer ?? true;
+
+  async function toggle() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/org/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ showDisclaimer: !enabled }),
+      });
+      if (res.ok) {
+        void queryClient.invalidateQueries({ queryKey: ["admin", "org"] });
+        void queryClient.invalidateQueries({ queryKey: ["me"] });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-3">
+      <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Settings</h3>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-700 dark:text-gray-300">Show answer disclaimer</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+            Display a verification reminder below AI responses
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={saving}
+          className={cn(
+            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0",
+            enabled
+              ? "bg-slate-900 dark:bg-gray-100"
+              : "bg-slate-200 dark:bg-gray-700",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-900 transition-transform",
+              enabled ? "translate-x-6" : "translate-x-1",
+            )}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── General tab (profile info) ─────────────────────────────────────────────
 
 const THEME_OPTIONS: { id: Theme; label: string; icon: typeof Sun }[] = [
@@ -212,6 +270,9 @@ function GeneralTab() {
           </p>
         </div>
       )}
+
+      {/* AI disclaimer toggle — admin only */}
+      {user?.isAdmin && <DisclaimerToggle />}
 
       {/* Telegram Account Linking */}
       <TelegramUserSection />
