@@ -54,6 +54,11 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Bundle API server for desktop app
+        run: |
+          node scripts/bundle-server.mjs
+          node scripts/install-server-deps.mjs
+
       # Import the Apple Developer ID certificate into a temporary keychain
       - name: Import code signing certificate
         env:

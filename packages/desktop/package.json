@@ -12,7 +12,8 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "package": "electron-builder --mac",
-    "package:dmg": "electron-builder --mac dmg"
+    "package:dmg": "electron-builder --mac dmg",
+    "bundle-server": "node ../../scripts/bundle-server.mjs && node ../../scripts/install-server-deps.mjs"
   },
   "build": {
     "appId": "com.edgebric.desktop",

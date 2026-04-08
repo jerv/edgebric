@@ -2,3 +2,5 @@ out/
 dist/
 release/
 node_modules/
+resources/server/
+resources/web/
