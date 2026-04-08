@@ -17,29 +17,7 @@ describe("Query API", () => {
   // ─── GET /api/query/status ──────────────────────────────────────────────────
 
   describe("GET /api/query/status", () => {
-    it("returns not ready when no documents exist", async () => {
-      const res = await memberAgent(orgId).get("/api/query/status");
-      expect(res.status).toBe(200);
-      expect(res.body.ready).toBe(false);
-    });
-
-    it("returns ready when a ready document exists", async () => {
-      // Seed a ready document
-      const ds = ensureDefaultDataSource("admin@test.com", orgId);
-      const doc: Document = {
-        id: randomUUID(),
-        name: "ready-doc.md",
-        type: "md",
-        classification: "policy",
-        uploadedAt: new Date(),
-        updatedAt: new Date(),
-        status: "ready",
-        sectionHeadings: [],
-        storageKey: "/tmp/nonexistent.md",
-        dataSourceId: ds.id,
-      };
-      setDocument(doc);
-
+    it("returns ready regardless of documents (chat always available)", async () => {
       const res = await memberAgent(orgId).get("/api/query/status");
       expect(res.status).toBe(200);
       expect(res.body.ready).toBe(true);
