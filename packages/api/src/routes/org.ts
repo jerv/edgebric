@@ -64,10 +64,10 @@ orgRouter.patch("/settings", validateBody(updateSettingsSchema), (req, res) => {
     res.status(404).json({ error: "No organization found" });
     return;
   }
-  const updates = req.body as z.infer<typeof updateSettingsSchema>;
-  const updated = updateOrg(org.id, {
-    settings: { ...org.settings, ...updates },
-  });
+  const { showDisclaimer } = req.body as z.infer<typeof updateSettingsSchema>;
+  const newSettings = { ...org.settings };
+  if (showDisclaimer !== undefined) newSettings.showDisclaimer = showDisclaimer;
+  const updated = updateOrg(org.id, { settings: newSettings });
   res.json(updated);
 });
 
