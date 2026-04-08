@@ -30,8 +30,17 @@
       },
       "iconSize": 80,
       "contents": [
-        { "x": 150, "y": 140, "type": "file" },
-        { "x": 362, "y": 140, "type": "link", "path": "/Applications" }
+        {
+          "x": 150,
+          "y": 140,
+          "type": "file"
+        },
+        {
+          "x": 362,
+          "y": 140,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "extraResources": [
@@ -39,6 +48,7 @@
     ]
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
