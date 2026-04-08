@@ -705,3 +705,22 @@ No fixes needed — the llama-cpp migration landed cleanly.
 - llama-server auth: random 256-bit API key per instance, passed via --api-key flag
 - DNS rebinding: Host header validation middleware rejects unknown hosts
 - PII search filter: search results filtered to only "ready" documents
+
+## 2026-04-07 — agent/docs-update (Document new features)
+
+### Added documentation for memory system, hybrid RAG settings, and Telegram integration
+
+**What was done:**
+1. Updated README.md: added memory, hybrid RAG, and Telegram to "What It Does" list; added TELEGRAM_BOT_TOKEN to env vars table.
+2. Created `docs-site/guide/memory.md`: memory system guide covering how it works, data source visibility, query injection, org/solo modes, settings, and REST API.
+3. Created `docs-site/guide/telegram.md`: Telegram integration guide with BotFather setup, account linking, bot commands, document uploads, privacy considerations, admin settings.
+4. Updated `docs-site/guide/querying.md`: added "Search Quality Settings" section documenting the three hybrid RAG toggles.
+5. Updated `docs-site/guide/tools.md`: added memory tools section (save_memory, list_memories, delete_memory).
+6. Updated `docs-site/admin/integrations.md`: added Telegram Bot and Search Quality (Hybrid RAG) sections, plus memoryEnabled setting.
+7. Updated `docs-site/api/agent-api.md`: added Memory REST API endpoints (GET/POST/PUT/DELETE + toggle).
+8. Updated `docs-site/.vitepress/config.ts`: added Agent Memory and Telegram pages to sidebar under "Using Edgebric".
+
+**Files modified:** `README.md`, `docs-site/.vitepress/config.ts`, `docs-site/admin/integrations.md`, `docs-site/api/agent-api.md`, `docs-site/guide/querying.md`, `docs-site/guide/tools.md`
+**Files created:** `docs-site/guide/memory.md`, `docs-site/guide/telegram.md`
+
+**Note:** WORKLOG.md has pre-existing merge conflict markers from prior agent merges.
