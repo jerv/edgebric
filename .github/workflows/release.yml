@@ -59,6 +59,9 @@ jobs:
           node scripts/bundle-server.mjs
           node scripts/install-server-deps.mjs
 
+      - name: Smoke test bundled server
+        run: node scripts/smoke-test-bundle.mjs
+
       # Import the Apple Developer ID certificate into a temporary keychain
       - name: Import code signing certificate
         env:
