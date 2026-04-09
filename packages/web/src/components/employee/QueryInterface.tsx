@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Wrench, ChevronRight, Sparkles, Settings2, Search, FolderOpen, FileSearch, Plus, Upload, Trash2, Shield, GitCompare, BookCheck, Link2, Globe, Save, type LucideIcon } from "lucide-react";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Sparkles, Settings2 } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
@@ -17,6 +17,9 @@ import { ChatInput } from "@/components/shared/ChatInput";
 import { SourcePanel } from "./SourcePanel";
 import { DSMentionPicker, type DSTarget, type DSMentionPickerHandle } from "./DSMentionPicker";
 import { GroupChatSetupDialog } from "@/components/groupChat/GroupChatSetupDialog";
+import { ThinkingIndicator } from "@/components/shared/ThinkingIndicator";
+import { ToolUsePanel } from "@/components/shared/ToolUsePanel";
+import type { ToolUse } from "@/components/shared/toolConfig";
 import type { DataSource } from "@edgebric/types";
 
 interface Message {
@@ -38,129 +41,11 @@ interface Message {
   /** Number of mesh nodes that were unreachable. */
   meshNodesUnavailable?: number;
   /** Tool uses during this query (only when model has tool use capability). */
-  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
+  toolUses?: ToolUse[];
 }
 
 
-// ─── Thinking Indicator ─────────────────────────────────────────────────────
-
-const THINKING_WORDS = [
-  "Thinking",
-  "Searching data sources",
-  "Reading documents",
-  "Analyzing",
-  "Composing answer",
-  "Reviewing data sources",
-  "Cross-referencing",
-  "Synthesizing",
-];
-
-function ThinkingIndicator({ queuePosition }: { queuePosition?: number | null }) {
-  const [index, setIndex] = useState(0);
-  const [fade, setFade] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFade(false);
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % THINKING_WORDS.length);
-        setFade(true);
-      }, 200);
-    }, 2400);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="flex items-center gap-2 py-1">
-      <div className="flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
-      </div>
-      {queuePosition != null && queuePosition > 0 ? (
-        <span className="text-xs text-amber-500 dark:text-amber-400">
-          Queued ({queuePosition} {queuePosition === 1 ? "request" : "requests"} ahead)
-        </span>
-      ) : (
-        <span
-          className={cn(
-            "text-xs text-slate-400 dark:text-gray-500 transition-opacity duration-200",
-            fade ? "opacity-100" : "opacity-0",
-          )}
-        >
-          {THINKING_WORDS[index]}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// ─── Tool Use Panel ─────────────────────────────────────────────────────────
-
-const TOOL_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
-  search_knowledge: { label: "Search Knowledge", icon: Search },
-  list_sources: { label: "List Sources", icon: FolderOpen },
-  list_documents: { label: "List Documents", icon: FileSearch },
-  get_source_summary: { label: "Source Summary", icon: FileText },
-  create_source: { label: "Create Source", icon: Plus },
-  upload_document: { label: "Upload Document", icon: Upload },
-  delete_document: { label: "Delete Document", icon: Trash2 },
-  delete_source: { label: "Delete Source", icon: Trash2 },
-  save_to_vault: { label: "Save to Vault", icon: Shield },
-  save_memory: { label: "Save Memory", icon: Save },
-  compare_documents: { label: "Compare Documents", icon: GitCompare },
-  cite_check: { label: "Verify Claim", icon: BookCheck },
-  find_related: { label: "Find Related", icon: Link2 },
-  web_search: { label: "Web Search", icon: Globe },
-  read_url: { label: "Read URL", icon: Globe },
-};
-
-function ToolUsePanel({ toolUses }: { toolUses: Message["toolUses"] }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!toolUses || toolUses.length === 0) return null;
-
-  return (
-    <div className="mt-2 mb-1">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {toolUses.map((t, i) => {
-          const cfg = TOOL_CONFIG[t.name];
-          const Icon = cfg?.icon ?? Wrench;
-          return (
-            <span key={i} className="flex items-center gap-1">
-              <Wrench className="h-3 w-3" />
-              <Icon className="h-3 w-3" />
-              <span>{cfg?.label ?? t.name}</span>
-            </span>
-          );
-        })}
-        <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
-      </button>
-      {expanded && (
-        <div className="mt-1.5 space-y-1.5 pl-4 border-l-2 border-muted">
-          {toolUses.map((tu, i) => {
-            const cfg = TOOL_CONFIG[tu.name];
-            const Icon = cfg?.icon ?? Wrench;
-            return (
-              <div key={i} className="text-xs flex items-center gap-1.5">
-                <span className={cn(
-                  "w-1.5 h-1.5 rounded-full flex-shrink-0",
-                  tu.result.success ? "bg-emerald-500" : "bg-red-500",
-                )} />
-                <Icon className="h-3 w-3 flex-shrink-0" />
-                <span className="font-medium text-foreground">{cfg?.label ?? tu.name}</span>
-                <span className="text-muted-foreground">— {tu.result.summary}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+// ThinkingIndicator, ToolUsePanel, and TOOL_CONFIG are now in shared/
 
 // ─── Bot Avatar ──────────────────────────────────────────────────────────────
 

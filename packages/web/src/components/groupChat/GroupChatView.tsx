@@ -24,6 +24,9 @@ import { useUser } from "@/contexts/UserContext";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
 import { ContextRing } from "@/components/shared/ContextRing";
+import { ThinkingIndicator } from "@/components/shared/ThinkingIndicator";
+import { ToolUsePanel } from "@/components/shared/ToolUsePanel";
+import type { ToolUse } from "@/components/shared/toolConfig";
 import { ThreadPanel } from "./ThreadPanel";
 import { InviteMemberDialog } from "./InviteMemberDialog";
 import { ShareDataSourceDialog } from "./ShareDataSourceDialog";
@@ -53,24 +56,7 @@ function formatCountdown(ms: number): string {
   return `${days}d ${hours % 24}h`;
 }
 
-// ─── Thinking Indicator ─────────────────────────────────────────────────────
-
-function ThinkingDots({ queuePosition }: { queuePosition?: number | null }) {
-  return (
-    <div className="flex items-center gap-1 py-1 px-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
-      {queuePosition != null && queuePosition > 0 ? (
-        <span className="text-xs text-amber-500 dark:text-amber-400 ml-1">
-          Queued ({queuePosition} {queuePosition === 1 ? "request" : "requests"} ahead)
-        </span>
-      ) : (
-        <span className="text-xs text-slate-400 dark:text-gray-500 ml-1">Thinking...</span>
-      )}
-    </div>
-  );
-}
+// ThinkingIndicator is now imported from shared/
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -103,6 +89,7 @@ export function GroupChatView() {
     truncated: boolean;
   } | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [streamToolUses, setStreamToolUses] = useState<ToolUse[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -331,6 +318,7 @@ export function GroupChatView() {
     setStreamContent("");
     setStreamRevealed("");
     setStreamPrevRevealed("");
+    setStreamToolUses([]);
 
     // Prepend @bot so the server triggers the RAG pipeline
     const botContent = `@bot ${content}`;
@@ -379,6 +367,13 @@ export function GroupChatView() {
                   if (prev.some((m) => m.id === parsed.id)) return prev;
                   return [...prev, parsed as GroupChatMessage];
                 });
+              } else if (eventType === "tool" || ("tool" in parsed && "summary" in parsed)) {
+                // Tool use event — model called a tool during RAG
+                setStreamToolUses((prev) => [...prev, {
+                  name: parsed.tool as string,
+                  arguments: {},
+                  result: { success: parsed.success as boolean, summary: parsed.summary as string },
+                }]);
               } else if (eventType === "delta") {
                 setQueuePosition(null);
                 setStreamContent((prev) => {
@@ -396,9 +391,17 @@ export function GroupChatView() {
                 });
               } else if (eventType === "done") {
                 setStreamContent("");
-                setLocalMessages((prev) => {
-                  if (prev.some((m) => m.id === (parsed as GroupChatMessage).id)) return prev;
-                  return [...prev, parsed as GroupChatMessage];
+                // Attach any accumulated tool uses to the bot message
+                setStreamToolUses((currentToolUses) => {
+                  const msg = parsed as GroupChatMessage;
+                  const finalMsg = currentToolUses.length > 0
+                    ? { ...msg, toolUses: msg.toolUses ?? currentToolUses }
+                    : msg;
+                  setLocalMessages((prev) => {
+                    if (prev.some((m) => m.id === finalMsg.id)) return prev;
+                    return [...prev, finalMsg];
+                  });
+                  return []; // Reset for next query
                 });
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const doneData = parsed as any;
@@ -689,7 +692,10 @@ export function GroupChatView() {
                     </div>
                   );
                 })() : (
-                  <ThinkingDots queuePosition={queuePosition} />
+                  <ThinkingIndicator queuePosition={queuePosition} />
+                )}
+                {streamToolUses.length > 0 && (
+                  <ToolUsePanel toolUses={streamToolUses} />
                 )}
               </div>
             </div>
@@ -1053,6 +1059,11 @@ function MessageBubble({
             <p className="whitespace-pre-wrap">{message.content.replace(/^@(?:bot|edgebric)\s+/i, "")}</p>
           )}
         </div>
+
+        {/* Tool uses */}
+        {isBot && message.toolUses && message.toolUses.length > 0 && (
+          <ToolUsePanel toolUses={message.toolUses} />
+        )}
 
         {/* Citations */}
         {message.citations && message.citations.length > 0 && (

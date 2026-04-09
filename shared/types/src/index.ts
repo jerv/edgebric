@@ -418,6 +418,8 @@ export interface GroupChatMessage {
   threadReplyCount?: number;
   /** Unique participants in this thread (populated on main chat messages only). */
   threadParticipants?: { email: string; name?: string; picture?: string }[];
+  /** Tool uses during this query (only when model has tool use capability). */
+  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
   createdAt: Date;
 }
 
