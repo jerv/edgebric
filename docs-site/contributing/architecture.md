@@ -55,16 +55,25 @@ Document → File type detection (magic bytes)
 ### Query
 
 ```
-User query → Embed query
-           → Vector search (sqlite-vec, cosine similarity)
-           → Keyword search (FTS5, BM25)
-           → Reciprocal Rank Fusion (merge results)
-           → Context assembly (parent-child chunks: 256-token children for precision, 1024-token parents for LLM context)
-           → System prompt construction
-           → LLM inference (llama-server)
-           → Citation extraction and validation
-           → Answer type classification (grounded/blended/general/blocked)
-           → SSE streaming to client
+User query → Intent classification (regex-based)
+           ├── RAG path (default, faster):
+           │     → Embed query
+           │     → Vector search (sqlite-vec, cosine similarity)
+           │     → Keyword search (FTS5, BM25)
+           │     → Reciprocal Rank Fusion (merge results)
+           │     → Context assembly (parent-child chunks: 256-token children for precision, 1024-token parents for LLM context)
+           │     → System prompt construction
+           │     → LLM inference (llama-server)
+           │     → Citation extraction and validation
+           │     → Answer type classification (grounded/blended/general/blocked)
+           │     → SSE streaming to client
+           │
+           └── Tool path (fallback when RAG finds nothing, or action required):
+                 → Smart tool selection (3-8 relevant tools per query)
+                 → LLM inference with tool definitions
+                 → Tool execution loop (up to 5 rounds)
+                 → Final answer synthesis
+                 → SSE streaming to client
 ```
 
 ### Hybrid Search

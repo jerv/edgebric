@@ -33,12 +33,18 @@ Meeting these requirements gets a model running. But "runs" and "works well with
 
 ### Tool calling support (critical)
 
-Edgebric's RAG pipeline relies on the AI model calling tools to search documents, cite sources, compare files, verify claims, and more. There are 14 tools available:
+Edgebric's RAG pipeline relies on the AI model calling tools to search documents, cite sources, compare files, verify claims, and more. Tools include:
 
-- **Knowledge tools** -- `search_knowledge`, `list_sources`, `list_documents`, `get_source_summary`, `create_source`, `upload_document`, `delete_document`, `delete_source`, `save_to_vault`, `compare_documents`, `cite_check`, `find_related`
+- **Knowledge tools** -- `search_knowledge`, `list_sources`, `list_documents`, `get_source_summary`, `create_data_source`, `update_data_source`, `upload_document`, `delete_document`, `delete_data_source`, `save_to_vault`, `compare_documents`, `cite_check`, `find_related`
 - **Web tools** -- `web_search`, `read_url`
 
+Not all tools are sent to the model on every request. A regex-based intent classifier selects only the relevant tools (typically 3-8) per query, keeping prompts small and inference fast.
+
 Tool calling works through the OpenAI-compatible `/chat/completions` API. The model receives tool definitions as JSON schemas and must respond with structured `tool_calls` containing the tool name and JSON arguments. If a model doesn't support this format, it falls back to basic chat -- it can still answer questions from its training data, but it can't search your documents, cite sources, or use any of Edgebric's features.
+
+::: info Qwen-specific flags
+Edgebric applies model-specific inference flags conditionally. For Qwen3 models, `--reasoning off` is passed to llama-server to disable extended thinking. For models with `reasoning: true` in the model catalog, a `/nothink` token is injected into prompts to keep responses focused. Other models receive clean prompts with no extra flags.
+:::
 
 ### Sufficient context length (32K+ recommended)
 
@@ -184,6 +190,10 @@ Some community fine-tunes modify the model's output format for specific use case
 4. Click **Download** on the model you want
 5. A progress bar tracks the download
 6. Once downloaded, click **Load** to activate the model
+
+::: tip Auto-loading
+If a GGUF model file already exists in the models directory (e.g., from a previous session), Edgebric loads it automatically on startup. You don't need to click **Load** again after restarting.
+:::
 
 ### From HuggingFace
 

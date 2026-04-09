@@ -2,6 +2,10 @@
 
 Interact with Edgebric through Telegram — ask questions, upload documents, and manage data sources from your phone.
 
+::: info Conditional Feature
+The Telegram section only appears in **Connected Accounts** when an admin has enabled Telegram in **Admin** > **Settings** > **Integrations**. If you don't see it, ask your admin to enable the integration first.
+:::
+
 ::: warning Privacy Notice
 Messages sent via Telegram transit Telegram's servers. For fully private operation, use the Edgebric web app directly. Vault mode sources are automatically excluded from Telegram queries.
 :::
