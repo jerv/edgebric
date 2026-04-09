@@ -8,13 +8,8 @@ repository: https://github.com/jerv/edgebric
 license: AGPL-3.0
 requires:
   env:
-    - name: EDGEBRIC_API_KEY
-      description: API key starting with "eb_", created in Edgebric Settings > API Keys
-      required: true
-      scope: read-only (minimum), read-write (for uploads/deletes)
-    - name: EDGEBRIC_URL
-      description: Base URL of the Edgebric instance (e.g. http://localhost:3001)
-      required: true
+    - EDGEBRIC_API_KEY
+    - EDGEBRIC_URL
 primary_credential: EDGEBRIC_API_KEY
 user-invocable: true
 model-invocable: true
