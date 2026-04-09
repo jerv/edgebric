@@ -33,12 +33,18 @@ Meeting these requirements gets a model running. But "runs" and "works well with
 
 ### Tool calling support (critical)
 
-Edgebric's RAG pipeline relies on the AI model calling tools to search documents, cite sources, compare files, verify claims, and more. There are 14 tools available:
+Edgebric's RAG pipeline relies on the AI model calling tools to search documents, cite sources, compare files, verify claims, and more. Tools include:
 
-- **Knowledge tools** -- `search_knowledge`, `list_sources`, `list_documents`, `get_source_summary`, `create_source`, `upload_document`, `delete_document`, `delete_source`, `save_to_vault`, `compare_documents`, `cite_check`, `find_related`
+- **Knowledge tools** -- `search_knowledge`, `list_sources`, `list_documents`, `get_source_summary`, `create_data_source`, `update_data_source`, `upload_document`, `delete_document`, `delete_data_source`, `save_to_vault`, `compare_documents`, `cite_check`, `find_related`
 - **Web tools** -- `web_search`, `read_url`
 
+Not all tools are sent to the model on every request. A regex-based intent classifier selects only the relevant tools (typically 3-8) per query, keeping prompts small and inference fast.
+
 Tool calling works through the OpenAI-compatible `/chat/completions` API. The model receives tool definitions as JSON schemas and must respond with structured `tool_calls` containing the tool name and JSON arguments. If a model doesn't support this format, it falls back to basic chat -- it can still answer questions from its training data, but it can't search your documents, cite sources, or use any of Edgebric's features.
+
+::: info Qwen-specific flags
+Edgebric applies model-specific inference flags conditionally. For Qwen3 models, `--reasoning off` is passed to llama-server to disable extended thinking. For models with `reasoning: true` in the model catalog, a `/nothink` token is injected into prompts to keep responses focused. Other models receive clean prompts with no extra flags.
+:::
 
 ### Sufficient context length (32K+ recommended)
 
@@ -109,12 +115,17 @@ Known to work with Edgebric but may have limitations. These have been tested for
 
 | Model | Params | Download | RAM | Capabilities | Notes |
 |-------|--------|----------|-----|-------------|-------|
+| **GLM-4.6V Flash 9B** | 9B | 6.2 GB | ~10 GB | Vision, Tool Use, Reasoning | Z.ai's vision model. Strong agentic/UI understanding |
 | **Qwen 3.5 27B** | 27B | 16.5 GB | ~22 GB | Vision, Tool Use, Reasoning | Needs 32 GB RAM |
-| **Phi-4 Mini** | 3.8B | 2.5 GB | ~5 GB | Tool Use | No vision, 128K context |
-| **Gemma 3 4B** | 4B | 3.3 GB | ~6 GB | Vision | No tool use |
-| **Gemma 3 12B** | 12B | 8.1 GB | ~13 GB | Vision | No tool use |
+| **GLM-4.7 Flash 30B MoE** | 30B (3.6B active) | 18.3 GB | ~24 GB | Tool Use, Reasoning | Coding/agent SOTA. No vision. Needs 24 GB |
+| **Gemma 4 E4B** | 4B | 5.0 GB | ~8 GB | Vision | No tool use. Apache 2.0 |
+| **Gemma 4 26B-A4B MoE** | 26B (4B active) | 16.9 GB | ~22 GB | Vision, Reasoning | No tool use. Apache 2.0 |
+| **Gemma 4 31B** | 31B | 18.7 GB | ~24 GB | Vision, Reasoning | #3 Arena AI. Dense. Apache 2.0. Needs 32 GB |
+| **Qwen 3.5 122B-A10B MoE** | 122B (10B active) | 76.5 GB | ~95 GB | Vision, Tool Use, Reasoning | Near-frontier quality. Needs 96 GB |
+| **MiniMax M2.5 230B MoE** | 230B (10B active) | 101 GB | ~120 GB | Tool Use, Reasoning | 80.2% SWE-Bench. Needs 128 GB |
+| **GLM-5.1 754B MoE** | 754B (40B active) | 236 GB | ~260 GB | Tool Use, Reasoning | SOTA SWE-Bench Pro. Needs 256 GB |
 
-Note that Gemma 3 models lack tool calling support. They work for basic chat with your documents (Edgebric falls back to context-stuffing without tools), but cannot use features like web search, citation verification, or document comparison.
+Note that Gemma 4 models lack tool calling support. They work for basic chat with your documents (Edgebric falls back to context-stuffing without tools), but cannot use features like web search, citation verification, or document comparison.
 
 ### Community
 
@@ -161,9 +172,13 @@ Some community fine-tunes modify the model's output format for specific use case
 | **Qwen 3.5 4B** | 2.7 GB | Personal use, 8 GB Macs | Fast, good quality. Default. |
 | **Qwen 3.5 35B-A3B** | 5.5 GB | 16 GB Macs | MoE -- big model quality, small model speed |
 | **Qwen 3.5 9B** | 5.9 GB | Team servers, 16 GB Macs | Best balance of quality and speed |
-| **Qwen 3.5 27B** | 16.5 GB | High-quality answers, 32 GB+ Macs | Slower but most capable |
-| **Phi-4 Mini** | 2.5 GB | Constrained setups | Compact, 128K context |
-| **Gemma 3 4B/12B** | 3.3/8.1 GB | General purpose, vision tasks | No tool use support |
+| **GLM-4.6V Flash 9B** | 6.2 GB | Vision + agentic tasks, 12 GB+ | Z.ai's multimodal model |
+| **Qwen 3.5 27B** | 16.5 GB | High-quality answers, 32 GB+ Macs | Slower but most capable dense |
+| **GLM-4.7 Flash** | 18.3 GB | Coding/agents, 24 GB+ Macs | MoE coding SOTA, no vision |
+| **Gemma 4 31B** | 18.7 GB | General purpose, 32 GB+ Macs | #3 Arena AI. Vision, no tool use |
+| **Qwen 3.5 122B-A10B** | 76.5 GB | Near-frontier, 96 GB+ Macs | MoE -- frontier quality locally |
+| **MiniMax M2.5** | 101 GB | Coding powerhouse, 128 GB+ Macs | 80.2% SWE-Bench Verified |
+| **GLM-5.1** | 236 GB | Maximum quality, 256 GB+ Macs | SOTA SWE-Bench Pro |
 
 ## Installing Models
 
@@ -175,6 +190,10 @@ Some community fine-tunes modify the model's output format for specific use case
 4. Click **Download** on the model you want
 5. A progress bar tracks the download
 6. Once downloaded, click **Load** to activate the model
+
+::: tip Auto-loading
+If a GGUF model file already exists in the models directory (e.g., from a previous session), Edgebric loads it automatically on startup. You don't need to click **Load** again after restarting.
+:::
 
 ### From HuggingFace
 

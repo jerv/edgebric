@@ -120,6 +120,7 @@ export const messages = sqliteTable("messages", {
   hasConfidentAnswer: integer("has_confident_answer"),
   answerType: text("answer_type"), // "grounded" | "blended" | "general" | "blocked" | null
   source: text("source"), // "ai" | "admin" | "system" | null (null = "ai")
+  toolUses: text("tool_uses"), // JSON array of tool use records
   createdAt: text("created_at").notNull(),
 });
 

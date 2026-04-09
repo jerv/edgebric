@@ -115,7 +115,9 @@ function decodeMemoryMeta(name: string): { category: MemoryCategory; confidence:
  * Convert a document from the Memory data source to a MemoryEntry.
  */
 function docToMemoryEntry(doc: Document): MemoryEntry | null {
-  const meta = decodeMemoryMeta(doc.name);
+  // Try new format (metadata in sectionHeadings[0]), fall back to legacy (encoded in name)
+  const metaStr = doc.sectionHeadings?.[0] ?? doc.name;
+  const meta = decodeMemoryMeta(metaStr);
   if (!meta) return null;
   return {
     id: doc.id,
@@ -145,17 +147,23 @@ export async function saveMemory(opts: {
   const confidence = opts.confidence ?? 1.0;
   const source = opts.source ?? "explicit";
 
+  // Human-readable name: truncated content with category prefix
+  const categoryLabel = opts.category === "fact" ? "Fact" : opts.category === "preference" ? "Preference" : opts.category === "instruction" ? "Instruction" : "Correction";
+  const contentPreview = opts.content.length > 60 ? opts.content.slice(0, 57) + "..." : opts.content;
+  const displayName = `${categoryLabel}: ${contentPreview}`;
+
   // Create the document record — we use storageKey to hold the content text
   // since memory entries are short text, not files on disk.
+  // sectionHeadings stores the encoded metadata for internal use.
   const doc: Document = {
     id: docId,
-    name: encodeMemoryMeta(opts.category, confidence, source),
+    name: displayName,
     type: "txt",
     classification: "policy",
     uploadedAt: now,
     updatedAt: now,
     status: "ready",
-    sectionHeadings: [],
+    sectionHeadings: [encodeMemoryMeta(opts.category, confidence, source)],
     storageKey: opts.content, // Store content directly — no file
     dataSourceId: ds.id,
   };

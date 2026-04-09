@@ -8,6 +8,7 @@ import { certsExist } from "./certs.js";
 import {
   isLlamaInstalled,
   downloadLlama,
+  downloadModel,
   startInstance,
   stopLlama,
   isLlamaRunning,
@@ -208,8 +209,22 @@ async function _startServer(): Promise<void> {
 
     const modelsDir = llamaModelsDir(config.dataDir);
 
-    // Start embedding server
-    const embeddingModel = path.join(modelsDir, "nomic-embed-text-v1.5.Q8_0.gguf");
+    // Start embedding server (auto-download if missing)
+    const embeddingFilename = "nomic-embed-text-v1.5.Q8_0.gguf";
+    const embeddingModel = path.join(modelsDir, embeddingFilename);
+    if (!fs.existsSync(embeddingModel)) {
+      const embeddingUrl = "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf";
+      console.log("Embedding model not found, downloading...");
+      console.log("Downloading embedding model...");
+      try {
+        await downloadModel(embeddingUrl, embeddingFilename, config.dataDir, (pct) => {
+          console.log(`Downloading embedding model... ${pct}%`);
+        });
+        console.log("Embedding model downloaded");
+      } catch (err) {
+        console.warn("Failed to download embedding model:", err);
+      }
+    }
     if (fs.existsSync(embeddingModel)) {
       await startInstance("embedding", embeddingModel, config.dataDir);
     }

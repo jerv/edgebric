@@ -155,6 +155,22 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
   },
   // ── Supported (alternatives, known to work) ──
   {
+    tag: "glm-4.6v-flash-9b",
+    ggufFilename: "GLM-4.6V-Flash-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/GLM-4.6V-Flash-GGUF/resolve/main/GLM-4.6V-Flash-Q4_K_M.gguf",
+    name: "GLM-4.6V Flash 9B",
+    family: "Z.ai",
+    description: "Vision + tool use + reasoning at 9B. Strong agentic and UI understanding.",
+    paramCount: "9B",
+    downloadSizeGB: 6.2,
+    ramUsageGB: 10,
+    origin: "Z.ai (Zhipu)",
+    tier: "supported",
+    minRAMGB: 12,
+    capabilities: { vision: true, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/zai-org/GLM-4.6V-Flash",
+  },
+  {
     tag: "qwen3.5-27b",
     ggufFilename: "Qwen3.5-27B-Q4_K_M.gguf",
     downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf",
@@ -171,20 +187,20 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-27B",
   },
   {
-    tag: "phi4-mini",
-    ggufFilename: "Phi-4-mini-instruct-Q4_K_M.gguf",
-    downloadUrl: "https://huggingface.co/bartowski/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf",
-    name: "Phi-4 Mini",
-    family: "Microsoft",
-    description: "Compact, efficient, 128K context. Good for constrained setups.",
-    paramCount: "3.8B",
-    downloadSizeGB: 2.5,
-    ramUsageGB: 5,
-    origin: "Microsoft",
+    tag: "glm-4.7-flash",
+    ggufFilename: "GLM-4.7-Flash-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf",
+    name: "GLM-4.7 Flash 30B MoE",
+    family: "Z.ai",
+    description: "30B MoE, 3.6B active. Coding/agent SOTA. 200K context. No vision.",
+    paramCount: "30B (3.6B active)",
+    downloadSizeGB: 18.3,
+    ramUsageGB: 24,
+    origin: "Z.ai (Zhipu)",
     tier: "supported",
-    minRAMGB: 8,
-    capabilities: { vision: false, toolUse: true, reasoning: false },
-    huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-mini-instruct",
+    minRAMGB: 24,
+    capabilities: { vision: false, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/zai-org/glm-4.7-flash",
   },
   {
     tag: "gemma4-e4b",
@@ -219,20 +235,68 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     huggingFaceUrl: "https://huggingface.co/google/gemma-4-26B-A4B-it",
   },
   {
-    tag: "phi4-reasoning-vision",
-    ggufFilename: "phi-4-reasoning-vision-q4_K_M.gguf",
-    downloadUrl: "https://huggingface.co/jamesburton/Phi-4-reasoning-vision-15B-GGUF/resolve/main/phi-4-reasoning-vision-q4_K_M.gguf",
-    name: "Phi-4 Reasoning Vision 15B",
-    family: "Microsoft",
-    description: "Vision + reasoning + tool use. Strong for document analysis. 15B params.",
-    paramCount: "15B",
-    downloadSizeGB: 9.1,
-    ramUsageGB: 14,
-    origin: "Microsoft",
+    tag: "gemma4-31b",
+    ggufFilename: "gemma-4-31B-it-Q4_K_M.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q4_K_M.gguf",
+    name: "Gemma 4 31B",
+    family: "Google",
+    description: "#3 on Arena AI. Dense 31B, every param active. Vision, 256K context. Apache 2.0.",
+    paramCount: "31B",
+    downloadSizeGB: 18.7,
+    ramUsageGB: 24,
+    origin: "Google",
     tier: "supported",
-    minRAMGB: 24,
+    minRAMGB: 32,
+    capabilities: { vision: true, toolUse: false, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/google/gemma-4-31B-it",
+  },
+  {
+    tag: "qwen3.5-122b-a10b",
+    ggufFilename: "Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf",
+    name: "Qwen 3.5 122B-A10B MoE",
+    family: "Qwen",
+    description: "122B MoE, only 10B active. Near-frontier quality. Vision + tool use + reasoning.",
+    paramCount: "122B (10B active)",
+    downloadSizeGB: 76.5,
+    ramUsageGB: 95,
+    origin: "Alibaba",
+    tier: "supported",
+    minRAMGB: 96,
     capabilities: { vision: true, toolUse: true, reasoning: true },
-    huggingFaceUrl: "https://huggingface.co/microsoft/Phi-4-reasoning-vision-15B",
+    huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-122B-A10B",
+  },
+  {
+    tag: "minimax-m2.5",
+    ggufFilename: "MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/UD-Q3_K_XL/MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf",
+    name: "MiniMax M2.5 230B MoE",
+    family: "MiniMax",
+    description: "230B MoE, 10B active. 80.2% SWE-Bench Verified. Coding/agent powerhouse.",
+    paramCount: "230B (10B active)",
+    downloadSizeGB: 101,
+    ramUsageGB: 120,
+    origin: "MiniMax",
+    tier: "supported",
+    minRAMGB: 128,
+    capabilities: { vision: false, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/MiniMaxAI/MiniMax-M2.5",
+  },
+  {
+    tag: "glm-5.1",
+    ggufFilename: "GLM-5.1-UD-IQ2_M-00001-of-00006.gguf",
+    downloadUrl: "https://huggingface.co/unsloth/GLM-5.1-GGUF/resolve/main/UD-IQ2_M/GLM-5.1-UD-IQ2_M-00001-of-00006.gguf",
+    name: "GLM-5.1 754B MoE",
+    family: "Z.ai",
+    description: "SOTA on SWE-Bench Pro. 754B MoE, 40B active. 200K context. MIT license.",
+    paramCount: "754B (40B active)",
+    downloadSizeGB: 236,
+    ramUsageGB: 260,
+    origin: "Z.ai (Zhipu)",
+    tier: "supported",
+    minRAMGB: 256,
+    capabilities: { vision: false, toolUse: true, reasoning: true },
+    huggingFaceUrl: "https://huggingface.co/zai-org/GLM-5.1",
   },
   // ── Hidden infrastructure ──
   {
@@ -264,6 +328,98 @@ export const MODEL_FILENAME_MAP: ReadonlyMap<string, ModelCatalogEntry> = new Ma
   OFFICIAL_CATALOG.map((m) => [m.ggufFilename, m]),
 );
 
+// ─── Split GGUF Helpers ─────────────────────────────────────────────────────
+
+/** Pattern: `-NNNNN-of-NNNNN` before the `.gguf` extension. */
+const SPLIT_GGUF_RE = /-(\d{5})-of-(\d{5})\.gguf$/;
+
+export interface SplitGGUFInfo {
+  /** Whether the filename matches the split GGUF pattern. */
+  isSplit: boolean;
+  /** 1-based shard index (e.g., 1 for the first shard). */
+  shardIndex: number;
+  /** Total number of shards (e.g., 3). */
+  totalShards: number;
+  /**
+   * Base pattern with the shard number replaced by a `%s` placeholder.
+   * E.g., `"Qwen3.5-122B-A10B-Q4_K_M-%s-of-00003.gguf"`.
+   */
+  basePattern: string;
+}
+
+/**
+ * Parse a GGUF filename to detect split-file sharding.
+ * Returns `{ isSplit: false, ... }` for single files (backward compatible).
+ */
+export function parseSplitGGUF(filename: string): SplitGGUFInfo {
+  const match = filename.match(SPLIT_GGUF_RE);
+  if (!match) {
+    return { isSplit: false, shardIndex: 1, totalShards: 1, basePattern: filename };
+  }
+  const shardIndex = parseInt(match[1]!, 10);
+  const totalShards = parseInt(match[2]!, 10);
+  const basePattern = filename.replace(SPLIT_GGUF_RE, `-%s-of-${match[2]}.gguf`);
+  return { isSplit: true, shardIndex, totalShards, basePattern };
+}
+
+/**
+ * Generate all shard filenames for a split GGUF model.
+ * For single files, returns an array with just the original filename.
+ */
+export function getAllShardFilenames(filename: string): string[] {
+  const info = parseSplitGGUF(filename);
+  if (!info.isSplit) return [filename];
+
+  const filenames: string[] = [];
+  for (let i = 1; i <= info.totalShards; i++) {
+    filenames.push(info.basePattern.replace("%s", String(i).padStart(5, "0")));
+  }
+  return filenames;
+}
+
+/**
+ * Generate all shard download URLs from the first shard's URL.
+ * For single files, returns an array with just the original URL.
+ */
+export function getAllShardUrls(firstShardUrl: string, firstShardFilename: string): string[] {
+  const info = parseSplitGGUF(firstShardFilename);
+  if (!info.isSplit) return [firstShardUrl];
+
+  const filenames = getAllShardFilenames(firstShardFilename);
+  // The first shard filename appears at the end of the URL path.
+  // Replace it to generate URLs for other shards.
+  return filenames.map((shardFilename) =>
+    firstShardUrl.replace(firstShardFilename, shardFilename),
+  );
+}
+
+/**
+ * Check if ALL shards of a split GGUF model are present in a set of filenames.
+ * For single-file models, just checks if the file is present.
+ */
+export function allShardsPresent(catalogFilename: string, diskFilenames: Set<string>): boolean {
+  const shards = getAllShardFilenames(catalogFilename);
+  return shards.every((f) => diskFilenames.has(f));
+}
+
+/**
+ * Given a filename found on disk, return the catalog entry's ggufFilename (first shard)
+ * if this file is part of a split GGUF set. Returns undefined if no match.
+ */
+export function findCatalogForShard(diskFilename: string): ModelCatalogEntry | undefined {
+  // Direct match (single file or first shard)
+  const direct = MODEL_FILENAME_MAP.get(diskFilename);
+  if (direct) return direct;
+
+  // Check if this is a non-first shard of a catalog entry
+  const info = parseSplitGGUF(diskFilename);
+  if (!info.isSplit) return undefined;
+
+  // Reconstruct the first shard filename
+  const firstShardFilename = info.basePattern.replace("%s", "00001");
+  return MODEL_FILENAME_MAP.get(firstShardFilename);
+}
+
 /** Returns the recommended model tag based on available RAM (in GB). */
 export function getRecommendedModelTag(ramGB: number): string {
   if (ramGB < 12) return "qwen3.5-4b";
@@ -281,7 +437,7 @@ export function inferCapabilitiesFromTags(tags: string[], modelId: string): Mode
 
   const vision = tagSet.has("image-text-to-text") || tagSet.has("vision");
   const toolUse = tagSet.has("tool-use") || tagSet.has("function-calling")
-    || /qwen3\.5|llama-3\.[1-9]|mistral/.test(id);
+    || /qwen3\.5|llama-3\.[1-9]|mistral|glm-4\.[67]|minimax/.test(id);
   const reasoning = tagSet.has("reasoning") || /\breasonin/.test(id);
 
   return { vision, toolUse, reasoning };

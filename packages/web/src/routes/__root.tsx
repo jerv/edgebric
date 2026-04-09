@@ -108,7 +108,7 @@ function OfflineBanner() {
   );
 }
 
-const PUBLIC_ROUTES = ["/privacy", "/terms", "/acknowledgments"];
+const PUBLIC_ROUTES = ["/acknowledgments"];
 
 function RootInner() {
   const queryClient = useQueryClient();

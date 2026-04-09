@@ -16,10 +16,11 @@ import { TelegramUserSection } from "@/components/settings/TelegramSection";
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-export type AccountTab = "general" | "notifications" | "conversations" | "connected-accounts" | "api-keys";
+export type AccountTab = "general" | "ai" | "notifications" | "conversations" | "connected-accounts" | "api-keys";
 
 const TABS: { id: AccountTab; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "ai", label: "AI" },
   { id: "notifications", label: "Notifications" },
   { id: "conversations", label: "Conversations" },
   { id: "connected-accounts", label: "Connected Accounts" },
@@ -78,6 +79,76 @@ function DisclaimerToggle() {
               enabled ? "translate-x-6" : "translate-x-1",
             )}
           />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AI Tab ───────────────────────────────────────────────────────────────
+
+function AITab() {
+  const user = useUser();
+  return (
+    <div className="space-y-6">
+      <AiBehaviorSettings />
+      {user?.isAdmin && <DisclaimerToggle />}
+    </div>
+  );
+}
+
+// ─── AI Behavior settings (per-user, localStorage) ────────────────────────
+
+function AiBehaviorSettings() {
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("edgebric:ai-behavior");
+      if (saved) return JSON.parse(saved) as { auto: boolean; decompose: boolean; rerank: boolean; iterativeRetrieval: boolean; generalAnswers: boolean };
+    } catch { /* ignore */ }
+    return { auto: true, decompose: false, rerank: false, iterativeRetrieval: false, generalAnswers: true };
+  });
+
+  function update(updates: Partial<typeof settings>) {
+    setSettings((prev) => {
+      let next = { ...prev, ...updates };
+      if (updates.auto === true) {
+        next = { ...next, decompose: true, rerank: true, iterativeRetrieval: true };
+      }
+      localStorage.setItem("edgebric:ai-behavior", JSON.stringify(next));
+      return next;
+    });
+  }
+
+  return (
+    <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">AI Behavior</h3>
+        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+          These settings can also be changed from the chat interface.
+        </p>
+      </div>
+
+      {/* Auto mode — first */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm text-slate-700 dark:text-gray-300">Auto mode</p>
+          <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
+            Let the system decide when to use decomposition, re-ranking, and iterative retrieval based on query complexity.
+          </p>
+        </div>
+        <button
+          onClick={() => update({ auto: !settings.auto })}
+          className={cn(
+            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 mt-0.5",
+            settings.auto
+              ? "bg-slate-900 dark:bg-gray-100"
+              : "bg-slate-200 dark:bg-gray-700",
+          )}
+        >
+          <span className={cn(
+            "inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-900 transition-transform",
+            settings.auto ? "translate-x-6" : "translate-x-1",
+          )} />
         </button>
       </div>
     </div>
@@ -271,15 +342,9 @@ function GeneralTab() {
         </div>
       )}
 
-      {/* AI disclaimer toggle — admin only */}
-      {user?.isAdmin && <DisclaimerToggle />}
-
-      {/* Telegram Account Linking */}
-      <TelegramUserSection />
-
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <a href="/privacy" className="hover:text-foreground transition-colors">Privacy</a>
-        <a href="/terms" className="hover:text-foreground transition-colors">Terms</a>
+        <a href="https://edgebric.com/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Privacy</a>
+        <a href="https://edgebric.com/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Terms</a>
         <a href="/acknowledgments" className="hover:text-foreground transition-colors">Acknowledgments</a>
       </div>
 
@@ -602,9 +667,10 @@ export function AccountPage({ tab }: { tab: AccountTab }) {
 
         {/* Tab content */}
         {tab === "general" && <GeneralTab />}
+        {tab === "ai" && <AITab />}
         {tab === "notifications" && <NotificationsTab />}
         {tab === "conversations" && <ConversationsTab />}
-        {tab === "connected-accounts" && <ConnectedAccountsTab />}
+        {tab === "connected-accounts" && <><ConnectedAccountsTab /><div className="mt-6"><TelegramUserSection /></div></>}
         {tab === "api-keys" && <ApiKeysTab />}
       </div>
     </div>

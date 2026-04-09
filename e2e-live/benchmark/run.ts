@@ -24,7 +24,7 @@ const RESULTS_DIR = path.join(__dirname, "results");
 const QUESTION_TIMEOUT_MS = 120_000;
 
 // Models to benchmark (from the Edgebric catalog)
-const DEFAULT_MODELS = ["phi4-mini", "gemma3:4b", "qwen3:4b", "qwen3:8b", "gemma3:12b", "qwen3:14b"];
+const DEFAULT_MODELS = ["qwen3.5-4b", "qwen3.5-9b", "glm-4.6v-flash-9b", "qwen3.5-35b-a3b", "glm-4.7-flash", "qwen3.5-27b"];
 
 interface SSEEvent {
   type: string;

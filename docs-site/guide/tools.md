@@ -5,12 +5,13 @@ Edgebric can use tools to extend the AI's capabilities beyond basic document sea
 ## How Tool Use Works
 
 1. You ask a question in the chat
-2. The AI evaluates your question and picks the best tools to call
-3. Tools execute and return results (you'll see a collapsible **Tool Use** panel showing what ran)
-4. The AI may call additional tools based on initial results (up to 5 rounds)
-5. A final answer is generated from all gathered context
+2. Edgebric classifies your query using a regex-based intent classifier and selects only the relevant tools (typically 3-8 out of the full set) to send to the model
+3. If no tools are needed, the query goes through the standard RAG pipeline (faster, with citations) — tool use is a fallback when RAG alone finds nothing or when the query clearly requires a tool action (e.g., "save this", "create a source")
+4. Tools execute and return results (you'll see a collapsible **Tool Use** panel showing what ran)
+5. The AI may call additional tools based on initial results (up to 5 rounds)
+6. A final answer is generated from all gathered context
 
-You don't need to specify which tools to use. The AI picks the best approach based on your question. If your model doesn't have the **Tool Use** badge, the standard RAG pipeline (search → answer) is used instead.
+You don't need to specify which tools to use. The smart tool selection picks the right tools based on your question, keeping prompts small and inference fast. If your model doesn't have the **Tool Use** badge, the standard RAG pipeline (search → answer) is used instead.
 
 ## Model Capabilities
 
@@ -42,15 +43,6 @@ The AI calls `search_knowledge` with your question, optionally restricting to sp
 
 ---
 
-### list_sources
-
-Lists all data sources you have access to, with document counts and status.
-
-**Example prompt:**
-> "What knowledge bases do I have?"
-
-**Parameters:** None.
-
 ---
 
 ### list_documents
@@ -79,9 +71,9 @@ Retrieves a summary of a data source including document names, types, and sectio
 
 ---
 
-### create_source
+### create_data_source
 
-Creates a new data source (knowledge base).
+Creates a new data source (knowledge base). Also used to create memory entries in the personal Memory source.
 
 **Example prompt:**
 > "Create a new knowledge base called 'Meeting Notes' for our weekly standup summaries."
@@ -89,6 +81,31 @@ Creates a new data source (knowledge base).
 **Parameters:**
 - `name` (required) — Name for the new source
 - `description` — Optional description
+
+---
+
+### update_data_source
+
+Updates an existing data source's name, description, or content. Also used to update memory entries.
+
+**Example prompt:**
+> "Rename the 'Old Docs' source to 'Archive'."
+
+**Parameters:**
+- `sourceId` (required) — The data source ID to update
+- `name` — New name
+- `description` — New description
+
+---
+
+### list_data_sources
+
+Lists all data sources the current user has access to, including the personal Memory source. Returns source names, document counts, and status.
+
+**Example prompt:**
+> "What data sources do I have?"
+
+**Parameters:** None.
 
 ---
 
@@ -120,9 +137,9 @@ Deletes a document and its indexed chunks from the knowledge base. Also removes 
 
 ---
 
-### delete_source
+### delete_data_source
 
-Deletes an entire data source and all its documents. **Admin only.** This is destructive and cannot be undone.
+Deletes an entire data source and all its documents. **Admin only.** This is destructive and cannot be undone. Also used to delete individual memory entries.
 
 **Example prompt:**
 > "Remove the old 'Test Data' knowledge base entirely."
@@ -190,42 +207,7 @@ The AI uses the document's name and headings to search for semantically similar 
 
 ## Memory Tools
 
-These tools let the AI save and recall information about you across conversations. See [Agent Memory](/guide/memory) for full details.
-
-### save_memory
-
-Saves a preference, fact, or instruction so the AI remembers it in future conversations.
-
-**Example prompt:**
-> "Remember that I prefer answers in bullet point format."
-
-**Parameters:**
-- `content` (required) — The memory text to save
-
----
-
-### list_memories
-
-Lists all saved memories for the current user.
-
-**Example prompt:**
-> "What do you remember about me?"
-
-**Parameters:** None.
-
----
-
-### delete_memory
-
-Deletes a specific memory by ID.
-
-**Example prompt:**
-> "Forget that I prefer bullet points."
-
-The AI calls `list_memories` to find the relevant memory, then `delete_memory` to remove it.
-
-**Parameters:**
-- `memoryId` (required) — The memory ID to delete
+Memory uses the same data source tools listed above. The AI creates, updates, lists, and deletes memory entries in a personal data source called **Memory** using `create_data_source`, `update_data_source`, `list_data_sources`, and `delete_data_source`. See [Agent Memory](/guide/memory) for full details.
 
 ---
 

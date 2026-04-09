@@ -38,6 +38,7 @@ function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
   if (row.hasConfidentAnswer != null) msg.hasConfidentAnswer = Boolean(row.hasConfidentAnswer);
   if (row.answerType != null) msg.answerType = row.answerType as AnswerType;
   if (row.source != null) msg.source = row.source as "ai" | "admin" | "system";
+  if (row.toolUses != null) msg.toolUses = JSON.parse(row.toolUses);
   return msg;
 }
 
@@ -95,6 +96,7 @@ export function addMessage(msg: PersistedMessage): void {
       hasConfidentAnswer: msg.hasConfidentAnswer != null ? (msg.hasConfidentAnswer ? 1 : 0) : null,
       answerType: msg.answerType ?? null,
       source: msg.source ?? null,
+      toolUses: msg.toolUses ? JSON.stringify(msg.toolUses) : null,
       createdAt: msg.createdAt.toISOString(),
     })
     .run();

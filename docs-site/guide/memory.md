@@ -4,7 +4,9 @@ Edgebric's AI remembers your preferences, facts, and instructions across convers
 
 ## How It Works
 
-When you tell the AI something about yourself or your preferences, it can save that as a memory. In future conversations, relevant memories are automatically included as context so the AI tailors its responses to you.
+Memory in Edgebric is not a separate system — it uses the same data source infrastructure as everything else. When the AI learns something about you, it stores that information as an entry in a personal data source called **Memory**, visible in your Library alongside your other sources.
+
+Because memory is just a data source, it benefits from the same hybrid search (vector + BM25), the same citation system, and the same access controls as all your other documents. When you ask a question, relevant memories are retrieved through the standard RAG pipeline and included as context — no special injection logic.
 
 **Examples of things the AI remembers:**
 
@@ -14,50 +16,39 @@ When you tell the AI something about yourself or your preferences, it can save t
 
 The AI detects these patterns automatically and saves them without you having to ask. You can also explicitly ask: "Remember that I prefer bullet points over paragraphs."
 
-## Memory as a Data Source
+## Managing Memory
 
-Memories are stored as a special **Memory** data source visible in your Library. Each memory is a document entry you can:
+Since memory is a data source, you manage it the same way you manage any other source in your Library:
 
-- **View** — See all saved memories in the Library
-- **Edit** — Update a memory's content
-- **Delete** — Remove memories you no longer want
+- **View** — Open the Memory source in the Library to see all saved entries
+- **Edit** — Update an entry's content directly
+- **Delete** — Remove entries you no longer want
 
-This gives you full control over what the AI knows about you.
-
-## Memory in Queries
-
-When you ask a question, Edgebric injects the top 3-5 most relevant memories into the query context (capped at ~200 tokens). This keeps memory lightweight and doesn't crowd out document context.
-
-The AI has three memory tools it can use during conversations:
+You can also manage memory from the chat. The AI uses standard data source tools to create, update, list, and delete memory entries:
 
 | Tool | What it does |
 |------|-------------|
-| `save_memory` | Saves a new memory |
-| `list_memories` | Lists your current memories |
-| `delete_memory` | Deletes a specific memory |
+| `create_data_source` | Saves a new memory entry |
+| `update_data_source` | Updates an existing memory entry |
+| `list_data_sources` | Lists your current memory entries |
+| `delete_data_source` | Deletes a specific memory entry |
 
-These appear in the Tool Use panel when the AI calls them.
+These are the same tools used for all data source operations — memory entries are just documents in the Memory source. Tool calls appear in the Tool Use panel when the AI uses them.
+
+## Memory in Queries
+
+When you ask a question, memories are retrieved through the same RAG pipeline as all other data sources. The Memory source is searched alongside your other sources, and relevant memories appear as normal citations in the response. There is no separate memory retrieval step or special token budget — memory competes for relevance on equal footing with your documents.
 
 ## Organization vs. Solo Mode
 
-- **Org mode**: Memories are per-user. Each user has their own Memory data source. Other users cannot see your memories.
-- **Solo mode**: Memories are global (there's only one user).
+- **Org mode**: Each user has their own Memory data source. Other users cannot see your memories.
+- **Solo mode**: There is one Memory source (there's only one user).
 
 ## Settings
 
 Memory is enabled by default. To disable it:
 
-1. Go to **Settings**
+1. Go to **Account** > **AI** tab
 2. Toggle **Memory** off
 
 When disabled, the AI won't save new memories or include existing ones in queries. Your saved memories are not deleted — they're still in the Library if you re-enable the feature.
-
-## REST API
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/memory` | List all memories |
-| `POST` | `/api/memory` | Create a memory |
-| `PUT` | `/api/memory/:id` | Update a memory |
-| `DELETE` | `/api/memory/:id` | Delete a memory |
-| `PATCH` | `/api/memory/toggle` | Enable/disable memory |

@@ -13,6 +13,10 @@ When you ask a question, Edgebric:
 
 This is called Retrieval-Augmented Generation (RAG). The AI model doesn't make things up from thin air — it bases its answers on your actual documents.
 
+### RAG-First, Tool-Fallback
+
+Edgebric uses a RAG-first architecture. Most questions are answered through the standard RAG pipeline described above — it's faster and always produces citations. Tool use is a fallback: if the RAG pipeline finds nothing relevant, or if the query clearly requires an action (e.g., "save this to my vault", "create a new source"), Edgebric routes the query through the tool pipeline instead. A regex-based intent classifier determines the routing and selects only the relevant tools (typically 3-8) to keep prompts small and inference fast.
+
 ## Asking a Question
 
 1. Open the chat interface from the main page
@@ -32,7 +36,7 @@ This is called Retrieval-Augmented Generation (RAG). The AI model doesn't make t
 
 ## Search Quality Settings
 
-Admins can enable three opt-in features in **Admin** > **Settings** > **Integrations** that improve search quality at the cost of additional processing time:
+Three opt-in features improve search quality at the cost of additional processing time. These are configured per-user in **Account** > **AI** tab:
 
 | Setting | What it does | Trade-off |
 |---------|-------------|-----------|
@@ -41,8 +45,6 @@ Admins can enable three opt-in features in **Admin** > **Settings** > **Integrat
 | **Iterative Retrieval** | Retries with reformulated queries when initial results are low confidence | May add 1-2 extra search rounds |
 
 All three are off by default. When enabled, they apply across all query paths — standard chat, private mode, group chats, and the Agent API.
-
-These settings are org-level — admins toggle them for the whole organization.
 
 ## Citations
 

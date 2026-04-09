@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "@tanstack/react-router";
 import { getLoginUrl, getAuthProvider } from "@/lib/api";
 import Logo from "./shared/Logo";
 
@@ -106,11 +105,11 @@ export function LoginPage() {
             Sign in with {providerName}
           </a>
           <div className="flex items-center justify-center gap-3 text-xs text-slate-400 dark:text-gray-500 flex-wrap">
-            <Link to="/privacy" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</Link>
+            <a href="https://edgebric.com/privacy.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Privacy Policy</a>
             <span>·</span>
-            <Link to="/terms" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</Link>
+            <a href="https://edgebric.com/terms.html" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Terms of Service</a>
             <span>·</span>
-            <Link to="/acknowledgments" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Acknowledgments</Link>
+            <a href="/acknowledgments" className="hover:text-slate-600 dark:hover:text-gray-400 transition-colors">Acknowledgments</a>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Sparkles, Search,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";
@@ -87,61 +87,6 @@ function AdminToggles() {
         )}
       </div>
 
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
-          AI Behavior
-        </h3>
-        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
-          Control how the AI assistant responds to queries.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <ToggleCard
-          icon={<Sparkles className="w-4 h-4" />}
-          title="General AI Answers"
-          description="When enabled, the AI can supplement document answers with general knowledge. When disabled, the AI strictly answers from your uploaded documents only — but will still answer general questions that don't relate to any documents."
-          enabled={config?.generalAnswersEnabled ?? true}
-          saving={mutation.isPending}
-          onToggle={(v) => mutation.mutate({ generalAnswersEnabled: v })}
-        />
-      </div>
-
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">
-          Search Quality
-        </h3>
-        <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">
-          Advanced retrieval features that improve answer quality. Each adds processing time per query.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <ToggleCard
-          icon={<Search className="w-4 h-4" />}
-          title="Query Decomposition"
-          description="Automatically break complex questions into sub-queries for better results."
-          enabled={config?.ragDecompose ?? false}
-          saving={mutation.isPending}
-          onToggle={(v) => mutation.mutate({ ragDecompose: v })}
-        />
-        <ToggleCard
-          icon={<Search className="w-4 h-4" />}
-          title="Re-ranking"
-          description="Use AI to re-rank search results by relevance (adds one inference call per query)."
-          enabled={config?.ragRerank ?? false}
-          saving={mutation.isPending}
-          onToggle={(v) => mutation.mutate({ ragRerank: v })}
-        />
-        <ToggleCard
-          icon={<Search className="w-4 h-4" />}
-          title="Iterative Retrieval"
-          description="Automatically retry with reformulated queries when initial results are low confidence."
-          enabled={config?.ragIterativeRetrieval ?? false}
-          saving={mutation.isPending}
-          onToggle={(v) => mutation.mutate({ ragIterativeRetrieval: v })}
-        />
-      </div>
     </div>
   );
 }

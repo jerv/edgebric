@@ -83,11 +83,17 @@ documentsRouter.get("/:id/content", requireOrg, validateParams(idParamSchema), (
   }
 
   const doc = getDocument(id);
-  const sections = getChunksForDocument(id);
+  let sections = getChunksForDocument(id);
 
   if (!doc && sections.length === 0) {
     res.status(404).json({ error: "Document not found" });
     return;
+  }
+
+  // Memory documents store content in storageKey (not a file path).
+  // If no chunks exist, synthesize a section from the stored content.
+  if (doc && sections.length === 0 && doc.storageKey && !doc.storageKey.startsWith("/")) {
+    sections = [{ content: doc.storageKey, heading: doc.name, pageNumber: 0, sectionPath: [], chunkIndex: 0 }];
   }
 
   // Enforce per-data-source ACL — verify user has access to the document's data source

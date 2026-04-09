@@ -304,33 +304,34 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           </button>
         ) : (
           <div className="relative">
-            <Link
-              to="/"
-              onClick={onNavigate}
+            <button
+              onClick={() => {
+                window.history.pushState({}, "", "/");
+                window.dispatchEvent(new PopStateEvent("popstate"));
+                onNavigate?.();
+              }}
               className={cn(
-                "flex items-center rounded-lg text-sm transition-colors gap-2 px-3 py-2",
+                "flex items-center w-full rounded-lg text-sm transition-colors gap-2 px-3 py-2",
                 isOnChat && !activeConvId
                   ? "bg-slate-900 dark:bg-gray-100 text-white dark:text-gray-900"
                   : "text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-slate-900 dark:hover:text-gray-100",
               )}
             >
               <Plus className="w-4 h-4 flex-shrink-0" />
-                <>
-                  <span className="flex-1">New Chat</span>
-                  <span
-                    role="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowNewChatMenu((v) => !v);
-                    }}
-                    className="p-1.5 md:p-0.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors"
-                    title="More options"
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </span>
-                </>
-            </Link>
+              <span className="flex-1 text-left">New Chat</span>
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowNewChatMenu((v) => !v);
+                }}
+                className="p-1.5 md:p-0.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors"
+                title="More options"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </span>
+            </button>
             {showNewChatMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNewChatMenu(false)} />

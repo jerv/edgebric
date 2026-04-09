@@ -18,6 +18,11 @@
   "build": {
     "appId": "com.edgebric.desktop",
     "productName": "Edgebric",
+    "publish": {
+      "provider": "github",
+      "owner": "jerv",
+      "repo": "edgebric"
+    },
     "mac": {
       "icon": "resources/icon.icns",
       "category": "public.app-category.business"
