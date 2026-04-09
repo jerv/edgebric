@@ -4,6 +4,7 @@ import { z } from "zod";
 import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
 import type { Session, SessionMessage, Citation } from "@edgebric/types";
+import { MODEL_CATALOG_MAP } from "@edgebric/types";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
@@ -14,6 +15,10 @@ import { listDataSources, listAccessibleDataSources } from "../services/dataSour
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { createChatClient } from "../services/chatClient.js";
+import type { ToolMessage } from "../services/chatClient.js";
+import { buildToolDefinitions, executeTool, parseToolCalls, listTools } from "../services/toolRunner.js";
+import type { ToolContext } from "../services/toolRunner.js";
+import { runtimeChatConfig } from "../config.js";
 import {
   getGroupChat,
   isMember,
@@ -33,6 +38,84 @@ import {
 // ─── Chat Client ──────────────────────────────────────────────────────────────
 
 const chatClient = createChatClient();
+
+// ─── Tool Use Support ────────────────────────────────────────────────────────
+
+interface ToolUseInfo {
+  name: string;
+  arguments: Record<string, unknown>;
+  result: { success: boolean; summary: string };
+}
+
+function isToolUseEnabled(): boolean {
+  const tag = runtimeChatConfig.model;
+  const catalogEntry = MODEL_CATALOG_MAP.get(tag);
+  return catalogEntry?.capabilities?.toolUse === true;
+}
+
+const MAX_TOOL_ROUNDS = 5;
+
+function summarizeToolResult(toolName: string, data: unknown): string {
+  if (!data || typeof data !== "object") return "Done";
+  const d = data as Record<string, unknown>;
+  switch (toolName) {
+    case "search_knowledge": return `${d["resultCount"] ?? 0} results found`;
+    case "list_sources": return `${d["sourceCount"] ?? 0} sources`;
+    case "list_documents": return `${d["documentCount"] ?? 0} documents`;
+    case "web_search": return `${d["resultCount"] ?? 0} web results`;
+    case "save_memory": return `Saved "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
+    case "create_data_source": return `Saved "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
+    case "update_data_source": return `Updated "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
+    default: return "Done";
+  }
+}
+
+async function runToolLoop(
+  messages: ToolMessage[],
+  ctx: ToolContext,
+  sendEvent: (event: string, data: unknown) => void,
+): Promise<{ answer: string; toolUses: ToolUseInfo[] }> {
+  const tools = buildToolDefinitions();
+  const toolUses: ToolUseInfo[] = [];
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const response = await chatClient.chatWithTools(messages, tools);
+    const toolCalls = parseToolCalls(response);
+
+    if (toolCalls.length === 0) {
+      return { answer: response.content ?? "", toolUses };
+    }
+
+    messages.push({
+      role: "assistant",
+      content: response.content,
+      tool_calls: response.tool_calls,
+    });
+
+    for (const tc of toolCalls) {
+      const result = await executeTool(tc.name, tc.arguments, ctx);
+      const summary = result.success
+        ? summarizeToolResult(tc.name, result.data)
+        : `Error: ${result.error}`;
+
+      toolUses.push({
+        name: tc.name,
+        arguments: tc.arguments,
+        result: { success: result.success, summary },
+      });
+
+      sendEvent("tool_use", { tool: tc.name, success: result.success, summary });
+
+      messages.push({
+        role: "tool",
+        content: result.success ? JSON.stringify(result.data) : JSON.stringify({ error: result.error }),
+        tool_call_id: tc.id,
+      });
+    }
+  }
+
+  return { answer: "I've gathered information using multiple tools. Let me summarize what I found.", toolUses };
+}
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -436,11 +519,18 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         },
       );
 
+      let ragFailed = false;
       for await (const chunk of stream) {
         if (chunk.delta) {
           sendEvent("delta", { delta: chunk.delta });
         }
         if (chunk.final) {
+          // If RAG found nothing and tools are available, try tool fallback
+          if (!chunk.final.hasConfidentAnswer && searchResults.length === 0 && isToolUseEnabled() && listTools().length > 0) {
+            ragFailed = true;
+            break;
+          }
+
           enrichCitations(chunk.final.citations);
 
           // Persist bot message
@@ -458,6 +548,43 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
           sendEvent("done", { ...botMsg, contextUsage: chunk.final.contextUsage });
           broadcastToChat(chatId, "message", botMsg);
         }
+      }
+
+      // ── Tool fallback: RAG found nothing, try tool-based search ──
+      if (ragFailed) {
+        const toolMessages: ToolMessage[] = [];
+        toolMessages.push({
+          role: "system",
+          content: [
+            "You are a helpful AI assistant in a group chat with access to tools for searching knowledge bases and the web.",
+            "The user's question didn't match any documents via standard search. Use the search_knowledge tool to try finding an answer.",
+            "Always cite your sources when using information from search results.",
+          ].join("\n\n"),
+        });
+        for (const m of sessionMessages) {
+          if (m.role === "system") continue;
+          toolMessages.push({ role: m.role as "user" | "assistant", content: m.content });
+        }
+        const toolCtx: ToolContext = { userEmail: email, isAdmin: req.session.isAdmin ?? false, orgId: req.session.orgId };
+        const { answer, toolUses } = await runToolLoop(toolMessages, toolCtx, sendEvent);
+
+        const CHUNK_SIZE = 20;
+        for (let i = 0; i < answer.length; i += CHUNK_SIZE) {
+          sendEvent("delta", { delta: answer.slice(i, i + CHUNK_SIZE) });
+        }
+
+        const botMsgOpts: Parameters<typeof addMessage>[0] = {
+          groupChatId: chatId,
+          role: "assistant",
+          content: answer,
+          hasConfidentAnswer: true,
+          answerType: toolUses.length > 0 ? "grounded" : "general",
+        };
+        if (threadParentId) botMsgOpts.threadParentId = threadParentId;
+        const botMsg = addMessage(botMsgOpts);
+
+        sendEvent("done", { ...botMsg, toolUses });
+        broadcastToChat(chatId, "message", botMsg);
       }
     } finally {
       releaseSlotFn?.();
