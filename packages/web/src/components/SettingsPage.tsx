@@ -119,12 +119,6 @@ function AiBehaviorSettings() {
     });
   }
 
-  const toggles: Array<{ key: keyof typeof settings; label: string; description: string; autoControlled?: boolean }> = [
-    { key: "decompose", label: "Query decomposition", description: "Break complex questions into sub-queries for better results. Only triggers on multi-part questions.", autoControlled: true },
-    { key: "rerank", label: "Re-ranking", description: "AI re-scores search results by relevance. Adds ~3-5 seconds per query.", autoControlled: true },
-    { key: "iterativeRetrieval", label: "Iterative retrieval", description: "Retry with reformulated queries when initial results are low confidence. Can add ~8-12 seconds.", autoControlled: true },
-  ];
-
   return (
     <div className="border border-slate-200 dark:border-gray-800 rounded-2xl p-5 space-y-4">
       <div>

@@ -14,7 +14,7 @@ import os from "os";
 import { config } from "../config.js";
 import { logger } from "../lib/logger.js";
 import type { InstalledModel, PullProgressEvent, SystemResources, StorageBreakdown } from "@edgebric/types";
-import { MODEL_FILENAME_MAP, MODEL_CATALOG_MAP, parseSplitGGUF, getAllShardFilenames, getAllShardUrls, allShardsPresent, findCatalogForShard } from "@edgebric/types";
+import { MODEL_FILENAME_MAP, MODEL_CATALOG_MAP, getAllShardFilenames, getAllShardUrls, allShardsPresent, findCatalogForShard } from "@edgebric/types";
 
 function chatBaseUrl(): string {
   return config.inference.chatBaseUrl;

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw, Sparkles, Search,
+  ShieldCheck, EyeOff, CheckCircle, XCircle, Loader2, Trash2, RefreshCw,
 } from "lucide-react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import type { IntegrationConfig } from "@edgebric/types";

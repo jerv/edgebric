@@ -455,6 +455,7 @@ function OneDriveCredentialsCard({ config }: { config: IntegrationConfig | undef
 
 // ─── Confluence Credentials Card ──────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConfluenceCredentialsCard({ config }: { config: IntegrationConfig | undefined }) {
   const queryClient = useQueryClient();
   const [clientId, setClientId] = useState(config?.confluenceClientId ?? "");
@@ -645,6 +646,7 @@ function ConfluenceCredentialsCard({ config }: { config: IntegrationConfig | und
 
 // ─── Notion Credentials Card ───────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NotionCredentialsCard({ config }: { config: IntegrationConfig | undefined }) {
   const queryClient = useQueryClient();
   const [clientId, setClientId] = useState(config?.notionClientId ?? "");
