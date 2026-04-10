@@ -3,8 +3,8 @@ import fs from "fs";
 import path from "path";
 import { app } from "electron";
 import Bonjour from "bonjour-service";
-import { loadConfig, pidPath, logPath, envPath } from "./config.js";
-import { certsExist } from "./certs.js";
+import { loadConfig, saveConfig, pidPath, logPath, envPath } from "./config.js";
+import { certsExist, certPaths } from "./certs.js";
 import {
   isLlamaInstalled,
   downloadLlama,
@@ -229,11 +229,38 @@ async function _startServer(): Promise<void> {
       await startInstance("embedding", embeddingModel, config.dataDir);
     }
 
-    // Start chat server if a model is configured
-    if (config.chatModel) {
-      // Find the GGUF file for the configured model
-      const files = fs.existsSync(modelsDir) ? fs.readdirSync(modelsDir) : [];
-      const chatFile = files.find(f => f.endsWith(".gguf") && f !== "nomic-embed-text-v1.5.Q8_0.gguf");
+    // Start chat server — auto-download default model if none installed
+    const DEFAULT_CHAT_TAG = "qwen3.5-4b";
+    const DEFAULT_CHAT_FILENAME = "Qwen3.5-4B-Q4_K_M.gguf";
+    const DEFAULT_CHAT_URL = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf";
+
+    const files = fs.existsSync(modelsDir) ? fs.readdirSync(modelsDir) : [];
+    const chatFiles = files.filter(f => f.endsWith(".gguf") && f !== "nomic-embed-text-v1.5.Q8_0.gguf");
+
+    if (chatFiles.length === 0) {
+      // No chat models at all — download the default
+      console.log("No chat model found, downloading default...");
+      try {
+        await downloadModel(DEFAULT_CHAT_URL, DEFAULT_CHAT_FILENAME, config.dataDir, (pct) => {
+          console.log(`Downloading chat model... ${pct}%`);
+        });
+        console.log("Default chat model downloaded");
+        chatFiles.push(DEFAULT_CHAT_FILENAME);
+        config.chatModel = DEFAULT_CHAT_TAG;
+        saveConfig(config);
+      } catch (err) {
+        console.warn("Failed to download default chat model:", err);
+      }
+    }
+
+    if (chatFiles.length > 0) {
+      // Prefer the configured model, fall back to first available
+      let chatFile: string | undefined;
+      if (config.chatModel) {
+        // Try to find the GGUF matching the configured tag
+        chatFile = chatFiles.find(f => f.toLowerCase().includes(config.chatModel!.replace(/[.-]/g, "").toLowerCase()));
+      }
+      chatFile = chatFile ?? chatFiles[0];
       if (chatFile) {
         await startInstance("chat", path.join(modelsDir, chatFile), config.dataDir);
       }
@@ -271,6 +298,13 @@ async function _startServer(): Promise<void> {
   const llamaChatKey = getLlamaApiKey("chat");
   const llamaEmbeddingKey = getLlamaApiKey("embedding");
 
+  // Pass TLS cert paths so the API server runs HTTPS when certs exist.
+  // Without this, the desktop health check uses https:// (because certs exist
+  // on disk) but the API runs http:// — causing a protocol mismatch that
+  // makes the health check silently fail and the UI stick on "starting".
+  const hasCerts = certsExist(config.dataDir);
+  const certs = hasCerts ? certPaths(config.dataDir) : null;
+
   // In packaged apps, the web frontend is at resources/web/dist
   const isPackaged = serverPath.includes("resources/server/");
   const webDistDir = isPackaged
@@ -293,6 +327,7 @@ async function _startServer(): Promise<void> {
       ...(llamaChatKey && { CHAT_API_KEY: llamaChatKey }),
       ...(llamaEmbeddingKey && { EMBEDDING_API_KEY: llamaEmbeddingKey }),
       ...(webDistDir && { WEB_DIST_DIR: webDistDir }),
+      ...(certs && { TLS_CERT: certs.serverCert, TLS_KEY: certs.serverKey }),
     },
     cwd: apiDir,
   });
