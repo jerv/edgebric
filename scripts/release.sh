@@ -147,7 +147,8 @@ fi
 echo "==> Merging PR #$PR_NUMBER..."
 # Use the API directly — `gh pr merge` treats non-required check failures
 # (like CLA on owner PRs) as blocking. The API respects the actual ruleset.
-MERGE_RESULT=$(gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/merge" \
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+MERGE_RESULT=$(gh api "repos/$REPO/pulls/$PR_NUMBER/merge" \
   -X PUT -f merge_method=merge 2>&1)
 
 if echo "$MERGE_RESULT" | grep -q '"merged":true'; then
