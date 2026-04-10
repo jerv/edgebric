@@ -1,7 +1,7 @@
 {
   "name": "edgebric",
   "private": true,
-  "version": "0.9.6",
+  "version": "0.9.61",
   "packageManager": "pnpm@10.6.4",
   "scripts": {
     "build": "pnpm -r --filter=!@edgebric/web build && pnpm --filter @edgebric/web build",
