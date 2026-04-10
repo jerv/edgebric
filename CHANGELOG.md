@@ -2,6 +2,13 @@
 
 All notable changes to Edgebric are documented here.
 
+## [0.9.61] — 2026-04-10
+
+### Fixed
+- Desktop app stuck on "starting" after reinstall — TLS cert/protocol mismatch between health check and API server
+- Model management now works without server running (list, download, delete, import are all local operations)
+- Auto-downloads default chat model (Qwen 3.5 4B) if no chat models exist on disk — no manual setup needed after data loss
+
 ## [0.9.6] — 2026-04-09
 
 ### Added
