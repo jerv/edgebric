@@ -367,7 +367,6 @@ export default function ServerDashboard() {
   }, []);
 
   useEffect(() => {
-    if (status !== "running") return;
     fetchModels();
     const interval = view === "models" ? 3000 : 10000;
     modelsInterval.current = setInterval(fetchModels, interval);
@@ -721,13 +720,7 @@ export default function ServerDashboard() {
           <span />
         </div>
 
-        {!isRunning ? (
-          <div className="card">
-            <p className="hint" style={{ textAlign: "center", padding: "20px 0" }}>
-              Start the server to manage AI models.
-            </p>
-          </div>
-        ) : !modelsData ? (
+        {!modelsData ? (
           <div className="card">
             <p className="hint" style={{ textAlign: "center", padding: "20px 0" }}>
               Loading...
