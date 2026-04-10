@@ -6,6 +6,7 @@ type ServerStatus = "stopped" | "starting" | "running" | "error";
 type View = "home" | "settings" | "models";
 type DangerAction = "wipe" | "switchAuth" | null;
 type ModelStatus = "not_installed" | "installed" | "loaded" | "downloading";
+type EdgebricMode = "solo" | "admin" | "member";
 
 function GoogleIcon() {
   return (
@@ -242,8 +243,10 @@ const HEALTH_CHECK_TOOLTIPS: Record<string, string> = {
 
 export default function ServerDashboard() {
   const [status, setStatus] = useState<ServerStatus>("stopped");
+  const [mode, setMode] = useState<EdgebricMode>("solo");
   const [port, setPort] = useState(3001);
-  const [hostname, setHostname] = useState("edgebric.local");
+  const [hostname, setHostname] = useState("localhost");
+  const [protocol, setProtocol] = useState<"http" | "https">("http");
   const [errorMsg, setErrorMsg] = useState("");
   const [view, setView] = useState<View>("home");
 
@@ -324,8 +327,10 @@ export default function ServerDashboard() {
   useEffect(() => {
     window.electronAPI.getStatus().then((s) => {
       setStatus(s.status as ServerStatus);
+      setMode((s.mode as EdgebricMode) ?? "solo");
       setPort(s.port);
       if (s.hostname) setHostname(s.hostname);
+      setProtocol(s.protocol);
       if (s.errorMsg) setErrorMsg(s.errorMsg);
     });
     window.electronAPI.getLaunchAtLogin().then(setLaunchAtLogin);
@@ -505,8 +510,9 @@ export default function ServerDashboard() {
     if (!result.success) {
       setErrorMsg(result.error ?? "Failed to save settings");
     } else {
-      setHostname(editHostname.trim());
+      setHostname(mode === "solo" ? "localhost" : editHostname.trim());
       setPort(newPort);
+      if (mode === "solo") setProtocol("http");
       setSettingsSaved(true);
       setErrorMsg("");
     }
@@ -515,6 +521,10 @@ export default function ServerDashboard() {
   // ─── Model Operations ───────────────────────────────────────────────────────
 
   async function handleLoadModel(tag: string) {
+    if (status !== "running") {
+      setModelError("Start the server before loading a model.");
+      return;
+    }
     setModelOp({ type: "load", tag });
     setModelError("");
     try {
@@ -669,7 +679,8 @@ export default function ServerDashboard() {
   }
 
   const statusConf = STATUS_CONFIG[status];
-  const accessUrl = port === 443 ? `https://${hostname}` : `https://${hostname}:${port}`;
+  const defaultPort = protocol === "https" ? 443 : 80;
+  const accessUrl = port === defaultPort ? `${protocol}://${hostname}` : `${protocol}://${hostname}:${port}`;
   const isRunning = status === "running";
   const isStopped = status === "stopped" || status === "error";
 
@@ -927,6 +938,7 @@ export default function ServerDashboard() {
                     const isOpTarget = modelOp?.tag === m.tag;
                     const modelRAMGB = m.catalogEntry?.ramUsageGB ?? m.sizeBytes / (1024 ** 3) * 1.2;
                     const fit = checkRAMFit(modelRAMGB, ramTotal, headroomGB);
+                    const loadDisabled = !isRunning || !!modelOp || !!pullTag;
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
@@ -950,12 +962,17 @@ export default function ServerDashboard() {
                               {fit.message}
                             </span>
                           )}
+                          {!isRunning && (
+                            <span className="model-item-meta" style={{ color: "#64748b", fontWeight: 500 }}>
+                              Start the server to load this model.
+                            </span>
+                          )}
                         </div>
                         <div className="btn-row" style={{ marginTop: 0 }}>
                           <button
                             className="btn btn-primary btn-sm"
                             onClick={() => handleLoadModel(m.tag)}
-                            disabled={!!modelOp || !!pullTag}
+                            disabled={loadDisabled}
                           >
                             {isOpTarget && modelOp?.type === "load" ? (
                               "Loading..."
@@ -1268,11 +1285,13 @@ export default function ServerDashboard() {
                   <input
                     type="text"
                     value={editHostname}
+                    disabled={mode === "solo"}
                     onChange={(e) => { setEditHostname(e.target.value); setSettingsSaved(false); }}
                   />
                   <p className="hint">
-                    Use <strong>edgebric.local</strong> for zero-config local access,
-                    or a custom domain if you have DNS configured.
+                    {mode === "solo"
+                      ? <>Solo mode always uses <strong>localhost</strong> and only listens on this Mac.</>
+                      : <>Use <strong>edgebric.local</strong> for zero-config local access, or a custom domain if you have DNS configured.</>}
                   </p>
                 </div>
                 <div className="field">
@@ -1286,31 +1305,35 @@ export default function ServerDashboard() {
                   />
                   <p className="hint">Default: 3001</p>
                 </div>
-                <button
-                  className="port-hint-toggle"
-                  onClick={() => setShowPortHint(!showPortHint)}
-                  type="button"
-                >
-                  Do I have to type in a port number?
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: showPortHint ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-                {showPortHint && (
-                  <div className="clean-url-tip">
-                    <h4>Want a clean URL without the port number?</h4>
-                    <p>
-                      Run this command once in Terminal to forward port 443 to {editPort || port}.
-                      After this, users can access Edgebric at <strong>https://{editHostname || hostname}</strong> instead
-                      of <strong>https://{editHostname || hostname}:{editPort || port}</strong>.
-                    </p>
-                    <div className="code-block">
-                      <code>{`sudo bash -c 'echo "rdr pass on lo0 inet proto tcp from any to any port 443 -> 127.0.0.1 port ${editPort || port}" > /etc/pf.anchors/edgebric && grep -q edgebric /etc/pf.conf || echo -e "rdr-anchor \\"edgebric\\"\\nload anchor \\"edgebric\\" from \\"/etc/pf.anchors/edgebric\\"" | sudo tee -a /etc/pf.conf > /dev/null && sudo pfctl -ef /etc/pf.conf'`}</code>
-                    </div>
-                    <p className="hint" style={{ marginTop: 6 }}>
-                      Requires your Mac password. Only needs to be done once — survives reboots.
-                    </p>
-                  </div>
+                {mode !== "solo" && (
+                  <>
+                    <button
+                      className="port-hint-toggle"
+                      onClick={() => setShowPortHint(!showPortHint)}
+                      type="button"
+                    >
+                      Do I have to type in a port number?
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: showPortHint ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>
+                        <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    {showPortHint && (
+                      <div className="clean-url-tip">
+                        <h4>Want a clean URL without the port number?</h4>
+                        <p>
+                          Run this command once in Terminal to forward port 443 to {editPort || port}.
+                          After this, users can access Edgebric at <strong>https://{editHostname || hostname}</strong> instead
+                          of <strong>https://{editHostname || hostname}:{editPort || port}</strong>.
+                        </p>
+                        <div className="code-block">
+                          <code>{`sudo bash -c 'echo "rdr pass on lo0 inet proto tcp from any to any port 443 -> 127.0.0.1 port ${editPort || port}" > /etc/pf.anchors/edgebric && grep -q edgebric /etc/pf.conf || echo -e "rdr-anchor \\"edgebric\\"\\nload anchor \\"edgebric\\" from \\"/etc/pf.anchors/edgebric\\"" | sudo tee -a /etc/pf.conf > /dev/null && sudo pfctl -ef /etc/pf.conf'`}</code>
+                        </div>
+                        <p className="hint" style={{ marginTop: 6 }}>
+                          Requires your Mac password. Only needs to be done once — survives reboots.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
                 {(editHostname !== hostname || editPort !== String(port)) && (
                   <div className="btn-row">

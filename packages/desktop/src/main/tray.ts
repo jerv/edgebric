@@ -5,14 +5,11 @@ import {
   stopServer,
   restartServer,
   getStatus,
-  getPort,
-  getHostname,
   onStatusChange,
+  getAccessUrl,
   type ServerStatus,
 } from "./server.js";
 import { openMainWindow, openLogWindow, openMainWindowToSettings, openMainWindowToModels } from "./index.js";
-import { loadConfig } from "./config.js";
-import { certsExist } from "./certs.js";
 import { checkForUpdatesManual, isUpdateDownloaded, isDownloadingUpdate } from "./updater.js";
 
 let tray: Tray | null = null;
@@ -79,33 +76,11 @@ function createFallbackIcon(status: ServerStatus): Electron.NativeImage {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
-function getProtocol(): string {
-  const config = loadConfig();
-  return config && certsExist(config.dataDir) ? "https" : "http";
-}
-
-function getAccessUrl(): string {
-  const hostname = getHostname();
-  const port = getPort();
-  const proto = getProtocol();
-  const defaultPort = proto === "https" ? 443 : 80;
-  return port === defaultPort ? `${proto}://${hostname}` : `${proto}://${hostname}:${port}`;
-}
-
-function getLanUrl(): string {
-  const hostname = getHostname();
-  const port = getPort();
-  const proto = getProtocol();
-  const defaultPort = proto === "https" ? 443 : 80;
-  return port === defaultPort ? `${proto}://${hostname}` : `${proto}://${hostname}:${port}`;
-}
-
 function buildContextMenu(): Menu {
   const status = getStatus();
   const isRunning = status === "running";
   const isStopped = status === "stopped" || status === "error";
   const accessUrl = getAccessUrl();
-  const lanUrl = getLanUrl();
 
   return Menu.buildFromTemplate([
     {
@@ -115,9 +90,6 @@ function buildContextMenu(): Menu {
     ...(isRunning
       ? [
           { label: `  ${accessUrl}`, enabled: false } as Electron.MenuItemConstructorOptions,
-          ...(lanUrl !== accessUrl
-            ? [{ label: `  ${lanUrl} (LAN)`, enabled: false } as Electron.MenuItemConstructorOptions]
-            : []),
         ]
       : []),
     { type: "separator" as const },

@@ -5,7 +5,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   readLogs: (lines?: number) => ipcRenderer.invoke("read-logs", lines),
 
   // Server status & control
-  getStatus: () => ipcRenderer.invoke("get-status"),
+  getStatus: () => ipcRenderer.invoke("get-status") as Promise<{
+    status: string;
+    mode: "solo" | "admin" | "member";
+    port: number;
+    hostname?: string;
+    protocol: "http" | "https";
+    accessUrl: string;
+    errorMsg?: string;
+  }>,
   getHealth: () => ipcRenderer.invoke("get-health") as Promise<{ uptime: number | null; checks: Record<string, { status: string; latencyMs?: number; error?: string }> } | null>,
   startServer: () => ipcRenderer.invoke("start-server"),
   stopServer: () => ipcRenderer.invoke("stop-server"),

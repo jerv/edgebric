@@ -1,5 +1,5 @@
 import { app, ipcMain, BrowserWindow, dialog } from "electron";
-import { readLogs, getStatus, getErrorMsg, getPort, getHostname, getUptime, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
+import { readLogs, getStatus, getErrorMsg, getPort, getHostname, getProtocol, getAccessUrl, getUptime, startServer, stopServer, onStatusChange, discoverInstances } from "./server.js";
 import { loadConfig, saveConfig, isFirstRun, DEFAULT_DATA_DIR, envPath, type EdgebricConfig } from "./config.js";
 import { generateCerts, trustCA, certsExist, certPaths } from "./certs.js";
 import { openLogWindow } from "./index.js";
@@ -36,7 +36,15 @@ export function registerIpcHandlers() {
 
   // Server status
   ipcMain.handle("get-status", () => {
-    return { status: getStatus(), port: getPort(), hostname: getHostname(), errorMsg: getErrorMsg() };
+    return {
+      status: getStatus(),
+      mode: loadConfig()?.mode ?? "solo",
+      port: getPort(),
+      hostname: getHostname(),
+      protocol: getProtocol(),
+      accessUrl: getAccessUrl(),
+      errorMsg: getErrorMsg(),
+    };
   });
 
   // Health check (mirrors /api/health for the desktop home view)
@@ -293,13 +301,29 @@ export function registerIpcHandlers() {
     saveConfig(config);
 
     // Update .env with new hostname/port
-    const proto = certsExist(config.dataDir) ? "https" : "http";
+    const isSolo = config.mode === "solo";
+    const proto = !isSolo && certsExist(config.dataDir) ? "https" : "http";
+    const frontendUrl = isSolo
+      ? `http://localhost:${newPort}`
+      : `${proto}://${newHostname}:${newPort}`;
     const envFile = envPath(config.dataDir);
     if (fs.existsSync(envFile)) {
       let env = fs.readFileSync(envFile, "utf8");
       env = env.replace(/^OIDC_REDIRECT_URI=.*$/m, `OIDC_REDIRECT_URI=${proto}://localhost:${newPort}/api/auth/callback`);
-      env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=${proto}://${newHostname}:${newPort}`);
+      env = env.replace(/^FRONTEND_URL=.*$/m, `FRONTEND_URL=${frontendUrl}`);
       env = env.replace(/^PORT=.*$/m, `PORT=${newPort}`);
+      if (isSolo) {
+        env = env.replace(/^AUTH_MODE=.*$/m, "AUTH_MODE=none");
+        env = env.replace(/^LISTEN_HOST=.*$/m, "LISTEN_HOST=127.0.0.1");
+        env = env.replace(/^OIDC_PROVIDER=.*$\n?/gm, "");
+        env = env.replace(/^OIDC_ISSUER=.*$\n?/gm, "");
+        env = env.replace(/^OIDC_CLIENT_ID=.*$\n?/gm, "");
+        env = env.replace(/^OIDC_CLIENT_SECRET=.*$\n?/gm, "");
+        env = env.replace(/^OIDC_REDIRECT_URI=.*$\n?/gm, "");
+        env = env.replace(/^ADMIN_EMAILS=.*$\n?/gm, "");
+        env = env.replace(/^TLS_CERT=.*$\n?/gm, "");
+        env = env.replace(/^TLS_KEY=.*$\n?/gm, "");
+      }
       fs.writeFileSync(envFile, env, "utf8");
     }
 
@@ -558,6 +582,10 @@ export function registerIpcHandlers() {
 
   ipcMain.handle("models-load", async (_event, tag: string) => {
     try {
+      if (getStatus() !== "running") {
+        return { success: false, error: "Start the Edgebric server before loading a model" };
+      }
+
       const config = loadConfig();
       const dataDir = config?.dataDir;
 
