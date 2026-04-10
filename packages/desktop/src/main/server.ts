@@ -4,7 +4,7 @@ import path from "path";
 import { app } from "electron";
 import Bonjour from "bonjour-service";
 import { loadConfig, pidPath, logPath, envPath } from "./config.js";
-import { certsExist } from "./certs.js";
+import { certsExist, certPaths } from "./certs.js";
 import {
   isLlamaInstalled,
   downloadLlama,
@@ -271,6 +271,13 @@ async function _startServer(): Promise<void> {
   const llamaChatKey = getLlamaApiKey("chat");
   const llamaEmbeddingKey = getLlamaApiKey("embedding");
 
+  // Pass TLS cert paths so the API server runs HTTPS when certs exist.
+  // Without this, the desktop health check uses https:// (because certs exist
+  // on disk) but the API runs http:// — causing a protocol mismatch that
+  // makes the health check silently fail and the UI stick on "starting".
+  const hasCerts = certsExist(config.dataDir);
+  const certs = hasCerts ? certPaths(config.dataDir) : null;
+
   // In packaged apps, the web frontend is at resources/web/dist
   const isPackaged = serverPath.includes("resources/server/");
   const webDistDir = isPackaged
@@ -293,6 +300,7 @@ async function _startServer(): Promise<void> {
       ...(llamaChatKey && { CHAT_API_KEY: llamaChatKey }),
       ...(llamaEmbeddingKey && { EMBEDDING_API_KEY: llamaEmbeddingKey }),
       ...(webDistDir && { WEB_DIST_DIR: webDistDir }),
+      ...(certs && { TLS_CERT: certs.serverCert, TLS_KEY: certs.serverKey }),
     },
     cwd: apiDir,
   });
