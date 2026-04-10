@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { app } from "electron";
 import Bonjour from "bonjour-service";
-import { loadConfig, saveConfig, pidPath, logPath, envPath } from "./config.js";
+import { loadConfig, saveConfig, pidPath, logPath, envPath, type EdgebricConfig } from "./config.js";
 import { certsExist, certPaths } from "./certs.js";
 import {
   isLlamaInstalled,
@@ -58,8 +58,33 @@ export function getPort(): number {
   return loadConfig()?.port ?? 3001;
 }
 
+function isSoloConfig(config: EdgebricConfig | null | undefined): boolean {
+  return config?.mode === "solo";
+}
+
+function getEffectiveHostname(config: EdgebricConfig | null | undefined): string {
+  if (isSoloConfig(config)) return "localhost";
+  return config?.hostname ?? "edgebric.local";
+}
+
+function hasHttps(config: EdgebricConfig | null | undefined): boolean {
+  return !!config && !isSoloConfig(config) && certsExist(config.dataDir);
+}
+
 export function getHostname(): string {
-  return loadConfig()?.hostname ?? "edgebric.local";
+  return getEffectiveHostname(loadConfig());
+}
+
+export function getProtocol(): "http" | "https" {
+  return hasHttps(loadConfig()) ? "https" : "http";
+}
+
+export function getAccessUrl(): string {
+  const hostname = getHostname();
+  const port = getPort();
+  const proto = getProtocol();
+  const defaultPort = proto === "https" ? 443 : 80;
+  return port === defaultPort ? `${proto}://${hostname}` : `${proto}://${hostname}:${port}`;
 }
 
 export function getUptime(): number | null {
@@ -302,7 +327,7 @@ async function _startServer(): Promise<void> {
   // Without this, the desktop health check uses https:// (because certs exist
   // on disk) but the API runs http:// — causing a protocol mismatch that
   // makes the health check silently fail and the UI stick on "starting".
-  const hasCerts = certsExist(config.dataDir);
+  const hasCerts = hasHttps(config);
   const certs = hasCerts ? certPaths(config.dataDir) : null;
 
   // In packaged apps, the web frontend is at resources/web/dist
@@ -441,7 +466,7 @@ function startHealthCheck(port: number) {
   stopHealthCheck();
 
   const config = loadConfig();
-  const proto = config && certsExist(config.dataDir) ? "https" : "http";
+  const proto = config && hasHttps(config) ? "https" : "http";
   const startTime = Date.now();
   const startupTimeoutMs = 60_000; // Give server 60s to start before marking as error
 

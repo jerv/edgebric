@@ -2,6 +2,13 @@
 
 All notable changes to Edgebric are documented here.
 
+## [0.9.62] — 2026-04-10
+
+### Fixed
+- Solo-mode desktop launches now use the correct local access URL instead of broken `edgebric.local` resolution
+- Solo-mode startup no longer inherits stale TLS behavior from past non-solo installs
+- Model management remains available with the server off, but loading a model is now blocked until the server is running
+
 ## [0.9.61] — 2026-04-10
 
 ### Fixed
