@@ -36,9 +36,9 @@ import type { ToolMessage } from "../services/chatClient.js";
 import type { ToolContext } from "../services/toolRunner.js";
 import { registerAllTools } from "../services/tools/index.js";
 import { runtimeChatConfig } from "../config.js";
-import { isMemoryEnabled, getMemoryDatasetName } from "../services/memoryStore.js";
+import { isMemoryEnabled, getMemoryDatasetName, saveMemory } from "../services/memoryStore.js";
 import { hybridMultiDatasetSearch as memoryHybridSearch } from "../services/searchService.js";
-import { processMessageForMemories } from "../services/memoryExtractor.js";
+import { extractExplicitMemoryRequest, processMessageForMemories } from "../services/memoryExtractor.js";
 
 const queryBodySchema = z.object({
   query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
@@ -84,6 +84,8 @@ setInterval(() => {
 // Keyed by conversationId → { summary, upToMessageId }.
 
 const soloSummaryCache = new Map<string, { summary: string; upTo: string; oldCount: number }>();
+const soloSummaryRefreshes = new Set<string>();
+let embeddingHealthCache: { checkedAt: number; available: boolean } = { checkedAt: 0, available: false };
 
 /** Prune solo summary cache entries every 30 minutes. */
 setInterval(() => {
@@ -111,6 +113,29 @@ function checkQueryRateLimit(email: string): { allowed: boolean; retryAfterMs?: 
   return { allowed: true };
 }
 
+function isSimpleSmallTalk(query: string): boolean {
+  const normalized = query.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  return [
+    "hi",
+    "hello",
+    "hey",
+    "hey there",
+    "yo",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "thanks",
+    "thank you",
+    "ok",
+    "okay",
+    "cool",
+    "sounds good",
+    "who are you",
+    "what can you do",
+    "help",
+  ].includes(normalized);
+}
+
 export const queryRouter: IRouter = Router();
 
 // Chat client — uses llama-server's OpenAI-compatible API for streaming inference.
@@ -128,6 +153,33 @@ function isToolUseEnabled(): boolean {
 }
 
 const MAX_TOOL_ROUNDS = 5;
+
+async function refreshSoloSummary(
+  conversationId: string,
+  oldMessages: ChatMessage[],
+  upToMessageId: string,
+): Promise<void> {
+  if (oldMessages.length === 0 || soloSummaryRefreshes.has(conversationId)) return;
+  soloSummaryRefreshes.add(conversationId);
+
+  let releaseSlotFn: (() => void) | undefined;
+  try {
+    releaseSlotFn = await acquireSlot(`solo-summary-${conversationId}`, "low");
+    const summary = await summarizeMessages(oldMessages, (msgs) => chatClient.chatStream(msgs));
+    if (summary) {
+      soloSummaryCache.set(conversationId, {
+        summary,
+        upTo: upToMessageId,
+        oldCount: oldMessages.length,
+      });
+    }
+  } catch (err) {
+    logger.warn({ err, conversationId }, "Solo conversation summary refresh failed");
+  } finally {
+    releaseSlotFn?.();
+    soloSummaryRefreshes.delete(conversationId);
+  }
+}
 
 /**
  * Tool use information for UI transparency — tracks which tools were called
@@ -258,9 +310,16 @@ async function getMemoryContextBlock(query: string, orgId?: string, userEmail?: 
   const memoryDataset = getMemoryDatasetName(orgId, userEmail);
   if (!memoryDataset) return "";
 
-  // Skip if embedding server isn't running (avoids timeout on every query)
-  const { isEmbeddingRunning } = await import("../services/inferenceClient.js");
-  if (!(await isEmbeddingRunning())) return "";
+  // Cache embedding health briefly so simple chats don't keep paying a network round-trip.
+  const now = Date.now();
+  if (now - embeddingHealthCache.checkedAt > 5_000) {
+    const { isEmbeddingRunning } = await import("../services/inferenceClient.js");
+    embeddingHealthCache = {
+      checkedAt: now,
+      available: await isEmbeddingRunning(),
+    };
+  }
+  if (!embeddingHealthCache.available) return "";
 
   try {
     return await buildMemoryContext(query, async (q, topK) => {
@@ -474,6 +533,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   const useDecompose = aiBehavior?.decompose ?? orgConfig.ragDecompose ?? false;
   const useRerank = aiBehavior?.rerank ?? orgConfig.ragRerank ?? false;
   const useIterativeRetrieval = aiBehavior?.iterativeRetrieval ?? orgConfig.ragIterativeRetrieval ?? false;
+  const skipRetrievalForSimpleChat = isSimpleSmallTalk(query);
 
   // Resolve mesh group access: admins get undefined (all groups), users get their assigned groups
   const isAdmin = req.session.isAdmin ?? false;
@@ -524,10 +584,11 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     let releaseSlotFn: (() => void) | undefined;
     try {
       const orgId = req.session.orgId;
-      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const shouldSkipRetrieval = skipSearch || skipRetrievalForSimpleChat;
+      const datasetNames = shouldSkipRetrieval ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       // Forward accessible data source IDs for server-side ACL enforcement on mesh nodes
-      const accessibleDSIds = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
+      const accessibleDSIds = shouldSkipRetrieval ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = shouldSkipRetrieval
         ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
         : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIds);
 
@@ -615,6 +676,58 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
   };
   addMessage(userMsg);
 
+  const explicitMemory = isMemoryEnabled() ? extractExplicitMemoryRequest(query) : null;
+  if (explicitMemory) {
+    broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: true });
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    try {
+      await saveMemory({
+        content: explicitMemory.content,
+        category: explicitMemory.category,
+        confidence: 1,
+        source: "explicit",
+        orgId,
+        userId: userEmail,
+      });
+
+      const answer = "I'll remember that.";
+      const assistantMsgId = randomUUID();
+      const assistantMsg: PersistedMessage = {
+        id: assistantMsgId,
+        conversationId: conversation.id,
+        role: "assistant",
+        content: answer,
+        hasConfidentAnswer: true,
+        answerType: "general",
+        createdAt: new Date(),
+      };
+      addMessage(assistantMsg);
+      updateConversationTimestamp(conversation.id);
+
+      res.write(`event: done\ndata: ${JSON.stringify({
+        answer,
+        citations: [],
+        hasConfidentAnswer: true,
+        sessionId: conversation.id,
+        conversationId: conversation.id,
+        messageId: assistantMsgId,
+        answerType: "general",
+      })}\n\n`);
+    } catch (err) {
+      logger.warn({ err, conversationId: conversation.id }, "Direct memory save failed");
+      res.write(`event: error\ndata: ${JSON.stringify({ message: "Failed to save memory. Please try again." })}\n\n`);
+    } finally {
+      broadcastToUser(userEmail, "bot_thinking", { chatId: conversation.id, thinking: false });
+      try { res.end(); } catch { /* already closed */ }
+    }
+    return;
+  }
+
   // Build session with conversation summarization (same pipeline as group chat)
   const allMessages = getMessages(conversation.id);
   const chatMsgs: ChatMessage[] = allMessages
@@ -628,32 +741,15 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     const cached = soloSummaryCache.get(conversation.id);
     if (cached && cached.oldCount === old.length) {
       summary = cached.summary;
-    } else {
-      try {
-        summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
-        if (summary && allMessages.length > 0) {
-          soloSummaryCache.set(conversation.id, {
-            summary,
-            upTo: allMessages[allMessages.length - 1]!.id,
-            oldCount: old.length,
-          });
-        }
-      } catch (err) {
-        logger.warn({ err }, "Solo conversation summarization failed, using recent messages only");
-      }
+    } else if (allMessages.length > 0) {
+      void refreshSoloSummary(conversation.id, old, allMessages[allMessages.length - 1]!.id);
     }
   }
 
   const summarizedContext = buildSummarizedContext(summary, recent);
-  const sessionMessages: SessionMessage[] = summarizedContext
+  let sessionMessages: SessionMessage[] = summarizedContext
     .slice(-12)
     .map((m) => ({ role: m.role as SessionMessage["role"], content: m.content }));
-
-  // Inject memory context as a system message at the start of the session
-  const memoryCtxBlock = await getMemoryContextBlock(query, orgId, userEmail);
-  if (memoryCtxBlock) {
-    sessionMessages.unshift({ role: "system" as const, content: memoryCtxBlock });
-  }
 
   const session: Session = {
     id: conversation.id,
@@ -688,7 +784,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   let releaseSlotFn: (() => void) | undefined;
   try {
-    if (isToolUseEnabled() && listTools().length > 0) {
+    if (!skipRetrievalForSimpleChat && isToolUseEnabled() && listTools().length > 0) {
       // Acquire inference slot
       const abortController = new AbortController();
       req.on("close", () => abortController.abort());
@@ -784,9 +880,18 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     } else {
       // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
 
-      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const accessibleDSIdsStd = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
+      const shouldSkipRetrieval = skipSearch || skipRetrievalForSimpleChat;
+      if (!shouldSkipRetrieval) {
+        const memoryCtxBlock = await getMemoryContextBlock(query, orgId, userEmail);
+        if (memoryCtxBlock) {
+          sessionMessages = [{ role: "system", content: memoryCtxBlock }, ...sessionMessages];
+          session.messages = sessionMessages;
+        }
+      }
+
+      const datasetNames = shouldSkipRetrieval ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const accessibleDSIdsStd = shouldSkipRetrieval ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = shouldSkipRetrieval
         ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
         : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIdsStd);
 

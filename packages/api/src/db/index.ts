@@ -106,6 +106,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
 
     CREATE TABLE IF NOT EXISTS chunks (
       chunk_id TEXT PRIMARY KEY,
+      dataset_name TEXT,
       source_document TEXT NOT NULL,
       document_name TEXT,
       section_path TEXT NOT NULL DEFAULT '[]',
@@ -184,6 +185,7 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_notifications_user_email ON notifications(user_email);
     CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);
     CREATE INDEX IF NOT EXISTS idx_chunks_source_document ON chunks(source_document);
+    CREATE INDEX IF NOT EXISTS idx_chunks_dataset_name ON chunks(dataset_name);
   `);
 
   // Migrate existing tables — add new columns if they don't exist yet
@@ -222,6 +224,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE group_chat_shared_kbs ADD COLUMN expires_at TEXT",
     // Parent chunk content for parent-child retrieval (larger context for LLM)
     "ALTER TABLE chunks ADD COLUMN parent_content TEXT",
+    // Exact dataset scoping for chunks
+    "ALTER TABLE chunks ADD COLUMN dataset_name TEXT",
     // ── KB → Data Source rename migrations ──────────────────────────────────
     // Table renames MUST come before column renames on the renamed tables
     "ALTER TABLE knowledge_bases RENAME TO data_sources",
@@ -253,6 +257,19 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
   }
+
+  // Backfill chunk dataset names for older databases. Prefer the document's own
+  // dataset name, then fall back to the attached data source's dataset name.
+  sqlite.exec(`
+    UPDATE chunks
+    SET dataset_name = (
+      SELECT COALESCE(documents.dataset_name, data_sources.dataset_name)
+      FROM documents
+      LEFT JOIN data_sources ON data_sources.id = documents.data_source_id
+      WHERE documents.id = chunks.source_document
+    )
+    WHERE dataset_name IS NULL OR dataset_name = '';
+  `);
 
   // New tables added after initial schema
   sqlite.exec(`

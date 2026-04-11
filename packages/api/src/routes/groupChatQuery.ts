@@ -19,6 +19,8 @@ import type { ToolMessage } from "../services/chatClient.js";
 import { buildToolDefinitions, executeTool, parseToolCalls, listTools } from "../services/toolRunner.js";
 import type { ToolContext } from "../services/toolRunner.js";
 import { runtimeChatConfig } from "../config.js";
+import { isMemoryEnabled, saveMemory } from "../services/memoryStore.js";
+import { extractExplicitMemoryRequest } from "../services/memoryExtractor.js";
 import {
   getGroupChat,
   isMember,
@@ -38,6 +40,7 @@ import {
 // ─── Chat Client ──────────────────────────────────────────────────────────────
 
 const chatClient = createChatClient();
+const groupSummaryRefreshes = new Set<string>();
 
 // ─── Tool Use Support ────────────────────────────────────────────────────────
 
@@ -51,6 +54,29 @@ function isToolUseEnabled(): boolean {
   const tag = runtimeChatConfig.model;
   const catalogEntry = MODEL_CATALOG_MAP.get(tag);
   return catalogEntry?.capabilities?.toolUse === true;
+}
+
+function isSimpleSmallTalk(query: string): boolean {
+  const normalized = query.trim().toLowerCase().replace(/[.!?]+$/g, "");
+  return [
+    "hi",
+    "hello",
+    "hey",
+    "hey there",
+    "yo",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "thanks",
+    "thank you",
+    "ok",
+    "okay",
+    "cool",
+    "sounds good",
+    "who are you",
+    "what can you do",
+    "help",
+  ].includes(normalized);
 }
 
 const MAX_TOOL_ROUNDS = 5;
@@ -115,6 +141,29 @@ async function runToolLoop(
   }
 
   return { answer: "I've gathered information using multiple tools. Let me summarize what I found.", toolUses };
+}
+
+async function refreshGroupChatSummary(
+  groupChatId: string,
+  messages: ChatMessage[],
+  upToMessageId: string,
+): Promise<void> {
+  if (messages.length === 0 || groupSummaryRefreshes.has(groupChatId)) return;
+  groupSummaryRefreshes.add(groupChatId);
+
+  let releaseSlotFn: (() => void) | undefined;
+  try {
+    releaseSlotFn = await acquireSlot(`group-summary-${groupChatId}`, "low");
+    const summary = await summarizeMessages(messages, (msgs) => chatClient.chatStream(msgs));
+    if (summary) {
+      setContextSummary(groupChatId, summary, upToMessageId);
+    }
+  } catch (err) {
+    logger.warn({ err, groupChatId }, "Group chat summary refresh failed");
+  } finally {
+    releaseSlotFn?.();
+    groupSummaryRefreshes.delete(groupChatId);
+  }
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -350,13 +399,40 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     const query = extractQuery(content);
     const gcOrgConfig = getIntegrationConfig();
     const strict = !(gcOrgConfig.generalAnswersEnabled ?? true);
+    const skipRetrievalForSimpleChat = isSimpleSmallTalk(query);
+
+    const explicitMemory = isMemoryEnabled() ? extractExplicitMemoryRequest(query) : null;
+    if (explicitMemory) {
+      await saveMemory({
+        content: explicitMemory.content,
+        category: explicitMemory.category,
+        confidence: 1,
+        source: "explicit",
+        orgId: req.session.orgId,
+        userId: email,
+      });
+
+      const botMsgOpts: Parameters<typeof addMessage>[0] = {
+        groupChatId: chatId,
+        role: "assistant",
+        content: "I'll remember that.",
+        hasConfidentAnswer: true,
+        answerType: "general",
+      };
+      if (threadParentId) botMsgOpts.threadParentId = threadParentId;
+      const botMsg = addMessage(botMsgOpts);
+
+      sendEvent("done", botMsg);
+      broadcastToChat(chatId, "message", botMsg);
+      return;
+    }
 
     // Resolve datasets from shared data sources, filtered by user's ACL
     const allSharedDatasets = getSharedDatasetNames(chatId);
     const userAccessible = listAccessibleDataSources(email, req.session.isAdmin ?? false, req.session.orgId);
     const userDatasetNames = new Set(userAccessible.map((ds) => ds.datasetName));
     const datasetNames = allSharedDatasets.filter((dsName) => userDatasetNames.has(dsName));
-    if (datasetNames.length === 0) {
+    if (datasetNames.length === 0 && !skipRetrievalForSimpleChat) {
       // No data sources shared — bot can't answer
       const botMsg = addMessage({
         groupChatId: chatId,
@@ -394,14 +470,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         if (cached) {
           mainChatSummary = cached.summary;
         } else if (mainChatMsgs.length > 3) {
-          try {
-            mainChatSummary = await summarizeMessages(mainChatMsgs, (msgs) => chatClient.chatStream(msgs));
-            if (mainChatSummary) {
-              setContextSummary(chatId, mainChatSummary, mainChatMessages[mainChatMessages.length - 1]!.id);
-            }
-          } catch (err) {
-            logger.warn({ err }, "Main chat summarization for thread context failed");
-          }
+          void refreshGroupChatSummary(chatId, mainChatMsgs, mainChatMessages[mainChatMessages.length - 1]!.id);
         }
       }
     } else {
@@ -426,15 +495,8 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       const cached = threadParentId ? null : getContextSummary(chatId); // Don't reuse main chat cache for threads
       if (cached) {
         summary = cached.summary;
-      } else {
-        try {
-          summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
-          if (summary && contextMessages.length > 0 && !threadParentId) {
-            setContextSummary(chatId, summary, contextMessages[contextMessages.length - 1]!.id);
-          }
-        } catch (err) {
-          logger.warn({ err }, "Context summarization failed, using recent messages only");
-        }
+      } else if (contextMessages.length > 0 && !threadParentId) {
+        void refreshGroupChatSummary(chatId, old, contextMessages[contextMessages.length - 1]!.id);
       }
     }
 
@@ -457,11 +519,13 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     };
 
     // Hybrid BM25+vector search with optional reranking
-    const { results: searchResults, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
-      datasetNames,
-      query,
-      20,
-    );
+    const { results: searchResults, candidateCount, hybridBoost } = skipRetrievalForSimpleChat
+      ? { results: [] as Awaited<ReturnType<typeof hybridMultiDatasetSearch>>["results"], candidateCount: 0, hybridBoost: false }
+      : await hybridMultiDatasetSearch(
+        datasetNames,
+        query,
+        20,
+      );
 
     // Optional cross-encoder reranking
     if (isRerankerAvailable() && searchResults.length > 1) {
@@ -526,7 +590,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         }
         if (chunk.final) {
           // If RAG found nothing and tools are available, try tool fallback
-          if (!chunk.final.hasConfidentAnswer && searchResults.length === 0 && isToolUseEnabled() && listTools().length > 0) {
+          if (!skipRetrievalForSimpleChat && !chunk.final.hasConfidentAnswer && searchResults.length === 0 && isToolUseEnabled() && listTools().length > 0) {
             ragFailed = true;
             break;
           }

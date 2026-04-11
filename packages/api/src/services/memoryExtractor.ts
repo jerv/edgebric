@@ -13,6 +13,13 @@ export interface ExtractedMemory {
   category: MemoryCategory;
 }
 
+const EXPLICIT_MEMORY_PATTERNS: RegExp[] = [
+  /^(?:please\s+)?remember(?:\s+that)?\s+(.{3,500})$/i,
+  /^(?:can|could|would)\s+you\s+remember(?:\s+that)?\s+(.{3,500})$/i,
+  /^(?:please\s+)?save\s+(?:this\s+)?to\s+memory:?\s+(.{3,500})$/i,
+  /^(?:please\s+)?store\s+(?:this\s+)?in\s+memory:?\s+(.{3,500})$/i,
+];
+
 // ─── Pattern Definitions ────────────────────────────────────────────────────
 
 /**
@@ -109,6 +116,27 @@ export function extractMemories(userMessage: string): ExtractedMemory[] {
   }
 
   return results;
+}
+
+export function extractExplicitMemoryRequest(userMessage: string): ExtractedMemory | null {
+  const trimmed = userMessage.trim();
+  for (const pattern of EXPLICIT_MEMORY_PATTERNS) {
+    const match = pattern.exec(trimmed);
+    if (!match?.[1]) continue;
+
+    const requested = cleanExtract(match[1]);
+    if (!requested) return null;
+
+    const inferred = extractMemories(requested)[0];
+    if (inferred) return inferred;
+
+    return {
+      content: requested,
+      category: "instruction",
+    };
+  }
+
+  return null;
 }
 
 /**

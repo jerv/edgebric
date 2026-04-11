@@ -333,8 +333,8 @@ describe("Agent API", () => {
       const res = await agentApp(readKey)
         .post("/api/v1/search")
         .send({ query: "test query" });
-      // May fail with 500 if inference isn't running, but should at least parse
-      expect([200, 500]).toContain(res.status);
+      // May fail with 503 if inference isn't running or is misconfigured, but should at least parse
+      expect([200, 503]).toContain(res.status);
       if (res.status === 200) {
         expect(res.body).toHaveProperty("results");
         expect(Array.isArray(res.body.results)).toBe(true);

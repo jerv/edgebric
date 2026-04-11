@@ -14,7 +14,7 @@ import {
 import { getIntegrationConfig, setIntegrationConfig } from "../services/integrationConfigStore.js";
 import { clearTools, executeTool, getTool } from "../services/toolRunner.js";
 import { registerMemoryTools } from "../services/tools/memory.js";
-import { extractMemories } from "../services/memoryExtractor.js";
+import { extractExplicitMemoryRequest, extractMemories } from "../services/memoryExtractor.js";
 import { buildMemoryContext } from "@edgebric/core/rag";
 import type { ToolContext } from "../services/toolRunner.js";
 
@@ -354,6 +354,24 @@ describe("Memory System", () => {
         if (results.length > 0) {
           expect(results[0]!.content.length).toBeLessThanOrEqual(200);
         }
+      });
+    });
+
+    describe("extractExplicitMemoryRequest", () => {
+      it("extracts explicit remember requests", () => {
+        const result = extractExplicitMemoryRequest("Remember that I prefer bullet points.");
+        expect(result).toEqual({
+          content: "User I prefer bullet points",
+          category: "preference",
+        });
+      });
+
+      it("treats generic explicit memory requests as instructions", () => {
+        const result = extractExplicitMemoryRequest("Save this to memory: use my short name in replies");
+        expect(result).toEqual({
+          content: "use my short name in replies",
+          category: "instruction",
+        });
       });
     });
   });

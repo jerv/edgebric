@@ -32,7 +32,7 @@ import { routedSearch } from "../services/queryRouter.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { answerStream } from "@edgebric/core/rag";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
-import { isRunning as isInferenceRunning } from "../services/inferenceClient.js";
+import { isRunning as isInferenceRunning, InferenceError } from "../services/inferenceClient.js";
 import { createChatClient } from "../services/chatClient.js";
 import { clearChunksForDataset, getChunksForDataset } from "../services/chunkRegistry.js";
 import { encryptFile } from "../lib/crypto.js";
@@ -55,6 +55,17 @@ const chatClient = createChatClient();
 
 const MAGIC_EXT_MAP: Record<string, Document["type"]> = { pdf: "pdf", docx: "docx" };
 const TEXT_EXTENSIONS = new Set(["txt", "md"]);
+
+function sendInferenceUnavailable(res: Response): void {
+  res.status(503).json({ error: "LLM inference server not available", code: "INFERENCE_UNAVAILABLE", status: 503 });
+}
+
+function handleInferenceFailure(res: Response, err: unknown, context: string): boolean {
+  if (!(err instanceof InferenceError)) return false;
+  logger.warn({ err }, `${context}: inference backend unavailable`);
+  if (!res.headersSent) sendInferenceUnavailable(res);
+  return true;
+}
 
 /**
  * Get data sources accessible to this API key.
@@ -229,6 +240,7 @@ agentApiRouter.post("/search", readPermission, validateBody(searchSchema), async
       : { results: mapped });
     logAgentAction(req, "api.search", "search", undefined, { resultCount: mapped.length });
   } catch (err) {
+    if (handleInferenceFailure(res, err, "Agent API search")) return;
     logger.error({ err }, "Agent API search failed");
     res.status(500).json({ error: "Search failed", code: "SEARCH_ERROR", status: 500 });
   }
@@ -268,7 +280,7 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
   try {
     const running = await isInferenceRunning();
     if (!running) {
-      res.status(503).json({ error: "LLM inference server not available", code: "INFERENCE_UNAVAILABLE", status: 503 });
+      sendInferenceUnavailable(res);
       return;
     }
 
@@ -362,6 +374,7 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
 
     logAgentAction(req, "api.query", "query", undefined, { resultCount: citations.length });
   } catch (err) {
+    if (handleInferenceFailure(res, err, "Agent API query")) return;
     logger.error({ err }, "Agent API query failed");
     if (!res.headersSent) {
       res.status(500).json({ error: "Query failed", code: "QUERY_ERROR", status: 500 });
@@ -394,7 +407,7 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
   try {
     const running = await isInferenceRunning();
     if (!running) {
-      res.status(503).json({ error: "LLM inference server not available", code: "INFERENCE_UNAVAILABLE", status: 503 });
+      sendInferenceUnavailable(res);
       return;
     }
 
@@ -481,6 +494,7 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
     res.json({ answer, citations, sourcesSearched });
     logAgentAction(req, "api.ask", "query", undefined, { resultCount: citations.length });
   } catch (err) {
+    if (handleInferenceFailure(res, err, "Agent API /ask")) return;
     logger.error({ err }, "Agent API /ask failed");
     if (!res.headersSent) {
       res.status(500).json({ error: "Query failed", code: "QUERY_ERROR", status: 500 });
@@ -522,7 +536,7 @@ agentApiRouter.get("/sources/:id/summary", readPermission, async (req: Request, 
   // Check if inference is available
   const running = await isInferenceRunning();
   if (!running) {
-    res.status(503).json({ error: "LLM inference server not available", code: "INFERENCE_UNAVAILABLE", status: 503 });
+    sendInferenceUnavailable(res);
     return;
   }
 
@@ -589,6 +603,7 @@ Respond in JSON format: {"summary": "...", "topTopics": ["topic1", "topic2", ...
     res.json({ summary, documentCount: ds.documentCount, topTopics });
     logAgentAction(req, "api.summary", "data_source", id);
   } catch (err) {
+    if (handleInferenceFailure(res, err, "Agent API source summary")) return;
     logger.error({ err }, "Agent API source summary failed");
     if (!res.headersSent) {
       res.status(500).json({ error: "Summary generation failed", code: "SUMMARY_ERROR", status: 500 });

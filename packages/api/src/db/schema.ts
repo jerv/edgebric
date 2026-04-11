@@ -87,6 +87,7 @@ export const documents = sqliteTable("documents", {
 export const chunks = sqliteTable("chunks", {
   // Sequential chunkId, e.g. "knowledge-base-0"
   chunkId: text("chunk_id").primaryKey(),
+  datasetName: text("dataset_name"),
   sourceDocument: text("source_document").notNull(),
   documentName: text("document_name"),
   sectionPath: text("section_path").notNull().default("[]"), // JSON array

@@ -83,5 +83,24 @@ describe("chunkRegistry", () => {
       const countAfter = getChunkCountForDataset("my-dataset");
       expect(countAfter).toBe(0);
     });
+
+    it("does not confuse datasets whose names share a prefix", () => {
+      registerChunks("alpha", 0, [
+        { sourceDocument: "doc-alpha", sectionPath: [], pageNumber: 1, heading: "A", chunkIndex: 0 },
+      ]);
+      registerChunks("alpha-1", 0, [
+        { sourceDocument: "doc-alpha-1", sectionPath: [], pageNumber: 1, heading: "A1", chunkIndex: 0 },
+      ]);
+
+      expect(getChunkCountForDataset("alpha")).toBe(1);
+      expect(getChunkCountForDataset("alpha-1")).toBe(1);
+
+      clearChunksForDataset("alpha");
+
+      expect(getChunkCountForDataset("alpha")).toBe(0);
+      expect(getChunkCountForDataset("alpha-1")).toBe(1);
+
+      clearChunksForDataset("alpha-1");
+    });
   });
 });

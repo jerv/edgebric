@@ -10,6 +10,7 @@ export default [
       "**/node_modules/**",
       "**/.next/**",
       "**/build/**",
+      "packages/desktop/resources/server/**",
       "spikes/**",
       "scripts/**",
       "**/*.d.ts",

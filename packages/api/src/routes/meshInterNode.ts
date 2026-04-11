@@ -84,7 +84,7 @@ meshInterNodeRouter.post("/search", meshSearchRateLimit, validateBody(searchSche
 
     // Server-side ACL enforcement: if the requesting node forwards allowedDataSourceIds,
     // filter local sources so we only return results from sources the user can access.
-    if (allowedDataSourceIds && allowedDataSourceIds.length > 0) {
+    if (allowedDataSourceIds) {
       const allowedSet = new Set(allowedDataSourceIds);
       localSources = localSources.filter((ds) => allowedSet.has(ds.id));
     }
