@@ -28,12 +28,13 @@ const capabilitiesRouter: IRouter = Router();
 capabilitiesRouter.use(requireOrg);
 
 capabilitiesRouter.get("/capabilities", (_req, res) => {
-  // Stub: returns conservative defaults. A future agent should wire this
-  // to actual model metadata (GGUF tags, llama-server /props, or catalog lookup).
+  const catalogEntry = MODEL_CATALOG_MAP.get(runtimeChatConfig.model);
   res.json({
-    vision: false,
-    toolUse: false,
-    reasoning: false,
+    vision: catalogEntry?.capabilities?.vision ?? false,
+    toolUse: catalogEntry?.capabilities?.toolUse ?? false,
+    reasoning: catalogEntry?.capabilities?.reasoning ?? false,
+    support: catalogEntry?.support ?? "community",
+    recommendedRole: catalogEntry?.recommendedRole ?? null,
     activeModel: runtimeChatConfig.model || null,
   });
 });
@@ -80,7 +81,9 @@ modelsRouter.get("/", async (_req, res) => {
         ...m,
         status: isDownloading ? "downloading" as const : runInfo ? "loaded" as const : "installed" as const,
         ramUsageBytes: runInfo?.ramUsageBytes,
+        catalogEntry,
         capabilities: catalogEntry?.capabilities,
+        support: catalogEntry?.support ?? "community",
       };
     });
 
@@ -94,6 +97,7 @@ modelsRouter.get("/", async (_req, res) => {
           sizeBytes: 0,
           modifiedAt: "",
           status: "downloading",
+          support: MODEL_CATALOG_MAP.get(tag)?.support ?? "community",
         });
       }
     }

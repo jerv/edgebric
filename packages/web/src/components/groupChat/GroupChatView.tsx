@@ -36,6 +36,7 @@ import type {
   GroupChatNotifLevel,
   DataSource,
   ModelsResponse,
+  ExecutionChecklistItem,
 } from "@edgebric/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -90,6 +91,7 @@ export function GroupChatView() {
   } | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [streamToolUses, setStreamToolUses] = useState<ToolUse[]>([]);
+  const [streamExecutionPlan, setStreamExecutionPlan] = useState<ExecutionChecklistItem[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -367,6 +369,14 @@ export function GroupChatView() {
                   if (prev.some((m) => m.id === parsed.id)) return prev;
                   return [...prev, parsed as GroupChatMessage];
                 });
+              } else if (eventType === "plan" && Array.isArray(parsed.executionPlan)) {
+                setStreamExecutionPlan(parsed.executionPlan as ExecutionChecklistItem[]);
+              } else if (eventType === "plan_step" && parsed.id) {
+                setStreamExecutionPlan((prev) => (
+                  prev.some((step) => step.id === parsed.id)
+                    ? prev.map((step) => step.id === parsed.id ? parsed as ExecutionChecklistItem : step)
+                    : [...prev, parsed as ExecutionChecklistItem]
+                ));
               } else if (eventType === "tool" || ("tool" in parsed && "summary" in parsed)) {
                 // Tool use event — model called a tool during RAG
                 setStreamToolUses((prev) => [...prev, {
@@ -391,12 +401,14 @@ export function GroupChatView() {
                 });
               } else if (eventType === "done") {
                 setStreamContent("");
+                setStreamExecutionPlan([]);
                 // Attach any accumulated tool uses to the bot message
                 setStreamToolUses((currentToolUses) => {
                   const msg = parsed as GroupChatMessage;
-                  const finalMsg = currentToolUses.length > 0
-                    ? { ...msg, toolUses: msg.toolUses ?? currentToolUses }
-                    : msg;
+                  const finalMsg = {
+                    ...msg,
+                    ...(currentToolUses.length > 0 && { toolUses: msg.toolUses ?? currentToolUses }),
+                  };
                   setLocalMessages((prev) => {
                     if (prev.some((m) => m.id === finalMsg.id)) return prev;
                     return [...prev, finalMsg];
@@ -410,6 +422,7 @@ export function GroupChatView() {
                 }
               } else if (eventType === "error") {
                 setStreamContent("");
+                setStreamExecutionPlan([]);
               }
             } catch { /* ignore */ }
           }
@@ -694,8 +707,8 @@ export function GroupChatView() {
                 })() : (
                   <ThinkingIndicator queuePosition={queuePosition} />
                 )}
-                {streamToolUses.length > 0 && (
-                  <ToolUsePanel toolUses={streamToolUses} />
+                {(streamToolUses.length > 0 || streamExecutionPlan.length > 0) && (
+                  <ToolUsePanel toolUses={streamToolUses} executionPlan={streamExecutionPlan} />
                 )}
               </div>
             </div>
@@ -795,7 +808,7 @@ export function GroupChatView() {
                     </button>
 
                     {modelPickerOpen && (
-                      <div className="absolute right-0 bottom-full mb-1 w-48 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
+                      <div className="absolute right-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-1 z-10">
                         {readyModels.map((m) => (
                           <button
                             key={m.tag}
@@ -809,8 +822,8 @@ export function GroupChatView() {
                             )}
                           >
                             <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", m.tag === activeModel ? "bg-green-400" : "bg-slate-200 dark:bg-gray-700")} />
-                            {adminLabel(m.tag)}
-                            {m.tag === activeModel && <span className="ml-auto text-slate-400 dark:text-gray-500">active</span>}
+                            <span className="truncate">{adminLabel(m.tag)}</span>
+                            {m.tag === activeModel && <span className="text-slate-400 dark:text-gray-500">active</span>}
                           </button>
                         ))}
                       </div>
@@ -1061,8 +1074,8 @@ function MessageBubble({
         </div>
 
         {/* Tool uses */}
-        {isBot && message.toolUses && message.toolUses.length > 0 && (
-          <ToolUsePanel toolUses={message.toolUses} />
+        {isBot && ((message.toolUses && message.toolUses.length > 0) || (message.executionPlan && message.executionPlan.length > 0)) && (
+          <ToolUsePanel toolUses={message.toolUses} executionPlan={message.executionPlan} />
         )}
 
         {/* Citations */}

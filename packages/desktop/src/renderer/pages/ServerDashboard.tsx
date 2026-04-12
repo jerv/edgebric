@@ -7,6 +7,8 @@ type View = "home" | "settings" | "models";
 type DangerAction = "wipe" | "switchAuth" | null;
 type ModelStatus = "not_installed" | "installed" | "loaded" | "downloading";
 type EdgebricMode = "solo" | "admin" | "member";
+type ModelSupportTier = "tested" | "experimental" | "community";
+type ModelRecommendedRole = "default" | "balanced" | "power";
 
 function GoogleIcon() {
   return (
@@ -95,6 +97,8 @@ interface CatalogEntry {
   origin: string;
   tier: string;
   minRAMGB: number;
+  support: ModelSupportTier;
+  recommendedRole?: ModelRecommendedRole;
   hidden?: boolean;
   capabilities?: ModelCapabilities;
   huggingFaceUrl?: string;
@@ -110,6 +114,7 @@ interface InstalledModel {
   ramUsageBytes?: number;
   catalogEntry?: CatalogEntry;
   capabilities?: ModelCapabilities;
+  support?: ModelSupportTier;
 }
 
 interface SystemResources {
@@ -231,6 +236,52 @@ function formatUptime(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
+}
+
+function supportLabel(support: ModelSupportTier): string {
+  switch (support) {
+    case "tested":
+      return "Tested";
+    case "experimental":
+      return "Experimental";
+    default:
+      return "Community";
+  }
+}
+
+function supportBadgeClass(support: ModelSupportTier): string {
+  switch (support) {
+    case "tested":
+      return "model-badge model-badge-active";
+    case "experimental":
+      return "model-badge model-badge-warning";
+    default:
+      return "model-badge";
+  }
+}
+
+function supportDescription(support: ModelSupportTier): string {
+  switch (support) {
+    case "tested":
+      return "Tuned and tested for Edgebric's local agent flow.";
+    case "experimental":
+      return "Available, but tool use and memory behavior may be degraded.";
+    default:
+      return "Manual/community model. Agent reliability is not guaranteed.";
+  }
+}
+
+function recommendedRoleLabel(role?: ModelRecommendedRole): string | null {
+  switch (role) {
+    case "default":
+      return "Default";
+    case "balanced":
+      return "Balanced";
+    case "power":
+      return "Power";
+    default:
+      return null;
+  }
 }
 
 const HEALTH_CHECK_TOOLTIPS: Record<string, string> = {
@@ -423,20 +474,26 @@ export default function ServerDashboard() {
     await window.electronAPI.stopServer();
   }
 
-  const [restarting, setRestarting] = useState(false);
+  const [restartPending, setRestartPending] = useState(false);
 
   async function handleRestart() {
     setErrorMsg("");
-    setRestarting(true);
+    setRestartPending(true);
     try {
       await window.electronAPI.stopServer();
       await new Promise((r) => setTimeout(r, 500));
       const result = await window.electronAPI.startServer();
       if (!result.success) setErrorMsg(result.error ?? "Failed to start server");
     } finally {
-      setRestarting(false);
+      // Keep the UI in "Restarting..." until the server leaves startup.
     }
   }
+
+  useEffect(() => {
+    if (restartPending && status !== "starting") {
+      setRestartPending(false);
+    }
+  }, [restartPending, status]);
 
   async function handleWipeConfirm(e: FormEvent) {
     e.preventDefault();
@@ -683,6 +740,7 @@ export default function ServerDashboard() {
   const accessUrl = port === defaultPort ? `${protocol}://${hostname}` : `${protocol}://${hostname}:${port}`;
   const isRunning = status === "running";
   const isStopped = status === "stopped" || status === "error";
+  const isStarting = status === "starting";
 
   function openSettings() {
     setView("settings");
@@ -878,18 +936,26 @@ export default function ServerDashboard() {
             {(loadedModels.length > 0 || installedModels.length > 0) && (
               <section className="card">
                 <h3 className="card-heading">Your Models</h3>
+                <p className="hint" style={{ margin: "0 0 10px" }}>
+                  Qwen is the tested Edgebric path. Experimental and community models remain available, but they are not the primary target for agent behavior.
+                </p>
                 <div className="model-list">
                   {loadedModels.map((m) => {
                     const isOpTarget = modelOp?.tag === m.tag;
+                    const support = m.catalogEntry?.support ?? m.support ?? "community";
+                    const roleLabel = recommendedRoleLabel(m.catalogEntry?.recommendedRole);
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
                           <div className="model-item-name">
                             {modelDisplayName(m)}
+                            <span className={supportBadgeClass(support)}>{supportLabel(support)}</span>
+                            {roleLabel && <span className="model-badge">{roleLabel}</span>}
                           </div>
                           <span className="model-item-meta">
                             {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{m.ramUsageBytes != null ? `${formatBytes(m.ramUsageBytes)} RAM · ` : ""}{formatBytes(m.sizeBytes)} on disk
                           </span>
+                          <span className="model-item-meta">{supportDescription(support)}</span>
                           <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                             <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} />
                           </div>
@@ -939,11 +1005,15 @@ export default function ServerDashboard() {
                     const modelRAMGB = m.catalogEntry?.ramUsageGB ?? m.sizeBytes / (1024 ** 3) * 1.2;
                     const fit = checkRAMFit(modelRAMGB, ramTotal, headroomGB);
                     const loadDisabled = !isRunning || !!modelOp || !!pullTag;
+                    const support = m.catalogEntry?.support ?? m.support ?? "community";
+                    const roleLabel = recommendedRoleLabel(m.catalogEntry?.recommendedRole);
                     return (
                       <div key={m.tag} className="model-item">
                         <div className="model-item-left">
                           <div className="model-item-name">
                             {modelDisplayName(m)}
+                            <span className={supportBadgeClass(support)}>{supportLabel(support)}</span>
+                            {roleLabel && <span className="model-badge">{roleLabel}</span>}
                             {fit.level === "exceeds" && (
                               <span className="model-badge model-badge-danger">Too large</span>
                             )}
@@ -954,6 +1024,7 @@ export default function ServerDashboard() {
                           <span className="model-item-meta">
                             {m.catalogEntry?.family ? `by ${m.catalogEntry.family} · ` : ""}{formatBytes(m.sizeBytes)} on disk
                           </span>
+                          <span className="model-item-meta">{supportDescription(support)}</span>
                           <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                             <CapabilityBadges capabilities={m.catalogEntry?.capabilities ?? m.capabilities} />
                           </div>
@@ -1037,17 +1108,20 @@ export default function ServerDashboard() {
 
             {/* Available Models — recommended + alternatives in one card */}
             {(() => {
-              const recommended = availableCatalog.filter((c) => c.tier === "recommended");
-              const supported = availableCatalog.filter((c) => c.tier === "supported");
-              if (recommended.length === 0 && supported.length === 0) return null;
+              const tested = availableCatalog.filter((c) => c.support === "tested");
+              const experimental = availableCatalog.filter((c) => c.support === "experimental");
+              if (tested.length === 0 && experimental.length === 0) return null;
 
               const renderCatalogItem = (c: CatalogEntry) => {
                 const fit = checkRAMFit(c.ramUsageGB, ramTotal, headroomGB);
+                const roleLabel = recommendedRoleLabel(c.recommendedRole);
                 return (
                   <div key={c.tag} className="model-item" style={fit.level === "exceeds" ? { opacity: 0.55 } : undefined}>
                     <div className="model-item-left">
                       <div className="model-item-name">
                         {c.name}
+                        <span className={supportBadgeClass(c.support)}>{supportLabel(c.support)}</span>
+                        {roleLabel && <span className="model-badge">{roleLabel}</span>}
                         {fit.level === "exceeds" && (
                           <span className="model-badge model-badge-danger">Too large</span>
                         )}
@@ -1059,6 +1133,7 @@ export default function ServerDashboard() {
                       <span className="model-item-meta">
                         {c.downloadSizeGB} GB download · {c.ramUsageGB} GB RAM
                       </span>
+                      <span className="model-item-meta">{supportDescription(c.support)}</span>
                       <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                         <CapabilityBadges capabilities={c.capabilities} />
                       </div>
@@ -1094,22 +1169,22 @@ export default function ServerDashboard() {
                       ? `~${headroomGB} GB recommended for your system, ~${Math.round(effectiveRAMGB)} GB available for AI models.`
                       : `~${headroomGB} GB recommended for the OS, ~${Math.round(effectiveRAMGB)} GB available for AI models.`}
                   </p>
-                  {recommended.length > 0 && (
+                  {tested.length > 0 && (
                     <>
-                      <p className="card-subheading">Recommended</p>
+                      <p className="card-subheading">Tested Qwen Path</p>
                       <div className="model-list">
-                        {recommended.map(renderCatalogItem)}
+                        {tested.map(renderCatalogItem)}
                       </div>
                     </>
                   )}
-                  {recommended.length > 0 && supported.length > 0 && (
+                  {tested.length > 0 && experimental.length > 0 && (
                     <div className="card-divider" />
                   )}
-                  {supported.length > 0 && (
+                  {experimental.length > 0 && (
                     <>
-                      <p className="card-subheading">Alternatives</p>
+                      <p className="card-subheading">Experimental Alternatives</p>
                       <div className="model-list">
-                        {supported.map(renderCatalogItem)}
+                        {experimental.map(renderCatalogItem)}
                       </div>
                     </>
                   )}
@@ -1121,7 +1196,7 @@ export default function ServerDashboard() {
             <section className="card">
               <h3 className="card-heading">Other Models</h3>
               <p className="hint" style={{ margin: "0 0 10px" }}>
-                Search for models online. These are not tested and may not work correctly.
+                Search or import community models manually. Edgebric does not treat these as supported agent targets.
               </p>
               <input
                 type="text"
@@ -1736,17 +1811,14 @@ export default function ServerDashboard() {
                 {isStopped && (
                   <button className="btn btn-primary btn-sm" onClick={handleStart}>Start</button>
                 )}
-                {status === "starting" && (
-                  <button className="btn btn-ghost btn-sm" disabled>Starting...</button>
+                {isStarting && (
+                  <button className="btn btn-ghost btn-sm" disabled>{restartPending ? "Restarting..." : "Starting..."}</button>
                 )}
-                {isRunning && !restarting && (
+                {isRunning && (
                   <>
                     <button className="btn btn-ghost btn-sm" onClick={handleRestart}>Restart</button>
                     <button className="btn btn-danger-ghost btn-sm" onClick={handleStop}>Stop</button>
                   </>
-                )}
-                {restarting && (
-                  <button className="btn btn-ghost btn-sm" disabled>Restarting...</button>
                 )}
               </div>
             </div>

@@ -16,7 +16,6 @@ integrationsRouter.use(requireAdmin);
 const updateConfigSchema = z.object({
   privateModeEnabled: z.boolean().optional(),
   vaultModeEnabled: z.boolean().optional(),
-  generalAnswersEnabled: z.boolean().optional(),
   stalenessThresholdDays: z.number().int().positive().optional(),
   googleDriveClientId: z.string().optional(),
   googleDriveClientSecret: z.string().optional(),
@@ -26,9 +25,6 @@ const updateConfigSchema = z.object({
   confluenceClientSecret: z.string().optional(),
   notionClientId: z.string().optional(),
   notionClientSecret: z.string().optional(),
-  ragDecompose: z.boolean().optional(),
-  ragRerank: z.boolean().optional(),
-  ragIterativeRetrieval: z.boolean().optional(),
   telegramEnabled: z.boolean().optional(),
   telegramBotToken: z.string().optional(),
   telegramWebhookSecret: z.string().optional(),

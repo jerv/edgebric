@@ -1,10 +1,11 @@
 {
   "name": "edgebric",
   "private": true,
-  "version": "0.9.62",
+  "version": "0.9.63",
   "packageManager": "pnpm@10.6.4",
   "scripts": {
     "build": "pnpm -r --filter=!@edgebric/web build && pnpm --filter @edgebric/web build",
+    "benchmark:chat": "pnpm --filter @edgebric/api benchmark:chat",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",
     "lint": "eslint .",

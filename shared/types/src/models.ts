@@ -2,6 +2,8 @@
 
 export type ModelStatus = "not_installed" | "installed" | "loaded" | "downloading";
 export type ModelTier = "recommended" | "supported" | "community";
+export type ModelSupportTier = "tested" | "experimental" | "community";
+export type ModelRecommendedRole = "default" | "balanced" | "power";
 
 export interface ModelCapabilities {
   /** Can analyze images and screenshots */
@@ -35,6 +37,10 @@ export interface ModelCatalogEntry {
   origin: string;
   /** Tier determines how this model is surfaced in the UI */
   tier: ModelTier;
+  /** Product support stance for this model family inside Edgebric. */
+  support: ModelSupportTier;
+  /** Which hardware/use-case role this model is primarily recommended for. */
+  recommendedRole?: ModelRecommendedRole;
   /** Minimum recommended RAM in GB to run this model */
   minRAMGB: number;
   /** If true, model is auto-installed and hidden from user (e.g., embedding models) */
@@ -64,6 +70,8 @@ export interface InstalledModel {
   catalogEntry?: ModelCatalogEntry | undefined;
   /** Model capabilities (from catalog match or inferred from HuggingFace tags) */
   capabilities?: ModelCapabilities | undefined;
+  /** Product support stance for installed/community models. */
+  support?: ModelSupportTier | undefined;
 }
 
 export interface SystemResources {
@@ -117,6 +125,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 5.5,
     origin: "Alibaba",
     tier: "recommended",
+    support: "tested",
+    recommendedRole: "default",
     minRAMGB: 8,
     capabilities: { vision: true, toolUse: true, reasoning: false },
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-4B",
@@ -133,6 +143,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 9.5,
     origin: "Alibaba",
     tier: "recommended",
+    support: "tested",
+    recommendedRole: "balanced",
     minRAMGB: 16,
     capabilities: { vision: true, toolUse: true, reasoning: false },
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-9B",
@@ -149,6 +161,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 9,
     origin: "Alibaba",
     tier: "recommended",
+    support: "tested",
+    recommendedRole: "balanced",
     minRAMGB: 16,
     capabilities: { vision: true, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-35B-A3B",
@@ -166,6 +180,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 10,
     origin: "Z.ai (Zhipu)",
     tier: "supported",
+    support: "experimental",
+    recommendedRole: "balanced",
     minRAMGB: 12,
     capabilities: { vision: true, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/zai-org/GLM-4.6V-Flash",
@@ -182,6 +198,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 22,
     origin: "Alibaba",
     tier: "supported",
+    support: "tested",
+    recommendedRole: "power",
     minRAMGB: 32,
     capabilities: { vision: true, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-27B",
@@ -198,6 +216,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 24,
     origin: "Z.ai (Zhipu)",
     tier: "supported",
+    support: "experimental",
+    recommendedRole: "power",
     minRAMGB: 24,
     capabilities: { vision: false, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/zai-org/glm-4.7-flash",
@@ -214,6 +234,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 8,
     origin: "Google",
     tier: "supported",
+    support: "experimental",
     minRAMGB: 12,
     capabilities: { vision: true, toolUse: false, reasoning: false },
     huggingFaceUrl: "https://huggingface.co/google/gemma-4-E4B-it",
@@ -230,6 +251,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 22,
     origin: "Google",
     tier: "supported",
+    support: "experimental",
     minRAMGB: 32,
     capabilities: { vision: true, toolUse: false, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/google/gemma-4-26B-A4B-it",
@@ -246,6 +268,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 24,
     origin: "Google",
     tier: "supported",
+    support: "experimental",
     minRAMGB: 32,
     capabilities: { vision: true, toolUse: false, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/google/gemma-4-31B-it",
@@ -262,6 +285,8 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 95,
     origin: "Alibaba",
     tier: "supported",
+    support: "tested",
+    recommendedRole: "power",
     minRAMGB: 96,
     capabilities: { vision: true, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-122B-A10B",
@@ -278,6 +303,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 120,
     origin: "MiniMax",
     tier: "supported",
+    support: "experimental",
     minRAMGB: 128,
     capabilities: { vision: false, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/MiniMaxAI/MiniMax-M2.5",
@@ -294,6 +320,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 260,
     origin: "Z.ai (Zhipu)",
     tier: "supported",
+    support: "experimental",
     minRAMGB: 256,
     capabilities: { vision: false, toolUse: true, reasoning: true },
     huggingFaceUrl: "https://huggingface.co/zai-org/GLM-5.1",
@@ -311,6 +338,7 @@ export const OFFICIAL_CATALOG: ModelCatalogEntry[] = [
     ramUsageGB: 0.3,
     origin: "Nomic",
     tier: "recommended",
+    support: "tested",
     minRAMGB: 4,
     hidden: true,
     capabilities: { vision: false, toolUse: false, reasoning: false },

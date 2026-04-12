@@ -264,6 +264,13 @@ describe("Mesh Inter-Node API", () => {
       expect(res.body.chunks).toEqual([]);
     });
 
+    it("returns no results when allowedDataSourceIds is an empty array", async () => {
+      const res = await authedPost("/api/mesh/peer/search")
+        .send({ query: "vacation policy", allowedDataSourceIds: [] });
+      expect(res.status).toBe(200);
+      expect(res.body.chunks).toEqual([]);
+    });
+
     it("rejects empty query", async () => {
       const res = await authedPost("/api/mesh/peer/search")
         .send({ query: "" });

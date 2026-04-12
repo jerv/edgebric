@@ -161,6 +161,19 @@ dataSourcesRouter.get("/:id", requireOrg, (req, res) => {
     res.status(404).json({ error: "Data source not found" });
     return;
   }
+
+  if (!req.session.isAdmin) {
+    const accessible = listAccessibleDataSources(req.session.email ?? "", false, req.session.orgId);
+    if (!accessible.some((source) => source.id === ds.id)) {
+      res.status(404).json({ error: "Data source not found" });
+      return;
+    }
+    if (!ds.allowSourceViewing) {
+      res.status(403).json({ error: "Source document viewing is disabled for this data source" });
+      return;
+    }
+  }
+
   const docs = getDocumentsByDataSource(ds.id);
 
   // Compute staleness

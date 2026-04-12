@@ -12,12 +12,12 @@ import type { TelegramMessage } from "./telegramBot.js";
 import { getLinkedUserId, verifyLinkCode, requiresLinking } from "./telegramLinking.js";
 import { getUser } from "./userStore.js";
 import { listAccessibleDataSources, listDataSources } from "./dataSourceStore.js";
-import { getIntegrationConfig } from "./integrationConfigStore.js";
 import { recordAuditEvent } from "./auditLog.js";
 import { answer } from "@edgebric/core/rag";
 import type { Session, SessionMessage } from "@edgebric/types";
 import { createChatClient } from "./chatClient.js";
 import { routedSearch } from "./queryRouter.js";
+import { DEFAULT_CHAT_STRICT } from "./chatDefaults.js";
 import {
   createConversation,
   getConversation,
@@ -377,9 +377,7 @@ export async function handleTextQuery(
   // Resolve datasets (filter out vault sources)
   const { datasetNames, vaultSkipped } = filterVaultSources(user.email, user.isAdmin, user.orgId);
 
-  // Determine strict mode
-  const orgConfig = getIntegrationConfig();
-  const strict = !(orgConfig.generalAnswersEnabled ?? true);
+  const strict = DEFAULT_CHAT_STRICT;
 
   let releaseSlotFn: (() => void) | undefined;
 

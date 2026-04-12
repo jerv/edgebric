@@ -7,8 +7,10 @@ import { setDocument } from "../services/documentStore.js";
 import { createWebhook, getWebhook, listWebhooksByOrg, deleteWebhook, getWebhooksForEvent } from "../services/webhookStore.js";
 import { getSourceSummary, upsertSourceSummary } from "../services/sourceSummaryStore.js";
 import { createApp } from "../app.js";
+import { MODEL_CATALOG_MAP } from "@edgebric/types";
 import type { Document } from "@edgebric/types";
 import { randomUUID } from "crypto";
+import { runtimeChatConfig } from "../config.js";
 
 // ─── Test helpers ──────────────────────────────────────────────────────────
 
@@ -366,22 +368,27 @@ describe("Agent API Enhancements", () => {
   // ─── Model Capabilities Endpoint ─────────────────────────────────────
 
   describe("GET /api/admin/models/capabilities", () => {
-    it("returns capabilities stub for authenticated user", async () => {
+    it("returns capabilities for the active model to authenticated users", async () => {
+      const expected = MODEL_CATALOG_MAP.get(runtimeChatConfig.model);
       const res = await adminAgent(orgId).get("/api/admin/models/capabilities");
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("vision");
       expect(res.body).toHaveProperty("toolUse");
       expect(res.body).toHaveProperty("reasoning");
-      // Stub returns false for all
-      expect(res.body.vision).toBe(false);
-      expect(res.body.toolUse).toBe(false);
-      expect(res.body.reasoning).toBe(false);
+      expect(res.body.activeModel).toBe(runtimeChatConfig.model);
+      expect(res.body.vision).toBe(expected?.capabilities.vision ?? false);
+      expect(res.body.toolUse).toBe(expected?.capabilities.toolUse ?? false);
+      expect(res.body.reasoning).toBe(expected?.capabilities.reasoning ?? false);
+      expect(res.body.support).toBe(expected?.support ?? "community");
     });
 
     it("returns capabilities for non-admin user too", async () => {
+      const expected = MODEL_CATALOG_MAP.get(runtimeChatConfig.model);
       const res = await memberAgent(orgId).get("/api/admin/models/capabilities");
       expect(res.status).toBe(200);
-      expect(res.body.vision).toBe(false);
+      expect(res.body.vision).toBe(expected?.capabilities.vision ?? false);
+      expect(res.body.toolUse).toBe(expected?.capabilities.toolUse ?? false);
+      expect(res.body.reasoning).toBe(expected?.capabilities.reasoning ?? false);
     });
   });
 

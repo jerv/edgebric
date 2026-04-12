@@ -232,6 +232,19 @@ describe("Mesh Client", () => {
       expect(mockFetch).not.toHaveBeenCalled();
       expect(result.nodesSearched).toBe(0);
     });
+
+    it("forwards an empty allowedDataSourceIds array to remote nodes", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ chunks: [], nodeId: "x", nodeName: "X" }),
+      });
+
+      await searchAllNodes("test", { allowedDataSourceIds: [] });
+
+      const [, opts] = mockFetch.mock.calls[0]!;
+      const body = JSON.parse(opts.body);
+      expect(body.allowedDataSourceIds).toEqual([]);
+    });
   });
 
   // ─── broadcastRevocation ────────────────────────────────────────────────

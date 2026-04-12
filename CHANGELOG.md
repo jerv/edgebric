@@ -2,6 +2,27 @@
 
 All notable changes to Edgebric are documented here.
 
+## [0.9.63] — 2026-04-12
+
+### Added
+- Qwen-first chat orchestration with explicit planning, progress visibility, and benchmark coverage
+- Chat-driven source and document actions with confirm-before-mutate flows
+- Benchmark harness for comparing prompt routing, latency, and tool execution behavior
+
+### Changed
+- Product direction shifted from org-first RAG behavior toward a more natural assistant-first chat experience
+- Model positioning is now Qwen-first, with other model paths treated as secondary or experimental
+- AI behavior toggles were removed in favor of one tuned default path
+
+### Fixed
+- Search/data-source ACL leaks, mesh allowlist handling, and stale retrieval index cleanup
+- Desktop restart/model lifecycle issues and several local startup regressions
+- Rigid “verify with a human” and corporate-RAG response patterns across the chat UX
+
+### Project Status
+- This is the final planned release line for the project in its current form
+- Active development is discontinued; the repository remains available as-is for reference and local use
+
 ## [0.9.62] — 2026-04-10
 
 ### Fixed

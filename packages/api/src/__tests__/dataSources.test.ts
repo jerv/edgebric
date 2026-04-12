@@ -90,6 +90,34 @@ describe("Data Sources API", () => {
       const res = await adminAgent(orgId).get("/api/data-sources/non-existent-id");
       expect(res.status).toBe(404);
     });
+
+    it("hides restricted data source details from unauthorized members", async () => {
+      const createRes = await adminAgent(orgId)
+        .post("/api/data-sources")
+        .send({
+          name: "Restricted Detail Source",
+          accessMode: "restricted",
+          accessList: ["allowed@test.com"],
+        });
+      const dsId = createRes.body.id as string;
+
+      const res = await memberAgent(orgId).get(`/api/data-sources/${dsId}`);
+      expect(res.status).toBe(404);
+    });
+
+    it("blocks member detail view when source document viewing is disabled", async () => {
+      const createRes = await adminAgent(orgId)
+        .post("/api/data-sources")
+        .send({ name: "No View Source" });
+      const dsId = createRes.body.id as string;
+
+      await adminAgent(orgId)
+        .put(`/api/data-sources/${dsId}`)
+        .send({ allowSourceViewing: false });
+
+      const res = await memberAgent(orgId).get(`/api/data-sources/${dsId}`);
+      expect(res.status).toBe(403);
+    });
   });
 
   describe("PUT /api/data-sources/:id", () => {

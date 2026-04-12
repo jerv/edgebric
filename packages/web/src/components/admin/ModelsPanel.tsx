@@ -9,7 +9,7 @@ import {
   Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { adminLabel } from "@/lib/models";
+import { adminLabel, getModelSupport, supportClassName, supportDescription, supportLabel } from "@/lib/models";
 import {
   useModels,
   useLoadModel,
@@ -76,6 +76,7 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
   const isEmbedding = model.tag === EMBEDDING_MODEL_TAG;
   const label = adminLabel(model.tag);
   const catalogEntry = model.catalogEntry;
+  const support = getModelSupport(model);
 
   // Reset confirmation state after 3 seconds
   useEffect(() => {
@@ -111,12 +112,18 @@ function ModelRow({ model, isActive, onLoad, onUnload, onSetDefault, loading, ra
               Low RAM
             </span>
           )}
+          <span className={cn("text-[11px] border px-1.5 py-0.5 rounded font-medium", supportClassName(support))}>
+            {supportLabel(support)}
+          </span>
         </div>
         <span className="text-xs text-slate-500 dark:text-gray-400">
           {catalogEntry?.family ? `by ${catalogEntry.family} · ` : ""}
           {isLoaded && model.ramUsageBytes ? `${formatBytes(model.ramUsageBytes)} RAM · ` : ""}
           {formatBytes(model.sizeBytes)} on disk
         </span>
+        <div className="mt-1 text-[11px] text-slate-500 dark:text-gray-400">
+          {supportDescription(support)}
+        </div>
         <div className="flex items-center gap-1 mt-1.5">
           <CapabilityBadges capabilities={catalogEntry?.capabilities ?? model.capabilities} />
         </div>
@@ -201,6 +208,8 @@ export function ModelsPanel() {
   const loadedModels = allChat.filter((m) => m.status === "loaded");
   const installedModels = allChat.filter((m) => m.status === "installed");
   const embeddingModel = models.find((m) => m.tag === EMBEDDING_MODEL_TAG && m.status === "loaded");
+  const testedModels = allChat.filter((m) => getModelSupport(m) === "tested");
+  const experimentalModels = allChat.filter((m) => getModelSupport(m) === "experimental");
 
   return (
     <div className="h-full overflow-y-auto">
@@ -216,7 +225,31 @@ export function ModelsPanel() {
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">AI Models</h1>
             <p className="text-sm text-slate-500 dark:text-gray-400 mt-0.5">
-              Load models into memory for instant responses. To install or remove models, use the desktop app.
+              Qwen is the tested Edgebric path. Other models remain available, but they are treated as experimental unless marked otherwise.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/70 dark:bg-emerald-950/40 px-5 py-4">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Tested Path</h2>
+          <p className="mt-1 text-xs text-slate-600 dark:text-gray-300">
+            Treat Qwen as the default Edgebric target. Aim for 24-32GB for the intended local agent experience, use 16GB as a constrained floor, and treat non-Qwen models as optional experiments.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 dark:border-gray-800 px-5 py-4">
+            <div className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-gray-500">Tested Models</div>
+            <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-gray-100">{testedModels.length}</div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+              Qwen models engineered for Edgebric’s chat, retrieval, and tool flow.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 dark:border-gray-800 px-5 py-4">
+            <div className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-gray-500">Experimental Models</div>
+            <div className="mt-2 text-2xl font-semibold text-slate-900 dark:text-gray-100">{experimentalModels.length}</div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+              Loadable alternatives that are not the primary target for agent behavior.
             </p>
           </div>
         </div>
@@ -271,7 +304,7 @@ export function ModelsPanel() {
             <div className="space-y-1.5">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-gray-100">Install & Manage Models</h3>
               <p className="text-xs text-slate-500 dark:text-gray-400">
-                Download, install, and delete models from the desktop app.
+                The desktop app is the source of truth for downloading, installing, and deleting models locally.
               </p>
               <div className="flex items-center gap-3 pt-1">
                 <a
@@ -296,7 +329,7 @@ export function ModelsPanel() {
 
         {/* Explainer */}
         <p className="text-xs text-slate-400 dark:text-gray-500 leading-relaxed">
-          Models power everything AI does — answering questions, searching your documents, and more. Loading a model keeps it ready in memory (RAM), so unload ones you're not using to free up resources.
+          Edgebric is optimized for Qwen-first agent behavior. Loading a model keeps it ready in RAM; unload unused models to preserve headroom for chat, retrieval, and tool execution.
         </p>
       </div>
     </div>

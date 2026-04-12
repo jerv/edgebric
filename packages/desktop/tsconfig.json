@@ -3,6 +3,11 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@edgebric/types": ["../../shared/types/src/index.ts"],
+      "@edgebric/core": ["../core/src/index.ts"]
+    },
     "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,

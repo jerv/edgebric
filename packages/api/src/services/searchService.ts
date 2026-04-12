@@ -17,15 +17,25 @@ interface BM25Result {
  * Full-text keyword search using SQLite FTS5 (BM25 scoring).
  * Catches exact terms, policy names, acronyms that vector search misses.
  */
-function bm25Search(query: string, limit: number): BM25Result[] {
+function bm25Search(query: string, datasetNames: string[], limit: number): BM25Result[] {
+  if (datasetNames.length === 0) return [];
   try {
     const sqlite = getSqlite();
     // FTS5 MATCH query — escape double quotes in user input
     const escaped = query.replace(/"/g, '""');
+    const placeholders = datasetNames.map(() => "?").join(", ");
     const stmt = sqlite.prepare(
-      `SELECT chunk_id, rank FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY rank LIMIT ?`,
+      `
+        SELECT chunks_fts.chunk_id AS chunk_id, rank
+        FROM chunks_fts
+        JOIN chunks ON chunks.chunk_id = chunks_fts.chunk_id
+        WHERE chunks_fts MATCH ?
+          AND chunks.dataset_name IN (${placeholders})
+        ORDER BY rank
+        LIMIT ?
+      `,
     );
-    return stmt.all(`"${escaped}"`, limit) as BM25Result[];
+    return stmt.all(`"${escaped}"`, ...datasetNames, limit) as BM25Result[];
   } catch (err) {
     // FTS5 table may not exist on first run or query syntax error — degrade gracefully
     logger.debug({ err }, "BM25 search failed, falling back to vector-only");
@@ -171,7 +181,7 @@ export async function hybridMultiDatasetSearch(
   const vectorResults = vectorSearch(queryEmbedding, datasetNames, maxCandidates);
 
   // 3. BM25 search (synchronous, sub-millisecond)
-  const bm25Results = bm25Search(queryText, maxCandidates);
+  const bm25Results = bm25Search(queryText, datasetNames, maxCandidates);
 
   // Build a map of chunk texts for BM25-only results
   const chunkTexts = new Map<string, string>();

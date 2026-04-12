@@ -138,7 +138,7 @@ export async function searchRemoteNode(
       body: {
         query,
         ...(datasetNames && { datasetNames }),
-        ...(options?.allowedDataSourceIds && { allowedDataSourceIds: options.allowedDataSourceIds }),
+        ...(options?.allowedDataSourceIds != null && { allowedDataSourceIds: options.allowedDataSourceIds }),
         ...(topN != null && { topN }),
       },
       meshToken: options?.meshToken ?? cfg.meshToken,
@@ -303,7 +303,7 @@ export async function searchAllNodes(
   // Fan out searches in parallel — forward allowedDataSourceIds for server-side ACL
   const promises = nodes.map((node) =>
     searchRemoteNode(node.id, query, opts?.datasetNames, opts?.topN, {
-      ...(opts?.allowedDataSourceIds && { allowedDataSourceIds: opts.allowedDataSourceIds }),
+      ...(opts?.allowedDataSourceIds != null && { allowedDataSourceIds: opts.allowedDataSourceIds }),
     }),
   );
 

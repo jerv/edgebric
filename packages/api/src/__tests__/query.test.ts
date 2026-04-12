@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { setupTestApp, teardownTestApp, memberAgent, getDefaultOrgId } from "./helpers.js";
 import { setDocument } from "../services/documentStore.js";
 import { ensureDefaultDataSource } from "../services/dataSourceStore.js";
+import { addMessage, createConversation, getMessages } from "../services/conversationStore.js";
 
 
 describe("Query API", () => {
@@ -83,6 +84,63 @@ describe("Query API", () => {
         .post("/api/query")
         .send({});
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("POST /api/query/actions/execute", () => {
+    it("executes a confirmed chat action and clears the proposal", async () => {
+      const conversation = createConversation("member@test.com", "Member", orgId);
+      const messageId = randomUUID();
+      addMessage({
+        id: messageId,
+        conversationId: conversation.id,
+        role: "assistant",
+        content: "I can do that. Review the details below and confirm.",
+        actionProposal: {
+          id: randomUUID(),
+          tool: "create_source",
+          title: "Create data source",
+          summary: "Create a new data source you can manage from chat.",
+          confirmLabel: "Create source",
+          arguments: {
+            name: "Journal",
+            type: "personal",
+          },
+          fields: [
+            { key: "name", label: "Source name", input: "text", required: true },
+            { key: "type", label: "Storage", input: "select", required: true },
+          ],
+        },
+        executionPlan: [{
+          id: "confirm-action",
+          title: "Create data source",
+          status: "planned",
+          tool: "create_source",
+          summary: "Waiting for confirmation",
+        }],
+        createdAt: new Date(),
+      });
+
+      const res = await memberAgent(orgId)
+        .post("/api/query/actions/execute")
+        .send({
+          conversationId: conversation.id,
+          messageId,
+          tool: "create_source",
+          arguments: {
+            name: "Journal",
+            type: "personal",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.answer).toContain('Created source "Journal".');
+
+      const savedMessage = getMessages(conversation.id).find((message) => message.id === messageId);
+      expect(savedMessage?.content).toContain('Created source "Journal".');
+      expect(savedMessage?.actionProposal).toBeUndefined();
+      expect(savedMessage?.executionPlan?.[0]?.status).toBe("completed");
     });
   });
 });

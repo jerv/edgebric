@@ -4,7 +4,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
-import { answerStream, filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext, buildMemoryContext } from "@edgebric/core/rag";
+import { filterQuery, splitForSummary, summarizeMessages, buildSummarizedContext, buildMemoryContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
 import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
@@ -19,6 +19,7 @@ import {
   getConversation,
   getMessages,
   addMessage,
+  updateMessage,
   updateConversationTimestamp,
 } from "../services/conversationStore.js";
 import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
@@ -27,18 +28,18 @@ import { routedSearch, type RoutedSearchResult } from "../services/queryRouter.j
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { getUserGroupIds } from "../services/userMeshGroupStore.js";
 import { getUserInOrg } from "../services/userStore.js";
-import type { Session, SessionMessage, PersistedMessage, Citation } from "@edgebric/types";
+import type { Session, SessionMessage, PersistedMessage, Citation, ExecutionChecklistItem } from "@edgebric/types";
 import { MODEL_CATALOG_MAP } from "@edgebric/types";
 import { randomUUID } from "crypto";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
-import { buildToolDefinitions, executeTool, parseToolCalls, listTools } from "../services/toolRunner.js";
-import type { ToolMessage } from "../services/chatClient.js";
-import type { ToolContext } from "../services/toolRunner.js";
 import { registerAllTools } from "../services/tools/index.js";
 import { runtimeChatConfig } from "../config.js";
 import { isMemoryEnabled, getMemoryDatasetName } from "../services/memoryStore.js";
 import { hybridMultiDatasetSearch as memoryHybridSearch } from "../services/searchService.js";
 import { processMessageForMemories } from "../services/memoryExtractor.js";
+import { isConciseLookupQuery, isDirectMemoryQuery, isSimpleSmallTalk, runOrchestratedChat } from "../services/chatOrchestrator.js";
+import { DEFAULT_CHAT_STRICT, DEFAULT_RAG_BEHAVIOR } from "../services/chatDefaults.js";
+import { executeTool } from "../services/toolRunner.js";
 
 const queryBodySchema = z.object({
   query: z.string().min(1, "Query cannot be empty").max(4000, "Query too long"),
@@ -52,13 +53,13 @@ const queryBodySchema = z.object({
   dataSourceIds: z.array(z.string().uuid()).max(20).optional(),
   /** Skip document search entirely — pure LLM chat with no RAG context. */
   skipSearch: z.boolean().optional(),
-  /** Per-request AI behavior overrides (from user's chat settings). */
-  aiBehavior: z.object({
-    decompose: z.boolean().optional(),
-    rerank: z.boolean().optional(),
-    iterativeRetrieval: z.boolean().optional(),
-    generalAnswers: z.boolean().optional(),
-  }).optional(),
+});
+
+const executeActionSchema = z.object({
+  conversationId: z.string().min(1),
+  messageId: z.string().min(1),
+  tool: z.enum(["save_to_vault", "create_source", "update_source", "rename_document", "delete_document", "delete_source"]),
+  arguments: z.record(z.string(), z.unknown()),
 });
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
@@ -84,6 +85,8 @@ setInterval(() => {
 // Keyed by conversationId → { summary, upToMessageId }.
 
 const soloSummaryCache = new Map<string, { summary: string; upTo: string; oldCount: number }>();
+const soloSummaryRefreshes = new Set<string>();
+let embeddingHealthCache: { checkedAt: number; available: boolean } = { checkedAt: 0, available: false };
 
 /** Prune solo summary cache entries every 30 minutes. */
 setInterval(() => {
@@ -127,125 +130,103 @@ function isToolUseEnabled(): boolean {
   return catalogEntry?.capabilities?.toolUse === true;
 }
 
-const MAX_TOOL_ROUNDS = 5;
+queryRouter.post("/actions/execute", requireOrg, validateBody(executeActionSchema), async (req, res) => {
+  const { conversationId, messageId, tool, arguments: args } = req.body as z.infer<typeof executeActionSchema>;
+  const userEmail = req.session.email ?? "";
+  const isAdmin = req.session.isAdmin ?? false;
+  const orgId = req.session.orgId;
 
-/**
- * Tool use information for UI transparency — tracks which tools were called
- * and their results during a single query.
- */
-export interface ToolUseInfo {
-  name: string;
-  arguments: Record<string, unknown>;
-  result: { success: boolean; summary: string };
-}
-
-/**
- * Run the tool-calling loop: send messages with tool definitions to the model,
- * execute any tool calls, feed results back, repeat until the model produces
- * a final text response or we hit the max rounds.
- */
-async function runToolLoop(
-  messages: ToolMessage[],
-  ctx: ToolContext,
-  sendEvent: (event: string, data: unknown) => void,
-): Promise<{ answer: string; toolUses: ToolUseInfo[] }> {
-  const tools = buildToolDefinitions();
-  const toolUses: ToolUseInfo[] = [];
-
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const response = await chatClient.chatWithTools(messages, tools);
-
-    const toolCalls = parseToolCalls(response);
-
-    if (toolCalls.length === 0) {
-      // Model produced a final text response — we're done
-      return { answer: response.content ?? "", toolUses };
-    }
-
-    // Add the assistant message with tool_calls to conversation
-    messages.push({
-      role: "assistant",
-      content: response.content,
-      tool_calls: response.tool_calls,
-    });
-
-    // Execute each tool call and add results as tool messages
-    for (const tc of toolCalls) {
-      const result = await executeTool(tc.name, tc.arguments, ctx);
-
-      // Summarize result for UI transparency
-      const summary = result.success
-        ? summarizeToolResult(tc.name, result.data)
-        : `Error: ${result.error}`;
-
-      toolUses.push({
-        name: tc.name,
-        arguments: tc.arguments,
-        result: { success: result.success, summary },
-      });
-
-      // Send tool use event to client for real-time transparency
-      sendEvent("tool_use", {
-        tool: tc.name,
-        success: result.success,
-        summary,
-      });
-
-      // Add tool result message for the model
-      const resultContent = result.success
-        ? JSON.stringify(result.data)
-        : JSON.stringify({ error: result.error });
-
-      messages.push({
-        role: "tool",
-        content: resultContent,
-        tool_call_id: tc.id,
-      });
-    }
+  const conversation = getConversation(conversationId);
+  if (!conversation || conversation.userEmail !== userEmail) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
   }
 
-  // Hit max rounds — return whatever we have
-  return { answer: "I've gathered information using multiple tools. Let me summarize what I found.", toolUses };
-}
+  const message = getMessages(conversationId).find((m) => m.id === messageId && m.role === "assistant");
+  if (!message) {
+    res.status(404).json({ error: "Assistant message not found" });
+    return;
+  }
 
-/** Create a short human-readable summary of a tool result for the UI. */
-function summarizeToolResult(toolName: string, data: unknown): string {
-  if (!data || typeof data !== "object") return "Done";
-  const d = data as Record<string, unknown>;
+  const result = await executeTool(tool, args, {
+    userEmail,
+    isAdmin,
+    orgId,
+    allowedSourceIds: listAccessibleDataSources(userEmail, isAdmin, orgId).map((ds) => ds.id),
+    allowWeb: true,
+    allowMutations: true,
+  });
 
-  switch (toolName) {
-    case "search_knowledge":
-      return `${d["resultCount"] ?? 0} results found`;
-    case "list_sources":
-      return `${d["sourceCount"] ?? 0} sources`;
-    case "list_documents":
-      return `${d["documentCount"] ?? 0} documents`;
-    case "web_search":
-      return `${d["resultCount"] ?? 0} web results`;
-    case "read_url":
-      return `Fetched ${d["contentLength"] ?? 0} chars${d["truncated"] ? " (truncated)" : ""}`;
-    case "cite_check":
-      return `${d["evidenceCount"] ?? 0} evidence items, verdict: ${d["verdict"] ?? "unknown"}`;
-    case "find_related":
-      return `${(d["related"] as unknown[])?.length ?? 0} related documents`;
-    case "save_to_vault":
-      return `Saved "${d["title"]}"`;
-    case "create_source":
-      return `Created "${d["name"]}"`;
-    case "upload_document":
-      return `Uploaded "${d["filename"]}"`;
-    case "delete_document":
-      return `Deleted "${d["deleted"]}"`;
-    case "delete_source":
-      return `Deleted "${d["deleted"]}", ${d["documentsDeleted"]} documents removed`;
-    case "save_memory":
-      return `Saved memory: "${(d["content"] as string)?.slice(0, 50) ?? ""}"`;
-    case "list_memories":
-      return `${d["count"] ?? 0} memories`;
-    case "delete_memory":
-      return `Deleted memory ${d["deleted"]}`;
-    default:
-      return "Done";
+  if (!result.success) {
+    res.status(400).json({ error: result.error ?? "Action failed" });
+    return;
+  }
+
+  const summaryByTool: Record<string, string> = {
+    save_to_vault: `Saved as "${String(args["title"] ?? "document")}".`,
+    create_source: `Created source "${String((result.data as Record<string, unknown>)["name"] ?? args["name"] ?? "source")}".`,
+    update_source: `Updated "${String((result.data as Record<string, unknown>)["name"] ?? args["sourceName"] ?? "source")}".`,
+    rename_document: `Renamed to "${String((result.data as Record<string, unknown>)["newName"] ?? args["newName"] ?? "document")}".`,
+    delete_document: `Deleted "${String((result.data as Record<string, unknown>)["deleted"] ?? args["documentName"] ?? "document")}".`,
+    delete_source: `Deleted "${String((result.data as Record<string, unknown>)["deleted"] ?? args["sourceName"] ?? "source")}".`,
+  };
+
+  const summary = summaryByTool[tool] ?? "Action completed.";
+  const executionPlan: ExecutionChecklistItem[] = [{
+    id: "confirmed-action",
+    title: summary,
+    status: "completed",
+    tool,
+    summary,
+  }];
+  const toolUses = [{
+    name: tool,
+    arguments: args,
+    result: { success: true, summary },
+  }];
+
+  updateMessage(messageId, {
+    content: summary,
+    toolUses,
+    executionPlan,
+    actionProposal: undefined,
+    hasConfidentAnswer: true,
+    answerType: "general",
+  });
+  updateConversationTimestamp(conversationId);
+
+  res.json({
+    ok: true,
+    answer: summary,
+    toolUses,
+    executionPlan,
+  });
+});
+
+async function refreshSoloSummary(
+  conversationId: string,
+  oldMessages: ChatMessage[],
+  upToMessageId: string,
+): Promise<void> {
+  if (oldMessages.length === 0 || soloSummaryRefreshes.has(conversationId)) return;
+  soloSummaryRefreshes.add(conversationId);
+
+  let releaseSlotFn: (() => void) | undefined;
+  try {
+    releaseSlotFn = await acquireSlot(`solo-summary-${conversationId}`, "low");
+    const summary = await summarizeMessages(oldMessages, (msgs) => chatClient.chatStream(msgs));
+    if (summary) {
+      soloSummaryCache.set(conversationId, {
+        summary,
+        upTo: upToMessageId,
+        oldCount: oldMessages.length,
+      });
+    }
+  } catch (err) {
+    logger.warn({ err, conversationId }, "Solo conversation summary refresh failed");
+  } finally {
+    releaseSlotFn?.();
+    soloSummaryRefreshes.delete(conversationId);
   }
 }
 
@@ -258,9 +239,16 @@ async function getMemoryContextBlock(query: string, orgId?: string, userEmail?: 
   const memoryDataset = getMemoryDatasetName(orgId, userEmail);
   if (!memoryDataset) return "";
 
-  // Skip if embedding server isn't running (avoids timeout on every query)
-  const { isEmbeddingRunning } = await import("../services/inferenceClient.js");
-  if (!(await isEmbeddingRunning())) return "";
+  // Cache embedding health briefly so simple chats don't keep paying a network round-trip.
+  const now = Date.now();
+  if (now - embeddingHealthCache.checkedAt > 5_000) {
+    const { isEmbeddingRunning } = await import("../services/inferenceClient.js");
+    embeddingHealthCache = {
+      checkedAt: now,
+      available: await isEmbeddingRunning(),
+    };
+  }
+  if (!embeddingHealthCache.available) return "";
 
   try {
     return await buildMemoryContext(query, async (q, topK) => {
@@ -398,14 +386,21 @@ async function searchWithHybrid(
 // Returns whether the system is ready for chat and whether a model is loaded.
 // Chat is always available — documents are optional (RAG enhances answers but isn't required).
 queryRouter.get("/status", async (req, res) => {
-  // If the chat server's /health is OK, a model is loaded — no need to check /slots
-  // (which can fail when the model is busy generating a response).
-  const modelLoaded = await isInferenceRunning();
+  const serverUp = await isInferenceRunning();
+  let modelLoaded = false;
+  if (serverUp) {
+    try {
+      const running = await listRunningModels();
+      modelLoaded = running.size > 0;
+    } catch {
+      modelLoaded = false;
+    }
+  }
   res.json({ ready: true, modelLoaded });
 });
 
 queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
-  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds, skipSearch, aiBehavior } = req.body as z.infer<typeof queryBodySchema>;
+  const { query, conversationId: existingConvId, private: isPrivate, messages: clientMessages, dataSourceIds, skipSearch } = req.body as z.infer<typeof queryBodySchema>;
 
   // Rate limit: 10 queries per minute per user
   const rateLimitEmail = req.session.email;
@@ -435,7 +430,7 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
-    res.write(`event: error\ndata: ${JSON.stringify({ message: "The AI engine is not running. Please contact your administrator." })}\n\n`);
+    res.write(`event: error\ndata: ${JSON.stringify({ message: "The AI engine is not running. Start or load a model from Manage Models." })}\n\n`);
     res.end();
     return;
   }
@@ -465,15 +460,9 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     details: { dsCount: dataSourceIds?.length ?? 0, hasConversation: !!existingConvId },
   });
 
-  // Determine strict mode (admin toggle: general answers)
   const orgConfig = getIntegrationConfig();
-  // Per-request overrides from user's AI behavior settings, fallback to org config
-  const strict = aiBehavior?.generalAnswers !== undefined
-    ? !aiBehavior.generalAnswers
-    : !(orgConfig.generalAnswersEnabled ?? true);
-  const useDecompose = aiBehavior?.decompose ?? orgConfig.ragDecompose ?? false;
-  const useRerank = aiBehavior?.rerank ?? orgConfig.ragRerank ?? false;
-  const useIterativeRetrieval = aiBehavior?.iterativeRetrieval ?? orgConfig.ragIterativeRetrieval ?? false;
+  const strict = DEFAULT_CHAT_STRICT;
+  const { decompose: useDecompose, rerank: useRerank, iterativeRetrieval: useIterativeRetrieval } = DEFAULT_RAG_BEHAVIOR;
 
   // Resolve mesh group access: admins get undefined (all groups), users get their assigned groups
   const isAdmin = req.session.isAdmin ?? false;
@@ -524,12 +513,10 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     let releaseSlotFn: (() => void) | undefined;
     try {
       const orgId = req.session.orgId;
-      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+      const shouldSkipRetrieval = skipSearch === true;
+      const datasetNames = shouldSkipRetrieval ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
       // Forward accessible data source IDs for server-side ACL enforcement on mesh nodes
-      const accessibleDSIds = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
-        ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
-        : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIds);
+      const accessibleDSIds = shouldSkipRetrieval ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
 
       // Acquire inference slot
       const abortController = new AbortController();
@@ -550,29 +537,39 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
         throw err;
       }
 
-      const stream = answerStream(
+      const result = await runOrchestratedChat({
+        label: "private-query",
         query,
         session,
-        {
-          datasetName: datasetNames[0]!, datasetNames, topK: 10, similarityThreshold: 0.3, candidateCount, hybridBoost, strict,
-          decompose: useDecompose,
-          rerank: useRerank,
-          iterativeRetrieval: useIterativeRetrieval,
+        strict,
+        ...(skipSearch !== undefined ? { skipSearch } : {}),
+        allowDirectMemoryActions: false,
+        allowToolPlanning: isToolUseEnabled(),
+        sendEvent,
+      search: {
+        ...(datasetNames[0] ? { datasetName: datasetNames[0] } : {}),
+        datasetNames,
+        useDecompose,
+        useRerank,
+        useIterativeRetrieval,
+        execute: async (searchQuery) => shouldSkipRetrieval
+          ? { results: [], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
+          : await searchWithHybrid(datasetNames, searchQuery, allowedGroupIds, accessibleDSIds),
+      },
+        toolContext: {
+          userEmail: req.session.email ?? "anonymous",
+          isAdmin,
+          orgId,
+          allowedSourceIds: accessibleDSIds,
+          allowWeb: true,
+          allowMutations: false,
         },
-        {
-          search: async () => searchResults,
-          generate: (messages) => chatClient.chatStream(messages),
-        },
-      );
+      });
 
-      for await (const chunk of stream) {
-        if (chunk.delta) sendEvent("delta", { delta: chunk.delta });
-        if (chunk.final) {
-          enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
-          // No DB writes — just send the final response
-          sendEvent("done", { ...chunk.final, private: true, meshNodesSearched, meshNodesUnavailable });
-        }
+      if (result.citations.length > 0) {
+        enrichCitationsWithDataSourceName(result.citations, result.searchResults as RoutedSearchResult[] | undefined);
       }
+      sendEvent("done", { ...result, private: true, sessionId: session.id });
     } catch {
       sendEvent("error", { message: "An error occurred. Please try again." });
       // Intentionally suppress error details — private mode must leave no trace in logs
@@ -628,32 +625,15 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
     const cached = soloSummaryCache.get(conversation.id);
     if (cached && cached.oldCount === old.length) {
       summary = cached.summary;
-    } else {
-      try {
-        summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
-        if (summary && allMessages.length > 0) {
-          soloSummaryCache.set(conversation.id, {
-            summary,
-            upTo: allMessages[allMessages.length - 1]!.id,
-            oldCount: old.length,
-          });
-        }
-      } catch (err) {
-        logger.warn({ err }, "Solo conversation summarization failed, using recent messages only");
-      }
+    } else if (allMessages.length > 0) {
+      void refreshSoloSummary(conversation.id, old, allMessages[allMessages.length - 1]!.id);
     }
   }
 
   const summarizedContext = buildSummarizedContext(summary, recent);
-  const sessionMessages: SessionMessage[] = summarizedContext
+  let sessionMessages: SessionMessage[] = summarizedContext
     .slice(-12)
     .map((m) => ({ role: m.role as SessionMessage["role"], content: m.content }));
-
-  // Inject memory context as a system message at the start of the session
-  const memoryCtxBlock = await getMemoryContextBlock(query, orgId, userEmail);
-  if (memoryCtxBlock) {
-    sessionMessages.unshift({ role: "system" as const, content: memoryCtxBlock });
-  }
 
   const session: Session = {
     id: conversation.id,
@@ -688,184 +668,93 @@ queryRouter.post("/", validateBody(queryBodySchema), async (req, res) => {
 
   let releaseSlotFn: (() => void) | undefined;
   try {
-    if (isToolUseEnabled() && listTools().length > 0) {
-      // Acquire inference slot
-      const abortController = new AbortController();
-      req.on("close", () => abortController.abort());
-      try {
-        releaseSlotFn = await acquireSlot(
-          conversation.id,
-          "high",
-          (position) => sendEvent("queued", { position }),
-          abortController.signal,
-        );
-      } catch (err) {
-        if (err instanceof QueueFullError) {
-          sendEvent("error", { message: "The system is busy. Please try again in a moment." });
-          try { res.end(); } catch { /* already closed */ }
-          return;
-        }
-        throw err;
+    const abortController = new AbortController();
+    req.on("close", () => abortController.abort());
+    try {
+      releaseSlotFn = await acquireSlot(
+        conversation.id,
+        "high",
+        (position) => sendEvent("queued", { position }),
+        abortController.signal,
+      );
+    } catch (err) {
+      if (err instanceof QueueFullError) {
+        sendEvent("error", { message: "The system is busy. Please try again in a moment." });
+        try { res.end(); } catch { /* already closed */ }
+        return;
       }
+      throw err;
+    }
 
-      // Build tool messages from conversation history
-      const toolMessages: ToolMessage[] = [];
+    const shouldSkipRetrieval = skipSearch === true;
+    const datasetNames = shouldSkipRetrieval ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
+    const accessibleDSIds = shouldSkipRetrieval ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
+    const shouldLoadMemoryContext = !isSimpleSmallTalk(query)
+      && !isDirectMemoryQuery(query)
+      && !isConciseLookupQuery(query);
+    const memoryContextBlock = shouldLoadMemoryContext
+      ? await getMemoryContextBlock(query, orgId, userEmail)
+      : "";
 
-      // Fetch memory context (if enabled)
-      const memoryBlock = await getMemoryContextBlock(query, orgId, userEmail);
-
-      // System prompt for tool-using model
-      const toolSystemPrompt = skipSearch
-        ? [
-            "You are a helpful AI assistant. Answer the user's question directly using your general knowledge.",
-            "Do not search documents or knowledge bases — the user has chosen to chat without sources.",
-            "When the user asks you to remember something, use the save_memory tool.",
-            memoryBlock,
-          ].filter(Boolean).join("\n\n")
-        : [
-            "You are a helpful AI assistant with access to tools for searching knowledge bases, managing documents, and browsing the web.",
-            "Use tools when the user's question requires information from documents, the web, or data management.",
-            "For simple questions that don't need tools (greetings, math, general knowledge), answer directly without calling tools.",
-            strict ? "You must only answer from information found via tools — do not use general knowledge." : "",
-            "Always cite your sources when using information from search results.",
-            "When the user asks you to remember something, use the save_memory tool.",
-            memoryBlock,
-          ].filter(Boolean).join("\n\n");
-
-      toolMessages.push({ role: "system", content: toolSystemPrompt });
-
-      // Add conversation history
-      for (const m of sessionMessages) {
-        toolMessages.push({ role: m.role as "user" | "assistant", content: m.content });
-      }
-
-      const toolCtx: ToolContext = {
-        userEmail: userEmail,
+    const result = await runOrchestratedChat({
+      label: "solo-query",
+      query,
+      session,
+      strict,
+      ...(skipSearch !== undefined ? { skipSearch } : {}),
+      allowDirectMemoryActions: true,
+      memoryContextBlock,
+      allowToolPlanning: isToolUseEnabled(),
+      sendEvent,
+      search: {
+        ...(datasetNames[0] ? { datasetName: datasetNames[0] } : {}),
+        datasetNames,
+        useDecompose,
+        useRerank,
+        useIterativeRetrieval,
+        execute: async (searchQuery) => shouldSkipRetrieval
+          ? { results: [], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
+          : await searchWithHybrid(datasetNames, searchQuery, allowedGroupIds, accessibleDSIds),
+      },
+      toolContext: {
+        userEmail,
         isAdmin,
         orgId,
-      };
+        allowedSourceIds: accessibleDSIds,
+        allowWeb: true,
+        allowMutations: true,
+      },
+    });
 
-      const { answer, toolUses } = await runToolLoop(toolMessages, toolCtx, sendEvent);
-
-      // Stream the final answer character by character for progressive UI
-      const CHUNK_SIZE = 20;
-      for (let i = 0; i < answer.length; i += CHUNK_SIZE) {
-        sendEvent("delta", { delta: answer.slice(i, i + CHUNK_SIZE) });
-      }
-
-      // Save assistant message
-      const assistantMsgId = randomUUID();
-      const assistantMsg: PersistedMessage = {
-        id: assistantMsgId,
-        conversationId: conversation.id,
-        role: "assistant",
-        content: answer,
-        hasConfidentAnswer: true,
-        answerType: toolUses.length > 0 ? "grounded" : "general",
-        createdAt: new Date(),
-      };
-      if (toolUses.length > 0) assistantMsg.toolUses = toolUses;
-      addMessage(assistantMsg);
-      updateConversationTimestamp(conversation.id);
-
-      sendEvent("done", {
-        answer,
-        citations: [],
-        hasConfidentAnswer: true,
-        sessionId: conversation.id,
-        conversationId: conversation.id,
-        messageId: assistantMsgId,
-        answerType: toolUses.length > 0 ? "grounded" : "general",
-        toolUses,
-      });
-
-      // Post-response: extract memories from user message (async, no latency impact)
-      void processMessageForMemories(query, orgId, userEmail);
-    } else {
-      // ─── Standard RAG Pipeline (no tool use) ────────────────────────────
-
-      const datasetNames = skipSearch ? [] : resolveTargetDatasets(dataSourceIds, req.session.email ?? "", req.session.isAdmin ?? false, orgId);
-      const accessibleDSIdsStd = skipSearch ? [] : listAccessibleDataSources(req.session.email ?? "", req.session.isAdmin ?? false, orgId).map((ds) => ds.id);
-      const { results: searchResults, candidateCount, hybridBoost, meshNodesSearched, meshNodesUnavailable } = skipSearch
-        ? { results: [] as Awaited<ReturnType<typeof searchWithHybrid>>["results"], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
-        : await searchWithHybrid(datasetNames, query, allowedGroupIds, accessibleDSIdsStd);
-
-      // Acquire inference slot — waits if all slots busy, sends queue position via SSE
-      const abortController = new AbortController();
-      req.on("close", () => abortController.abort());
-      try {
-        releaseSlotFn = await acquireSlot(
-          conversation.id,
-          "high",
-          (position) => sendEvent("queued", { position }),
-          abortController.signal,
-        );
-      } catch (err) {
-        if (err instanceof QueueFullError) {
-          sendEvent("error", { message: "The system is busy. Please try again in a moment." });
-          try { res.end(); } catch { /* already closed */ }
-          return;
-        }
-        throw err;
-      }
-
-      const stream = answerStream(
-        query,
-        session,
-        {
-          datasetName: datasetNames[0]!,
-          datasetNames,
-          topK: 10,
-          similarityThreshold: 0.3,
-          candidateCount,
-          hybridBoost,
-          strict,
-          decompose: useDecompose,
-          rerank: useRerank,
-          iterativeRetrieval: useIterativeRetrieval,
-        },
-        {
-          search: async () => searchResults,
-          generate: (messages) => chatClient.chatStream(messages),
-        },
-      );
-
-      for await (const chunk of stream) {
-        if (chunk.delta) {
-          sendEvent("delta", { delta: chunk.delta });
-        }
-        if (chunk.final) {
-          enrichCitationsWithDataSourceName(chunk.final.citations, searchResults);
-
-          // Save assistant message to DB
-          const assistantMsgId = randomUUID();
-          const assistantMsg: PersistedMessage = {
-            id: assistantMsgId,
-            conversationId: conversation.id,
-            role: "assistant",
-            content: chunk.final.answer,
-            citations: chunk.final.citations,
-            hasConfidentAnswer: chunk.final.hasConfidentAnswer,
-            ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
-            createdAt: new Date(),
-          };
-          addMessage(assistantMsg);
-          updateConversationTimestamp(conversation.id);
-
-          // Emit done event with conversation + message IDs + mesh info
-          sendEvent("done", {
-            ...chunk.final,
-            conversationId: conversation.id,
-            messageId: assistantMsgId,
-            meshNodesSearched,
-            meshNodesUnavailable,
-          });
-
-          // Post-response: extract memories from user message (async, no latency impact)
-          void processMessageForMemories(query, orgId, userEmail);
-        }
-      }
+    if (result.citations.length > 0) {
+      enrichCitationsWithDataSourceName(result.citations, result.searchResults as RoutedSearchResult[] | undefined);
     }
+
+    const assistantMsgId = randomUUID();
+    const assistantMsg: PersistedMessage = {
+      id: assistantMsgId,
+      conversationId: conversation.id,
+      role: "assistant",
+      content: result.answer,
+      citations: result.citations,
+      hasConfidentAnswer: result.hasConfidentAnswer,
+      ...(result.answerType != null && { answerType: result.answerType }),
+      ...(result.toolUses && result.toolUses.length > 0 && { toolUses: result.toolUses }),
+      ...(result.executionPlan && result.executionPlan.length > 0 && { executionPlan: result.executionPlan }),
+      ...(result.actionProposal && { actionProposal: result.actionProposal }),
+      createdAt: new Date(),
+    };
+    addMessage(assistantMsg);
+    updateConversationTimestamp(conversation.id);
+
+    sendEvent("done", {
+      ...result,
+      sessionId: conversation.id,
+      conversationId: conversation.id,
+      messageId: assistantMsgId,
+    });
+
+    void processMessageForMemories(query, orgId, userEmail);
   } catch (err) {
     sendEvent("error", { message: "An error occurred. Please try again." });
     logger.error({ err }, "Query error");

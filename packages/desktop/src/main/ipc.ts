@@ -19,14 +19,15 @@ import {
   stopInstance,
   CHAT_BASE_URL,
   getAllShardFilenames,
+  ensurePinnedLlamaRuntime,
 } from "./llama-server.js";
 import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { execSync, execFileSync } from "child_process";
-
-const EMBEDDING_TAG = "nomic-embed-text";
+import { EMBEDDING_MODEL_TAG, getVisibleCatalog, type ModelCapabilities, type ModelRecommendedRole, type ModelSupportTier } from "../../../../shared/types/src/models";
+const EMBEDDING_TAG = EMBEDDING_MODEL_TAG;
 
 export function registerIpcHandlers() {
   // Log viewer
@@ -407,6 +408,8 @@ export function registerIpcHandlers() {
     const config = loadConfig();
     const dataDir = config?.dataDir;
     try {
+      await ensurePinnedLlamaRuntime(dataDir);
+
       // Start embedding server with the embedding model
       const modelsDir = llamaModelsDir(dataDir);
       const embeddingModel = path.join(modelsDir, "nomic-embed-text-v1.5.Q8_0.gguf");
@@ -485,6 +488,7 @@ export function registerIpcHandlers() {
         tag: string; filename: string; name: string; sizeBytes: number;
         modifiedAt: string; status: string; ramUsageBytes?: number;
         catalogEntry?: typeof CATALOG[0];
+        support?: ModelSupportTier;
       }> = [];
 
       for (const m of localModels) {
@@ -525,6 +529,7 @@ export function registerIpcHandlers() {
               status: (chatUp && isActive) ? "loaded" : "installed",
               ramUsageBytes: (chatUp && isActive) ? Math.round(totalSize * 1.3) : undefined,
               catalogEntry: cat,
+              support: cat.support,
             });
           } else {
             // Single-file catalog model
@@ -540,6 +545,7 @@ export function registerIpcHandlers() {
               status: (chatUp && isActive) ? "loaded" : "installed",
               ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
               catalogEntry: cat,
+              support: cat.support,
             });
           }
         } else {
@@ -555,6 +561,7 @@ export function registerIpcHandlers() {
             modifiedAt: m.modifiedAt,
             status: (chatUp && isActive) ? "loaded" : "installed",
             ramUsageBytes: (chatUp && isActive) ? Math.round(m.sizeBytes * 1.3) : undefined,
+            support: "community",
           });
         }
       }
@@ -588,12 +595,19 @@ export function registerIpcHandlers() {
 
       const config = loadConfig();
       const dataDir = config?.dataDir;
+      await ensurePinnedLlamaRuntime(dataDir);
+
+      const modelsDir = llamaModelsDir(dataDir);
+      const embeddingModel = path.join(modelsDir, "nomic-embed-text-v1.5.Q8_0.gguf");
+      if (fs.existsSync(embeddingModel)) {
+        await startInstance("embedding", embeddingModel, dataDir);
+      }
 
       // Find the GGUF file for this model
       const CATALOG = getCatalog();
       const catEntry = CATALOG.find(c => c.tag === tag);
       const filename = catEntry?.ggufFilename ?? `${tag}.gguf`;
-      const modelPath = path.join(llamaModelsDir(dataDir), filename);
+      const modelPath = path.join(modelsDir, filename);
 
       if (!fs.existsSync(modelPath)) {
         return { success: false, error: `Model file not found: ${filename}` };
@@ -1074,36 +1088,14 @@ function dirSize(dirPath: string): number {
   return total;
 }
 
-interface ModelCapabilities {
-  vision: boolean;
-  toolUse: boolean;
-  reasoning: boolean;
-}
-
 interface CatalogEntry {
   tag: string; ggufFilename: string; downloadUrl: string; name: string; family: string; description: string;
   paramCount: string; downloadSizeGB: number; ramUsageGB: number;
   origin: string; tier: string; minRAMGB: number; hidden?: boolean;
+  support: ModelSupportTier; recommendedRole?: ModelRecommendedRole;
   capabilities: ModelCapabilities; huggingFaceUrl: string;
 }
 
 function getCatalog(): CatalogEntry[] {
-  return [
-    // Recommended
-    { tag: "qwen3.5-4b", ggufFilename: "Qwen3.5-4B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf", name: "Qwen 3.5 4B", family: "Qwen", description: "Best overall for most hardware. Vision + tool use, 256K context.", paramCount: "4B", downloadSizeGB: 2.7, ramUsageGB: 5.5, origin: "Alibaba", tier: "recommended", minRAMGB: 8, capabilities: { vision: true, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-4B" },
-    { tag: "qwen3.5-9b", ggufFilename: "Qwen3.5-9B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf", name: "Qwen 3.5 9B", family: "Qwen", description: "Stronger reasoning and analysis. Vision + tool use. Best for 16GB machines.", paramCount: "9B", downloadSizeGB: 5.9, ramUsageGB: 9.5, origin: "Alibaba", tier: "recommended", minRAMGB: 16, capabilities: { vision: true, toolUse: true, reasoning: false }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-9B" },
-    { tag: "qwen3.5-35b-a3b", ggufFilename: "Qwen3.5-35B-A3B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf", name: "Qwen 3.5 35B-A3B MoE", family: "Qwen", description: "35B params, only 3B active. Thinks like a big model, runs like a small one. Vision + tool use.", paramCount: "35B (3B active)", downloadSizeGB: 5.5, ramUsageGB: 9, origin: "Alibaba", tier: "recommended", minRAMGB: 16, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-35B-A3B" },
-    // Supported
-    { tag: "glm-4.6v-flash-9b", ggufFilename: "GLM-4.6V-Flash-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/GLM-4.6V-Flash-GGUF/resolve/main/GLM-4.6V-Flash-Q4_K_M.gguf", name: "GLM-4.6V Flash 9B", family: "Z.ai", description: "Vision + tool use + reasoning at 9B. Strong agentic and UI understanding.", paramCount: "9B", downloadSizeGB: 6.2, ramUsageGB: 10, origin: "Z.ai (Zhipu)", tier: "supported", minRAMGB: 12, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/zai-org/GLM-4.6V-Flash" },
-    { tag: "qwen3.5-27b", ggufFilename: "Qwen3.5-27B-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-27B-GGUF/resolve/main/Qwen3.5-27B-Q4_K_M.gguf", name: "Qwen 3.5 27B", family: "Qwen", description: "Highest quality dense model. Vision + tool use. For 32GB machines.", paramCount: "27B", downloadSizeGB: 16.5, ramUsageGB: 22, origin: "Alibaba", tier: "supported", minRAMGB: 32, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-27B" },
-    { tag: "glm-4.7-flash", ggufFilename: "GLM-4.7-Flash-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/GLM-4.7-Flash-GGUF/resolve/main/GLM-4.7-Flash-Q4_K_M.gguf", name: "GLM-4.7 Flash 30B MoE", family: "Z.ai", description: "30B MoE, 3.6B active. Coding/agent SOTA. 200K context. No vision.", paramCount: "30B (3.6B active)", downloadSizeGB: 18.3, ramUsageGB: 24, origin: "Z.ai (Zhipu)", tier: "supported", minRAMGB: 24, capabilities: { vision: false, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/zai-org/glm-4.7-flash" },
-    { tag: "gemma4-e4b", ggufFilename: "gemma-4-E4B-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf", name: "Gemma 4 E4B", family: "Google", description: "Google's latest efficient model. Vision, 128K context. Apache 2.0.", paramCount: "4B", downloadSizeGB: 5.0, ramUsageGB: 8, origin: "Google", tier: "supported", minRAMGB: 12, capabilities: { vision: true, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/google/gemma-4-E4B-it" },
-    { tag: "gemma4-26b-a4b", ggufFilename: "gemma-4-26B-A4B-it-UD-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf", name: "Gemma 4 26B-A4B MoE", family: "Google", description: "26B params, only 4B active. Vision, strong reasoning. Apache 2.0.", paramCount: "26B (4B active)", downloadSizeGB: 16.9, ramUsageGB: 22, origin: "Google", tier: "supported", minRAMGB: 32, capabilities: { vision: true, toolUse: false, reasoning: true }, huggingFaceUrl: "https://huggingface.co/google/gemma-4-26B-A4B-it" },
-    { tag: "gemma4-31b", ggufFilename: "gemma-4-31B-it-Q4_K_M.gguf", downloadUrl: "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q4_K_M.gguf", name: "Gemma 4 31B", family: "Google", description: "#3 on Arena AI. Dense 31B, every param active. Vision, 256K context. Apache 2.0.", paramCount: "31B", downloadSizeGB: 18.7, ramUsageGB: 24, origin: "Google", tier: "supported", minRAMGB: 32, capabilities: { vision: true, toolUse: false, reasoning: true }, huggingFaceUrl: "https://huggingface.co/google/gemma-4-31B-it" },
-    { tag: "qwen3.5-122b-a10b", ggufFilename: "Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf", downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF/resolve/main/Q4_K_M/Qwen3.5-122B-A10B-Q4_K_M-00001-of-00003.gguf", name: "Qwen 3.5 122B-A10B MoE", family: "Qwen", description: "122B MoE, only 10B active. Near-frontier quality. Vision + tool use + reasoning.", paramCount: "122B (10B active)", downloadSizeGB: 76.5, ramUsageGB: 95, origin: "Alibaba", tier: "supported", minRAMGB: 96, capabilities: { vision: true, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/Qwen/Qwen3.5-122B-A10B" },
-    { tag: "minimax-m2.5", ggufFilename: "MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf", downloadUrl: "https://huggingface.co/unsloth/MiniMax-M2.5-GGUF/resolve/main/UD-Q3_K_XL/MiniMax-M2.5-UD-Q3_K_XL-00001-of-00004.gguf", name: "MiniMax M2.5 230B MoE", family: "MiniMax", description: "230B MoE, 10B active. 80.2% SWE-Bench Verified. Coding/agent powerhouse.", paramCount: "230B (10B active)", downloadSizeGB: 101, ramUsageGB: 120, origin: "MiniMax", tier: "supported", minRAMGB: 128, capabilities: { vision: false, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/MiniMaxAI/MiniMax-M2.5" },
-    { tag: "glm-5.1", ggufFilename: "GLM-5.1-UD-IQ2_M-00001-of-00006.gguf", downloadUrl: "https://huggingface.co/unsloth/GLM-5.1-GGUF/resolve/main/UD-IQ2_M/GLM-5.1-UD-IQ2_M-00001-of-00006.gguf", name: "GLM-5.1 754B MoE", family: "Z.ai", description: "SOTA on SWE-Bench Pro. 754B MoE, 40B active. 200K context. MIT license.", paramCount: "754B (40B active)", downloadSizeGB: 236, ramUsageGB: 260, origin: "Z.ai (Zhipu)", tier: "supported", minRAMGB: 256, capabilities: { vision: false, toolUse: true, reasoning: true }, huggingFaceUrl: "https://huggingface.co/zai-org/GLM-5.1" },
-    // Hidden infrastructure
-    { tag: "nomic-embed-text", ggufFilename: "nomic-embed-text-v1.5.Q8_0.gguf", downloadUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q8_0.gguf", name: "Nomic Embed Text", family: "Nomic", description: "Text embedding model for semantic search.", paramCount: "137M", downloadSizeGB: 0.15, ramUsageGB: 0.3, origin: "Nomic", tier: "recommended", minRAMGB: 4, hidden: true, capabilities: { vision: false, toolUse: false, reasoning: false }, huggingFaceUrl: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5" },
-  ];
+  return getVisibleCatalog() as CatalogEntry[];
 }

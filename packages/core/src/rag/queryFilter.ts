@@ -2,7 +2,7 @@ import type { FilterResult } from "@edgebric/types";
 import { looksLikePersonName, containsSensitiveTerm } from "../shared/piiTerms.js";
 
 const REDIRECT_MESSAGE =
-  "Edgebric provides company-wide policy information and cannot access records about specific individuals. For questions about your personal situation, please contact your administrator or the relevant team directly.";
+  "I can't help with private records about specific individuals. Ask about general information instead.";
 
 /**
  * Filter queries before retrieval.

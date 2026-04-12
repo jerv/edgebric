@@ -12,6 +12,7 @@ import { authRouter } from "./routes/auth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { queryRouter } from "./routes/query.js";
 import { modelsRouter, capabilitiesRouter } from "./routes/models.js";
+import { benchmarksRouter } from "./routes/benchmarks.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { syncRouter } from "./routes/sync.js";
@@ -273,6 +274,7 @@ export function createApp(opts: CreateAppOptions = {}): express.Express {
   app.use("/api/query", ...queryLimiter, queryRouter);
   app.use("/api/admin/models", capabilitiesRouter); // Non-admin capabilities endpoint (must be before admin-only modelsRouter)
   app.use("/api/admin/models", modelsRouter);
+  app.use("/api/admin/benchmarks", benchmarksRouter);
   app.use("/api/conversations", conversationsRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/sync", syncRouter);

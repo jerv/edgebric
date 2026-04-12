@@ -11,6 +11,13 @@ import {
 import type { Tool, ToolContext } from "../services/toolRunner.js";
 import { setupTestApp, teardownTestApp } from "./helpers.js";
 
+const defaultExecution: Tool["execution"] = {
+  mutating: false,
+  parallelSafe: true,
+  dependencyClass: "knowledge",
+  resultShape: "generic",
+};
+
 const testCtx: ToolContext = {
   userEmail: "user@test.com",
   isAdmin: false,
@@ -20,6 +27,7 @@ const testCtx: ToolContext = {
 const echoTool: Tool = {
   name: "echo",
   description: "Returns the input message",
+  execution: defaultExecution,
   parameters: {
     type: "object",
     properties: {
@@ -33,6 +41,7 @@ const echoTool: Tool = {
 const mathTool: Tool = {
   name: "add",
   description: "Adds two numbers",
+  execution: defaultExecution,
   parameters: {
     type: "object",
     properties: {
@@ -125,6 +134,7 @@ describe("Tool Runner", () => {
       const errorTool: Tool = {
         name: "error_tool",
         description: "Always throws",
+        execution: defaultExecution,
         parameters: { type: "object", properties: {}, required: [] },
         execute: async () => { throw new Error("Intentional error"); },
       };
@@ -138,6 +148,7 @@ describe("Tool Runner", () => {
       const ctxTool: Tool = {
         name: "ctx_tool",
         description: "Returns context",
+        execution: defaultExecution,
         parameters: { type: "object", properties: {}, required: [] },
         execute: async (_args, ctx) => ({
           success: true,
@@ -161,6 +172,7 @@ describe("Tool Runner", () => {
       const arrayTool: Tool = {
         name: "array_tool",
         description: "Takes an array",
+        execution: defaultExecution,
         parameters: {
           type: "object",
           properties: { items: { type: "array", items: { type: "string" } } },
@@ -182,6 +194,7 @@ describe("Tool Runner", () => {
       const boolTool: Tool = {
         name: "bool_tool",
         description: "Takes a boolean",
+        execution: defaultExecution,
         parameters: {
           type: "object",
           properties: { flag: { type: "boolean" } },

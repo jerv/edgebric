@@ -80,6 +80,7 @@ export function registerChunks(
       db.insert(chunks)
         .values({
           chunkId,
+          datasetName,
           sourceDocument: meta.sourceDocument,
           documentName: meta.documentName ?? null,
           sectionPath: JSON.stringify(meta.sectionPath),
@@ -92,6 +93,7 @@ export function registerChunks(
         .onConflictDoUpdate({
           target: chunks.chunkId,
           set: {
+            datasetName,
             sourceDocument: meta.sourceDocument,
             documentName: meta.documentName ?? null,
             sectionPath: JSON.stringify(meta.sectionPath),
@@ -164,10 +166,9 @@ export function vectorSearch(
     const queryBlob = Buffer.from(vecBuf.buffer);
 
     const rows = stmt.all(queryBlob, candidateLimit) as VecSearchRow[];
-    const prefix = `${ds}-`;
 
     for (const r of rows) {
-      if (r.chunk_id.startsWith(prefix)) {
+      if (getChunkDatasetName(r.chunk_id) === ds) {
         allResults.push({ chunkId: r.chunk_id, distance: r.distance });
       }
     }
@@ -202,13 +203,23 @@ function getChunkContent(chunkId: string): string | null {
   return decryptContentSafe(row.content);
 }
 
+function getChunkDatasetName(chunkId: string): string | null {
+  const db = getDb();
+  const row = db.select({ datasetName: chunks.datasetName })
+    .from(chunks)
+    .where(eq(chunks.chunkId, chunkId))
+    .get();
+  return row?.datasetName ?? null;
+}
+
 /** Get the number of chunks in a dataset (by prefix match on chunkId). */
 export function getChunkCountForDataset(datasetName: string): number {
-  const sqlite = getSqlite();
-  const row = sqlite.prepare(
-    "SELECT COUNT(*) as cnt FROM chunks WHERE chunk_id LIKE ? ESCAPE '\\'",
-  ).get(`${escapeLikePattern(datasetName)}-%`) as { cnt: number };
-  return row.cnt;
+  const db = getDb();
+  const row = db.select({ cnt: sql<number>`count(*)` })
+    .from(chunks)
+    .where(eq(chunks.datasetName, datasetName))
+    .get();
+  return row?.cnt ?? 0;
 }
 
 /** Look up metadata for a single chunk. */
@@ -322,9 +333,8 @@ export function getChunksForDataset(datasetName: string): Array<{
   metadata: ChunkMetadata;
 }> {
   const db = getDb();
-  const escaped = escapeLikePattern(datasetName);
   const rows = db.select().from(chunks)
-    .where(sql`${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`)
+    .where(eq(chunks.datasetName, datasetName))
     .all();
 
   return rows
@@ -334,12 +344,7 @@ export function getChunksForDataset(datasetName: string): Array<{
       content: decryptContentSafe(row.content!),
       metadata: rowToMeta(row),
     }))
-    .sort((a, b) => {
-      // Sort by chunk index to maintain order
-      const idxA = parseInt(a.chunkId.split("-").pop() ?? "0", 10);
-      const idxB = parseInt(b.chunkId.split("-").pop() ?? "0", 10);
-      return idxA - idxB;
-    });
+    .sort((a, b) => a.metadata.chunkIndex - b.metadata.chunkIndex);
 }
 
 /** Clear all chunk registry entries for a dataset. */
@@ -348,13 +353,12 @@ export function clearChunksForDataset(datasetName: string): void {
   const sqlite = getSqlite();
 
   // Get chunk IDs before deleting so we can clean FTS5 + vec
-  const escaped = escapeLikePattern(datasetName);
   const rows = db.select({ chunkId: chunks.chunkId })
     .from(chunks)
-    .where(sql`${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`)
+    .where(eq(chunks.datasetName, datasetName))
     .all();
 
-  db.run(sql`DELETE FROM ${chunks} WHERE ${chunks.chunkId} LIKE ${escaped + "-%"} ESCAPE '\\'`);
+  db.delete(chunks).where(eq(chunks.datasetName, datasetName)).run();
 
   // Clean FTS5 and vector indexes
   if (rows.length > 0) {
@@ -378,8 +382,27 @@ export function clearChunksForDataset(datasetName: string): void {
  */
 export function purgeOrphanedChunks(): number {
   const db = getDb();
-  const result = db.run(
-    sql`DELETE FROM ${chunks} WHERE ${chunks.sourceDocument} NOT IN (SELECT ${documents.id} FROM ${documents})`,
-  );
-  return result.changes;
+  const sqlite = getSqlite();
+  const orphanRows = db.select({ chunkId: chunks.chunkId })
+    .from(chunks)
+    .where(sql`${chunks.sourceDocument} NOT IN (SELECT ${documents.id} FROM ${documents})`)
+    .all();
+
+  if (orphanRows.length === 0) return 0;
+
+  db.delete(chunks)
+    .where(sql`${chunks.sourceDocument} NOT IN (SELECT ${documents.id} FROM ${documents})`)
+    .run();
+
+  const deleteFts = sqlite.prepare("DELETE FROM chunks_fts WHERE chunk_id = ?");
+  const deleteVec = sqlite.prepare("DELETE FROM chunks_vec WHERE chunk_id = ?");
+  const tx = sqlite.transaction((ids: string[]) => {
+    for (const id of ids) {
+      deleteFts.run(id);
+      deleteVec.run(id);
+    }
+  });
+  tx(orphanRows.map((row) => row.chunkId));
+
+  return orphanRows.length;
 }
