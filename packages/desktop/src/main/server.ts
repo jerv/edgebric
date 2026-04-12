@@ -12,9 +12,10 @@ import {
   startInstance,
   stopLlama,
   isLlamaRunning,
-  autoUpdate,
   getInstalledVersion,
   llamaModelsDir,
+  listLocalModels,
+  ensurePinnedLlamaRuntime,
 } from "./llama-server.js";
 
 let serverProcess: ChildProcess | null = null;
@@ -65,6 +66,10 @@ function isSoloConfig(config: EdgebricConfig | null | undefined): boolean {
 function getEffectiveHostname(config: EdgebricConfig | null | undefined): string {
   if (isSoloConfig(config)) return "localhost";
   return config?.hostname ?? "edgebric.local";
+}
+
+function normalizeModelToken(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function hasHttps(config: EdgebricConfig | null | undefined): boolean {
@@ -232,6 +237,8 @@ async function _startServer(): Promise<void> {
       await downloadLlama(undefined, config.dataDir);
     }
 
+    await ensurePinnedLlamaRuntime(config.dataDir);
+
     const modelsDir = llamaModelsDir(config.dataDir);
 
     // Start embedding server (auto-download if missing)
@@ -282,8 +289,14 @@ async function _startServer(): Promise<void> {
       // Prefer the configured model, fall back to first available
       let chatFile: string | undefined;
       if (config.chatModel) {
-        // Try to find the GGUF matching the configured tag
-        chatFile = chatFiles.find(f => f.toLowerCase().includes(config.chatModel!.replace(/[.-]/g, "").toLowerCase()));
+        const localModels = listLocalModels(config.dataDir);
+        const expected = normalizeModelToken(config.chatModel);
+        const configuredLocal = localModels.find((model) =>
+          normalizeModelToken(model.filename).includes(expected),
+        );
+        if (configuredLocal?.filename && chatFiles.includes(configuredLocal.filename)) {
+          chatFile = configuredLocal.filename;
+        }
       }
       chatFile = chatFile ?? chatFiles[0];
       if (chatFile) {
@@ -291,12 +304,6 @@ async function _startServer(): Promise<void> {
       }
     }
 
-    // Auto-update if enabled (non-blocking)
-    if (config.llamaAutoUpdate !== false) {
-      autoUpdate(config.dataDir).catch((err) => {
-        console.error("llama-server auto-update failed:", err);
-      });
-    }
   } catch (err) {
     console.error("llama-server startup failed:", err);
     // Continue anyway — the API will report AI as unavailable via health endpoint

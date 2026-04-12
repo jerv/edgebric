@@ -215,7 +215,7 @@ export function ModelPicker({ onModelLoading }: ModelPickerProps) {
           {/* Member: read-only note */}
           {!isAdmin && (
             <div className="px-3 py-2 border-t border-slate-100 dark:border-gray-800 text-[10px] text-slate-400 dark:text-gray-500">
-              Model managed by your admin
+              Ask an admin to change or load models.
             </div>
           )}
 

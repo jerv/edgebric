@@ -68,6 +68,7 @@
     "typescript": "^5.7.0"
   },
   "dependencies": {
+    "@edgebric/types": "workspace:*",
     "bonjour-service": "^1.3.0",
     "electron-log": "^5.3.0",
     "electron-updater": "^6.3.0"

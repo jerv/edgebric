@@ -2,7 +2,7 @@
  * Knowledge Tools — 12 tools for searching, managing, and analyzing
  * documents and data sources via the local RAG pipeline.
  */
-import type { Tool, ToolResult } from "../toolRunner.js";
+import type { Tool, ToolContext, ToolResult } from "../toolRunner.js";
 import { registerTool } from "../toolRunner.js";
 import { hybridMultiDatasetSearch } from "../searchService.js";
 import {
@@ -11,6 +11,9 @@ import {
   createDataSource,
   deleteDataSource,
   refreshDocumentCount,
+  updateDataSource,
+  setDataSourceAccessList,
+  getDataSourceAccessList,
 } from "../dataSourceStore.js";
 import { getDocument, getDocumentsByDataSource, deleteDocument, setDocument } from "../documentStore.js";
 import { vectorSearch, clearChunksForDocument } from "../chunkRegistry.js";
@@ -22,12 +25,77 @@ import { writeFileSync, mkdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import { config } from "../../config.js";
 import type { Document } from "@edgebric/types";
+import { revokeSharesForDataSource, revokeSharesForRemovedUsers } from "../groupChatStore.js";
+
+function getScopedAccessibleSources(
+  ctx: Pick<ToolContext, "userEmail" | "isAdmin" | "orgId" | "allowedSourceIds">,
+): ReturnType<typeof listAccessibleDataSources> {
+  const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+  if (!ctx.allowedSourceIds || ctx.allowedSourceIds.length === 0) {
+    return accessible;
+  }
+  const allowed = new Set(ctx.allowedSourceIds);
+  return accessible.filter((ds) => allowed.has(ds.id));
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function resolveSource(
+  ctx: Pick<ToolContext, "userEmail" | "isAdmin" | "orgId" | "allowedSourceIds">,
+  sourceId?: string,
+  sourceName?: string,
+) {
+  const accessible = getScopedAccessibleSources(ctx);
+  if (sourceId) {
+    const found = accessible.find((ds) => ds.id === sourceId);
+    return found;
+  }
+  if (!sourceName) return undefined;
+  const target = normalizeName(sourceName);
+  const exact = accessible.find((ds) => normalizeName(ds.name) === target);
+  if (exact) return exact;
+  return accessible.find((ds) => normalizeName(ds.name).includes(target));
+}
+
+function resolveDocument(
+  ctx: Pick<ToolContext, "userEmail" | "isAdmin" | "orgId" | "allowedSourceIds">,
+  opts: { documentId?: string | undefined; documentName?: string | undefined; sourceId?: string | undefined; sourceName?: string | undefined },
+): Document | undefined {
+  const accessible = getScopedAccessibleSources(ctx);
+  const accessibleIds = new Set(accessible.map((ds) => ds.id));
+
+  if (opts.documentId) {
+    const found = getDocument(opts.documentId);
+    if (!found) return undefined;
+    if (found.dataSourceId && !accessibleIds.has(found.dataSourceId)) return undefined;
+    return found;
+  }
+
+  if (!opts.documentName) return undefined;
+  const target = normalizeName(opts.documentName);
+  const source = resolveSource(ctx, opts.sourceId, opts.sourceName);
+  const docs = source
+    ? getDocumentsByDataSource(source.id)
+    : accessible.flatMap((ds) => getDocumentsByDataSource(ds.id));
+
+  const exact = docs.find((doc) => normalizeName(doc.name) === target);
+  if (exact) return exact;
+  return docs.find((doc) => normalizeName(doc.name).includes(target));
+}
 
 // ─── search_knowledge ───────────────────────────────────────────────────────
 
 const searchKnowledge: Tool = {
   name: "search_knowledge",
   description: "Search the knowledge base using hybrid vector + keyword search. Returns ranked document chunks with citations.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "search_results",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -42,7 +110,7 @@ const searchKnowledge: Tool = {
     const sourceIds = args["sourceIds"] as string[] | undefined;
     const topK = (args["topK"] as number) ?? 5;
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     let datasetNames = accessible.map((ds) => ds.datasetName);
 
     if (sourceIds && sourceIds.length > 0) {
@@ -73,9 +141,15 @@ const searchKnowledge: Tool = {
 const listSources: Tool = {
   name: "list_sources",
   description: "List all available data sources with their document counts.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "source_list",
+  },
   parameters: { type: "object", properties: {}, required: [] },
   async execute(_args, ctx): Promise<ToolResult> {
-    const sources = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const sources = getScopedAccessibleSources(ctx);
     const data = sources.map((ds) => ({
       id: ds.id,
       name: ds.name,
@@ -93,6 +167,12 @@ const listSources: Tool = {
 const listDocuments: Tool = {
   name: "list_documents",
   description: "List all documents in a specific data source.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "document_list",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -105,7 +185,7 @@ const listDocuments: Tool = {
     const ds = getDataSource(sourceId);
     if (!ds) return { success: false, error: "Source not found" };
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     if (!accessible.some((a) => a.id === sourceId)) {
       return { success: false, error: "Access denied" };
     }
@@ -128,6 +208,12 @@ const listDocuments: Tool = {
 const getSourceSummary: Tool = {
   name: "get_source_summary",
   description: "Get a summary of a data source's contents including document names and topics.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "generic",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -140,7 +226,7 @@ const getSourceSummary: Tool = {
     const ds = getDataSource(sourceId);
     if (!ds) return { success: false, error: "Source not found" };
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     if (!accessible.some((a) => a.id === sourceId)) {
       return { success: false, error: "Access denied" };
     }
@@ -166,6 +252,12 @@ const getSourceSummary: Tool = {
 const createSourceTool: Tool = {
   name: "create_source",
   description: "Create a new data source (knowledge base).",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -194,6 +286,12 @@ const createSourceTool: Tool = {
 const uploadDocument: Tool = {
   name: "upload_document",
   description: "Save text content as a document in a data source, then trigger ingestion for RAG indexing.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -211,7 +309,7 @@ const uploadDocument: Tool = {
     const ds = getDataSource(sourceId);
     if (!ds) return { success: false, error: "Source not found" };
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     if (!accessible.some((a) => a.id === sourceId)) {
       return { success: false, error: "Access denied" };
     }
@@ -249,11 +347,157 @@ const uploadDocument: Tool = {
   },
 };
 
+// ─── update_source ──────────────────────────────────────────────────────────
+
+const updateSourceTool: Tool = {
+  name: "update_source",
+  description: "Update a data source's name, description, storage type, access settings, and security controls.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
+  parameters: {
+    type: "object",
+    properties: {
+      sourceId: { type: "string", description: "The data source ID to update" },
+      sourceName: { type: "string", description: "The data source name to update when an ID is not known" },
+      name: { type: "string", description: "Updated source name" },
+      description: { type: "string", description: "Updated description" },
+      type: { type: "string", enum: ["organization", "personal"], description: "Updated storage type" },
+      accessMode: { type: "string", enum: ["all", "restricted"], description: "Who can access this source" },
+      accessList: { type: "array", items: { type: "string" }, description: "Email allowlist when accessMode is restricted" },
+      allowSourceViewing: { type: "boolean", description: "Whether members can view raw source documents" },
+      allowVaultSync: { type: "boolean", description: "Whether this source can sync to vault mode" },
+      piiMode: { type: "string", enum: ["off", "warn", "block"], description: "PII detection behavior during ingestion" },
+    },
+    required: [],
+  },
+  async execute(args, ctx): Promise<ToolResult> {
+    const sourceId = args["sourceId"] as string | undefined;
+    const sourceName = args["sourceName"] as string | undefined;
+    const ds = resolveSource(ctx, sourceId, sourceName);
+    if (!ds) return { success: false, error: "Source not found or not accessible" };
+
+    const isOwner = ds.ownerId.toLowerCase() === ctx.userEmail.toLowerCase();
+    if (!ctx.isAdmin && !isOwner) {
+      return { success: false, error: "Only the source owner or an admin can update this source" };
+    }
+
+    const name = args["name"] as string | undefined;
+    const description = args["description"] as string | undefined;
+    const type = args["type"] as "organization" | "personal" | undefined;
+    const accessMode = args["accessMode"] as "all" | "restricted" | undefined;
+    const accessList = args["accessList"] as string[] | undefined;
+    const allowSourceViewing = args["allowSourceViewing"] as boolean | undefined;
+    const allowVaultSync = args["allowVaultSync"] as boolean | undefined;
+    const piiMode = args["piiMode"] as "off" | "warn" | "block" | undefined;
+
+    if ([name, description, type, accessMode, accessList, allowSourceViewing, allowVaultSync, piiMode].every((value) => value === undefined)) {
+      return { success: false, error: "No source changes were provided" };
+    }
+
+    const updated = updateDataSource(ds.id, {
+      ...(name !== undefined && { name: name.trim() }),
+      ...(description !== undefined && { description: description.trim() }),
+      ...(type !== undefined && { type }),
+      ...(accessMode !== undefined && { accessMode }),
+      ...(allowSourceViewing !== undefined && { allowSourceViewing }),
+      ...(allowVaultSync !== undefined && { allowVaultSync }),
+      ...(piiMode !== undefined && { piiMode }),
+    });
+    if (!updated) return { success: false, error: "Source not found" };
+
+    if (accessList !== undefined) {
+      setDataSourceAccessList(updated.id, accessList);
+    }
+    if (accessMode === "all") {
+      setDataSourceAccessList(updated.id, []);
+    }
+    if (accessMode === "restricted") {
+      const currentList = getDataSourceAccessList(updated.id);
+      revokeSharesForRemovedUsers(updated.id, new Set(currentList.map((email) => email.toLowerCase())));
+    }
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        name: updated.name,
+        description: updated.description,
+        type: updated.type,
+        accessMode: updated.accessMode,
+        accessList: getDataSourceAccessList(updated.id),
+        allowSourceViewing: updated.allowSourceViewing,
+        allowVaultSync: updated.allowVaultSync,
+        piiMode: updated.piiMode,
+      },
+    };
+  },
+};
+
+// ─── rename_document ────────────────────────────────────────────────────────
+
+const renameDocumentTool: Tool = {
+  name: "rename_document",
+  description: "Rename a document by ID or by name within an accessible data source.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
+  parameters: {
+    type: "object",
+    properties: {
+      documentId: { type: "string", description: "The document ID to rename" },
+      documentName: { type: "string", description: "Current document name when the ID is not known" },
+      sourceId: { type: "string", description: "Optional source ID to scope the document lookup" },
+      sourceName: { type: "string", description: "Optional source name to scope the document lookup" },
+      newName: { type: "string", description: "The new document name including extension when desired" },
+    },
+    required: ["newName"],
+  },
+  async execute(args, ctx): Promise<ToolResult> {
+    const documentId = args["documentId"] as string | undefined;
+    const documentName = args["documentName"] as string | undefined;
+    const sourceId = args["sourceId"] as string | undefined;
+    const sourceName = args["sourceName"] as string | undefined;
+    const newName = (args["newName"] as string | undefined)?.trim();
+    if (!newName) return { success: false, error: "New document name is required" };
+
+    const doc = resolveDocument(ctx, { documentId, documentName, sourceId, sourceName });
+    if (!doc) return { success: false, error: "Document not found or not accessible" };
+
+    setDocument({
+      ...doc,
+      name: newName,
+      updatedAt: new Date(),
+    });
+
+    return {
+      success: true,
+      data: {
+        documentId: doc.id,
+        previousName: doc.name,
+        newName,
+      },
+    };
+  },
+};
+
 // ─── delete_document ────────────────────────────────────────────────────────
 
 const deleteDocumentTool: Tool = {
   name: "delete_document",
   description: "Delete a document and its indexed chunks from the knowledge base.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -268,7 +512,7 @@ const deleteDocumentTool: Tool = {
 
     // Verify user has access to the document's data source
     if (doc.dataSourceId) {
-      const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+      const accessible = getScopedAccessibleSources(ctx);
       if (!accessible.some((a) => a.id === doc.dataSourceId)) {
         return { success: false, error: "Access denied" };
       }
@@ -295,6 +539,12 @@ const deleteDocumentTool: Tool = {
 const deleteSourceTool: Tool = {
   name: "delete_source",
   description: "Delete a data source and all its documents. This is destructive and cannot be undone.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -317,6 +567,7 @@ const deleteSourceTool: Tool = {
       try { unlinkSync(doc.storageKey); } catch { /* ignore */ }
     }
 
+    revokeSharesForDataSource(sourceId, "the data source was deleted");
     deleteDataSource(sourceId);
     return { success: true, data: { deleted: ds.name, documentsDeleted: docs.length } };
   },
@@ -327,6 +578,12 @@ const deleteSourceTool: Tool = {
 const saveToVault: Tool = {
   name: "save_to_vault",
   description: "Save content to the user's personal vault source mid-conversation.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "management",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -340,7 +597,7 @@ const saveToVault: Tool = {
     const title = args["title"] as string;
 
     // Find or create user's personal vault source
-    const personal = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId)
+    const personal = getScopedAccessibleSources(ctx)
       .filter((ds) => ds.type === "personal");
 
     let vaultSource = personal[0];
@@ -388,6 +645,12 @@ const saveToVault: Tool = {
 const compareDocuments: Tool = {
   name: "compare_documents",
   description: "Compare two documents by retrieving their chunks and highlighting key differences in topics covered.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "generic",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -406,7 +669,7 @@ const compareDocuments: Tool = {
     if (!doc2) return { success: false, error: `Document ${docId2} not found` };
 
     // Verify user has access to both documents' data sources
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     const accessibleIds = new Set(accessible.map((a) => a.id));
     if (doc1.dataSourceId && !accessibleIds.has(doc1.dataSourceId)) {
       return { success: false, error: "Access denied to first document" };
@@ -442,6 +705,12 @@ const compareDocuments: Tool = {
 const citeCheck: Tool = {
   name: "cite_check",
   description: "Verify or contradict a claim by searching all data sources for supporting or contradicting evidence.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "search_results",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -452,7 +721,7 @@ const citeCheck: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const claim = args["claim"] as string;
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     const datasetNames = accessible.map((ds) => ds.datasetName);
     if (datasetNames.length === 0) {
       return { success: true, data: { evidence: [], verdict: "no_sources" } };
@@ -484,6 +753,12 @@ const citeCheck: Tool = {
 const findRelated: Tool = {
   name: "find_related",
   description: "Find documents related to a given document using vector similarity search across all sources.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "knowledge",
+    resultShape: "search_results",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -499,7 +774,7 @@ const findRelated: Tool = {
     // Use document name + first section headings as query
     const queryText = [doc.name, ...doc.sectionHeadings.slice(0, 3)].join(" ");
 
-    const accessible = listAccessibleDataSources(ctx.userEmail, ctx.isAdmin, ctx.orgId);
+    const accessible = getScopedAccessibleSources(ctx);
     const datasetNames = accessible.map((ds) => ds.datasetName);
 
     const queryEmbedding = await embed(queryText);
@@ -537,7 +812,9 @@ export function registerKnowledgeTools(): void {
   registerTool(listDocuments);
   registerTool(getSourceSummary);
   registerTool(createSourceTool);
+  registerTool(updateSourceTool);
   registerTool(uploadDocument);
+  registerTool(renameDocumentTool);
   registerTool(deleteDocumentTool);
   registerTool(deleteSourceTool);
   registerTool(saveToVault);

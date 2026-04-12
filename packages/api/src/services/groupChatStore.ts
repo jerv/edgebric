@@ -90,6 +90,8 @@ function rowToMessage(row: typeof groupChatMessages.$inferSelect): GroupChatMess
   if (row.citations) msg.citations = JSON.parse(row.citations) as Citation[];
   if (row.hasConfidentAnswer != null) msg.hasConfidentAnswer = !!row.hasConfidentAnswer;
   if (row.answerType != null) msg.answerType = row.answerType as AnswerType;
+  if (row.toolUses) msg.toolUses = JSON.parse(row.toolUses);
+  if (row.executionPlan) msg.executionPlan = JSON.parse(row.executionPlan);
   return msg;
 }
 
@@ -456,6 +458,8 @@ export function addMessage(data: {
   citations?: Citation[];
   hasConfidentAnswer?: boolean;
   answerType?: string;
+  toolUses?: GroupChatMessage["toolUses"];
+  executionPlan?: GroupChatMessage["executionPlan"];
 }): GroupChatMessage {
   const db = getDb();
   const id = randomUUID();
@@ -473,6 +477,8 @@ export function addMessage(data: {
     citations: data.citations ? JSON.stringify(data.citations) : null,
     hasConfidentAnswer: data.hasConfidentAnswer != null ? (data.hasConfidentAnswer ? 1 : 0) : null,
     answerType: data.answerType ?? null,
+    toolUses: data.toolUses ? JSON.stringify(data.toolUses) : null,
+    executionPlan: data.executionPlan ? JSON.stringify(data.executionPlan) : null,
     createdAt: now,
   }).run();
 
@@ -494,6 +500,8 @@ export function addMessage(data: {
   if (data.citations) msg.citations = data.citations;
   if (data.hasConfidentAnswer != null) msg.hasConfidentAnswer = data.hasConfidentAnswer;
   if (data.answerType) msg.answerType = data.answerType as AnswerType;
+  if (data.toolUses) msg.toolUses = data.toolUses;
+  if (data.executionPlan) msg.executionPlan = data.executionPlan;
   return msg;
 }
 

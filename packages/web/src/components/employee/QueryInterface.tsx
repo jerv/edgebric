@@ -2,18 +2,20 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
 import Markdown from "react-markdown";
-import type { Citation, PersistedMessage } from "@edgebric/types";
+import type { ChatActionProposal, Citation, ExecutionChecklistItem, PersistedMessage } from "@edgebric/types";
 import { getLoginUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { cleanContent, dedupeCitations, PROSE_CLASSES } from "@/lib/content";
 import { useUser } from "@/contexts/UserContext";
 import { usePrivacy, type PrivacyMessage } from "@/contexts/PrivacyContext";
-import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Sparkles, Settings2 } from "lucide-react";
+import { showToast } from "@/hooks/useToast";
+import { ChevronDown, EyeOff, ShieldCheck, Eye, CheckCircle, X, Database, Check, Building2, UserPlus, Network, Paperclip, FileText, Sparkles } from "lucide-react";
 import { ModelPicker } from "@/components/shared/ModelPicker";
 import { ContextRing } from "@/components/shared/ContextRing";
 import { ExitPrivacyDialog } from "@/components/layout/ExitPrivacyDialog";
 import { CitationList } from "@/components/shared/CitationList";
 import { ChatInput } from "@/components/shared/ChatInput";
+import { ChatActionCard } from "@/components/shared/ChatActionCard";
 import { SourcePanel } from "./SourcePanel";
 import { DSMentionPicker, type DSTarget, type DSMentionPickerHandle } from "./DSMentionPicker";
 import { GroupChatSetupDialog } from "@/components/groupChat/GroupChatSetupDialog";
@@ -42,6 +44,9 @@ interface Message {
   meshNodesUnavailable?: number;
   /** Tool uses during this query (only when model has tool use capability). */
   toolUses?: ToolUse[];
+  /** Planner/executor checklist for progress visibility. */
+  executionPlan?: ExecutionChecklistItem[];
+  actionProposal?: ChatActionProposal;
 }
 
 
@@ -157,27 +162,6 @@ export function ChatPanel() {
   const [hydrated, setHydrated] = useState(false);
   const [targetDataSources, setTargetDataSources] = useState<DSTarget[]>([]);
 
-  // AI Behavior settings (persisted in localStorage)
-  const [aiBehaviorOpen, setAiBehaviorOpen] = useState(false);
-  const aiBehaviorRef = useRef<HTMLDivElement>(null);
-  const [aiBehavior, setAiBehavior] = useState(() => {
-    try {
-      const saved = localStorage.getItem("edgebric:ai-behavior");
-      if (saved) return JSON.parse(saved) as { auto: boolean; decompose: boolean; rerank: boolean; iterativeRetrieval: boolean; generalAnswers: boolean };
-    } catch { /* ignore */ }
-    return { auto: true, decompose: false, rerank: false, iterativeRetrieval: false, generalAnswers: true };
-  });
-  function updateAiBehavior(updates: Partial<typeof aiBehavior>) {
-    setAiBehavior((prev) => {
-      let next = { ...prev, ...updates };
-      // When auto is turned on, reset search settings to defaults (all on)
-      if (updates.auto === true) {
-        next = { ...next, decompose: true, rerank: true, iterativeRetrieval: true };
-      }
-      localStorage.setItem("edgebric:ai-behavior", JSON.stringify(next));
-      return next;
-    });
-  }
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -206,8 +190,8 @@ export function ChatPanel() {
     queryKey: ["model-capabilities"],
     queryFn: async () => {
       const res = await fetch("/api/admin/models/capabilities", { credentials: "same-origin" });
-      if (!res.ok) return { vision: false, toolUse: false, reasoning: false };
-      return res.json() as Promise<{ vision: boolean; toolUse: boolean; reasoning: boolean }>;
+      if (!res.ok) return { vision: false, toolUse: false, reasoning: false, support: "community" as const };
+      return res.json() as Promise<{ vision: boolean; toolUse: boolean; reasoning: boolean; support: "tested" | "experimental" | "community"; recommendedRole?: string | null }>;
     },
     staleTime: 60_000,
   });
@@ -397,6 +381,8 @@ export function ChatPanel() {
           hasConfidentAnswer: m.hasConfidentAnswer,
           ...(m.source && { source: m.source }),
           ...(m.toolUses && { toolUses: m.toolUses }),
+          ...(m.executionPlan && { executionPlan: m.executionPlan }),
+          ...(m.actionProposal && { actionProposal: m.actionProposal }),
         }));
         setMessages(loaded);
 
@@ -465,6 +451,9 @@ export function ChatPanel() {
             citations: m.citations,
             hasConfidentAnswer: m.hasConfidentAnswer,
             ...(m.source && { source: m.source }),
+            ...(m.toolUses && { toolUses: m.toolUses }),
+            ...(m.executionPlan && { executionPlan: m.executionPlan }),
+            ...(m.actionProposal && { actionProposal: m.actionProposal }),
           }));
           setMessages(loaded);
         } catch { /* ignore */ }
@@ -518,18 +507,6 @@ export function ChatPanel() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [privacyPopoverOpen]);
-
-  // Close AI behavior popover on outside click
-  useEffect(() => {
-    if (!aiBehaviorOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (aiBehaviorRef.current && !aiBehaviorRef.current.contains(e.target as Node)) {
-        setAiBehaviorOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [aiBehaviorOpen]);
 
   // Close data source selector on outside click
   useEffect(() => {
@@ -726,13 +703,6 @@ export function ChatPanel() {
         }
       }
 
-      // AI behavior: when auto is on, don't send overrides (use server defaults)
-      const behaviorOverrides = aiBehavior.auto ? undefined : {
-        decompose: aiBehavior.decompose,
-        rerank: aiBehavior.rerank,
-        iterativeRetrieval: aiBehavior.iterativeRetrieval,
-      };
-
       const requestBody = isPrivacyMode
         ? {
             query: effectiveQuery,
@@ -740,14 +710,12 @@ export function ChatPanel() {
             messages: messages.slice(-4).map((m) => ({ role: m.role, content: m.content })),
             dataSourceIds: resolvedDSIds,
             ...(isNoSources && { skipSearch: true }),
-            ...(behaviorOverrides && { aiBehavior: behaviorOverrides }),
           }
         : {
             query: effectiveQuery,
             conversationId,
             dataSourceIds: resolvedDSIds,
             ...(isNoSources && { skipSearch: true }),
-            ...(behaviorOverrides && { aiBehavior: behaviorOverrides }),
           };
 
       const response = await fetch("/api/query", {
@@ -764,6 +732,26 @@ export function ChatPanel() {
       }
 
       const contentType = response.headers.get("content-type") ?? "";
+      if (!response.ok && contentType.includes("application/json")) {
+        const body = await response.json() as { error?: string; message?: string; blocked?: boolean };
+        const errorMessage = body.error ?? body.message ?? "Something went wrong. Please try again.";
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === "assistant") {
+            updated[updated.length - 1] = {
+              ...last,
+              content: errorMessage,
+              revealedContent: errorMessage,
+              prevRevealedContent: last.revealedContent ?? "",
+              citations: [],
+              isStreaming: false,
+            };
+          }
+          return updated;
+        });
+        return;
+      }
       if (contentType.includes("application/json")) {
         const body = await response.json() as { blocked?: boolean; message?: string };
         if (body.blocked) {
@@ -794,6 +782,7 @@ export function ChatPanel() {
       }
 
       let buffer = "";
+      let eventType = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done || abort.signal.aborted) break;
@@ -803,18 +792,66 @@ export function ChatPanel() {
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          if (line.startsWith("event: delta")) continue;
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7);
+            continue;
+          }
           if (line.startsWith("data: ")) {
             const payload = line.slice(6);
             try {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const parsed = JSON.parse(payload) as any;
-              if ("position" in parsed) {
+              if (eventType === "queued" || "position" in parsed) {
                 // Queue position update — user is waiting for an inference slot
                 setQueuePosition(parsed.position as number);
                 continue;
               }
-              if ("tool" in parsed && "summary" in parsed) {
+              if (eventType === "error" && (parsed.message || parsed.error)) {
+                const errorMessage = (parsed.message as string | undefined) ?? (parsed.error as string | undefined) ?? "Something went wrong. Please try again.";
+                setQueuePosition(null);
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "assistant") {
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: errorMessage,
+                      revealedContent: errorMessage,
+                      prevRevealedContent: last.revealedContent ?? "",
+                      isStreaming: false,
+                    };
+                  }
+                  return updated;
+                });
+                continue;
+              }
+              if (eventType === "plan" && Array.isArray(parsed.executionPlan)) {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "assistant") {
+                    updated[updated.length - 1] = { ...last, executionPlan: parsed.executionPlan as ExecutionChecklistItem[] };
+                  }
+                  return updated;
+                });
+                continue;
+              }
+              if (eventType === "plan_step" && parsed.id) {
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "assistant") {
+                    const current = last.executionPlan ?? [];
+                    const nextPlan = current.some((step) => step.id === parsed.id)
+                      ? current.map((step) => step.id === parsed.id ? parsed as ExecutionChecklistItem : step)
+                      : [...current, parsed as ExecutionChecklistItem];
+                    updated[updated.length - 1] = { ...last, executionPlan: nextPlan };
+                  }
+                  return updated;
+                });
+                continue;
+              }
+              if (eventType === "tool_use" || ("tool" in parsed && "summary" in parsed)) {
                 // Tool use event — model is calling a tool
                 setMessages((prev) => {
                   const updated = [...prev];
@@ -881,6 +918,8 @@ export function ChatPanel() {
                       meshNodesSearched: parsed.meshNodesSearched,
                       meshNodesUnavailable: parsed.meshNodesUnavailable,
                       toolUses: parsed.toolUses ?? last.toolUses,
+                      executionPlan: parsed.executionPlan ?? last.executionPlan,
+                      actionProposal: parsed.actionProposal ?? last.actionProposal,
                       isStreaming: false,
                     };
                   }
@@ -992,6 +1031,52 @@ export function ChatPanel() {
     const text = firstUserMsg.content.slice(0, 80);
     return text.length < firstUserMsg.content.length ? text + "..." : text;
   })();
+
+  async function executeMessageAction(messageId: string, proposal: ChatActionProposal, args: Record<string, unknown>) {
+    if (!conversationId) {
+      throw new Error("This action needs a saved conversation.");
+    }
+
+    const response = await fetch("/api/query/actions/execute", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationId,
+        messageId,
+        tool: proposal.tool,
+        arguments: args,
+      }),
+    });
+
+    const body = await response.json().catch(() => ({})) as {
+      error?: string;
+      answer?: string;
+      toolUses?: ToolUse[];
+      executionPlan?: ExecutionChecklistItem[];
+    };
+    if (!response.ok) {
+      throw new Error(body.error ?? "Action failed");
+    }
+
+    setMessages((prev) => prev.map((message) => {
+      if (message.id !== messageId) return message;
+      return {
+        ...message,
+        content: body.answer ?? message.content,
+        toolUses: body.toolUses ?? message.toolUses,
+        executionPlan: body.executionPlan ?? message.executionPlan,
+        actionProposal: undefined,
+      };
+    }));
+
+    void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
+    void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    showToast({
+      title: "Action completed",
+      description: body.answer ?? "The requested change was applied.",
+    });
+  }
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
@@ -1128,9 +1213,27 @@ export function ChatPanel() {
                     )}
                   </div>
 
-                  {/* Tool use transparency */}
-                  {!message.isStreaming && message.toolUses && message.toolUses.length > 0 && (
-                    <ToolUsePanel toolUses={message.toolUses} />
+                  {/* Execution transparency */}
+                  {((message.toolUses && message.toolUses.length > 0) || (message.executionPlan && message.executionPlan.length > 0)) && (
+                    <ToolUsePanel toolUses={message.toolUses} executionPlan={message.executionPlan} />
+                  )}
+
+                  {message.id && message.actionProposal && !message.isStreaming && (
+                    <ChatActionCard
+                      proposal={message.actionProposal}
+                      onConfirm={async (args) => {
+                        try {
+                          await executeMessageAction(message.id!, message.actionProposal!, args);
+                        } catch (err) {
+                          showToast({
+                            title: "Action failed",
+                            description: err instanceof Error ? err.message : "Could not apply the requested change.",
+                            variant: "destructive",
+                          });
+                          throw err;
+                        }
+                      }}
+                    />
                   )}
 
                   {/* Citations */}
@@ -1168,19 +1271,10 @@ export function ChatPanel() {
                             )}
                             {privacyLevel === "vault" ? "Vault — fully local" : "Private — not saved"}
                           </span>
-                        ) : message.hasConfidentAnswer ? (
-                          <>
-                            {message.retrievalScore != null && message.retrievalScore < 0.5 && (
-                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">
-                                Lower confidence — the matching documents had weaker relevance scores. Verify this answer carefully.
-                              </p>
-                            )}
-                            {(user?.showDisclaimer ?? true) && (
-                              <p className="text-xs text-slate-400 dark:text-gray-500">
-                                Verify all important answers with the appropriate human.
-                              </p>
-                            )}
-                          </>
+                        ) : dedupedCitations.length > 0 ? (
+                          <span className="text-xs text-slate-500 dark:text-gray-400">
+                            Uses local sources where relevant
+                          </span>
                         ) : null}
                       </div>
                     </div>
@@ -1365,80 +1459,6 @@ export function ChatPanel() {
                 )}
               </div>
 
-              {/* AI Behavior shortcut */}
-              <div ref={aiBehaviorRef} className="relative">
-                <button
-                  onClick={() => setAiBehaviorOpen((o) => !o)}
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs transition-colors px-2 py-1 rounded-lg",
-                    !aiBehavior.auto
-                      ? "text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950"
-                      : "text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900",
-                  )}
-                >
-                  <Settings2 className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">{aiBehavior.auto ? "Auto" : "Custom"}</span>
-                  <ChevronDown className={cn("w-3 h-3 transition-transform", aiBehaviorOpen && "rotate-180")} />
-                </button>
-
-                {aiBehaviorOpen && (
-                  <div className="absolute left-0 bottom-full mb-1 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-950 border border-slate-200 dark:border-gray-800 rounded-xl shadow-lg py-2 z-20">
-                    <div className="px-3 pb-2 flex items-center justify-between border-b border-slate-100 dark:border-gray-800">
-                      <span className="text-xs font-medium text-slate-700 dark:text-gray-300">AI Behavior</span>
-                      <a
-                        href="/account?tab=general"
-                        className="text-[10px] text-slate-400 dark:text-gray-500 hover:text-slate-600 dark:hover:text-gray-300"
-                      >
-                        Full settings
-                      </a>
-                    </div>
-
-                    {/* Auto toggle */}
-                    <button
-                      onMouseDown={(e) => { e.preventDefault(); updateAiBehavior({ auto: !aiBehavior.auto }); }}
-                      className="w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors hover:bg-slate-50 dark:hover:bg-gray-900"
-                    >
-                      <span className={cn("text-slate-700 dark:text-gray-300", aiBehavior.auto && "font-medium")}>Auto</span>
-                      <div className={cn(
-                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                        aiBehavior.auto ? "bg-slate-900 dark:bg-gray-100" : "bg-slate-200 dark:bg-gray-700",
-                      )}>
-                        <span className={cn(
-                          "inline-block h-3.5 w-3.5 rounded-full bg-white dark:bg-gray-900 transition-transform",
-                          aiBehavior.auto ? "translate-x-4" : "translate-x-0.5",
-                        )} />
-                      </div>
-                    </button>
-
-                    {/* Search quality toggles — dimmed when auto is on */}
-                    <div className={cn("border-t border-slate-100 dark:border-gray-800 pt-1", aiBehavior.auto && "opacity-40 pointer-events-none")}>
-                      {([
-                        { key: "decompose" as const, label: "Query decomposition", tip: "Break complex questions into sub-queries" },
-                        { key: "rerank" as const, label: "Re-ranking", tip: "AI re-scores results by relevance" },
-                        { key: "iterativeRetrieval" as const, label: "Iterative retrieval", tip: "Retry with reformulated queries if low confidence" },
-                      ]).map(({ key, label, tip }) => (
-                        <button
-                          key={key}
-                          onMouseDown={(e) => { e.preventDefault(); updateAiBehavior({ [key]: !aiBehavior[key] }); }}
-                          title={tip}
-                          className="w-full text-left px-3 py-1.5 text-sm flex items-center justify-between transition-colors hover:bg-slate-50 dark:hover:bg-gray-900"
-                        >
-                          <span className="text-slate-600 dark:text-gray-400">{label}</span>
-                          <div className={cn(
-                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                            aiBehavior[key] ? "bg-slate-900 dark:bg-gray-100" : "bg-slate-200 dark:bg-gray-700",
-                          )}>
-                            <span className={cn(
-                              "inline-block h-3.5 w-3.5 rounded-full bg-white dark:bg-gray-900 transition-transform",
-                              aiBehavior[key] ? "translate-x-4" : "translate-x-0.5",
-                            )} />
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
              </div>
 
               {/* Model selector + context usage — visible to all users */}

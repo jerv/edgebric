@@ -121,7 +121,6 @@ authRouter.get("/me", (req, res) => {
       defaultGroupChatNotifLevel: "all",
       onboardingComplete: true,
       needsNameSetup: false,
-      showDisclaimer: soloOrg?.settings.showDisclaimer ?? true,
       authMode: "none",
     });
     return;
@@ -167,7 +166,6 @@ authRouter.get("/me", (req, res) => {
     onboardingComplete: org?.settings.onboardingComplete ?? false,
     needsNameSetup: !displayName,
     orgAvatarUrl: org?.settings.avatarUrl,
-    showDisclaimer: org?.settings.showDisclaimer ?? true,
     authMode: "oidc",
   });
 });

@@ -22,6 +22,7 @@ import { DEFAULT_DATA_DIR } from "./config.js";
 
 /** Pinned llama.cpp build number — tested and known to work with Edgebric. */
 const PINNED_BUILD = "b8660";
+const STARTUP_TIMEOUT_MS = 180_000;
 
 const LLAMA_HOST = "127.0.0.1";
 const CHAT_PORT = 8080;
@@ -54,6 +55,30 @@ function llamaBinaryPath(dataDir?: string): string {
   return path.join(llamaDir(dataDir), "llama-server");
 }
 
+function systemLlamaBinaryPath(): string | null {
+  const candidates = [
+    "/opt/homebrew/bin/llama-server",
+    "/usr/local/bin/llama-server",
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function activeLlamaBinaryPath(dataDir?: string): string {
+  return systemLlamaBinaryPath() ?? llamaBinaryPath(dataDir);
+}
+
+function activeLlamaLibraryPath(dataDir?: string): string | null {
+  const systemBinary = systemLlamaBinaryPath();
+  if (systemBinary) {
+    return path.join(path.dirname(path.dirname(systemBinary)), "lib");
+  }
+  return llamaDir(dataDir);
+}
+
 export function llamaModelsDir(dataDir?: string): string {
   return path.join(llamaDir(dataDir), "models");
 }
@@ -62,11 +87,121 @@ function llamaPidPath(instance: "chat" | "embedding", dataDir?: string): string 
   return path.join(llamaDir(dataDir), `llama-${instance}.pid`);
 }
 
+function llamaApiKeyPath(role: "chat" | "embedding", dataDir?: string): string {
+  return path.join(llamaDir(dataDir), `llama-${role}.key`);
+}
+
+function ensureLlamaApiKey(role: "chat" | "embedding", dataDir?: string): string {
+  const current = role === "chat" ? chatApiKey : embeddingApiKey;
+  if (current) return current;
+
+  const keyPath = llamaApiKeyPath(role, dataDir);
+  let key: string;
+  if (fs.existsSync(keyPath)) {
+    key = fs.readFileSync(keyPath, "utf8").trim();
+  } else {
+    key = generateApiKey();
+    fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+    fs.writeFileSync(keyPath, key, { encoding: "utf8", mode: 0o600 });
+  }
+
+  if (role === "chat") chatApiKey = key;
+  else embeddingApiKey = key;
+  return key;
+}
+
+function cleanupBundledLibs(dataDir?: string): void {
+  const dir = llamaDir(dataDir);
+  if (!fs.existsSync(dir)) return;
+
+  for (const entry of fs.readdirSync(dir)) {
+    if (/^(libggml|libllama|libmtmd).+\.dylib$/.test(entry)) {
+      try {
+        fs.unlinkSync(path.join(dir, entry));
+      } catch { /* ignore stale dylibs/symlinks */ }
+    }
+  }
+}
+
+function validateLlamaBinary(dataDir?: string): { ok: boolean; error?: string } {
+  if (systemLlamaBinaryPath()) {
+    return { ok: true };
+  }
+
+  const dir = llamaDir(dataDir);
+  const bin = llamaBinaryPath(dataDir);
+  if (!fs.existsSync(bin)) {
+    return { ok: false, error: "llama-server binary not found" };
+  }
+
+  try {
+    fs.accessSync(bin, fs.constants.X_OK);
+  } catch {
+    return { ok: false, error: "llama-server binary is not executable" };
+  }
+
+  const requiredArtifacts = [
+    "libllama.dylib",
+    "libllama.0.dylib",
+    "libmtmd.dylib",
+    "libmtmd.0.dylib",
+    "libggml.dylib",
+    "libggml.0.dylib",
+    "libggml-base.dylib",
+    "libggml-base.0.dylib",
+    "libggml-cpu.dylib",
+    "libggml-cpu.0.dylib",
+    "libggml-blas.dylib",
+    "libggml-blas.0.dylib",
+    "libggml-metal.dylib",
+    "libggml-metal.0.dylib",
+    "libggml-rpc.dylib",
+    "libggml-rpc.0.dylib",
+  ];
+
+  for (const artifact of requiredArtifacts) {
+    if (!fs.existsSync(path.join(dir, artifact))) {
+      return {
+        ok: false,
+        error: `missing required runtime artifact: ${artifact}`,
+      };
+    };
+  }
+
+  const version = getInstalledVersion(dataDir);
+  if (version !== PINNED_BUILD) {
+    return { ok: false, error: `unexpected llama runtime version: ${version ?? "missing"}` };
+  }
+
+  return { ok: true };
+}
+
+export async function ensurePinnedLlamaRuntime(dataDir?: string): Promise<void> {
+  if (systemLlamaBinaryPath()) {
+    return;
+  }
+
+  const installedVersion = getInstalledVersion(dataDir);
+  const validation = validateLlamaBinary(dataDir);
+
+  if (installedVersion === PINNED_BUILD && validation.ok) {
+    return;
+  }
+
+  cleanupBundledLibs(dataDir);
+  await downloadLlama(PINNED_BUILD, dataDir);
+
+  const revalidation = validateLlamaBinary(dataDir);
+  if (!revalidation.ok) {
+    throw new Error(`llama-server failed validation after reinstall: ${revalidation.error ?? "unknown error"}`);
+  }
+}
+
 // ─── Installation ────────────────────────────────────────────────────────────
 
 /** Check if the llama-server binary exists on disk. */
 export function isLlamaInstalled(dataDir?: string): boolean {
-  return fs.existsSync(llamaBinaryPath(dataDir));
+  return fs.existsSync(activeLlamaBinaryPath(dataDir));
 }
 
 /** Get the installed llama-server build, or null if not installed. */
@@ -92,6 +227,7 @@ export async function downloadLlama(
   const dir = llamaDir(dataDir);
   fs.mkdirSync(dir, { recursive: true });
   fs.mkdirSync(llamaModelsDir(dataDir), { recursive: true });
+  cleanupBundledLibs(dataDir);
 
   const arch = os.arch() === "arm64" ? "arm64" : "x64";
   const assetName = `llama-${build}-bin-macos-${arch}.tar.gz`;
@@ -249,29 +385,25 @@ export async function startInstance(
   modelPath: string,
   dataDir?: string,
 ): Promise<{ started: boolean }> {
+  await ensurePinnedLlamaRuntime(dataDir);
+
   const port = role === "chat" ? CHAT_PORT : EMBEDDING_PORT;
   const checkFn = role === "chat" ? isChatServerRunning : isEmbeddingServerRunning;
+  const apiKey = ensureLlamaApiKey(role, dataDir);
 
   // Already running?
   if (await checkFn()) {
     return { started: true };
   }
 
-  const bin = llamaBinaryPath(dataDir);
-  if (!fs.existsSync(bin)) {
+  const libDir = activeLlamaLibraryPath(dataDir);
+  const resolvedBin = activeLlamaBinaryPath(dataDir);
+  if (!fs.existsSync(resolvedBin)) {
     throw new Error("llama-server binary not found. Run setup first.");
   }
 
   if (!fs.existsSync(modelPath)) {
     throw new Error(`Model file not found: ${modelPath}`);
-  }
-
-  // Generate a fresh API key for this instance — prevents port-hijacking attacks
-  const apiKey = generateApiKey();
-  if (role === "chat") {
-    chatApiKey = apiKey;
-  } else {
-    embeddingApiKey = apiKey;
   }
 
   const args = [
@@ -288,13 +420,16 @@ export async function startInstance(
   } else {
     // Chat server: allow concurrent requests
     args.push("--parallel", "2");
-    // Disable reasoning/thinking — wastes tokens with no quality benefit for RAG
-    args.push("--reasoning", "off");
   }
 
-  const child = spawn(bin, args, {
+  const child = spawn(resolvedBin, args, {
+    cwd: llamaDir(dataDir),
     detached: false,
     stdio: "ignore",
+    env: {
+      ...process.env,
+      ...(libDir ? { DYLD_LIBRARY_PATH: libDir } : {}),
+    },
   });
 
   if (role === "chat") {
@@ -310,16 +445,31 @@ export async function startInstance(
     fs.writeFileSync(llamaPidPath(role, dataDir), String(child.pid), "utf8");
   }
 
+  child.once("exit", () => {
+    try { fs.unlinkSync(llamaPidPath(role, dataDir)); } catch { /* ignore */ }
+    if (role === "chat") {
+      chatProcess = null;
+      loadedChatModel = null;
+    } else {
+      embeddingProcess = null;
+      loadedEmbeddingModel = null;
+    }
+  });
+
   // Wait for server to become responsive
-  const deadline = Date.now() + 60_000; // llama-server can take longer to load
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    if (child.exitCode != null) {
+      throw new Error(`llama-server (${role}) exited before becoming ready`);
+    }
     if (await checkFn()) {
       return { started: true };
     }
     await sleep(500);
   }
 
-  throw new Error(`llama-server (${role}) failed to start within 60 seconds`);
+  try { child.kill("SIGKILL"); } catch { /* ignore */ }
+  throw new Error(`llama-server (${role}) failed to start within ${Math.round(STARTUP_TIMEOUT_MS / 1000)} seconds`);
 }
 
 /** Stop a llama-server instance. */
@@ -375,6 +525,11 @@ export async function stopLlama(dataDir?: string): Promise<void> {
 
 /** Kill any orphaned llama-server processes from previous runs. Call on app startup. */
 export function killOrphanedLlamaProcesses(dataDir?: string): void {
+  // Rehydrate persisted keys so startup health checks use the same credentials
+  // even after the desktop process restarts.
+  ensureLlamaApiKey("chat", dataDir);
+  ensureLlamaApiKey("embedding", dataDir);
+
   for (const role of ["chat", "embedding"] as const) {
     const pidFile = llamaPidPath(role, dataDir);
     if (!fs.existsSync(pidFile)) continue;

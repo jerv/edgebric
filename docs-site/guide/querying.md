@@ -1,125 +1,128 @@
 # Asking Questions
 
-Edgebric answers your questions using the documents in your data sources. It searches your documents, finds relevant passages, and generates an answer with citations — all running locally on your Mac.
+Edgebric no longer treats every request as "send the full prompt and all tools to the model and hope."
 
-## How It Works
+The chat stack now uses a **planner + execution + synthesis** flow:
 
-When you ask a question, Edgebric:
+1. classify the request
+2. build a checklist when needed
+3. run retrieval and tools with dependency awareness
+4. stream the final answer
 
-1. **Searches** your documents using both semantic search (understanding meaning) and keyword search (exact matches)
-2. **Ranks** results using Reciprocal Rank Fusion — a technique that combines both search methods for better results
-3. **Generates** an answer using the AI model, with the relevant document passages as context
-4. **Cites** its sources — each answer includes references to the specific documents, sections, and page numbers used
+## Request Modes
 
-This is called Retrieval-Augmented Generation (RAG). The AI model doesn't make things up from thin air — it bases its answers on your actual documents.
+Each request is routed into one of four modes:
 
-### RAG-First, Tool-Fallback
+| Mode | When Edgebric uses it |
+|------|------------------------|
+| **Direct chat** | greetings, simple conversation, lightweight non-tool responses |
+| **Memory action** | explicit remember / list / delete / update requests |
+| **Grounded answer** | normal document-backed questions |
+| **Planned execution** | multi-step, tool-heavy, or multi-intent requests |
 
-Edgebric uses a RAG-first architecture. Most questions are answered through the standard RAG pipeline described above — it's faster and always produces citations. Tool use is a fallback: if the RAG pipeline finds nothing relevant, or if the query clearly requires an action (e.g., "save this to my vault", "create a new source"), Edgebric routes the query through the tool pipeline instead. A regex-based intent classifier determines the routing and selects only the relevant tools (typically 3-8) to keep prompts small and inference fast.
+This is why "hello" should feel faster than a multi-part search request.
 
-## Asking a Question
+## Planned Execution
 
-1. Open the chat interface from the main page
-2. Type your question in natural language — just ask like you would ask a colleague
-3. Press Enter or click Send
-4. The answer streams in as it's generated
+For more complex prompts, Edgebric creates a checklist before acting.
 
-**Good questions:**
-- "What is our parental leave policy?"
-- "How do I file an expense report?"
-- "What were the key decisions from the Q3 planning meeting?"
+Examples:
 
-**Tips:**
-- Be specific. "What are the PTO rules for contractors?" works better than "Tell me about PTO."
-- If you don't get a good answer, try rephrasing or ask a more targeted question.
-- You can scope your query to specific data sources using the source picker in the chat interface.
+- "Search my docs for X, compare it with Y from the web, and remember Z"
+- "List the sources related to pricing, then summarize the latest one"
+- "Check whether this clause matches our policy and tell me what changed"
 
-## Search Quality Settings
+The planner keeps those subtasks explicit so the model does not silently forget the second half of the request after the first tool call.
 
-Three opt-in features improve search quality at the cost of additional processing time. These are configured per-user in **Account** > **AI** tab:
+## Execution Graph
 
-| Setting | What it does | Trade-off |
-|---------|-------------|-----------|
-| **Query Decomposition** | Breaks complex questions into sub-queries for broader coverage | Slightly slower, better for multi-part questions |
-| **Re-ranking** | Uses AI to re-order search results by relevance | Adds one inference call per query |
-| **Iterative Retrieval** | Retries with reformulated queries when initial results are low confidence | May add 1-2 extra search rounds |
+After planning, Edgebric runs tasks using an execution graph:
 
-All three are off by default. When enabled, they apply across all query paths — standard chat, private mode, group chats, and the Agent API.
+- independent **read-only** steps can run in parallel
+- **mutating** steps stay sequential
+- failed dependencies can short-circuit downstream steps
 
-## Citations
+The chat UI shows this as a checklist so you can see what was planned, what ran, and what failed.
 
-Every answer includes citations showing where the information came from:
+## Retrieval Is Now a Capability, Not a Separate Product
 
-- **Document name** — Which file contains the source material
-- **Section** — The heading or section within the document
-- **Page number** — For PDFs, the specific page
+Older versions of Edgebric treated RAG and tool use like two different systems.
 
-Click a citation to view the original document passage. This lets you verify the answer and read more context.
+Now retrieval is one execution capability inside the same orchestration flow:
 
-If Edgebric can't find relevant information in your documents, it will tell you rather than guessing.
+- internal knowledge search
+- memory search
+- optional web access where enabled
+
+This keeps multi-part requests from bouncing between disconnected code paths.
+
+## Streaming Behavior
+
+Edgebric aims to stream in two layers:
+
+- **progress immediately** via plan/checklist updates
+- **answer tokens** as soon as generation starts
+
+Simple requests should skip planner overhead entirely. Complex requests may plan first, but the UI should still show execution progress instead of sitting blank.
+
+## Memory Requests
+
+Explicit memory actions are first-class operations now:
+
+- save memory
+- list memories
+- delete memory
+- update memory
+
+These do not need to wait for a full generic tool-selection loop before responding.
+
+## Group Chats
+
+Group chats use the same orchestration engine, but with a narrower execution policy:
+
+- shared-source ACLs still apply
+- mutating actions are more restricted
+- web access can be tighter depending on the chat context
+
+That keeps the behavior aligned without widening permissions.
 
 ## Answer Types
 
-Edgebric classifies each answer:
+Edgebric still classifies final answers:
 
 | Type | Meaning |
 |------|---------|
-| **Grounded** | Answer is fully based on your documents |
-| **Blended** | Answer combines document information with general knowledge |
-| **General** | No relevant documents found; answer uses the model's general knowledge |
-| **Blocked** | Query was filtered for safety reasons |
+| **Grounded** | Fully based on retrieved/tool-backed context |
+| **Blended** | Mixed grounded context and general reasoning |
+| **General** | Answered without retrieved document support |
+| **Blocked** | Stopped by safety or policy rules |
 
-## Conversations
+For important answers, grounded responses are the target.
 
-Edgebric remembers context within a conversation. Follow-up questions reference earlier messages automatically:
+## Search Quality Settings
 
-> **You:** What is our vacation policy?
->
-> **Edgebric:** *[answers with citations]*
->
-> **You:** How does that apply to contractors?
->
-> **Edgebric:** *[answers in context of the vacation policy discussion]*
+You can still enable optional retrieval enhancements such as:
 
-### Managing Conversations
+- query decomposition
+- reranking
+- iterative retrieval
 
-- Conversations are listed in the sidebar
-- Click **New Chat** to start a fresh conversation
-- Archive or delete old conversations from the conversation list
-- Archived conversations can be restored later
+These improve coverage and ranking, but they add work. If you care about latency, keep in mind that every extra retrieval or rerank step has a cost.
 
-### Converting to Group Chat
+## Practical Advice
 
-If a conversation would benefit from collaboration, you can convert it to a group chat:
+- Use **specific prompts** when you want grounded answers.
+- Use **one request with multiple intents** when you want the planner to coordinate a job for you.
+- Expect the best overall experience on a **Tested Qwen model**.
+- Treat non-Qwen or community models as experimental if you care about tool reliability.
 
-1. Open the conversation
-2. Click the options menu
-3. Select **Convert to Group Chat**
-4. Invite team members and share data sources
+## Bottom Line
 
-See [Group Chats](/guide/group-chats) for more on collaborative querying.
+Edgebric's querying model is now:
 
-## Privacy Modes
+- **Qwen-first**
+- **planner-driven for complex work**
+- **checklist-visible in the UI**
+- **faster for trivial chat**
 
-When asking questions, your privacy mode affects what gets recorded:
-
-| Mode | What's recorded |
-|------|----------------|
-| **Standard** | Conversation history stored for future reference |
-| **Private** | Queries are anonymous — not linked to your identity |
-| **Vault** | Everything stays on-device, encrypted |
-
-See [Privacy Modes](/guide/privacy) for details on each mode.
-
-## File & Image Attachments
-
-If your active model supports it, you can attach files or images to your query:
-
-- **Images** — For models with vision capabilities, attach a screenshot or photo and ask questions about it
-- **Documents** — Attach a document directly in the chat to ask questions about its content without adding it to a data source
-
-Look for the paperclip icon in the chat input area. It appears when your active model supports attachments.
-
-## Feedback
-
-Each answer has thumbs up/down buttons. Your feedback helps track answer quality. If an answer is wrong or unhelpful, thumbs down it and optionally leave a comment explaining what was wrong.
+That is the path the product is optimized around.

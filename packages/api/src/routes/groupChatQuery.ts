@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Router as IRouter, Response } from "express";
 import { z } from "zod";
-import { answerStream, splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
+import { splitForSummary, summarizeMessages, buildSummarizedContext } from "@edgebric/core/rag";
 import type { ChatMessage } from "@edgebric/core/rag";
 import type { Session, SessionMessage, Citation } from "@edgebric/types";
 import { MODEL_CATALOG_MAP } from "@edgebric/types";
@@ -9,15 +9,11 @@ import { requireOrg } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { logger } from "../lib/logger.js";
 import { acquireSlot, QueueFullError } from "../services/inferenceQueue.js";
-import { getIntegrationConfig } from "../services/integrationConfigStore.js";
 import { getDocument } from "../services/documentStore.js";
 import { listDataSources, listAccessibleDataSources } from "../services/dataSourceStore.js";
 import { hybridMultiDatasetSearch } from "../services/searchService.js";
 import { rerank, isRerankerAvailable } from "../services/reranker.js";
 import { createChatClient } from "../services/chatClient.js";
-import type { ToolMessage } from "../services/chatClient.js";
-import { buildToolDefinitions, executeTool, parseToolCalls, listTools } from "../services/toolRunner.js";
-import type { ToolContext } from "../services/toolRunner.js";
 import { runtimeChatConfig } from "../config.js";
 import {
   getGroupChat,
@@ -34,18 +30,15 @@ import {
   broadcastToUser,
   getGroupChatNotifLevel,
 } from "../services/notificationStore.js";
+import { registerAllTools } from "../services/tools/index.js";
+import { runOrchestratedChat, isSimpleSmallTalk } from "../services/chatOrchestrator.js";
+import { DEFAULT_CHAT_STRICT, DEFAULT_RAG_BEHAVIOR } from "../services/chatDefaults.js";
 
 // ─── Chat Client ──────────────────────────────────────────────────────────────
 
 const chatClient = createChatClient();
-
-// ─── Tool Use Support ────────────────────────────────────────────────────────
-
-interface ToolUseInfo {
-  name: string;
-  arguments: Record<string, unknown>;
-  result: { success: boolean; summary: string };
-}
+const groupSummaryRefreshes = new Set<string>();
+registerAllTools();
 
 function isToolUseEnabled(): boolean {
   const tag = runtimeChatConfig.model;
@@ -53,68 +46,27 @@ function isToolUseEnabled(): boolean {
   return catalogEntry?.capabilities?.toolUse === true;
 }
 
-const MAX_TOOL_ROUNDS = 5;
+async function refreshGroupChatSummary(
+  groupChatId: string,
+  messages: ChatMessage[],
+  upToMessageId: string,
+): Promise<void> {
+  if (messages.length === 0 || groupSummaryRefreshes.has(groupChatId)) return;
+  groupSummaryRefreshes.add(groupChatId);
 
-function summarizeToolResult(toolName: string, data: unknown): string {
-  if (!data || typeof data !== "object") return "Done";
-  const d = data as Record<string, unknown>;
-  switch (toolName) {
-    case "search_knowledge": return `${d["resultCount"] ?? 0} results found`;
-    case "list_sources": return `${d["sourceCount"] ?? 0} sources`;
-    case "list_documents": return `${d["documentCount"] ?? 0} documents`;
-    case "web_search": return `${d["resultCount"] ?? 0} web results`;
-    case "save_memory": return `Saved "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
-    case "create_data_source": return `Saved "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
-    case "update_data_source": return `Updated "${d["name"] ?? (d["content"] as string)?.slice(0, 50) ?? ""}"`;
-    default: return "Done";
-  }
-}
-
-async function runToolLoop(
-  messages: ToolMessage[],
-  ctx: ToolContext,
-  sendEvent: (event: string, data: unknown) => void,
-): Promise<{ answer: string; toolUses: ToolUseInfo[] }> {
-  const tools = buildToolDefinitions();
-  const toolUses: ToolUseInfo[] = [];
-
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const response = await chatClient.chatWithTools(messages, tools);
-    const toolCalls = parseToolCalls(response);
-
-    if (toolCalls.length === 0) {
-      return { answer: response.content ?? "", toolUses };
+  let releaseSlotFn: (() => void) | undefined;
+  try {
+    releaseSlotFn = await acquireSlot(`group-summary-${groupChatId}`, "low");
+    const summary = await summarizeMessages(messages, (msgs) => chatClient.chatStream(msgs));
+    if (summary) {
+      setContextSummary(groupChatId, summary, upToMessageId);
     }
-
-    messages.push({
-      role: "assistant",
-      content: response.content,
-      tool_calls: response.tool_calls,
-    });
-
-    for (const tc of toolCalls) {
-      const result = await executeTool(tc.name, tc.arguments, ctx);
-      const summary = result.success
-        ? summarizeToolResult(tc.name, result.data)
-        : `Error: ${result.error}`;
-
-      toolUses.push({
-        name: tc.name,
-        arguments: tc.arguments,
-        result: { success: result.success, summary },
-      });
-
-      sendEvent("tool_use", { tool: tc.name, success: result.success, summary });
-
-      messages.push({
-        role: "tool",
-        content: result.success ? JSON.stringify(result.data) : JSON.stringify({ error: result.error }),
-        tool_call_id: tc.id,
-      });
-    }
+  } catch (err) {
+    logger.warn({ err, groupChatId }, "Group chat summary refresh failed");
+  } finally {
+    releaseSlotFn?.();
+    groupSummaryRefreshes.delete(groupChatId);
   }
-
-  return { answer: "I've gathered information using multiple tools. Let me summarize what I found.", toolUses };
 }
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -235,6 +187,38 @@ function enrichCitations(citations: Citation[]): void {
   }
 }
 
+async function searchWithHybrid(
+  datasetNames: string[],
+  queryText: string,
+): Promise<{ results: Awaited<ReturnType<typeof hybridMultiDatasetSearch>>["results"]; candidateCount: number; hybridBoost: boolean; meshNodesSearched: number; meshNodesUnavailable: number }> {
+  const { results, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
+    datasetNames,
+    queryText,
+    20,
+  );
+
+  if (isRerankerAvailable() && results.length > 1) {
+    const reranked = await rerank(
+      queryText,
+      results.map((r) => ({
+        chunkId: r.chunkId,
+        text: r.chunk,
+        originalScore: r.similarity,
+      })),
+    );
+    const rerankedMap = new Map(reranked.map((r) => [r.chunkId, r.rerankerScore]));
+    results.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
+  }
+
+  return {
+    results,
+    candidateCount,
+    hybridBoost,
+    meshNodesSearched: 0,
+    meshNodesUnavailable: 0,
+  };
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 
 export const groupChatQueryRouter: IRouter = Router();
@@ -348,15 +332,18 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
 
   try {
     const query = extractQuery(content);
-    const gcOrgConfig = getIntegrationConfig();
-    const strict = !(gcOrgConfig.generalAnswersEnabled ?? true);
+    const strict = DEFAULT_CHAT_STRICT;
 
     // Resolve datasets from shared data sources, filtered by user's ACL
     const allSharedDatasets = getSharedDatasetNames(chatId);
     const userAccessible = listAccessibleDataSources(email, req.session.isAdmin ?? false, req.session.orgId);
     const userDatasetNames = new Set(userAccessible.map((ds) => ds.datasetName));
     const datasetNames = allSharedDatasets.filter((dsName) => userDatasetNames.has(dsName));
-    if (datasetNames.length === 0) {
+    const allowedSourceIds = userAccessible
+      .filter((ds) => datasetNames.includes(ds.datasetName))
+      .map((ds) => ds.id);
+
+    if (datasetNames.length === 0 && !isSimpleSmallTalk(query)) {
       // No data sources shared — bot can't answer
       const botMsg = addMessage({
         groupChatId: chatId,
@@ -394,14 +381,7 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
         if (cached) {
           mainChatSummary = cached.summary;
         } else if (mainChatMsgs.length > 3) {
-          try {
-            mainChatSummary = await summarizeMessages(mainChatMsgs, (msgs) => chatClient.chatStream(msgs));
-            if (mainChatSummary) {
-              setContextSummary(chatId, mainChatSummary, mainChatMessages[mainChatMessages.length - 1]!.id);
-            }
-          } catch (err) {
-            logger.warn({ err }, "Main chat summarization for thread context failed");
-          }
+          void refreshGroupChatSummary(chatId, mainChatMsgs, mainChatMessages[mainChatMessages.length - 1]!.id);
         }
       }
     } else {
@@ -426,15 +406,8 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       const cached = threadParentId ? null : getContextSummary(chatId); // Don't reuse main chat cache for threads
       if (cached) {
         summary = cached.summary;
-      } else {
-        try {
-          summary = await summarizeMessages(old, (msgs) => chatClient.chatStream(msgs));
-          if (summary && contextMessages.length > 0 && !threadParentId) {
-            setContextSummary(chatId, summary, contextMessages[contextMessages.length - 1]!.id);
-          }
-        } catch (err) {
-          logger.warn({ err }, "Context summarization failed, using recent messages only");
-        }
+      } else if (contextMessages.length > 0 && !threadParentId) {
+        void refreshGroupChatSummary(chatId, old, contextMessages[contextMessages.length - 1]!.id);
       }
     }
 
@@ -455,27 +428,6 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
       createdAt: chat.createdAt,
       messages: sessionMessages,
     };
-
-    // Hybrid BM25+vector search with optional reranking
-    const { results: searchResults, candidateCount, hybridBoost } = await hybridMultiDatasetSearch(
-      datasetNames,
-      query,
-      20,
-    );
-
-    // Optional cross-encoder reranking
-    if (isRerankerAvailable() && searchResults.length > 1) {
-      const reranked = await rerank(
-        query,
-        searchResults.map((r) => ({
-          chunkId: r.chunkId,
-          text: r.chunk,
-          originalScore: r.similarity,
-        })),
-      );
-      const rerankedMap = new Map(reranked.map((r) => [r.chunkId, r.rerankerScore]));
-      searchResults.sort((a, b) => (rerankedMap.get(b.chunkId) ?? 0) - (rerankedMap.get(a.chunkId) ?? 0));
-    }
 
     // Acquire inference slot — waits if all slots busy
     const abortController = new AbortController();
@@ -498,94 +450,53 @@ groupChatQueryRouter.post("/:id/send", validateBody(sendMessageSchema), async (r
     }
 
     try {
-      const stream = answerStream(
+      const result = await runOrchestratedChat({
+        label: threadParentId ? "group-thread-query" : "group-query",
         query,
         session,
-        {
-          datasetName: datasetNames[0]!,
+        strict,
+        allowDirectMemoryActions: true,
+        allowToolPlanning: isToolUseEnabled(),
+        sendEvent,
+        search: {
+          ...(datasetNames[0] ? { datasetName: datasetNames[0] } : {}),
           datasetNames,
-          topK: 10,
-          similarityThreshold: 0.3,
-          candidateCount,
-          hybridBoost,
-          strict,
-          decompose: gcOrgConfig.ragDecompose ?? false,
-          rerank: gcOrgConfig.ragRerank ?? false,
-          iterativeRetrieval: gcOrgConfig.ragIterativeRetrieval ?? false,
+          useDecompose: DEFAULT_RAG_BEHAVIOR.decompose,
+          useRerank: DEFAULT_RAG_BEHAVIOR.rerank,
+          useIterativeRetrieval: DEFAULT_RAG_BEHAVIOR.iterativeRetrieval,
+          execute: async (searchQuery) => datasetNames.length === 0
+            ? { results: [], candidateCount: 0, hybridBoost: false, meshNodesSearched: 0, meshNodesUnavailable: 0 }
+            : await searchWithHybrid(datasetNames, searchQuery),
         },
-        {
-          search: async () => searchResults,
-          generate: (messages) => chatClient.chatStream(messages),
+        toolContext: {
+          userEmail: email,
+          isAdmin: req.session.isAdmin ?? false,
+          orgId: req.session.orgId,
+          allowedSourceIds,
+          allowWeb: false,
+          allowMutations: false,
         },
-      );
+      });
 
-      let ragFailed = false;
-      for await (const chunk of stream) {
-        if (chunk.delta) {
-          sendEvent("delta", { delta: chunk.delta });
-        }
-        if (chunk.final) {
-          // If RAG found nothing and tools are available, try tool fallback
-          if (!chunk.final.hasConfidentAnswer && searchResults.length === 0 && isToolUseEnabled() && listTools().length > 0) {
-            ragFailed = true;
-            break;
-          }
-
-          enrichCitations(chunk.final.citations);
-
-          // Persist bot message
-          const botMsgOpts: Parameters<typeof addMessage>[0] = {
-            groupChatId: chatId,
-            role: "assistant",
-            content: chunk.final.answer,
-            hasConfidentAnswer: chunk.final.hasConfidentAnswer,
-            ...(chunk.final.answerType != null && { answerType: chunk.final.answerType }),
-          };
-          if (threadParentId) botMsgOpts.threadParentId = threadParentId;
-          if (chunk.final.citations.length > 0) botMsgOpts.citations = chunk.final.citations;
-          const botMsg = addMessage(botMsgOpts);
-
-          sendEvent("done", { ...botMsg, contextUsage: chunk.final.contextUsage });
-          broadcastToChat(chatId, "message", botMsg);
-        }
+      if (result.citations.length > 0) {
+        enrichCitations(result.citations);
       }
 
-      // ── Tool fallback: RAG found nothing, try tool-based search ──
-      if (ragFailed) {
-        const toolMessages: ToolMessage[] = [];
-        toolMessages.push({
-          role: "system",
-          content: [
-            "You are a helpful AI assistant in a group chat with access to tools for searching knowledge bases and the web.",
-            "The user's question didn't match any documents via standard search. Use the search_knowledge tool to try finding an answer.",
-            "Always cite your sources when using information from search results.",
-          ].join("\n\n"),
-        });
-        for (const m of sessionMessages) {
-          if (m.role === "system") continue;
-          toolMessages.push({ role: m.role as "user" | "assistant", content: m.content });
-        }
-        const toolCtx: ToolContext = { userEmail: email, isAdmin: req.session.isAdmin ?? false, orgId: req.session.orgId };
-        const { answer, toolUses } = await runToolLoop(toolMessages, toolCtx, sendEvent);
+      const botMsgOpts: Parameters<typeof addMessage>[0] = {
+        groupChatId: chatId,
+        role: "assistant",
+        content: result.answer,
+        hasConfidentAnswer: result.hasConfidentAnswer,
+        ...(result.answerType != null && { answerType: result.answerType }),
+        ...(result.toolUses && result.toolUses.length > 0 && { toolUses: result.toolUses }),
+        ...(result.executionPlan && result.executionPlan.length > 0 && { executionPlan: result.executionPlan }),
+      };
+      if (threadParentId) botMsgOpts.threadParentId = threadParentId;
+      if (result.citations.length > 0) botMsgOpts.citations = result.citations;
+      const botMsg = addMessage(botMsgOpts);
 
-        const CHUNK_SIZE = 20;
-        for (let i = 0; i < answer.length; i += CHUNK_SIZE) {
-          sendEvent("delta", { delta: answer.slice(i, i + CHUNK_SIZE) });
-        }
-
-        const botMsgOpts: Parameters<typeof addMessage>[0] = {
-          groupChatId: chatId,
-          role: "assistant",
-          content: answer,
-          hasConfidentAnswer: true,
-          answerType: toolUses.length > 0 ? "grounded" : "general",
-        };
-        if (threadParentId) botMsgOpts.threadParentId = threadParentId;
-        const botMsg = addMessage(botMsgOpts);
-
-        sendEvent("done", { ...botMsg, toolUses });
-        broadcastToChat(chatId, "message", botMsg);
-      }
+      sendEvent("done", { ...botMsg, contextUsage: result.contextUsage });
+      broadcastToChat(chatId, "message", botMsg);
     } finally {
       releaseSlotFn?.();
     }

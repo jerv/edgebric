@@ -130,6 +130,35 @@ function docToMemoryEntry(doc: Document): MemoryEntry | null {
   };
 }
 
+async function indexMemoryChunk(
+  datasetName: string,
+  docId: string,
+  content: string,
+  category: MemoryCategory,
+): Promise<void> {
+  try {
+    const embedding = await embed(content);
+    const startIndex = getChunkCountForDataset(datasetName);
+    registerChunks(
+      datasetName,
+      startIndex,
+      [{
+        sourceDocument: docId,
+        documentName: content.slice(0, 100),
+        sectionPath: [category],
+        pageNumber: 0,
+        heading: category,
+        chunkIndex: 0,
+      }],
+      [content],
+      [content],
+      [embedding],
+    );
+  } catch (err) {
+    logger.warn({ err }, "Failed to embed memory — stored without embedding");
+  }
+}
+
 /**
  * Save a new memory entry. Creates a document, chunks it, and embeds it.
  */
@@ -169,28 +198,7 @@ export async function saveMemory(opts: {
   };
   setDocument(doc);
 
-  // Embed and register as a single chunk
-  try {
-    const embedding = await embed(opts.content);
-    const startIndex = getChunkCountForDataset(ds.datasetName);
-    registerChunks(
-      ds.datasetName,
-      startIndex,
-      [{
-        sourceDocument: docId,
-        documentName: opts.content.slice(0, 100),
-        sectionPath: [opts.category],
-        pageNumber: 0,
-        heading: opts.category,
-        chunkIndex: 0,
-      }],
-      [opts.content],
-      [opts.content],
-      [embedding],
-    );
-  } catch (err) {
-    logger.warn({ err }, "Failed to embed memory — stored without embedding");
-  }
+  void indexMemoryChunk(ds.datasetName, docId, opts.content, opts.category);
 
   refreshDocumentCount(ds.id);
 

@@ -1,6 +1,13 @@
 # Worklog
 
-<<<<<<< HEAD
+## 2026-04-10 — codex/local-migration (Local Codex instructions + repo hygiene)
+
+### What was done:
+1. Added repo-scoped Codex instruction files at `AGENTS.md` and `packages/api/AGENTS.md`.
+2. Replaced the legacy Claude backend file with a thin redirect to the new Codex instructions.
+3. Excluded the generated desktop server bundle from ESLint so lint signal reflects source files.
+4. Removed a stray merge marker from `WORKLOG.md`.
+
 ## 2026-04-07 — agent/rag-wiring (Wire RAG feature flags to UI)
 
 ### Wired hybrid RAG feature flags from org settings to orchestrator

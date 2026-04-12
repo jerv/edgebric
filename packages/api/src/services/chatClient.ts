@@ -10,12 +10,19 @@ import type { ToolParameters } from "./toolRunner.js";
 
 
 export interface ChatClient {
-  chatStream(messages: Message[]): AsyncIterable<string>;
+  chatStream(messages: Message[], options?: ChatRequestOptions): AsyncIterable<string>;
+  chatComplete(messages: Message[], options?: ChatRequestOptions): Promise<string>;
   /** Non-streaming call with tool definitions. Returns the assistant message. */
   chatWithTools(
     messages: ToolMessage[],
     tools: Array<{ type: "function"; function: { name: string; description: string; parameters: ToolParameters } }>,
+    options?: ChatRequestOptions,
   ): Promise<ToolResponseMessage>;
+}
+
+export interface ChatRequestOptions {
+  maxTokens?: number;
+  temperature?: number;
 }
 
 export interface ToolMessage {
@@ -36,15 +43,45 @@ export interface ToolResponseMessage {
  * By default uses llama-server's OpenAI-compatible API.
  */
 export function createChatClient(): ChatClient {
-  async function* chatStream(messages: Message[]): AsyncIterable<string> {
-    // Append /nothink to the last user message to disable Qwen 3.x thinking mode.
-    // Thinking roughly doubles token count with no quality benefit for RAG answers.
-    const msgs = messages.map((m, i) => {
-      if (i === messages.length - 1 && m.role === "user") {
+  function normalizeSystemMessages<T extends { role: string; content: string | null }>(messages: T[]): T[] {
+    const systemMessages = messages.filter((m) => m.role === "system");
+    if (systemMessages.length <= 1) return messages;
+
+    const mergedSystemContent = systemMessages
+      .map((m) => m.content?.trim())
+      .filter((content): content is string => Boolean(content))
+      .join("\n\n");
+
+    const firstSystem = systemMessages[0]!;
+    const normalizedFirst = {
+      ...firstSystem,
+      content: mergedSystemContent || firstSystem.content,
+    };
+
+    return [
+      normalizedFirst,
+      ...messages.filter((m) => m.role !== "system"),
+    ];
+  }
+
+  function appendNoThink<T extends { role: string; content: string | null }>(messages: T[]): T[] {
+    return messages.map((m, i) => {
+      if (i === messages.length - 1 && m.role === "user" && m.content) {
         return { ...m, content: m.content + " /nothink" };
       }
       return m;
     });
+  }
+
+  function stripThinkBlocks(content: string | null): string {
+    if (!content) return "";
+    return content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  }
+
+  async function* chatStream(messages: Message[], options?: ChatRequestOptions): AsyncIterable<string> {
+    // Append /nothink to the last user message to disable Qwen 3.x thinking mode.
+    // Thinking roughly doubles token count with no quality benefit for RAG answers.
+    const msgs = appendNoThink(normalizeSystemMessages(messages));
 
     const response = await fetch(`${runtimeChatConfig.baseUrl}/chat/completions`, {
       method: "POST",
@@ -56,6 +93,8 @@ export function createChatClient(): ChatClient {
         model: runtimeChatConfig.model,
         messages: msgs,
         stream: true,
+        ...(options?.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
+        ...(options?.temperature != null ? { temperature: options.temperature } : {}),
       }),
     });
 
@@ -124,6 +163,40 @@ export function createChatClient(): ChatClient {
     }
   }
 
+  async function chatComplete(messages: Message[], options?: ChatRequestOptions): Promise<string> {
+    const msgs = appendNoThink(normalizeSystemMessages(messages));
+
+    const response = await fetch(`${runtimeChatConfig.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runtimeChatConfig.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: runtimeChatConfig.model,
+        messages: msgs,
+        stream: false,
+        ...(options?.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
+        ...(options?.temperature != null ? { temperature: options.temperature } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Chat inference failed (HTTP ${response.status}): ${body}`);
+    }
+
+    const json = await response.json() as {
+      choices: Array<{
+        message: {
+          content: string | null;
+        };
+      }>;
+    };
+
+    return stripThinkBlocks(json.choices[0]?.message?.content ?? null);
+  }
+
   /**
    * Non-streaming chat completion with tool definitions.
    * Used for tool-calling flow where we need the full response
@@ -132,14 +205,10 @@ export function createChatClient(): ChatClient {
   async function chatWithTools(
     messages: ToolMessage[],
     tools: Array<{ type: "function"; function: { name: string; description: string; parameters: ToolParameters } }>,
+    options?: ChatRequestOptions,
   ): Promise<ToolResponseMessage> {
     // Inject /nothink for the last user message
-    const msgs = messages.map((m, i) => {
-      if (m.role === "user" && i === messages.length - 1 && m.content) {
-        return { ...m, content: m.content + " /nothink" };
-      }
-      return m;
-    });
+    const msgs = appendNoThink(normalizeSystemMessages(messages));
 
     const response = await fetch(`${runtimeChatConfig.baseUrl}/chat/completions`, {
       method: "POST",
@@ -152,6 +221,8 @@ export function createChatClient(): ChatClient {
         messages: msgs,
         tools,
         stream: false,
+        ...(options?.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
+        ...(options?.temperature != null ? { temperature: options.temperature } : {}),
       }),
     });
 
@@ -174,17 +245,12 @@ export function createChatClient(): ChatClient {
     if (!msg) throw new Error("No message in chat completion response");
 
     // Strip <think> blocks from content if present
-    let content = msg.content;
-    if (content) {
-      content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-    }
-
     return {
       role: "assistant",
-      content,
+      content: stripThinkBlocks(msg.content),
       tool_calls: msg.tool_calls,
     };
   }
 
-  return { chatStream, chatWithTools };
+  return { chatStream, chatComplete, chatWithTools };
 }

@@ -14,6 +14,7 @@ import {
   Globe,
   type LucideIcon,
 } from "lucide-react";
+import type { ToolUseRecord } from "@edgebric/types";
 
 export const TOOL_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
   search_knowledge: { label: "Search Knowledge", icon: Search },
@@ -40,8 +41,4 @@ export function cleanToolName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export interface ToolUse {
-  name: string;
-  arguments: Record<string, unknown>;
-  result: { success: boolean; summary: string };
-}
+export type ToolUse = ToolUseRecord;

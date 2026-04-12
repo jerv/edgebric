@@ -33,6 +33,7 @@ packages/web/.tanstack/
 # SQLite databases (dev artifacts)
 *.db
 e2e-live/benchmark/results/
+packages/api/benchmark-results/
 # Certificates and private keys
 *.p12
 *.pfx
