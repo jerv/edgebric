@@ -1,5 +1,7 @@
 # Edgebric
 
+> Status: archived / maintenance-only. This project is no longer being actively developed. The repository remains available as-is for reference and local use.
+
 Private AI knowledge platform. Upload documents, ask questions, get cited answers — all processed locally on your hardware.
 
 Open source under [AGPL-3.0](LICENSE). See [edgebric.com](https://edgebric.com) for details and downloads.
@@ -58,7 +60,7 @@ See [docs](https://docs.edgebric.com/contributing/development) for the full deve
 
 ## Contributing
 
-Contributions welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a PR. You'll be asked to sign the [CLA](CLA.md) on your first pull request.
+This project is no longer being actively worked on. Issues and pull requests may not be reviewed or merged.
 
 - [Bug reports & feature requests](https://github.com/jerv/edgebric/issues)
 - [Questions & discussion](https://github.com/jerv/edgebric/discussions)

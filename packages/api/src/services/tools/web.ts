@@ -166,6 +166,12 @@ function parseDuckDuckGoResults(html: string): SearchResult[] {
 const webSearch: Tool = {
   name: "web_search",
   description: "Search the internet using DuckDuckGo. Returns titles, URLs, and snippets of top results.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "web",
+    resultShape: "search_results",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -209,6 +215,12 @@ const webSearch: Tool = {
 const readUrl: Tool = {
   name: "read_url",
   description: "Fetch a URL and extract its text content. HTML is converted to clean text. Limited to ~10KB of text.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "web",
+    resultShape: "web_page",
+  },
   parameters: {
     type: "object",
     properties: {

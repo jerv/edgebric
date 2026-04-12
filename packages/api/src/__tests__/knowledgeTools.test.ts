@@ -41,8 +41,8 @@ describe("Knowledge Tools", () => {
     it("registers all 12 knowledge tools", () => {
       const expectedTools = [
         "search_knowledge", "list_sources", "list_documents",
-        "get_source_summary", "create_source", "upload_document",
-        "delete_document", "delete_source", "save_to_vault",
+        "get_source_summary", "create_source", "update_source", "upload_document",
+        "rename_document", "delete_document", "delete_source", "save_to_vault",
         "compare_documents", "cite_check", "find_related",
       ];
       for (const name of expectedTools) {
@@ -148,6 +148,34 @@ describe("Knowledge Tools", () => {
     });
   });
 
+  describe("update_source", () => {
+    it("updates access and security settings on a source", async () => {
+      const ds = createDataSource({ name: "Mutable Source", ownerId: "admin@test.com", orgId });
+      const result = await executeTool("update_source", {
+        sourceId: ds.id,
+        accessMode: "restricted",
+        accessList: ["member@test.com"],
+        allowSourceViewing: false,
+        allowVaultSync: false,
+        piiMode: "warn",
+      }, adminCtx);
+      expect(result.success).toBe(true);
+      const data = result.data as {
+        accessMode: string;
+        accessList: string[];
+        allowSourceViewing: boolean;
+        allowVaultSync: boolean;
+        piiMode: string;
+      };
+      expect(data.accessMode).toBe("restricted");
+      expect(data.accessList).toEqual(["member@test.com"]);
+      expect(data.allowSourceViewing).toBe(false);
+      expect(data.allowVaultSync).toBe(false);
+      expect(data.piiMode).toBe("warn");
+      deleteDataSource(ds.id);
+    });
+  });
+
   // ─── delete_source ────────────────────────────────────────────────────
 
   describe("delete_source", () => {
@@ -237,6 +265,25 @@ describe("Knowledge Tools", () => {
       }, adminCtx);
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/not found/);
+    });
+  });
+
+  describe("rename_document", () => {
+    it("renames an accessible document by name", async () => {
+      const ds = createDataSource({ name: "Rename Source", ownerId: "admin@test.com", orgId });
+      const doc = makeDoc({ id: "doc-rename-1", name: "old-name.txt", dataSourceId: ds.id });
+      setDocument(doc);
+
+      const result = await executeTool("rename_document", {
+        documentName: "old-name.txt",
+        newName: "new-name.txt",
+      }, adminCtx);
+      expect(result.success).toBe(true);
+      const data = result.data as { previousName: string; newName: string };
+      expect(data.previousName).toBe("old-name.txt");
+      expect(data.newName).toBe("new-name.txt");
+
+      deleteDataSource(ds.id);
     });
   });
 

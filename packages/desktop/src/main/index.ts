@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, nativeImage, nativeTheme, shell, powerMonitor } from "electron";
 import path from "path";
+import fs from "fs";
 import { createTray, destroyTray } from "./tray.js";
 import { startServer, cleanup, getStatus, readLogs, refreshMdns } from "./server.js";
 import { isFirstRun, loadConfig } from "./config.js";
@@ -36,6 +37,18 @@ if (!gotLock) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+
+function getBuiltRendererPath(): string {
+  return `${__dirname}/../renderer/index.html`;
+}
+
+function hasBuiltRenderer(): boolean {
+  return fs.existsSync(getBuiltRendererPath());
+}
+
+function loadBuiltRenderer(window: BrowserWindow): void {
+  window.loadFile(getBuiltRendererPath());
+}
 
 export function openMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -75,36 +88,72 @@ export function openMainWindow() {
     const devUrl = process.env.ELECTRON_RENDERER_URL;
 
     // In dev: wait for Vite, then load. Retry on failure.
-    const loadDev = async () => {
+    const loadDev = async (): Promise<boolean> => {
       // Wait for dev server to be reachable
       for (let i = 0; i < 60; i++) {
         try {
           const resp = await fetch(devUrl, { signal: AbortSignal.timeout(500) });
-          if (resp.ok) break;
+          if (resp.ok) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              await mainWindow.loadURL(devUrl);
+              return true;
+            }
+            return false;
+          }
         } catch { /* not ready yet */ }
         await new Promise((r) => setTimeout(r, 500));
       }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.loadURL(devUrl);
-      }
+      return false;
     };
 
-    void loadDev();
+    void (async () => {
+      const loaded = await loadDev();
+      if (!loaded && mainWindow && !mainWindow.isDestroyed()) {
+        if (hasBuiltRenderer()) {
+          console.warn("Renderer dev server unavailable, falling back to built desktop renderer");
+          loadBuiltRenderer(mainWindow);
+        } else {
+          mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+            <html><body style="font-family: -apple-system, sans-serif; background:#111; color:#eee; padding:24px;">
+              <h2>Renderer failed to start</h2>
+              <p>The desktop dev renderer did not come up, and no built fallback is available.</p>
+              <p>Run <code>pnpm build</code> from the app root, then restart the desktop app.</p>
+            </body></html>
+          `)}`);
+        }
+      }
+    })();
 
     // If the page fails to load (dev server restart, crash), retry automatically
     mainWindow.webContents.on("did-fail-load", (_e, code, desc) => {
       if (code === -3) return; // -3 = aborted (normal during navigation)
       console.warn(`Page failed to load (${code}: ${desc}), retrying in 1s...`);
-      setTimeout(() => void loadDev(), 1000);
+      setTimeout(() => {
+        void (async () => {
+          const loaded = await loadDev();
+          if (!loaded && mainWindow && !mainWindow.isDestroyed() && hasBuiltRenderer()) {
+            console.warn("Retry failed, falling back to built desktop renderer");
+            loadBuiltRenderer(mainWindow);
+          }
+        })();
+      }, 1000);
     });
 
     // Also handle renderer crashes
     mainWindow.webContents.on("render-process-gone", (_e, details) => {
       console.warn(`Renderer crashed (${details.reason}), reloading in 1s...`);
-      setTimeout(() => void loadDev(), 1000);
+      setTimeout(() => {
+        void (async () => {
+          const loaded = await loadDev();
+          if (!loaded && mainWindow && !mainWindow.isDestroyed() && hasBuiltRenderer()) {
+            console.warn("Renderer crash recovery fell back to built desktop renderer");
+            loadBuiltRenderer(mainWindow);
+          }
+        })();
+      }, 1000);
     });
   } else {
-    mainWindow.loadFile(`${__dirname}/../renderer/index.html`);
+    loadBuiltRenderer(mainWindow);
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {

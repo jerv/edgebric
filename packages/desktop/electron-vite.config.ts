@@ -1,9 +1,15 @@
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        "@edgebric/types": path.resolve(__dirname, "../../shared/types/src/index.ts"),
+      },
+    },
     define: {
       // Embed cloud OAuth credentials at build time so they're in the compiled
       // binary, not in the source code. Set these env vars in CI or .env.local.
@@ -23,6 +29,11 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        "@edgebric/types": path.resolve(__dirname, "../../shared/types/src/index.ts"),
+      },
+    },
     build: {
       rollupOptions: {
         input: "src/preload/index.ts",
@@ -36,6 +47,11 @@ export default defineConfig({
   renderer: {
     plugins: [react()],
     root: "src/renderer",
+    resolve: {
+      alias: {
+        "@edgebric/types": path.resolve(__dirname, "../../shared/types/src/index.ts"),
+      },
+    },
     build: {
       rollupOptions: {
         input: "src/renderer/index.html",

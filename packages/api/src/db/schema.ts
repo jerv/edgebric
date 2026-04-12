@@ -122,6 +122,8 @@ export const messages = sqliteTable("messages", {
   answerType: text("answer_type"), // "grounded" | "blended" | "general" | "blocked" | null
   source: text("source"), // "ai" | "admin" | "system" | null (null = "ai")
   toolUses: text("tool_uses"), // JSON array of tool use records
+  executionPlan: text("execution_plan"), // JSON array of planner checklist items
+  actionProposal: text("action_proposal"), // JSON object for confirmable mutating actions
   createdAt: text("created_at").notNull(),
 });
 
@@ -206,6 +208,8 @@ export const groupChatMessages = sqliteTable("group_chat_messages", {
   citations: text("citations"), // JSON array
   hasConfidentAnswer: integer("has_confident_answer"),
   answerType: text("answer_type"), // "grounded" | "blended" | "general" | "blocked" | null
+  toolUses: text("tool_uses"), // JSON array of tool use records
+  executionPlan: text("execution_plan"), // JSON array of planner checklist items
   createdAt: text("created_at").notNull(),
 });
 

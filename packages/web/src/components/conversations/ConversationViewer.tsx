@@ -172,7 +172,7 @@ export function ConversationViewer() {
 
                     {msg.hasConfidentAnswer === false && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 px-1">
-                        The AI was not confident in this answer. Please contact your administrator directly.
+                        This answer relied less on local source support than usual.
                       </p>
                     )}
 

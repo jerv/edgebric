@@ -7,6 +7,7 @@ import {
   saveMemory,
   listMemories,
   deleteMemory,
+  updateMemory,
   isMemoryEnabled,
 } from "../memoryStore.js";
 import type { MemoryCategory } from "../memoryStore.js";
@@ -17,6 +18,12 @@ const saveMemoryTool: Tool = {
   name: "save_memory",
   description:
     "Save a fact, preference, or instruction about the user for future conversations. Use when the user asks you to remember something.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "memory",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -65,6 +72,12 @@ const saveMemoryTool: Tool = {
 const listMemoriesTool: Tool = {
   name: "list_memories",
   description: "List saved memories about the current user. Returns recent preferences, facts, and instructions.",
+  execution: {
+    mutating: false,
+    parallelSafe: true,
+    dependencyClass: "memory",
+    resultShape: "memory_list",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -110,6 +123,12 @@ const listMemoriesTool: Tool = {
 const deleteMemoryTool: Tool = {
   name: "delete_memory",
   description: "Delete a saved memory by ID.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "memory",
+    resultShape: "mutation_result",
+  },
   parameters: {
     type: "object",
     properties: {
@@ -136,10 +155,67 @@ const deleteMemoryTool: Tool = {
   },
 };
 
+// ─── update_memory ────────────────────────────────────────────────────────────
+
+const updateMemoryTool: Tool = {
+  name: "update_memory",
+  description: "Update the content or category of a saved memory by ID.",
+  execution: {
+    mutating: true,
+    parallelSafe: false,
+    dependencyClass: "memory",
+    resultShape: "mutation_result",
+  },
+  parameters: {
+    type: "object",
+    properties: {
+      memoryId: {
+        type: "string",
+        description: "The ID of the memory to update",
+      },
+      content: {
+        type: "string",
+        description: "Updated memory content",
+      },
+      category: {
+        type: "string",
+        description: "Updated category",
+        enum: ["preference", "fact", "instruction"],
+      },
+    },
+    required: ["memoryId"],
+  },
+  async execute(args, ctx): Promise<ToolResult> {
+    if (!isMemoryEnabled()) {
+      return { success: false, error: "Memory is disabled" };
+    }
+
+    const memoryId = args["memoryId"] as string;
+    const content = args["content"] as string | undefined;
+    const category = args["category"] as MemoryCategory | undefined;
+    const updated = await updateMemory(
+      memoryId,
+      { content, category },
+      ctx.orgId,
+      ctx.userEmail,
+    );
+
+    if (!updated) {
+      return { success: false, error: "Memory not found" };
+    }
+
+    return {
+      success: true,
+      data: { id: updated.id, content: updated.content, category: updated.category },
+    };
+  },
+};
+
 // ─── Register All Memory Tools ────────────────────────────────────────────────
 
 export function registerMemoryTools(): void {
   registerTool(saveMemoryTool);
   registerTool(listMemoriesTool);
   registerTool(deleteMemoryTool);
+  registerTool(updateMemoryTool);
 }

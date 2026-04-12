@@ -10,6 +10,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "benchmark:chat": "tsx src/benchmarks/runChatBenchmark.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

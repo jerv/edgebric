@@ -33,12 +33,23 @@ export interface ToolContext {
   userEmail: string;
   isAdmin: boolean;
   orgId?: string | undefined;
+  allowedSourceIds?: string[] | undefined;
+  allowWeb?: boolean | undefined;
+  allowMutations?: boolean | undefined;
+}
+
+export interface ToolExecutionMetadata {
+  mutating: boolean;
+  parallelSafe: boolean;
+  dependencyClass: "knowledge" | "web" | "memory" | "management";
+  resultShape: "search_results" | "document_list" | "source_list" | "memory_list" | "mutation_result" | "web_page" | "generic";
 }
 
 export interface Tool {
   name: string;
   description: string;
   parameters: ToolParameters;
+  execution: ToolExecutionMetadata;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -59,6 +70,10 @@ export function getTool(name: string): Tool | undefined {
 
 export function listTools(): Tool[] {
   return [...registry.values()];
+}
+
+export function getToolExecutionMetadata(name: string): ToolExecutionMetadata | undefined {
+  return registry.get(name)?.execution;
 }
 
 /** Clear all registered tools. For testing only. */
@@ -118,6 +133,14 @@ export async function executeTool(
   const tool = registry.get(name);
   if (!tool) {
     return { success: false, error: `Unknown tool: ${name}` };
+  }
+
+  if (tool.execution.mutating && ctx.allowMutations === false) {
+    return { success: false, error: "This action is not allowed in the current chat context" };
+  }
+
+  if (tool.execution.dependencyClass === "web" && ctx.allowWeb === false) {
+    return { success: false, error: "Web access is disabled in the current chat context" };
   }
 
   const validationError = validateArgs(args, tool.parameters);

@@ -41,7 +41,7 @@ import { logger } from "../lib/logger.js";
 import { fileTypeFromBuffer } from "file-type";
 import { createWebhook, getWebhook, listWebhooksByOrg, deleteWebhook, type WebhookEvent } from "../services/webhookStore.js";
 import { getSourceSummary, upsertSourceSummary } from "../services/sourceSummaryStore.js";
-import { getIntegrationConfig } from "../services/integrationConfigStore.js";
+import { DEFAULT_RAG_BEHAVIOR } from "../services/chatDefaults.js";
 import type { Document, DataSource, Session } from "@edgebric/types";
 
 export const agentApiRouter: IRouter = Router();
@@ -65,6 +65,44 @@ function handleInferenceFailure(res: Response, err: unknown, context: string): b
   logger.warn({ err }, `${context}: inference backend unavailable`);
   if (!res.headersSent) sendInferenceUnavailable(res);
   return true;
+}
+
+function handleSearchBackendFailure(res: Response, err: unknown, context: string): boolean {
+  if (err instanceof TypeError && err.message.includes("fetch failed")) {
+    logger.warn({ err }, `${context}: inference backend unreachable`);
+    if (!res.headersSent) sendInferenceUnavailable(res);
+    return true;
+  }
+
+  if (err instanceof QueueFullError) {
+    logger.warn({ err }, `${context}: inference queue full`);
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: "Search backend is temporarily busy",
+        code: "INFERENCE_UNAVAILABLE",
+        status: 503,
+      });
+    }
+    return true;
+  }
+
+  if (err instanceof InferenceError) {
+    logger.warn({ err }, `${context}: inference backend unavailable`);
+    if (!res.headersSent) {
+      if (err.statusCode >= 500) {
+        sendInferenceUnavailable(res);
+      } else {
+        res.status(err.statusCode).json({
+          error: "Search failed",
+          code: "SEARCH_ERROR",
+          status: err.statusCode,
+        });
+      }
+    }
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -240,7 +278,7 @@ agentApiRouter.post("/search", readPermission, validateBody(searchSchema), async
       : { results: mapped });
     logAgentAction(req, "api.search", "search", undefined, { resultCount: mapped.length });
   } catch (err) {
-    if (handleInferenceFailure(res, err, "Agent API search")) return;
+    if (handleSearchBackendFailure(res, err, "Agent API search")) return;
     logger.error({ err }, "Agent API search failed");
     res.status(500).json({ error: "Search failed", code: "SEARCH_ERROR", status: 500 });
   }
@@ -328,7 +366,6 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
     });
 
     // Use the RAG orchestrator
-    const agentOrgConfig = getIntegrationConfig();
     const ragStream = answerStream(
       query,
       session,
@@ -339,9 +376,9 @@ agentApiRouter.post("/query", readPermission, validateBody(querySchema), async (
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
-        decompose: agentOrgConfig.ragDecompose ?? false,
-        rerank: agentOrgConfig.ragRerank ?? false,
-        iterativeRetrieval: agentOrgConfig.ragIterativeRetrieval ?? false,
+        decompose: DEFAULT_RAG_BEHAVIOR.decompose,
+        rerank: DEFAULT_RAG_BEHAVIOR.rerank,
+        iterativeRetrieval: DEFAULT_RAG_BEHAVIOR.iterativeRetrieval,
       },
       {
         search: async () => finalResults,
@@ -464,7 +501,6 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
       .filter((ds) => searchedSourceIds.has(ds.id))
       .map((ds) => ({ id: ds.id, name: ds.name }));
 
-    const citeCheckConfig = getIntegrationConfig();
     const ragStream = answerStream(
       question,
       session,
@@ -475,9 +511,9 @@ agentApiRouter.post("/ask", readPermission, validateBody(askSchema), async (req:
         similarityThreshold: 0.3,
         candidateCount,
         hybridBoost,
-        decompose: citeCheckConfig.ragDecompose ?? false,
-        rerank: citeCheckConfig.ragRerank ?? false,
-        iterativeRetrieval: citeCheckConfig.ragIterativeRetrieval ?? false,
+        decompose: DEFAULT_RAG_BEHAVIOR.decompose,
+        rerank: DEFAULT_RAG_BEHAVIOR.rerank,
+        iterativeRetrieval: DEFAULT_RAG_BEHAVIOR.iterativeRetrieval,
       },
       {
         search: async () => finalResults,

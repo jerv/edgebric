@@ -39,6 +39,8 @@ function rowToMessage(row: typeof messages.$inferSelect): PersistedMessage {
   if (row.answerType != null) msg.answerType = row.answerType as AnswerType;
   if (row.source != null) msg.source = row.source as "ai" | "admin" | "system";
   if (row.toolUses != null) msg.toolUses = JSON.parse(row.toolUses);
+  if (row.executionPlan != null) msg.executionPlan = JSON.parse(row.executionPlan);
+  if (row.actionProposal != null) msg.actionProposal = JSON.parse(row.actionProposal);
   return msg;
 }
 
@@ -97,8 +99,35 @@ export function addMessage(msg: PersistedMessage): void {
       answerType: msg.answerType ?? null,
       source: msg.source ?? null,
       toolUses: msg.toolUses ? JSON.stringify(msg.toolUses) : null,
+      executionPlan: msg.executionPlan ? JSON.stringify(msg.executionPlan) : null,
+      actionProposal: msg.actionProposal ? JSON.stringify(msg.actionProposal) : null,
       createdAt: msg.createdAt.toISOString(),
     })
+    .run();
+}
+
+export function updateMessage(id: string, patch: Partial<PersistedMessage>): void {
+  const db = getDb();
+  const existing = getMessage(id);
+  if (!existing) return;
+
+  const next: PersistedMessage = {
+    ...existing,
+    ...patch,
+  };
+
+  db.update(messages)
+    .set({
+      content: encryptText(next.content),
+      citations: next.citations ? JSON.stringify(next.citations) : null,
+      hasConfidentAnswer: next.hasConfidentAnswer != null ? (next.hasConfidentAnswer ? 1 : 0) : null,
+      answerType: next.answerType ?? null,
+      source: next.source ?? null,
+      toolUses: next.toolUses ? JSON.stringify(next.toolUses) : null,
+      executionPlan: next.executionPlan ? JSON.stringify(next.executionPlan) : null,
+      actionProposal: next.actionProposal ? JSON.stringify(next.actionProposal) : null,
+    })
+    .where(eq(messages.id, id))
     .run();
 }
 

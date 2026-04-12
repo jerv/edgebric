@@ -173,6 +173,10 @@ export async function listRunning(): Promise<Map<string, { ramUsageBytes: number
       signal: AbortSignal.timeout(3000),
     });
     if (resp.ok) {
+      const slots = await resp.json().catch(() => null);
+      if (!Array.isArray(slots) || slots.length === 0) {
+        return map;
+      }
       // llama-server is running with a model loaded
       // Estimate RAM from model size (VRAM usage ≈ model file size * 1.2 for KV cache)
       const chatModel = config.chat.model;

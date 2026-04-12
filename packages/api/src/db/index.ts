@@ -10,6 +10,11 @@ import fs from "fs";
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
 
+function tableHasColumn(sqlite: InstanceType<typeof Database>, tableName: string, columnName: string): boolean {
+  const rows = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name?: string }>;
+  return rows.some((row) => row.name === columnName);
+}
+
 /**
  * Initialize the SQLite database.
  *
@@ -137,6 +142,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       answer_type TEXT,
       source TEXT,
       tool_uses TEXT,
+      execution_plan TEXT,
+      action_proposal TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -185,7 +192,6 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     CREATE INDEX IF NOT EXISTS idx_notifications_user_email ON notifications(user_email);
     CREATE INDEX IF NOT EXISTS idx_notifications_read_at ON notifications(read_at);
     CREATE INDEX IF NOT EXISTS idx_chunks_source_document ON chunks(source_document);
-    CREATE INDEX IF NOT EXISTS idx_chunks_dataset_name ON chunks(dataset_name);
   `);
 
   // Migrate existing tables — add new columns if they don't exist yet
@@ -253,23 +259,35 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
     "ALTER TABLE data_sources ADD COLUMN pii_mode TEXT NOT NULL DEFAULT 'block'",
     // Tool use records on messages
     "ALTER TABLE messages ADD COLUMN tool_uses TEXT",
+    "ALTER TABLE messages ADD COLUMN execution_plan TEXT",
+    "ALTER TABLE messages ADD COLUMN action_proposal TEXT",
+    "ALTER TABLE group_chat_messages ADD COLUMN tool_uses TEXT",
+    "ALTER TABLE group_chat_messages ADD COLUMN execution_plan TEXT",
   ];
   for (const sql of columnMigrations) {
     try { sqlite.exec(sql); } catch { /* column already exists */ }
   }
 
-  // Backfill chunk dataset names for older databases. Prefer the document's own
-  // dataset name, then fall back to the attached data source's dataset name.
-  sqlite.exec(`
-    UPDATE chunks
-    SET dataset_name = (
-      SELECT COALESCE(documents.dataset_name, data_sources.dataset_name)
-      FROM documents
-      LEFT JOIN data_sources ON data_sources.id = documents.data_source_id
-      WHERE documents.id = chunks.source_document
-    )
-    WHERE dataset_name IS NULL OR dataset_name = '';
-  `);
+  if (tableHasColumn(sqlite, "chunks", "dataset_name")) {
+    try {
+      sqlite.exec("CREATE INDEX IF NOT EXISTS idx_chunks_dataset_name ON chunks(dataset_name)");
+    } catch {
+      // Older/local databases may still be mid-upgrade; keep startup resilient.
+    }
+
+    // Backfill chunk dataset names for older databases. Prefer the document's own
+    // dataset name, then fall back to the attached data source's dataset name.
+    sqlite.exec(`
+      UPDATE chunks
+      SET dataset_name = (
+        SELECT COALESCE(documents.dataset_name, data_sources.dataset_name)
+        FROM documents
+        LEFT JOIN data_sources ON data_sources.id = documents.data_source_id
+        WHERE documents.id = chunks.source_document
+      )
+      WHERE dataset_name IS NULL OR dataset_name = '';
+    `);
+  }
 
   // New tables added after initial schema
   sqlite.exec(`
@@ -328,6 +346,8 @@ export function initDatabase(): ReturnType<typeof drizzle<typeof schema>> {
       citations TEXT,
       has_confident_answer INTEGER,
       answer_type TEXT,
+      tool_uses TEXT,
+      execution_plan TEXT,
       created_at TEXT NOT NULL
     );
 

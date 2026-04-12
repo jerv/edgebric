@@ -149,7 +149,7 @@ export function OnboardingWizard() {
         <div className="text-center mb-8">
           <Logo className="w-12 h-12 rounded-xl mx-auto mb-3" />
           <h1 className="text-xl font-semibold text-slate-900 dark:text-gray-100">Welcome to Edgebric</h1>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Let's set up your knowledge assistant</p>
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Set up your knowledge assistant.</p>
         </div>
 
         {/* Step indicator */}

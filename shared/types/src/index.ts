@@ -16,8 +16,6 @@ export interface OrgSettings {
   onboardingComplete?: boolean;
   /** URL path to the org avatar image (e.g. /api/avatars/org-xxx.png). */
   avatarUrl?: string;
-  /** Show "Verify all important answers" disclaimer below AI responses. Default true. */
-  showDisclaimer?: boolean;
 }
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -168,6 +166,50 @@ export interface Citation {
   sourceNodeName?: string;
 }
 
+export interface ToolUseRecord {
+  name: string;
+  arguments: Record<string, unknown>;
+  result: { success: boolean; summary: string };
+}
+
+export interface ChatActionFieldOption {
+  value: string;
+  label: string;
+}
+
+export type ChatActionFieldInput = "text" | "textarea" | "select" | "boolean" | "string_list";
+
+export interface ChatActionField {
+  key: string;
+  label: string;
+  input: ChatActionFieldInput;
+  required?: boolean;
+  description?: string;
+  options?: ChatActionFieldOption[];
+}
+
+export interface ChatActionProposal {
+  id: string;
+  tool: string;
+  title: string;
+  summary: string;
+  confirmLabel?: string;
+  destructive?: boolean | undefined;
+  arguments: Record<string, unknown>;
+  fields: ChatActionField[];
+}
+
+export type ExecutionChecklistStatus = "planned" | "running" | "completed" | "failed" | "skipped";
+
+export interface ExecutionChecklistItem {
+  id: string;
+  title: string;
+  status: ExecutionChecklistStatus;
+  tool?: string;
+  dependsOn?: string[];
+  summary?: string;
+}
+
 export interface AnswerResponse {
   answer: string;
   citations: Citation[];
@@ -209,11 +251,11 @@ export interface AnswerResponse {
     truncated: boolean;
   };
   /** Tool uses during this query (only present when model has tool use capability). */
-  toolUses?: Array<{
-    name: string;
-    arguments: Record<string, unknown>;
-    result: { success: boolean; summary: string };
-  }>;
+  toolUses?: ToolUseRecord[];
+  /** Planner/executor checklist for UI progress visibility. */
+  executionPlan?: ExecutionChecklistItem[];
+  /** Optional user-confirmable mutating action proposed by the assistant. */
+  actionProposal?: ChatActionProposal;
 }
 
 // ─── Sessions (multi-turn context) ────────────────────────────────────────────
@@ -263,7 +305,9 @@ export interface PersistedMessage {
   hasConfidentAnswer?: boolean;
   answerType?: AnswerType;
   source?: "ai" | "admin" | "system" | undefined;
-  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
+  toolUses?: ToolUseRecord[];
+  executionPlan?: ExecutionChecklistItem[];
+  actionProposal?: ChatActionProposal | undefined;
   createdAt: Date;
 }
 
@@ -294,8 +338,6 @@ export interface IntegrationConfig {
   memoryEnabled?: boolean;
   /** Documents older than this are flagged as stale. Default: 180 days. */
   stalenessThresholdDays?: number;
-  /** When true, the AI answers from general knowledge when no documents match. Default: true. */
-  generalAnswersEnabled?: boolean;
   /** Custom Google Drive OAuth credentials (org mode). When set, overrides shipped defaults. */
   googleDriveClientId?: string;
   googleDriveClientSecret?: string;
@@ -308,12 +350,6 @@ export interface IntegrationConfig {
   /** Custom Notion OAuth credentials (org mode). No shipped defaults — admin must configure. */
   notionClientId?: string;
   notionClientSecret?: string;
-  /** When true, decompose complex queries into sub-queries for better results. Default: false. */
-  ragDecompose?: boolean;
-  /** When true, re-rank search results using LLM relevance scoring. Default: false. */
-  ragRerank?: boolean;
-  /** When true, perform a second retrieval round if first-round confidence is low. Default: false. */
-  ragIterativeRetrieval?: boolean;
   /** Telegram bot integration. */
   telegramEnabled?: boolean;
   telegramBotToken?: string;
@@ -419,13 +455,14 @@ export interface GroupChatMessage {
   /** Unique participants in this thread (populated on main chat messages only). */
   threadParticipants?: { email: string; name?: string; picture?: string }[];
   /** Tool uses during this query (only when model has tool use capability). */
-  toolUses?: Array<{ name: string; arguments: Record<string, unknown>; result: { success: boolean; summary: string } }>;
+  toolUses?: ToolUseRecord[];
+  executionPlan?: ExecutionChecklistItem[];
   createdAt: Date;
 }
 
 // ─── AI Models (re-exported from models.ts) ─────────────────────────────────
 
-export type { ModelCapabilities, ModelStatus, ModelTier, ModelCatalogEntry, InstalledModel, SystemResources, StorageBreakdown, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult, SplitGGUFInfo } from "./models.js";
+export type { ModelCapabilities, ModelStatus, ModelTier, ModelSupportTier, ModelRecommendedRole, ModelCatalogEntry, InstalledModel, SystemResources, StorageBreakdown, ModelsResponse, PullProgressEvent, RAMFitLevel, RAMFitResult, SplitGGUFInfo } from "./models.js";
 export { OFFICIAL_CATALOG, MODEL_CATALOG_MAP, MODEL_FILENAME_MAP, getRecommendedModelTag, getVisibleCatalog, EMBEDDING_MODEL_TAG, checkModelRAMFit, inferCapabilitiesFromTags, parseSplitGGUF, getAllShardFilenames, getAllShardUrls, allShardsPresent, findCatalogForShard } from "./models.js";
 
 // ─── Mesh Networking (re-exported from mesh.ts) ──────────────────────────────
@@ -436,4 +473,3 @@ export type { NodeStatus, NodeRole, MeshNode, NodeGroup, MeshConfig, MeshSearchR
 
 export type { CloudProvider, CloudConnectionStatus, CloudFolderSyncStatus, CloudSyncFileStatus, CloudConnection, CloudFolderSync, CloudSyncFile, CloudFolder, CloudProviderInfo } from "./cloud.js";
 export { CLOUD_PROVIDERS } from "./cloud.js";
-
